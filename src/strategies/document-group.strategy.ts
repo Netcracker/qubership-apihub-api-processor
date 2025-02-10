@@ -109,16 +109,16 @@ export class DocumentGroupStrategy implements BuilderStrategy {
 function resolveCollisions(docs: VersionRestDocument[], field: 'fileId' | 'filename'): VersionRestDocument[] {
   const fileIdMap = groupBy(docs, (document) => document[field])
   return ([...fileIdMap.values()] as VersionRestDocument[][]).reduce((acc, docs) => {
-    const [_, ...rest] = docs
-    rest.forEach((document, index) => {document[field] = addPostfix(` ${index + 1}`, document[field])})
+    const [_, ...duplicates] = docs
+    duplicates.forEach((document, index) => {document[field] = rename(document[field], index)})
     return [...acc, ...docs]
   }, [] as VersionRestDocument[])
 }
 
-function addPostfix(postfix: string, fileName: string): string {
+function rename(fileName: string, index: number): string {
   const nameParts = fileName.split('.')
   const extension = nameParts.length > 1 ? nameParts[nameParts?.length - 1] : ''
-  const nameWithPostfix = `${nameParts[0]}${postfix}`
+  const nameWithPostfix = `${nameParts[0]} ${index + 1}`
 
   if (extension) {
     return `${nameWithPostfix}.${extension}`
