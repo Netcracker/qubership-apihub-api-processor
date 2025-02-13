@@ -28,6 +28,8 @@ import { REST_API_TYPE } from '../apitypes'
 import {
   EXPORT_FORMAT_TO_FILE_FORMAT,
   fromBase64,
+  getDocumentTitle,
+  getFileExtension,
   removeFirstSlash,
   slugify,
   takeIfDefined,
@@ -95,7 +97,7 @@ export class DocumentGroupStrategy implements BuilderStrategy {
     }
 
     const transformedDocuments = await Promise.all(transformTasks)
-    const transformedDocumentsWithoutCollisions = (['fileId', 'filename'] as const).reduce(resolveCollisions, transformedDocuments)
+    const transformedDocumentsWithoutCollisions = (['fileId', 'filename'] as const).reduce(resolveCollisionsByField, transformedDocuments)
 
     for (const document of transformedDocumentsWithoutCollisions) {
       buildResult.documents.set(document.fileId, document)
@@ -106,19 +108,18 @@ export class DocumentGroupStrategy implements BuilderStrategy {
 }
 
 // there is a chance that the renamed document will be the same as another document (this case has not been fixed yet)
-function resolveCollisions(docs: VersionRestDocument[], field: 'fileId' | 'filename'): VersionRestDocument[] {
+function resolveCollisionsByField(docs: VersionRestDocument[], field: 'fileId' | 'filename'): VersionRestDocument[] {
   const fileIdMap = groupBy(docs, (document) => document[field])
   return ([...fileIdMap.values()] as VersionRestDocument[][]).reduce((acc, docs) => {
     const [_, ...duplicates] = docs
-    duplicates.forEach((document, index) => {document[field] = rename(document[field], index)})
+    duplicates.forEach((document, index) => {document[field] = renameDuplicate(document[field], index)})
     return [...acc, ...docs]
   }, [] as VersionRestDocument[])
 }
 
-function rename(fileName: string, index: number): string {
-  const nameParts = fileName.split('.')
-  const extension = nameParts.length > 1 ? nameParts[nameParts?.length - 1] : ''
-  const nameWithPostfix = `${nameParts[0]} ${index + 1}`
+function renameDuplicate(fileName: string, index: number): string {
+  const extension = getFileExtension(fileName)
+  const nameWithPostfix = `${getDocumentTitle(fileName)}-${index + 1}`
 
   if (extension) {
     return `${nameWithPostfix}.${extension}`
