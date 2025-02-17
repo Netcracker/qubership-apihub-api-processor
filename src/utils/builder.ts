@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { ApiAudienceTransition } from './../types/external/comparison'
+import { ApiAudienceTransition, RISKY_CHANGE_SEVERITY } from './../types/external/comparison'
 import { ApiKind, ChangeSummary, ResolvedOperation } from '../types'
 import {
   ANNOTATION_CHANGE_TYPE,
@@ -106,6 +106,7 @@ export const removeSecurityDuplicates = (originalArray: any[]): any[] => {
 
 export const calculateChangeSummary = (changes: Diff[]): ChangeSummary => ({
   [BREAKING_CHANGE_TYPE]: countByType(BREAKING_CHANGE_TYPE, changes),
+  [RISKY_CHANGE_SEVERITY]: countByType(RISKY_CHANGE_SEVERITY, changes),
   [NON_BREAKING_CHANGE_TYPE]: countByType(NON_BREAKING_CHANGE_TYPE, changes),
   [UNCLASSIFIED_CHANGE_TYPE]: countByType(UNCLASSIFIED_CHANGE_TYPE, changes),
   [SEMI_BREAKING_CHANGE_TYPE]: countByType(SEMI_BREAKING_CHANGE_TYPE, changes),
@@ -118,6 +119,7 @@ export const countByType = (changeType: string, changes: Diff[]): number => {
 }
 
 export const calculateImpactedSummary = (changeSummaries: ChangeSummary[]): ImpactedOperationSummary => ({
+  [RISKY_CHANGE_SEVERITY]: checkIfHaveChanges(RISKY_CHANGE_SEVERITY, changeSummaries),
   [BREAKING_CHANGE_TYPE]: checkIfHaveChanges(BREAKING_CHANGE_TYPE, changeSummaries),
   [NON_BREAKING_CHANGE_TYPE]: checkIfHaveChanges(NON_BREAKING_CHANGE_TYPE, changeSummaries),
   [UNCLASSIFIED_CHANGE_TYPE]: checkIfHaveChanges(UNCLASSIFIED_CHANGE_TYPE, changeSummaries),

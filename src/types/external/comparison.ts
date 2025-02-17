@@ -51,6 +51,8 @@ export const UNCLASSIFIED_CHANGE_TYPE = 'unclassified'
 export const SEMI_BREAKING_CHANGE_TYPE = 'semi-breaking'
 export const DEPRECATED_CHANGE_TYPE = 'deprecated'
 export const ANNOTATION_CHANGE_TYPE = 'annotation'
+export const RISKY_CHANGE_SEVERITY = 'risky'
+
 
 export type ChangeSummary = Record<DiffType, number>
 export type ImpactedOperationSummary = Record<DiffType, boolean>
