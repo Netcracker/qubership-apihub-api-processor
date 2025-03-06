@@ -50,6 +50,7 @@ export const compareRestOperationsData = async (current: VersionRestOperation | 
       afterSource: current?.data,
     }
   )
+  console.log('Тутэн')
   const olnyBreaking = diffResult.diffs.filter((diff) => diff.type === breaking)
   if (olnyBreaking.length > 0 && previous?.operationId) {
     await reclassifyBreakingChanges(previous.operationId, diffResult.merged, olnyBreaking, ctx)
@@ -63,6 +64,7 @@ async function reclassifyBreakingChanges(
   diffs: Diff[],
   ctx: CompareOperationsPairContext
 ): Promise<void> {
+  console.log('Тутэн')
   if (!ctx.previousVersion || !ctx.previousPackageId) {
     return
   }
@@ -82,6 +84,7 @@ async function reclassifyBreakingChanges(
 
     const deprecatedInVersionsCount = previousOperation?.deprecatedInPreviousVersions?.length ?? 0
     if (isOperationRemove(diff) && deprecatedInVersionsCount > 1) {
+      console.log('Тутэн')
       diff.type = semiBreaking
       continue
     }
