@@ -16,7 +16,14 @@
 
 import { RestOperationData, VersionRestOperation } from './rest.types'
 import { areDeprecatedOriginsNotEmpty, isOperationRemove, removeComponents } from '../../utils'
-import { apiDiff, breaking, COMPARE_MODE_OPERATION, Diff, DiffAction, semiBreaking } from '@netcracker/qubership-apihub-api-diff'
+import {
+  apiDiff,
+  breaking,
+  COMPARE_MODE_OPERATION,
+  Diff,
+  DiffAction,
+  risky,
+} from '@netcracker/qubership-apihub-api-diff'
 import { MESSAGE_SEVERITY, NORMALIZE_OPTIONS, ORIGINS_SYMBOL } from '../../consts'
 import { BREAKING_CHANGE_TYPE, CompareOperationsPairContext, SEMI_BREAKING_CHANGE_TYPE } from '../../types'
 import { isObject } from '@netcracker/qubership-apihub-json-crawl'
@@ -85,7 +92,7 @@ async function reclassifyBreakingChanges(
     const deprecatedInVersionsCount = previousOperation?.deprecatedInPreviousVersions?.length ?? 0
     if (isOperationRemove(diff) && deprecatedInVersionsCount > 1) {
       console.log('Тутэн')
-      diff.type = semiBreaking
+      diff.type = risky
       continue
     }
 
@@ -96,7 +103,7 @@ async function reclassifyBreakingChanges(
     if (!isObject(diff.beforeNormalizedValue)) {
       ctx.notifications.push({
         severity: MESSAGE_SEVERITY.Error,
-        message: '[Semi-breaking validation] Something wrong with beforeNormalizedValue from diff',
+        message: '[Risky validation] Something wrong with beforeNormalizedValue from diff',
       })
       continue
     }
@@ -105,7 +112,7 @@ async function reclassifyBreakingChanges(
     if (!areDeprecatedOriginsNotEmpty(diff.beforeNormalizedValue)) {
       ctx.notifications.push({
         severity: MESSAGE_SEVERITY.Error,
-        message: '[Semi-breaking validation] Something wrong with origins',
+        message: '[Risky validation] Something wrong with origins',
       })
       continue
     }
@@ -128,16 +135,20 @@ async function reclassifyBreakingChanges(
     }
 
     if (deprecatedItem && deprecatedItem?.deprecatedInPreviousVersions?.length > 1) {
-      diff.type = semiBreaking
+      diff.type = risky
     }
   }
+
+
   // mark removed required status of the property as semi-breaking
   if (diffs.length) {
     const requiredProperties = findRequiredRemovedProperties(mergedJso, diffs)
+    //console.log('requiredProperties----->', requiredProperties)
 
     requiredProperties?.forEach(prop => {
+   //   console.log('requiredProperties----->', prop.propDiff)
       if (prop.propDiff.type === SEMI_BREAKING_CHANGE_TYPE && prop.requiredDiff?.type === BREAKING_CHANGE_TYPE) {
-        prop.requiredDiff.type = semiBreaking
+        prop.requiredDiff.type = risky
       }
     })
   }
