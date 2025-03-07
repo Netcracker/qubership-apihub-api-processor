@@ -16,7 +16,7 @@
 
 import { ApiAudience } from '../package'
 import { OperationsApiType, PackageId, VersionId } from './types'
-import { ClassifierType, DiffType } from '@netcracker/qubership-apihub-api-diff'
+import { ClassifierType, DiffType, risky } from '@netcracker/qubership-apihub-api-diff'
 
 export type VersionComparisonResolver = (
   version: VersionId,
@@ -48,7 +48,7 @@ export interface OperationType {
 export const BREAKING_CHANGE_TYPE = 'breaking'
 export const NON_BREAKING_CHANGE_TYPE = 'non-breaking'
 export const UNCLASSIFIED_CHANGE_TYPE = 'unclassified'
-export const SEMI_BREAKING_CHANGE_TYPE = 'semi-breaking'
+export const SEMI_BREAKING_CHANGE_TYPE = risky
 export const DEPRECATED_CHANGE_TYPE = 'deprecated'
 export const ANNOTATION_CHANGE_TYPE = 'annotation'
 
