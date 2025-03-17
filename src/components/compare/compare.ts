@@ -14,7 +14,14 @@
  * limitations under the License.
  */
 
-import { BuildConfigRef, CompareContext, VersionParams, VersionsComparison, VersionsComparisonDto } from '../../types'
+import {
+  BuildConfigRef,
+  CompareContext,
+  DiffTypeDto,
+  VersionParams,
+  VersionsComparison,
+  VersionsComparisonDto,
+} from '../../types'
 import { compareVersionsOperations } from './compare.operations'
 import { getSplittedVersionKey } from '../../utils'
 import { toVersionsComparisonDto } from '../../utils/transformToDto'
@@ -26,7 +33,7 @@ export async function compareVersions(
   curr: VersionParams,
   ctx: CompareContext,
   debugCtx?: DebugPerformanceContext,
-): Promise<VersionsComparisonDto[]> {
+): Promise<VersionsComparisonDto<DiffTypeDto>[]> {
   let comparisons: VersionsComparison[] = []
   await asyncDebugPerformance('[CompareVersions]', async (versionsDebugContext) => {
     comparisons = await compareVersionsReferences(prev, curr, ctx)

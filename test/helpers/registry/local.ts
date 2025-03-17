@@ -23,7 +23,7 @@ import {
   BuilderResolvers,
   BuildResult,
   ChangeSummary,
-  EMPTY_CHANGE_SUMMARY,
+  EMPTY_CHANGE_SUMMARY, EMPTY_CHANGE_SUMMARY_DTO,
   FILE_FORMAT,
   GRAPHQL_API_TYPE,
   graphqlApiBuilder,

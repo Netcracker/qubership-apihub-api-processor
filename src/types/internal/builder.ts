@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { BuildConfig, BuilderResolvers, FileId, PackageId, ResolvedVersion, VersionId } from '../external'
+import { BuildConfig, BuilderResolvers, DiffTypeDto, FileId, PackageId, ResolvedVersion, VersionId } from '../external'
 import { VersionsComparisonDto } from './compare'
 import { PackageConfig } from '../package/config'
 import { NotificationMessage } from '../package/notifications'
@@ -29,7 +29,7 @@ export type VersionCache = ResolvedVersion & {
 
 export interface BuildResult {
   config: PackageConfig
-  comparisons: VersionsComparisonDto[]
+  comparisons: VersionsComparisonDto<DiffTypeDto>[]
   notifications: NotificationMessage[]
   documents: Map<string, VersionDocument>
   operations: Map<string, ApiOperation>

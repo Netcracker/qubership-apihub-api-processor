@@ -57,12 +57,17 @@ describe('Semi-breaking changes test', () => {
 
     const result = await editor.run()
 
+
     expect(result).toEqual(changesSummaryMatcher({
       [NON_BREAKING_CHANGE_TYPE]: 1,
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
       [SEMI_BREAKING_CHANGE_TYPE]: 1,
     }))
     expect(result).toEqual(numberOfImpactedOperationsMatcher({
       [NON_BREAKING_CHANGE_TYPE]: 1,
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
       [SEMI_BREAKING_CHANGE_TYPE]: 1,
     }))
   })
@@ -98,12 +103,17 @@ describe('Semi-breaking changes test', () => {
 
     const result = await editor.run()
 
+
     expect(result).toEqual(changesSummaryMatcher({
       [BREAKING_CHANGE_TYPE]: 1,
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
       [SEMI_BREAKING_CHANGE_TYPE]: 1,
     }))
     expect(result).toEqual(numberOfImpactedOperationsMatcher({
       [BREAKING_CHANGE_TYPE]: 1,
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
       [SEMI_BREAKING_CHANGE_TYPE]: 1,
     }))
   })
@@ -139,9 +149,13 @@ describe('Semi-breaking changes test', () => {
     const result = await editor.run()
 
     expect(result).toEqual(changesSummaryMatcher({
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
       [SEMI_BREAKING_CHANGE_TYPE]: 2,
     }))
     expect(result).toEqual(numberOfImpactedOperationsMatcher({
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
       [SEMI_BREAKING_CHANGE_TYPE]: 2,
     }))
   })
@@ -177,10 +191,14 @@ describe('Semi-breaking changes test', () => {
     const result = await editor.run()
 
     expect(result).toEqual(changesSummaryMatcher({
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
       [SEMI_BREAKING_CHANGE_TYPE]: 3,
       [NON_BREAKING_CHANGE_TYPE]: 1,
     }))
     expect(result).toEqual(numberOfImpactedOperationsMatcher({
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
       [SEMI_BREAKING_CHANGE_TYPE]: 1,
       [NON_BREAKING_CHANGE_TYPE]: 1,
     }))

@@ -17,7 +17,7 @@
 import type {
   BuildConfig,
   BuildConfigFile,
-  BuildConfigRef,
+  BuildConfigRef, DiffTypeDto,
   FileId,
   OperationId,
   OperationsApiType,
@@ -73,7 +73,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
   apiBuilders: ApiBuilder[] = []
   documents = new Map<string, VersionDocument>()
   operations = new Map<string, ApiOperation>()
-  comparisons: VersionsComparisonDto[] = []
+  comparisons: VersionsComparisonDto<DiffTypeDto>[] = []
 
   versionsCache = new Map<string, VersionCache>()
   referencesCache = new Map<string, BuildConfigRef[]>()

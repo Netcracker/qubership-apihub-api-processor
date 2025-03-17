@@ -14,7 +14,14 @@
  * limitations under the License.
  */
 
-import { API_KIND, BREAKING_CHANGE_TYPE, BUILD_TYPE, SEMI_BREAKING_CHANGE_TYPE, VERSION_STATUS } from '../src'
+import {
+  API_KIND,
+  BREAKING_CHANGE_TYPE,
+  BUILD_TYPE,
+  RISKY_CHANGE_TYPE,
+  SEMI_BREAKING_CHANGE_TYPE,
+  VERSION_STATUS,
+} from '../src'
 import { Editor, LocalRegistry } from './helpers'
 
 let afterPackage: LocalRegistry
@@ -138,7 +145,8 @@ describe('Semi-breaking changes for no-bwc operations test', () => {
     }, {}, portal)
 
     const result = await editor.run()
-
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     expect(result.comparisons[0].operationTypes[0].changesSummary?.[SEMI_BREAKING_CHANGE_TYPE]).toBe(3)
   })
 

@@ -17,8 +17,9 @@
 import {
   ChangeMessage,
   ChangeSummary,
+  ChangeSummaryDto,
   DeprecateItem,
-  EMPTY_CHANGE_SUMMARY,
+  EMPTY_CHANGE_SUMMARY_DTO,
   OperationChanges,
   type OperationsApiType,
   OperationType,
@@ -55,26 +56,26 @@ export function apihubOperationChangesMatcher(
 }
 
 export function changesSummaryMatcher(
-  expected: Partial<ChangeSummary>,
+  expected: Partial<ChangeSummaryDto>,
   apiType: OperationsApiType = REST_API_TYPE,
 ): ApihubChangesSummaryMatcher {
   return operationTypeMatcher({
     apiType: apiType,
     changesSummary: expect.objectContaining({
-      ...EMPTY_CHANGE_SUMMARY,
+      ...EMPTY_CHANGE_SUMMARY_DTO,
       ...expected,
     }),
   })
 }
 
 export function numberOfImpactedOperationsMatcher(
-  expected: Partial<ChangeSummary>,
+  expected: Partial<ChangeSummaryDto>,
   apiType: OperationsApiType = REST_API_TYPE,
 ): ApihubChangesSummaryMatcher {
   return operationTypeMatcher({
     apiType: apiType,
     numberOfImpactedOperations: expect.objectContaining({
-      ...EMPTY_CHANGE_SUMMARY,
+      ...EMPTY_CHANGE_SUMMARY_DTO,
       ...expected,
     }),
   })

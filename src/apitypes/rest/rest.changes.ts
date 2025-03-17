@@ -25,7 +25,11 @@ import {
   risky,
 } from '@netcracker/qubership-apihub-api-diff'
 import { MESSAGE_SEVERITY, NORMALIZE_OPTIONS, ORIGINS_SYMBOL } from '../../consts'
-import { BREAKING_CHANGE_TYPE, CompareOperationsPairContext, SEMI_BREAKING_CHANGE_TYPE } from '../../types'
+import {
+  BREAKING_CHANGE_TYPE,
+  CompareOperationsPairContext,
+  RISKY_CHANGE_TYPE,
+} from '../../types'
 import { isObject } from '@netcracker/qubership-apihub-json-crawl'
 import { areDeclarationPathsEqual } from '../../utils/path'
 import { JSON_SCHEMA_PROPERTY_DEPRECATED, pathItemToFullPath, resolveOrigins } from '@netcracker/qubership-apihub-api-unifier'
@@ -147,7 +151,7 @@ async function reclassifyBreakingChanges(
 
     requiredProperties?.forEach(prop => {
    //   console.log('requiredProperties----->', prop.propDiff)
-      if (prop.propDiff.type === SEMI_BREAKING_CHANGE_TYPE && prop.requiredDiff?.type === BREAKING_CHANGE_TYPE) {
+      if (prop.propDiff.type === RISKY_CHANGE_TYPE && prop.requiredDiff?.type === BREAKING_CHANGE_TYPE) {
         prop.requiredDiff.type = risky
       }
     })

@@ -882,7 +882,7 @@ describe.skip('Change Log', () => {
     // expect(ar.notifications.length).toEqual(0)
   })
 
-  test('B-OA30-Y-CL-30.2 Adding oneOf', async () => {
+  test.only('B-OA30-Y-CL-30.2 Adding oneOf', async () => {
     const version = 'v31.2'
     const er = await registry.getVersion(packageId, version)
 
