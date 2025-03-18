@@ -18,10 +18,12 @@ import { Diff, DiffAction, DiffType, risky } from '@netcracker/qubership-apihub-
 import { calculateObjectHash } from './hashes'
 import { ArrayType, isEmpty } from './arrays'
 import {
-  ChangeMessage, ChangeSummary,
+  ChangeMessage,
+  ChangeSummary,
   DiffTypeDto,
   OperationChanges,
-  OperationChangesDto, OperationType,
+  OperationChangesDto,
+  OperationType,
   SEMI_BREAKING_CHANGE_TYPE,
   VersionsComparison,
   VersionsComparisonDto,
@@ -149,26 +151,28 @@ export function toVersionsComparisonDto({
   data,
   ...rest
 }: VersionsComparison, logError: (message: string) => void): VersionsComparisonDto<DiffTypeDto> {
-
-  console.log(JSON.stringify(rest))
   return {
     ...rest,
-    operationTypes: convertDtoFieldOperationTypes(rest.operationTypes),
+    operationTypes: convertDtoFieldOperationTypes(rest.operationTypes, {origin: risky,
+      override: SEMI_BREAKING_CHANGE_TYPE}),
     data: data?.map(data => toOperationChangesDto(data, logError)),
   }
 }
 
-export function convertDtoFieldOperationTypes(operationTypes: ReadonlyArray<OperationType>): OperationType<DiffTypeDto>[] {
+export function convertDtoFieldOperationTypes(operationTypes: ReadonlyArray<OperationType>, {
+  origin,
+  override,
+}: OptionDiffReplacer = { origin: SEMI_BREAKING_CHANGE_TYPE, override: risky }): OperationType<DiffTypeDto>[] {
   return operationTypes.map((type) => {
     return {
       ...type,
       changesSummary: replacePropertyInChangesSummary(type.changesSummary, {
-        origin: risky,
-        override: SEMI_BREAKING_CHANGE_TYPE,
+        origin,
+        override,
       }),
       numberOfImpactedOperations: replacePropertyInChangesSummary(type.numberOfImpactedOperations, {
-        origin: risky,
-        override: SEMI_BREAKING_CHANGE_TYPE,
+        origin,
+        override,
       }),
     }
   })
