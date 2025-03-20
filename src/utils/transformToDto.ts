@@ -139,7 +139,7 @@ export function toOperationChangesDto({
 }: OperationChanges, logError: (message: string) => void): OperationChangesDto {
   return {
     ...rest,
-    changeSummary: replacePropertyInChangesSummary(rest.changeSummary, {
+    changeSummary: replacePropertyInChangesSummary<DiffType, DiffTypeDto>(rest.changeSummary, {
       origin: risky,
       override: SEMI_BREAKING_CHANGE_TYPE,
     }),
@@ -153,24 +153,29 @@ export function toVersionsComparisonDto({
 }: VersionsComparison, logError: (message: string) => void): VersionsComparisonDto {
   return {
     ...rest,
-    operationTypes: convertDtoFieldOperationTypes(rest.operationTypes, {origin: risky,
-      override: SEMI_BREAKING_CHANGE_TYPE}),
+    operationTypes: convertDtoFieldOperationTypes<DiffType, DiffTypeDto>(rest.operationTypes, {
+      origin: risky,
+      override: SEMI_BREAKING_CHANGE_TYPE,
+    }),
     data: data?.map(data => toOperationChangesDto(data, logError)),
   }
 }
 
-export function convertDtoFieldOperationTypes(operationTypes: ReadonlyArray<OperationType>, {
+export function convertDtoFieldOperationTypes<
+  T extends string | number | symbol = DiffTypeDto,
+  J extends string | number | symbol = DiffType>
+(operationTypes: ReadonlyArray<OperationType<T>>, {
   origin,
   override,
-}: OptionDiffReplacer = { origin: SEMI_BREAKING_CHANGE_TYPE, override: risky }): OperationType<DiffTypeDto>[] {
+}: OptionDiffReplacer = { origin: SEMI_BREAKING_CHANGE_TYPE, override: risky }): OperationType<J>[] {
   return operationTypes.map((type) => {
     return {
       ...type,
-      changesSummary: replacePropertyInChangesSummary(type.changesSummary, {
+      changesSummary: replacePropertyInChangesSummary<T, J>(type.changesSummary, {
         origin,
         override,
       }),
-      numberOfImpactedOperations: replacePropertyInChangesSummary(type.numberOfImpactedOperations, {
+      numberOfImpactedOperations: replacePropertyInChangesSummary<T, J>(type.numberOfImpactedOperations, {
         origin,
         override,
       }),
@@ -178,20 +183,26 @@ export function convertDtoFieldOperationTypes(operationTypes: ReadonlyArray<Oper
   })
 }
 
-export function replacePropertyInChangesSummary(obj: ChangeSummary, {
-  origin,
-  override,
-}: OptionDiffReplacer = {
-  origin: SEMI_BREAKING_CHANGE_TYPE,
-  override: risky,
-}): ChangeSummary<DiffTypeDto | DiffTypeDto> {
+export function replacePropertyInChangesSummary<
+  T extends string | number | symbol = DiffTypeDto,
+  J extends string | number | symbol = DiffType>
+(obj: ChangeSummary<T>,
+  {
+    origin,
+    override,
+  }: OptionDiffReplacer = {
+    origin: SEMI_BREAKING_CHANGE_TYPE,
+    override: risky,
+  }): ChangeSummary<J> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   obj[override] = obj[origin]
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   delete obj[origin]
-  return obj as ChangeSummary<DiffTypeDto>
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
+  return obj
 }
 
 export type DiffTypeCompare = DiffType | DiffTypeDto
