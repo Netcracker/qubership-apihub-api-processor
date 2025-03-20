@@ -168,7 +168,7 @@ export function convertDtoFieldOperationTypes<
   origin,
   override,
 }: OptionDiffReplacer = { origin: SEMI_BREAKING_CHANGE_TYPE, override: risky }): OperationType<J>[] {
-  return operationTypes.map((type) => {
+  return operationTypes?.map((type) => {
     return {
       ...type,
       changesSummary: replacePropertyInChangesSummary<T, J>(type.changesSummary, {
@@ -194,15 +194,22 @@ export function replacePropertyInChangesSummary<
     origin: SEMI_BREAKING_CHANGE_TYPE,
     override: risky,
   }): ChangeSummary<J> {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  obj[override] = obj[origin]
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  delete obj[origin]
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  return obj
+  if (Object.prototype.hasOwnProperty.call(obj, origin)) {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    obj[override] = obj[origin]
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    delete obj[origin]
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    return obj
+  } else {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    return obj
+  }
+
 }
 
 export type DiffTypeCompare = DiffType | DiffTypeDto
