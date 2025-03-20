@@ -150,7 +150,7 @@ export function toOperationChangesDto({
 export function toVersionsComparisonDto({
   data,
   ...rest
-}: VersionsComparison, logError: (message: string) => void): VersionsComparisonDto<DiffTypeDto> {
+}: VersionsComparison, logError: (message: string) => void): VersionsComparisonDto {
   return {
     ...rest,
     operationTypes: convertDtoFieldOperationTypes(rest.operationTypes, {origin: risky,
