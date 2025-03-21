@@ -1,16 +1,16 @@
 {
-  "packageId": "bundle-dependencies",
+  "packageId": "reference-bundling",
   "apiType": "rest",
   "version": "v1",
   "files": [
     {
-      "fileId": "dependency.yaml",
+      "fileId": "reference.yaml",
       "publish": true,
       "labels": [],
       "commitId": "6c778b1f44200bd19944a6a8eac10a4e5a21a1cd"
     },
     {
-      "fileId": "main.yaml",
+      "fileId": "openapi.yaml",
       "publish": true,
       "labels": [],
       "commitId": "6c778b1f44200bd19944a6a8eac10a4e5a21a1xd"

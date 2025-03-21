@@ -13,4 +13,11 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: './non-existent-dependency.yaml#/User'
+                  $ref: '#/components/schemas/Userrr'
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer

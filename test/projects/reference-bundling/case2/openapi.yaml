@@ -13,4 +13,4 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: './dependency.yaml#/User'
+                  $ref: './non-existent-reference.yaml#/User'

@@ -33,7 +33,7 @@ export const buildUnknownDocument: DocumentBuilder<string> = async (parsedFile, 
       const {
         data,
         dependencies: fileDependencies,
-      } = await getBundledFileDataWithDependencies(fileId, ctx.parsedFileResolver)
+      } = await getBundledFileDataWithDependencies(fileId, ctx.parsedFileResolver, !!ctx.config.strictValidation)
       bundledFileData = data
       dependencies = fileDependencies
     }
