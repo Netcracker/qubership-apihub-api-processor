@@ -90,7 +90,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
 
   constructor(config: BuildConfig, public params: BuilderParams, fileSources?: FileSourceMap) {
     this.apiBuilders.push(restApiBuilder, graphqlApiBuilder, textApiBuilder, unknownApiBuilder)
-    this.config = { previousVersion: '', previousVersionPackageId: '', ...config }
+    this.config = { previousVersion: '', previousVersionPackageId: '', strictValidation: true, ...config }
 
     this.params.configuration = {
       batchSize: DEFAULT_BATCH_SIZE,
