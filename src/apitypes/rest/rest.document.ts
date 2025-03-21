@@ -53,7 +53,7 @@ const openApiDocumentMeta = (data: OpenAPIV3.Document): RestDocumentInfo => {
 export const buildRestDocument: DocumentBuilder<OpenAPIV3.Document> = async (parsedFile, file, ctx) => {
   const { fileId, slug = '', publish = true, apiKind, ...fileMetadata } = file
 
-  const { data, dependencies } = await getBundledFileDataWithDependencies(fileId, ctx.parsedFileResolver)
+  const { data, dependencies } = await getBundledFileDataWithDependencies(fileId, ctx.parsedFileResolver, !!ctx.config.strictValidation)
 
   let bundledFileData = data
 

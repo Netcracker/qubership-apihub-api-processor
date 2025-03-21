@@ -48,6 +48,8 @@ export interface BuildConfig {
 
   metadata?: Record<string, unknown>
   format?: OperationsGroupExportFormat
+
+  strictValidation?: boolean
 }
 
 export interface BuildConfigFile {

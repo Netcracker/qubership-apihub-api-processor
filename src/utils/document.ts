@@ -32,6 +32,7 @@ import {
 } from '../types'
 import { bundle, Resolver } from 'api-ref-bundler'
 import { FILE_FORMAT_JSON, FILE_FORMAT_YAML } from '../consts'
+import { takeIf } from './objects'
 
 export const EXPORT_FORMAT_TO_FILE_FORMAT = new Map<OperationsGroupExportFormat, FileFormat>([
   [YAML_EXPORT_GROUP_FORMAT, FILE_FORMAT_YAML],
@@ -120,6 +121,7 @@ export const getDocumentTitle = (fileId: string): string => {
 export const getBundledFileDataWithDependencies = async (
   fileId: FileId,
   parsedFileResolver: _ParsedFileResolver,
+  throwOnBadRef: boolean,
 ): Promise<{ data: any; dependencies: string[] }> => {
   const dependencies: string[] = []
 
@@ -130,6 +132,8 @@ export const getBundledFileDataWithDependencies = async (
       return {}
     }
 
+    // todo: this error has no effect because it is suppressed here: https://github.com/udamir/api-ref-bundler/blob/master/src/resolver.ts#L33
+    // move this throw to bundler hooks or you'll see just "Cannot resolve: filename" message in case of wrong file kind
     if (data.kind !== FILE_KIND.TEXT) {
       throw new Error(`Dependency with path ${filepath} is not a text file`)
     }
@@ -141,7 +145,14 @@ export const getBundledFileDataWithDependencies = async (
     return data.data
   }
 
-  const bundledFileData = await bundle(fileId, resolver)
+  const bundledFileData = await bundle(fileId, resolver, {
+    hooks: {
+      ...takeIf(
+        { onError: (message: string) => { throw new Error(message) } },
+        throwOnBadRef,
+      ),
+    },
+  })
 
   return { data: bundledFileData, dependencies: dependencies }
 }
