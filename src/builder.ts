@@ -238,11 +238,6 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
 
     const source = await this.params.resolvers.fileResolver(fileId)
     if (!source) {
-      this.notifications.push({
-        severity: MESSAGE_SEVERITY.Error,
-        message: 'Cannot resolve file',
-        fileId: fileId,
-      })
       return null
     }
 
