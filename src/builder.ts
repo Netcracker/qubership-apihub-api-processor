@@ -94,8 +94,11 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     this.config = {
       previousVersion: '',
       previousVersionPackageId: '',
-      validationRulesSeverity: { brokenRefs: VALIDATION_RULES_SEVERITY_LEVEL_WARNING },
       ...config,
+      validationRulesSeverity: {
+        brokenRefs: VALIDATION_RULES_SEVERITY_LEVEL_WARNING,
+        ...config.validationRulesSeverity,
+      },
     }
 
     this.params.configuration = {
