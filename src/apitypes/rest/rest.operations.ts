@@ -17,8 +17,8 @@
 import { OpenAPIV3 } from 'openapi-types'
 
 import { buildRestOperation } from './rest.operation'
-import type { OperationsBuilder } from '../../types'
-import { removeComponents, removeFirstSlash, slugify, takeIf } from '../../utils'
+import { OperationsBuilder } from '../../types'
+import { createBundlingErrorHandler, removeComponents, removeFirstSlash, slugify } from '../../utils'
 import { getOperationBasePath } from './rest.utils'
 import type * as TYPE from './rest.types'
 import { HASH_FLAG, INLINE_REFS_FLAG, MESSAGE_SEVERITY, NORMALIZE_OPTIONS, ORIGINS_SYMBOL } from '../../consts'
@@ -28,6 +28,7 @@ import { normalize } from '@netcracker/qubership-apihub-api-unifier'
 
 export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async (document, ctx, debugCtx) => {
   const documentWithoutComponents = removeComponents(document.data)
+  const bundlingErrorHandler = createBundlingErrorHandler(ctx, document.fileId)
 
   const { effectiveDocument, refsOnlyDocument } = syncDebugPerformance('[NormalizeDocument]', () => {
     const effectiveDocument = normalize(
@@ -37,18 +38,8 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
         originsFlag: ORIGINS_SYMBOL,
         hashFlag: HASH_FLAG,
         source: document.data,
-        ...takeIf({
-          onRefResolveError: (message: string, path: PropertyKey[], ref: string) => {
-            // console.debug([
-            //   '[Ref Resolve Error]',
-            //   `Message: ${message}`,
-            //   `JSON path: ${path}`,
-            //   `Ref: ${ref}`,
-            // ].join('\n'))
-            // todo is this message enough? (ErrorMessage.refNotFound)
-            throw new Error(message)
-          },
-        }, !!ctx.config.strictValidation),
+        onRefResolveError: (_: string, __: PropertyKey[], ref: string) =>
+          bundlingErrorHandler([`The $ref "${ref}" references an invalid location in the document.`]),
       },
     ) as OpenAPIV3.Document
     const refsOnlyDocument = normalize(

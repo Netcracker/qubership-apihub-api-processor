@@ -18,6 +18,7 @@ import createSlug from 'slug'
 import {
   _ParsedFileResolver,
   ApiOperation,
+  BuilderContext,
   BuildResult,
   FILE_KIND,
   FileFormat,
@@ -27,12 +28,14 @@ import {
   OperationsGroupExportFormat,
   PackageDocument,
   ResolvedDocument,
+  VALIDATION_RULES_SEVERITY_LEVEL_ERROR,
+  VALIDATION_RULES_SEVERITY_LEVEL_WARNING,
   VersionDocument,
   YAML_EXPORT_GROUP_FORMAT,
 } from '../types'
 import { bundle, Resolver } from 'api-ref-bundler'
-import { FILE_FORMAT_JSON, FILE_FORMAT_YAML } from '../consts'
-import { takeIf } from './objects'
+import { FILE_FORMAT_JSON, FILE_FORMAT_YAML, MESSAGE_SEVERITY } from '../consts'
+import { isNotEmpty } from './arrays'
 
 export const EXPORT_FORMAT_TO_FILE_FORMAT = new Map<OperationsGroupExportFormat, FileFormat>([
   [YAML_EXPORT_GROUP_FORMAT, FILE_FORMAT_YAML],
@@ -118,24 +121,42 @@ export const getDocumentTitle = (fileId: string): string => {
   return fileId.substring(cutDot).split('/').pop()!.replace(/\.[^/.]+$/, '')
 }
 
+export const createBundlingErrorHandler = (ctx: BuilderContext, fileId: FileId) => (messages: string[]): void => {
+  switch (ctx.config.validationRulesSeverity?.brokenRefs) {
+    case VALIDATION_RULES_SEVERITY_LEVEL_ERROR:
+      throw new Error(messages[0])
+    case VALIDATION_RULES_SEVERITY_LEVEL_WARNING:
+      for (const message of messages) {
+        ctx.notifications.push({
+          severity: MESSAGE_SEVERITY.Error,
+          message: message,
+          fileId: fileId,
+        })
+      }
+  }
+}
+
 export const getBundledFileDataWithDependencies = async (
   fileId: FileId,
   parsedFileResolver: _ParsedFileResolver,
-  throwOnBadRef: boolean,
+  onError: (messages: string[]) => void,
 ): Promise<{ data: any; dependencies: string[] }> => {
   const dependencies: string[] = []
+  const errorMessages: string[] = []
 
   const resolver: Resolver = async (filepath: string) => {
     const data = await parsedFileResolver(filepath)
 
     if (data === null) {
+      // can't throw the error here because it will be suppressed: https://github.com/udamir/api-ref-bundler/blob/0.4.0/src/resolver.ts#L33
+      errorMessages.push(`Unable to resolve the file "${filepath}" because it does not exist.`)
       return {}
     }
 
-    // todo: this error has no effect because it is suppressed here: https://github.com/udamir/api-ref-bundler/blob/master/src/resolver.ts#L33
-    // move this throw to bundler hooks or you'll see just "Cannot resolve: filename" message in case of wrong file kind
     if (data.kind !== FILE_KIND.TEXT) {
-      throw new Error(`Dependency with path ${filepath} is not a text file`)
+      // can't throw the error here because it will be suppressed: https://github.com/udamir/api-ref-bundler/blob/0.4.0/src/resolver.ts#L33
+      errorMessages.push(`Unable to resolve the file "${filepath}" because it is not a valid text file.`)
+      return {}
     }
 
     if (filepath !== fileId) {
@@ -145,14 +166,11 @@ export const getBundledFileDataWithDependencies = async (
     return data.data
   }
 
-  const bundledFileData = await bundle(fileId, resolver, {
-    hooks: {
-      ...takeIf(
-        { onError: (message: string) => { throw new Error(message) } },
-        throwOnBadRef,
-      ),
-    },
-  })
+  const bundledFileData = await bundle(fileId, resolver)
+
+  if (isNotEmpty(errorMessages)) {
+    onError(errorMessages)
+  }
 
   return { data: bundledFileData, dependencies: dependencies }
 }
