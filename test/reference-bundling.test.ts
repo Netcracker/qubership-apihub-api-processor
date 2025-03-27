@@ -13,9 +13,7 @@ describe('Reference bundling test', () => {
     const pkg = LocalRegistry.openPackage('reference-bundling/case2')
 
     await expect(
-      pkg.publish(pkg.packageId, {
-        validationRulesSeverity: { brokenRefs: VALIDATION_RULES_SEVERITY_LEVEL_ERROR },
-      }),
+      pkg.publish(pkg.packageId, { validationRulesSeverity: { brokenRefs: VALIDATION_RULES_SEVERITY_LEVEL_ERROR } }),
     ).rejects.toThrow(/does not exist/)
   })
 
@@ -42,9 +40,7 @@ describe('Reference bundling test', () => {
     const pkg = LocalRegistry.openPackage('reference-bundling/case4')
 
     await expect(
-      pkg.publish(pkg.packageId, {
-        validationRulesSeverity: { brokenRefs: VALIDATION_RULES_SEVERITY_LEVEL_ERROR },
-      }),
+      pkg.publish(pkg.packageId, { validationRulesSeverity: { brokenRefs: VALIDATION_RULES_SEVERITY_LEVEL_ERROR } }),
     ).rejects.toThrow(/does not exist/)
   })
 
@@ -61,9 +57,7 @@ describe('Reference bundling test', () => {
     const pkg = LocalRegistry.openPackage('reference-bundling/case5')
 
     await expect(
-      pkg.publish(pkg.packageId, {
-        validationRulesSeverity: { brokenRefs: VALIDATION_RULES_SEVERITY_LEVEL_ERROR },
-      }),
+      pkg.publish(pkg.packageId, { validationRulesSeverity: { brokenRefs: VALIDATION_RULES_SEVERITY_LEVEL_ERROR } }),
     ).rejects.toThrow(/references an invalid location/)
   })
 
@@ -78,9 +72,7 @@ describe('Reference bundling test', () => {
   test('should throw on non-textual external reference', async () => {
     const pkg = LocalRegistry.openPackage('reference-bundling/case6')
     await expect(
-      pkg.publish(pkg.packageId, {
-        validationRulesSeverity: { brokenRefs: VALIDATION_RULES_SEVERITY_LEVEL_ERROR },
-      }),
+      pkg.publish(pkg.packageId, { validationRulesSeverity: { brokenRefs: VALIDATION_RULES_SEVERITY_LEVEL_ERROR } }),
     ).rejects.toThrow(/not a valid text file/)
   })
 })
