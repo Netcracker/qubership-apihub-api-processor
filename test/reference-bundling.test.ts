@@ -4,7 +4,7 @@ import { MESSAGE_SEVERITY, VALIDATION_RULES_SEVERITY_LEVEL_ERROR } from '../src'
 describe('Reference bundling test', () => {
   test('external references should be bundled', async () => {
     const pkg = LocalRegistry.openPackage('reference-bundling/case1')
-    const result = await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+    const result = await pkg.publish(pkg.packageId)
 
     expect(result.documents.get('openapi.yaml')?.dependencies).toEqual(['reference.yaml'])
   })
@@ -14,7 +14,6 @@ describe('Reference bundling test', () => {
 
     await expect(
       pkg.publish(pkg.packageId, {
-        packageId: pkg.packageId,
         validationRulesSeverity: { brokenRefs: VALIDATION_RULES_SEVERITY_LEVEL_ERROR },
       }),
     ).rejects.toThrow(/does not exist/)
@@ -22,9 +21,7 @@ describe('Reference bundling test', () => {
 
   test('should not throw on missing external reference', async () => {
     const pkg = LocalRegistry.openPackage('reference-bundling/case2')
-    const result = await pkg.publish(pkg.packageId, {
-      packageId: pkg.packageId,
-    })
+    const result = await pkg.publish(pkg.packageId)
 
     expect(result.notifications.filter(({ severity }) => severity === MESSAGE_SEVERITY.Error).length).toEqual(2)
     expect(result.operations.size).toBe(1)
@@ -33,7 +30,7 @@ describe('Reference bundling test', () => {
 
   test('transitive external references should be bundled', async () => {
     const pkg = LocalRegistry.openPackage('reference-bundling/case3')
-    const result = await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+    const result = await pkg.publish(pkg.packageId)
 
     expect(result.documents.get('openapi.yaml')?.dependencies).toEqual([
       'reference.yaml',
@@ -46,7 +43,6 @@ describe('Reference bundling test', () => {
 
     await expect(
       pkg.publish(pkg.packageId, {
-        packageId: pkg.packageId,
         validationRulesSeverity: { brokenRefs: VALIDATION_RULES_SEVERITY_LEVEL_ERROR },
       }),
     ).rejects.toThrow(/does not exist/)
@@ -54,9 +50,7 @@ describe('Reference bundling test', () => {
 
   test('should not throw on missing transitive external reference', async () => {
     const pkg = LocalRegistry.openPackage('reference-bundling/case4')
-    const result = await pkg.publish(pkg.packageId, {
-      packageId: pkg.packageId,
-    })
+    const result = await pkg.publish(pkg.packageId)
 
     expect(result.notifications.filter(({ severity }) => severity === MESSAGE_SEVERITY.Error).length).toEqual(2)
     expect(result.operations.size).toBe(1)
@@ -68,7 +62,6 @@ describe('Reference bundling test', () => {
 
     await expect(
       pkg.publish(pkg.packageId, {
-        packageId: pkg.packageId,
         validationRulesSeverity: { brokenRefs: VALIDATION_RULES_SEVERITY_LEVEL_ERROR },
       }),
     ).rejects.toThrow(/references an invalid location/)
@@ -76,9 +69,7 @@ describe('Reference bundling test', () => {
 
   test('should not throw on missing internal reference', async () => {
     const pkg = LocalRegistry.openPackage('reference-bundling/case5')
-    const result = await pkg.publish(pkg.packageId, {
-      packageId: pkg.packageId,
-    })
+    const result = await pkg.publish(pkg.packageId)
 
     expect(result.notifications.filter(({ severity }) => severity === MESSAGE_SEVERITY.Error).length).toEqual(1)
     expect(result.operations.size).toBe(1)
@@ -88,7 +79,6 @@ describe('Reference bundling test', () => {
     const pkg = LocalRegistry.openPackage('reference-bundling/case6')
     await expect(
       pkg.publish(pkg.packageId, {
-        packageId: pkg.packageId,
         validationRulesSeverity: { brokenRefs: VALIDATION_RULES_SEVERITY_LEVEL_ERROR },
       }),
     ).rejects.toThrow(/not a valid text file/)

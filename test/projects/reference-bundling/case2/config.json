@@ -1,5 +1,5 @@
 {
-  "packageId": "reference-bundling",
+  "packageId": "reference-bundling/case2",
   "apiType": "rest",
   "version": "v1",
   "files": [
