@@ -2,7 +2,7 @@ import { errorNotificationMatcher, LocalRegistry, notificationsMatcher } from '.
 import { VALIDATION_RULES_SEVERITY_LEVEL_ERROR } from '../src'
 
 describe('Reference bundling test', () => {
-  test('external references should be bundled', async () => {
+  test('should bundle external references', async () => {
     const pkg = LocalRegistry.openPackage('reference-bundling/case1')
     const result = await pkg.publish(pkg.packageId)
 
@@ -29,7 +29,7 @@ describe('Reference bundling test', () => {
     expect(result.documents.get('openapi.yaml')?.dependencies.length).toBe(0)
   })
 
-  test('transitive external references should be bundled', async () => {
+  test('should bundle transitive external references', async () => {
     const pkg = LocalRegistry.openPackage('reference-bundling/case3')
     const result = await pkg.publish(pkg.packageId)
 
