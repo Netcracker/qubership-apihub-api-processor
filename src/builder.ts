@@ -51,7 +51,14 @@ import {
 import type { NotificationMessage, PackageConfig } from './types/package'
 import { graphqlApiBuilder, REST_API_TYPE, restApiBuilder, textApiBuilder, unknownApiBuilder } from './apitypes'
 import { filesDiff, findSharedPath, getCompositeKey, getFileExtension, getOperationsList } from './utils'
-import { BUILD_TYPE, DEFAULT_BATCH_SIZE, MESSAGE_SEVERITY, SUPPORTED_FILE_FORMATS, VERSION_STATUS } from './consts'
+import {
+  BUILD_TYPE,
+  DEFAULT_BATCH_SIZE,
+  DEFAULT_VALIDATION_RULES_SEVERITY_CONFIG,
+  MESSAGE_SEVERITY,
+  SUPPORTED_FILE_FORMATS,
+  VERSION_STATUS,
+} from './consts'
 import { unknownParsedFile } from './apitypes/unknown/unknown.parser'
 import { createVersionPackage } from './components/package'
 import { compareVersions } from './components/compare'
@@ -96,7 +103,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       previousVersionPackageId: '',
       ...config,
       validationRulesSeverity: {
-        brokenRefs: VALIDATION_RULES_SEVERITY_LEVEL_WARNING,
+        ...DEFAULT_VALIDATION_RULES_SEVERITY_CONFIG,
         ...config.validationRulesSeverity,
       },
     }

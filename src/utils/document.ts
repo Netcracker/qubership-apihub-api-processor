@@ -126,6 +126,7 @@ export const createBundlingErrorHandler = (ctx: BuilderContext, fileId: FileId) 
     case VALIDATION_RULES_SEVERITY_LEVEL_ERROR:
       throw new Error(messages[0])
     case VALIDATION_RULES_SEVERITY_LEVEL_WARNING:
+    default:
       for (const message of messages) {
         ctx.notifications.push({
           severity: MESSAGE_SEVERITY.Error,
