@@ -15,13 +15,7 @@
  */
 
 import { changesSummaryMatcher, Editor, LocalRegistry, numberOfImpactedOperationsMatcher } from './helpers'
-import {
-  BREAKING_CHANGE_TYPE,
-  BUILD_TYPE,
-  NON_BREAKING_CHANGE_TYPE,
-  SEMI_BREAKING_CHANGE_TYPE,
-  VERSION_STATUS,
-} from '../src'
+import { BREAKING_CHANGE_TYPE, BUILD_TYPE, NON_BREAKING_CHANGE_TYPE, RISKY_CHANGE_TYPE, VERSION_STATUS } from '../src'
 
 const portal = new LocalRegistry('new-deprecated')
 
@@ -62,13 +56,13 @@ describe('Semi-breaking changes test', () => {
       [NON_BREAKING_CHANGE_TYPE]: 1,
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      [SEMI_BREAKING_CHANGE_TYPE]: 1,
+      [RISKY_CHANGE_TYPE]: 1,
     }))
     expect(result).toEqual(numberOfImpactedOperationsMatcher({
       [NON_BREAKING_CHANGE_TYPE]: 1,
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      [SEMI_BREAKING_CHANGE_TYPE]: 1,
+      [RISKY_CHANGE_TYPE]: 1,
     }))
   })
 
@@ -108,13 +102,13 @@ describe('Semi-breaking changes test', () => {
       [BREAKING_CHANGE_TYPE]: 1,
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      [SEMI_BREAKING_CHANGE_TYPE]: 1,
+      [RISKY_CHANGE_TYPE]: 1,
     }))
     expect(result).toEqual(numberOfImpactedOperationsMatcher({
       [BREAKING_CHANGE_TYPE]: 1,
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      [SEMI_BREAKING_CHANGE_TYPE]: 1,
+      [RISKY_CHANGE_TYPE]: 1,
     }))
   })
 
@@ -151,12 +145,12 @@ describe('Semi-breaking changes test', () => {
     expect(result).toEqual(changesSummaryMatcher({
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      [SEMI_BREAKING_CHANGE_TYPE]: 2,
+      [RISKY_CHANGE_TYPE]: 2,
     }))
     expect(result).toEqual(numberOfImpactedOperationsMatcher({
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      [SEMI_BREAKING_CHANGE_TYPE]: 2,
+      [RISKY_CHANGE_TYPE]: 2,
     }))
   })
 
@@ -193,13 +187,13 @@ describe('Semi-breaking changes test', () => {
     expect(result).toEqual(changesSummaryMatcher({
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      [SEMI_BREAKING_CHANGE_TYPE]: 3,
+      [RISKY_CHANGE_TYPE]: 3,
       [NON_BREAKING_CHANGE_TYPE]: 1,
     }))
     expect(result).toEqual(numberOfImpactedOperationsMatcher({
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      [SEMI_BREAKING_CHANGE_TYPE]: 1,
+      [RISKY_CHANGE_TYPE]: 1,
       [NON_BREAKING_CHANGE_TYPE]: 1,
     }))
   })
