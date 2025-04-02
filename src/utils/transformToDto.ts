@@ -169,7 +169,6 @@ export function convertDtoFieldOperationTypes<
   override,
 }: OptionDiffReplacer = { origin: SEMI_BREAKING_CHANGE_TYPE, override: risky }): OperationType<J>[] {
   return operationTypes?.map((type) => {
-    // if(!type.changesSummary || !type.changesSummary ) return type
     return {
       ...type,
       changesSummary: replacePropertyInChangesSummary<T, J>(type.changesSummary, {
