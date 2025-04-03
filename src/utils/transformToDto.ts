@@ -197,13 +197,16 @@ export function replacePropertyInChangesSummary<
   if (Object.prototype.hasOwnProperty.call(obj, origin)) {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
-    obj[override] = obj[origin]
+    const copyObj= {...obj}
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
-    delete obj[origin]
+    copyObj[override] = copyObj[origin]
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
-    return obj
+    delete copyObj[origin]
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    return copyObj
   } else {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore

@@ -144,7 +144,7 @@ async function reclassifyBreakingChanges(
   }
 
 
-  // mark removed required status of the property as semi-breaking
+  // mark removed required status of the property as risky
   if (diffs.length) {
     const requiredProperties = findRequiredRemovedProperties(mergedJso, diffs)
     //console.log('requiredProperties----->', requiredProperties)
