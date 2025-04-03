@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import createSlug from 'slug'
+import createSlug, { CharMap } from 'slug'
 import {
   _ParsedFileResolver,
   ApiOperation,
@@ -87,6 +87,7 @@ createSlug.extend({ '_': '_' })
 createSlug.extend({ '.': '-' })
 createSlug.extend({ '(': '-' })
 createSlug.extend({ ')': '-' })
+// createSlug.extend({ '*': '*' })
 
 export const findSharedPath = (fileIds: string[]): string => {
   if (!fileIds.length) { return '' }
@@ -99,12 +100,12 @@ export const findSharedPath = (fileIds: string[]): string => {
   return first.slice(0, i).join('/') + (i ? '/' : '')
 }
 
-export const slugify = (text: string, slugs: string[] = []): string => {
+export const slugify = (text: string, slugs: string[] = [], charMapEntry?: CharMap): string => {
   if (!text) {
     return ''
   }
 
-  const slug = createSlug(text)
+  const slug = createSlug(text, { charmap: { ...createSlug.charmap, ...charMapEntry } })
   let suffix: string = ''
   // add suffix if not unique
   while (slugs.includes(slug + suffix)) { suffix = String(+suffix + 1) }

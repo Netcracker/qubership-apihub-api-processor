@@ -21,6 +21,7 @@ export type VersionResolver = (
   packageId: PackageId,
   version: VersionId,
   includeOperations?: boolean,
+  includeSummary?: boolean,
 ) => Promise<ResolvedVersion | null>
 
 export type ResolvedVersion = {
@@ -43,7 +44,6 @@ export type OperationTypes = {
   changesSummary?: ChangeSummary
   operationsCount?: number
   deprecatedCount?: number
-  operations?: ResolvedVersionOperationsHashMap
 }
 
 export interface ResolvedVersionOperationsHashMap {

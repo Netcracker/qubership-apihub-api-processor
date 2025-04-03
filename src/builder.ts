@@ -27,8 +27,6 @@ import {
   ResolvedDeprecatedOperations,
   ResolvedDocuments,
   ResolvedOperations,
-  ResolvedVersionOperationsHashMap,
-  VALIDATION_RULES_SEVERITY_LEVEL_WARNING,
   VersionId,
 } from './types'
 import {
@@ -492,10 +490,9 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     const operationsTypes: OperationTypes[] = []
 
     for (const apiType of this.existingOperationsApiTypes) {
-      const operationsHashMap = this.operationsHashMapByApiType(apiType)
       operationsTypes.push({
         apiType: apiType,
-        operations: operationsHashMap,
+        operationsCount: this.operations.size,
       })
     }
 
@@ -506,18 +503,6 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     const apiTypes: OperationsApiType[] = this.operationList.map(({ apiType }) => apiType) ?? []
 
     return new Set(apiTypes)
-  }
-
-  private operationsHashMapByApiType(operationsApiType: OperationsApiType): ResolvedVersionOperationsHashMap {
-    const hashMap: ResolvedVersionOperationsHashMap = {}
-
-    for (const { apiType, operationId, dataHash } of this.operations.values()) {
-      if (apiType === operationsApiType) {
-        hashMap[operationId] = dataHash
-      }
-    }
-
-    return hashMap
   }
 
   async parseFile(fileId: string, source: Blob): Promise<File | null> {

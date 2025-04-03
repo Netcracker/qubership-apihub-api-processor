@@ -27,6 +27,7 @@ export type VersionOperationsResolver = (
   packageId: PackageId,
   operationsIds?: OperationId[],
   includeData?: boolean,
+  operationsCount?: number,
 ) => Promise<ResolvedOperations | null>
 
 export interface ResolvedOperations {
@@ -35,7 +36,7 @@ export interface ResolvedOperations {
 }
 
 export interface ResolvedOperation<M = any> {
-  operationId: string
+  operationId: OperationId
   title: string
   dataHash: string
   apiType: OperationsApiType
