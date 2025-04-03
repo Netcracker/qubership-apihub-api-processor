@@ -195,8 +195,6 @@ export function replacePropertyInChangesSummary<
     override: risky,
   }): ChangeSummary<J> {
   if (Object.prototype.hasOwnProperty.call(obj, origin)) {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
     const copyObj= {...obj}
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
