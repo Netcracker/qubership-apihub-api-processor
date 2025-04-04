@@ -67,7 +67,7 @@ export type TemplateResolver = (
 ) => Promise<string>
 
 export interface CompareOperationsPairContext {
-  notifications: NotificationMessage[],
+  notifications: NotificationMessage[]
   versionDeprecatedResolver: VersionDeprecatedResolver
   previousVersion: VersionId
   currentVersion: VersionId
@@ -99,7 +99,12 @@ export interface ApiBuilder<T = any, O = any, M = any> {
 }
 
 // internal
-export type _VersionResolver = (packageId: PackageId, version: VersionId) => Promise<VersionCache | null>
+export type _VersionResolver = (
+  packageId: PackageId,
+  version: VersionId,
+  includeOperations?: boolean,
+  includeSummary?: boolean,
+) => Promise<VersionCache | null>
 export type _VersionReferencesResolver = (packageId: PackageId, version: VersionId) => Promise<BuildConfigRef[]>
 
 export type _ParsedFileResolver = (fileId: string) => Promise<File | null>

@@ -45,6 +45,7 @@ import {
   calculateImpactedSummary,
   executeInBatches,
   getSplittedVersionKey,
+  IGNORE_PATH_PARAM_UNIFIED_PLACEHOLDER,
   removeFirstSlash,
   removeObjectDuplicates,
   slugify,
@@ -65,8 +66,8 @@ export async function compareVersionsOperations(
   const { versionResolver } = ctx
 
   // resolve all version with operation hashes
-  const prevVersionData = prev && (await versionResolver(...prev) ?? { version: prev?.[0], packageId: prev?.[1] })
-  const currVersionData = curr && (await versionResolver(...curr) ?? { version: curr?.[0], packageId: curr?.[1] })
+  const prevVersionData = prev && (await versionResolver(...prev, false, true) ?? { version: prev?.[0], packageId: prev?.[1] })
+  const currVersionData = curr && (await versionResolver(...curr, false, true) ?? { version: curr?.[0], packageId: curr?.[1] })
 
   // compare operations of each type
   for (const apiType of getUniqueApiTypesFromVersions(prevVersionData, currVersionData)) {

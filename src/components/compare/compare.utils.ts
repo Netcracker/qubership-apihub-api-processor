@@ -28,10 +28,15 @@ import {
   VersionCache,
 } from '../../types'
 import { BUILD_TYPE, EMPTY_CHANGE_SUMMARY, MESSAGE_SEVERITY } from '../../consts'
-import { convertToSlug, NormalizedPath, PATH_PARAM_UNIFIED_PLACEHOLDER, slugify, takeIfDefined } from '../../utils'
+import {
+  convertToSlug,
+  IGNORE_PATH_PARAM_UNIFIED_PLACEHOLDER,
+  NormalizedPath,
+  slugify,
+  takeIfDefined,
+} from '../../utils'
 import { REST_API_TYPE } from '../../apitypes'
 import { OpenAPIV3 } from 'openapi-types'
-import { CharMap } from 'slug'
 
 export const totalChanges = (changeSummary?: ChangeSummary): number => {
   return changeSummary
@@ -90,8 +95,6 @@ type OperationIdWithoutGroupPrefix = string
 export type OperationIdentityMap = Record<OperationIdWithoutGroupPrefix, OperationId>
 
 type NormalizedOperationId = `${NormalizedPath}-${OpenAPIV3.HttpMethods}`
-
-const IGNORE_PATH_PARAM_UNIFIED_PLACEHOLDER: CharMap = { [PATH_PARAM_UNIFIED_PLACEHOLDER]: PATH_PARAM_UNIFIED_PLACEHOLDER }
 
 export function getOperationsHashMapByApiType(
   currentApiType: OperationsApiType,
