@@ -107,16 +107,16 @@ export async function compareVersionsOperations(
   }
 }
 
-const HANDLE_TYPE_FULLY_ADDED = 'added'
-const HANDLE_TYPE_FULLY_REMOVED = 'removed'
-const HANDLE_TYPE_FULLY_CHANGED = 'changed'
+const HANDLE_TYPE_ADDED = 'added'
+const HANDLE_TYPE_REMOVED = 'removed'
+const HANDLE_TYPE_CHANGED = 'changed'
 
-type HandleType = typeof HANDLE_TYPE_FULLY_ADDED | typeof HANDLE_TYPE_FULLY_REMOVED | typeof HANDLE_TYPE_FULLY_CHANGED
+type HandleType = typeof HANDLE_TYPE_ADDED | typeof HANDLE_TYPE_REMOVED | typeof HANDLE_TYPE_CHANGED
 
-export interface MappingResult<T extends PropertyKey> {
-  [HANDLE_TYPE_FULLY_ADDED]: T[]
-  [HANDLE_TYPE_FULLY_REMOVED]: T[]
-  [HANDLE_TYPE_FULLY_CHANGED]: Record<T, T>
+export interface OperationsMappingResult {
+  [HANDLE_TYPE_ADDED]: OperationId[]
+  [HANDLE_TYPE_REMOVED]: OperationId[]
+  [HANDLE_TYPE_CHANGED]: Record<OperationId, OperationId>
 }
 
 async function compareCurrentApiType(
@@ -146,7 +146,7 @@ async function compareCurrentApiType(
   const [currReducedOperationIdToHashMap, currReducedOperationIdToOriginal] = getOperationsHashMapByApiType(apiType, currOperations, ctx, true)
 
   const reducedOperationIds = new Set([...Object.keys(prevReducedOperationIdToHashMap), ...Object.keys(currReducedOperationIdToHashMap)])
-  const operationsMapping: MappingResult<OperationId> = { [HANDLE_TYPE_FULLY_ADDED]: [], [HANDLE_TYPE_FULLY_REMOVED]: [], [HANDLE_TYPE_FULLY_CHANGED]: {} }
+  const operationsMapping: OperationsMappingResult = { [HANDLE_TYPE_ADDED]: [], [HANDLE_TYPE_REMOVED]: [], [HANDLE_TYPE_CHANGED]: {} }
   const apiAudienceTransitions: ApiAudienceTransition[] = []
   const pairedOperationIds: Record<OperationId, OperationId> = {}
 
@@ -160,13 +160,13 @@ async function compareCurrentApiType(
       // operation not changed
       if (prevOperationHash === currOperationHash) { continue }
       // operation changed
-      operationsMapping[HANDLE_TYPE_FULLY_CHANGED][prevOperationId] = currOperationId
+      operationsMapping[HANDLE_TYPE_CHANGED][prevOperationId] = currOperationId
     } else if (prevOperationHash) {
       // operation removed
-      operationsMapping[HANDLE_TYPE_FULLY_REMOVED].push(prevOperationId)
+      operationsMapping[HANDLE_TYPE_REMOVED].push(prevOperationId)
     } else if (currOperationHash) {
       // operation added
-      operationsMapping[HANDLE_TYPE_FULLY_ADDED].push(currOperationId)
+      operationsMapping[HANDLE_TYPE_ADDED].push(currOperationId)
     }
   }
 
@@ -220,7 +220,7 @@ async function compareCurrentApiType(
     }
 
     for (const operation of operations) {
-      const isOperationAdded = handleType === HANDLE_TYPE_FULLY_ADDED
+      const isOperationAdded = handleType === HANDLE_TYPE_ADDED
       const [prevOperation, currOperation] = isOperationAdded ? [undefined, operation] : [operation, undefined]
       const operationDiffs = await asyncDebugPerformance(
         '[Operation]',
@@ -265,7 +265,7 @@ async function compareCurrentApiType(
       prevVersion!,
       prevPackageId!,
       operationsBatch,
-      HANDLE_TYPE_FULLY_REMOVED,
+      HANDLE_TYPE_REMOVED,
       innerDebugCtx,
     )
   }, batchSize), debugCtx)
@@ -275,7 +275,7 @@ async function compareCurrentApiType(
       currVersion!,
       currPackageId!,
       operationsBatch,
-      HANDLE_TYPE_FULLY_ADDED,
+      HANDLE_TYPE_ADDED,
       innerDebugCtx,
     )
   }, batchSize), debugCtx)
