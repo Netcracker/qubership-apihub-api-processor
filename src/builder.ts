@@ -287,7 +287,10 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     packageId = packageId ?? this.config.packageId
 
     if (this.canBeResolvedLocally(version, packageId)) {
-      const currentOperations = operationIds ? this.operationList.filter(({ operationId }) => operationIds.includes(operationId)) : this.operationList
+      const currentApiTypeOperations = this.operationList.filter((operation) => operation.apiType === apiType)
+      const currentOperations = operationIds
+        ? currentApiTypeOperations.filter(({ operationId }) => operationIds.includes(operationId))
+        : currentApiTypeOperations
       return { operations: currentOperations }
     }
 
