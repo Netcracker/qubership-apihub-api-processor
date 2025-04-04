@@ -368,13 +368,13 @@ const createPairOperationsMap = (currGroupSlug: string, prevGroupSlug: string, c
 
   for (const currentOperation of currentOperations) {
     // todo
-    const normalizedOperationId = currentOperation.apiType === REST_API_TYPE ? slugify(`${removeFirstSlash(`${currentOperation.metadata.path}`)}-${currentOperation.metadata.method}`) : currentOperation.operationId
+    const normalizedOperationId = currentOperation.apiType === REST_API_TYPE ? slugify(`${currentOperation.metadata.path}-${currentOperation.metadata.method}`, [], IGNORE_PATH_PARAM_UNIFIED_PLACEHOLDER) : currentOperation.operationId
     operationsMap[takeSubstringIf(!!currGroupSlug, normalizedOperationId, currGroupSlug.length)] = { current: currentOperation }
   }
 
   for (const previousOperation of previousOperations) {
     // todo
-    const normalizedOperationId = previousOperation.apiType === REST_API_TYPE ? slugify(`${removeFirstSlash(`${previousOperation.metadata.path}`)}-${previousOperation.metadata.method}`) : previousOperation.operationId
+    const normalizedOperationId = previousOperation.apiType === REST_API_TYPE ? slugify(`${previousOperation.metadata.path}-${previousOperation.metadata.method}`, [], IGNORE_PATH_PARAM_UNIFIED_PLACEHOLDER) : previousOperation.operationId
     const prevOperationId = takeSubstringIf(!!prevGroupSlug, normalizedOperationId, prevGroupSlug.length)
     const operationsMappingElement = operationsMap[prevOperationId]
     if (operationsMappingElement) {
