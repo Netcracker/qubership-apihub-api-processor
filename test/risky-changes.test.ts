@@ -19,8 +19,8 @@ import { BREAKING_CHANGE_TYPE, BUILD_TYPE, NON_BREAKING_CHANGE_TYPE, RISKY_CHANG
 
 const portal = new LocalRegistry('new-deprecated')
 
-describe('Semi-breaking changes test', () => {
-  test('should build 1 semi-breaking change', async () => {
+describe('Risky changes test', () => {
+  test('should build 1 risky change', async () => {
     const packageId = 'new-deprecated-semibreaking'
 
     await portal.publish('new-deprecated', {
@@ -154,7 +154,7 @@ describe('Semi-breaking changes test', () => {
     }))
   })
 
-  test('should build 3 semi-breaking change for removed required property and required status', async () => {
+  test('should build 3 risky change for removed required property and required status', async () => {
     const packageId = 'new-deprecated-semibreaking-required'
 
     await portal.publish('new-deprecated', {

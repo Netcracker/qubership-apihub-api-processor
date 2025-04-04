@@ -14,14 +14,7 @@
  * limitations under the License.
  */
 
-import {
-  API_KIND,
-  BREAKING_CHANGE_TYPE,
-  BUILD_TYPE,
-  RISKY_CHANGE_TYPE,
-  SEMI_BREAKING_CHANGE_TYPE,
-  VERSION_STATUS,
-} from '../src'
+import { API_KIND, BREAKING_CHANGE_TYPE, BUILD_TYPE, RISKY_CHANGE_TYPE, VERSION_STATUS } from '../src'
 import { Editor, LocalRegistry } from './helpers'
 
 let afterPackage: LocalRegistry
@@ -112,7 +105,7 @@ describe('API Kinds test', () => {
 })
 
 const portal = new LocalRegistry(AFTER_PACKAGE_ID)
-describe('Semi-breaking changes for no-bwc operations test', () => {
+describe('Risky changes for no-bwc operations test', () => {
   beforeAll(async () => {
     await portal.publish(AFTER_PACKAGE_ID, {
       packageId: AFTER_PACKAGE_ID,
@@ -135,7 +128,7 @@ describe('Semi-breaking changes for no-bwc operations test', () => {
     })
   })
 
-  test('should have 2 semi-breaking change for no-bwc operations (changed and removed)', async () => {
+  test('should have 2 risky change for no-bwc operations (changed and removed)', async () => {
     const editor = new Editor(AFTER_PACKAGE_ID, {
       packageId: AFTER_PACKAGE_ID,
       version: 'v2',
