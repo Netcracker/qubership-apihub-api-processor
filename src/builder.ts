@@ -406,7 +406,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     includeOperations?: boolean,
     includeSummary?: boolean,
   ): Promise<VersionCache | null> {
-    const compositeKey = getCompositeKey(packageId, version)
+    const compositeKey = getCompositeKey(packageId, version, String(includeOperations), String(includeSummary))
 
     if (this.canBeResolvedLocally(version, packageId)) {
       return this.currentVersion
