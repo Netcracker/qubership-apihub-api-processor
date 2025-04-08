@@ -322,6 +322,7 @@ async function compareCurrentApiType(
           const changedOperation = {
             apiType,
             operationId: takeSubstringIf(!!currGroupSlug, operationsEntry.current.operationId, removeFirstSlash(currentGroup ?? '').length),
+            previousOperationId: takeSubstringIf(!!prevGroupSlug, operationsEntry.previous.operationId, removeFirstSlash(previousGroup ?? '').length),
             dataHash: operationsEntry.current.dataHash,
             previousDataHash: operationsEntry.previous.dataHash,
             apiKind: operationsEntry.current.apiKind,

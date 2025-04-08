@@ -50,6 +50,7 @@ export type OperationChangesMetadata = {
 
 export interface OperationChanges {
   operationId: string
+  previousOperationId?: string
   apiType: BuilderType
   apiKind?: ApiKind
   previousApiKind?: ApiKind
