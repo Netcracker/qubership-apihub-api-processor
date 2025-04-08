@@ -45,7 +45,7 @@ export interface ResolvedComparisonSummary {
   operationTypes: OperationType[]
 }
 
-export interface OperationType<T extends string | number | symbol = DiffType> {
+export interface OperationType<T extends DiffType | DiffTypeDto = DiffType> {
   apiType: OperationsApiType
   changesSummary: ChangeSummary<T>
   numberOfImpactedOperations: ChangeSummary<T>
@@ -61,7 +61,7 @@ export const DEPRECATED_CHANGE_TYPE = deprecated
 export const ANNOTATION_CHANGE_TYPE = annotation
 export const SEMI_BREAKING_CHANGE_TYPE = 'semi-breaking'
 
-export type ChangeSummary<T extends string | number | symbol = DiffType> = Record<T, number>
+export type ChangeSummary<T extends DiffType | DiffTypeDto = DiffType> = Record<T, number>
 export type ImpactedOperationSummary = Record<DiffType, boolean>
 export const DIFF_TYPES: DiffType[] = Object.values(ClassifierType)
 

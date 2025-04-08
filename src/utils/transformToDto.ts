@@ -162,8 +162,8 @@ export function toVersionsComparisonDto({
 }
 
 export function convertDtoFieldOperationTypes<
-  T extends string | number | symbol = DiffTypeDto,
-  J extends string | number | symbol = DiffType>
+  T extends DiffTypeDto | DiffType = DiffTypeDto,
+  J extends DiffTypeDto | DiffType = DiffType>
 (operationTypes: ReadonlyArray<OperationType<T>>, {
   origin,
   override,
@@ -184,8 +184,8 @@ export function convertDtoFieldOperationTypes<
 }
 
 export function replacePropertyInChangesSummary<
-  T extends string | number | symbol = DiffTypeDto,
-  J extends string | number | symbol = DiffType>
+  T extends DiffTypeDto | DiffType = DiffTypeDto,
+  J extends DiffTypeDto | DiffType = DiffType>
 (obj: ChangeSummary<T>,
   {
     origin,
