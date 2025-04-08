@@ -48,7 +48,7 @@ export type OperationChangesMetadata = {
   previousOperationMetadata?: OperationChangesMetadata
 } & Partial<RestChangesMetadata> & Partial<GraphQLChangesMetadata>
 
-export interface OperationChanges<T extends string | number | symbol = DiffType> {
+export interface OperationChanges<T extends DiffType | DiffTypeDto = DiffType> {
   operationId: string
   apiType: BuilderType
   apiKind?: ApiKind
@@ -68,7 +68,7 @@ export interface OperationChangesDto extends Omit<OperationChanges<DiffTypeDto>,
   changes?: ChangeMessage<DiffTypeDto>[]
 }
 
-export interface VersionsComparison<T extends string | number | symbol = DiffType> {
+export interface VersionsComparison<T extends DiffType | DiffTypeDto = DiffType> {
   comparisonFileId?: string
   packageId: PackageId
   version: VersionId
@@ -81,7 +81,7 @@ export interface VersionsComparison<T extends string | number | symbol = DiffTyp
   data?: OperationChanges[]
 }
 
-export interface VersionsComparisonDto<T extends string | number | symbol = DiffTypeDto> extends Omit<VersionsComparison<T>, 'data'> {
+export interface VersionsComparisonDto<T extends DiffType | DiffTypeDto = DiffTypeDto> extends Omit<VersionsComparison<T>, 'data'> {
   data?: OperationChangesDto[]
 }
 
