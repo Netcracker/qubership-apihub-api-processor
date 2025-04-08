@@ -55,35 +55,35 @@ export const createVersionPackage = async (
       message: message,
     })
   }
-  const transformToDtoBuildResult: BuildResultDto = {
+  const buildResultDto: BuildResultDto = {
     ...buildResult,
     comparisons: buildResult.comparisons.map(comparison => toVersionsComparisonDto(comparison, logError)) as VersionsComparisonDto[],
   }
 
-  await createInfoFile(zip, transformToDtoBuildResult.config)
+  await createInfoFile(zip, buildResultDto.config)
 
-  const documents = transformToDtoBuildResult.merged ? [transformToDtoBuildResult.merged] : [...transformToDtoBuildResult.documents.values()]
+  const documents = buildResultDto.merged ? [buildResultDto.merged] : [...buildResultDto.documents.values()]
 
   createDocumentsFile(zip, documents)
   await createDocumentDataFiles(zip, documents, ctx)
 
-  createOperationsFile(zip, transformToDtoBuildResult.operations)
+  createOperationsFile(zip, buildResultDto.operations)
   const operationsDir = zip.folder(PACKAGE.OPERATIONS_DIR_NAME)!
-  for (const { data, operationId } of transformToDtoBuildResult.operations.values()) {
+  for (const { data, operationId } of buildResultDto.operations.values()) {
     createOperationDataFile(operationsDir, operationId, data)
   }
 
-  if (transformToDtoBuildResult.comparisons.length) {
-    const comparisons: PackageComparison[] = transformToDtoBuildResult.comparisons.map(({ data, ...rest }) => rest)
+  if (buildResultDto.comparisons.length) {
+    const comparisons: PackageComparison[] = buildResultDto.comparisons.map(({ data, ...rest }) => rest)
     createComparisonsFile(zip, { comparisons })
     const comparisonsDir = zip.folder(PACKAGE.COMPARISONS_DIR_NAME)
 
-    for (const comparison of transformToDtoBuildResult.comparisons) {
+    for (const comparison of buildResultDto.comparisons) {
       if (!comparison.comparisonFileId || !comparison.data) { continue }
       createComparisonDataFile(comparisonsDir!, comparison.comparisonFileId, { operations: comparison.data })
     }
   }
-  createNotificationsFile(zip, { notifications: transformToDtoBuildResult.notifications })
+  createNotificationsFile(zip, { notifications: buildResultDto.notifications })
 
   return await zip.buildResult(options)
 }
