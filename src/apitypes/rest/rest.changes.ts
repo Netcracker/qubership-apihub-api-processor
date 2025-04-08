@@ -59,9 +59,8 @@ export const compareRestOperationsData = async (current: VersionRestOperation | 
       normalizedResult: true,
       beforeSource: previous?.data,
       afterSource: current?.data,
-    }
+    },
   )
-  console.log('Тутэн')
   const olnyBreaking = diffResult.diffs.filter((diff) => diff.type === breaking)
   if (olnyBreaking.length > 0 && previous?.operationId) {
     await reclassifyBreakingChanges(previous.operationId, diffResult.merged, olnyBreaking, ctx)
@@ -73,9 +72,8 @@ async function reclassifyBreakingChanges(
   operationId: string,
   mergedJso: unknown,
   diffs: Diff[],
-  ctx: CompareOperationsPairContext
+  ctx: CompareOperationsPairContext,
 ): Promise<void> {
-  console.log('Тутэн')
   if (!ctx.previousVersion || !ctx.previousPackageId) {
     return
   }
@@ -84,6 +82,7 @@ async function reclassifyBreakingChanges(
     return
   }
   previosVersionDeprecations.operations[0]
+
   const previousOperation = previosVersionDeprecations.operations[0]
 
   if (!previousOperation?.deprecatedItems) { return }
@@ -95,7 +94,6 @@ async function reclassifyBreakingChanges(
 
     const deprecatedInVersionsCount = previousOperation?.deprecatedInPreviousVersions?.length ?? 0
     if (isOperationRemove(diff) && deprecatedInVersionsCount > 1) {
-      console.log('Тутэн')
       diff.type = risky
       continue
     }
@@ -142,15 +140,11 @@ async function reclassifyBreakingChanges(
       diff.type = risky
     }
   }
-
-
   // mark removed required status of the property as risky
   if (diffs.length) {
     const requiredProperties = findRequiredRemovedProperties(mergedJso, diffs)
-    //console.log('requiredProperties----->', requiredProperties)
 
     requiredProperties?.forEach(prop => {
-   //   console.log('requiredProperties----->', prop.propDiff)
       if (prop.propDiff.type === RISKY_CHANGE_TYPE && prop.requiredDiff?.type === BREAKING_CHANGE_TYPE) {
         prop.requiredDiff.type = risky
       }

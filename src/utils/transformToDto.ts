@@ -194,23 +194,18 @@ export function replacePropertyInChangesSummary<
     origin: SEMI_BREAKING_CHANGE_TYPE,
     override: risky,
   }): ChangeSummary<J> {
-  if (Object.prototype.hasOwnProperty.call(obj, origin)) {
-    const copyObj= {...obj}
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    copyObj[override] = copyObj[origin]
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    delete copyObj[origin]
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    return copyObj
-  } else {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    return obj
-  }
+  {
+    if (origin in obj) {
+      const copyObj = { ...obj } as Record<PropertyKey, unknown>
 
+      copyObj[override] = copyObj[origin]
+      delete copyObj[origin]
+
+      return copyObj as ChangeSummary<J>
+    }
+
+    return obj as unknown as ChangeSummary<J>
+  }
 }
 
 export type DiffTypeCompare = DiffType | DiffTypeDto
