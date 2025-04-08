@@ -50,8 +50,6 @@ describe('Risky changes test', () => {
     }, {}, portal)
 
     const result = await editor.run()
-
-
     expect(result).toEqual(changesSummaryMatcher({
       [NON_BREAKING_CHANGE_TYPE]: 1,
       [RISKY_CHANGE_TYPE]: 1,
@@ -92,8 +90,6 @@ describe('Risky changes test', () => {
     }, {}, portal)
 
     const result = await editor.run()
-
-
     expect(result).toEqual(changesSummaryMatcher({
       [BREAKING_CHANGE_TYPE]: 1,
       [RISKY_CHANGE_TYPE]: 1,

@@ -18,6 +18,8 @@ import { ChangeSummary, DiffTypeDto, OperationId, OperationType, PackageId, Vers
 import { ActionType, DiffAction, DiffType } from '@netcracker/qubership-apihub-api-diff'
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 
+export type ChangeMessage<T = DiffType> = ChangeAdd<T> | ChangeRemove<T> | ChangeReplace<T> | ChangeRename<T>
+
 export interface PackageComparisons {
   comparisons: PackageComparison[]
 }
@@ -82,5 +84,3 @@ export interface ChangeRename<T> extends ChangeBase<T> {
   currentKey: unknown
   previousKey: unknown
 }
-
-export type ChangeMessage<T = DiffType> = ChangeAdd<T> | ChangeRemove<T> | ChangeReplace<T> | ChangeRename<T>

@@ -103,8 +103,6 @@ describe('Deprecated Items test', () => {
     }, {}, portal)
 
     const result = await editor.run()
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
     expect(result.comparisons[0].operationTypes[0].changesSummary?.[RISKY_CHANGE_TYPE]).toBe(4)
   })
 })
