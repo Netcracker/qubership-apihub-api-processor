@@ -277,8 +277,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     version?: string,
     packageId?: string,
     operationIds?: OperationId[],
-    includeData: boolean = true,
-    operationsCount?: number,
+    includeData = true,
   ): Promise<ResolvedOperations | null> {
     if (!version) {
       return null
@@ -305,7 +304,6 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       packageId,
       operationIds,
       includeData,
-      operationsCount,
     )
 
     // validate for missing operationData
@@ -403,10 +401,8 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
   async versionResolver(
     version: string,
     packageId: string,
-    includeOperations?: boolean,
-    includeSummary?: boolean,
   ): Promise<VersionCache | null> {
-    const compositeKey = getCompositeKey(packageId, version, String(includeOperations), String(includeSummary))
+    const compositeKey = getCompositeKey(packageId, version)
 
     if (this.canBeResolvedLocally(version, packageId)) {
       return this.currentVersion
@@ -422,7 +418,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       throw new Error('No versionResolver provided')
     }
 
-    const versionContent = await versionResolver(packageId, version, includeOperations, includeSummary)
+    const versionContent = await versionResolver(packageId, version)
 
     if (!versionContent) {
       this.notifications.push({
