@@ -142,14 +142,10 @@ export class LocalRegistry implements IRegistry {
         {
           apiType: REST_API_TYPE,
           changesSummary: getChangesSummary(REST_API_TYPE),
-          // todo
-          // operationsCount: operations
         },
         {
           apiType: GRAPHQL_API_TYPE,
           changesSummary: getChangesSummary(GRAPHQL_API_TYPE),
-          // todo
-          // operationsCount:
         },
       ],
     }

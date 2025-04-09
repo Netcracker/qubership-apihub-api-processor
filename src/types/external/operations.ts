@@ -27,7 +27,6 @@ export type VersionOperationsResolver = (
   packageId: PackageId,
   operationsIds?: OperationId[],
   includeData?: boolean,
-  operationsCount?: number,
 ) => Promise<ResolvedOperations | null>
 
 export interface ResolvedOperations {

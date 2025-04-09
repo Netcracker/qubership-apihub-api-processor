@@ -134,13 +134,8 @@ async function compareCurrentApiType(
   const apiBuilder = ctx.apiBuilders.find((builder) => apiType === builder.apiType)
   if (!apiBuilder) { return null }
 
-  const [prevOperationTypesData, currOperationTypesData] = getOperationTypesFromTwoVersions(prev, curr)
-
-  const prevOperationsCount = prevOperationTypesData.find(data => apiType === data.apiType)?.operationsCount
-  const currOperationsCount = currOperationTypesData.find(data => apiType === data.apiType)?.operationsCount
-
-  const { operations: prevOperations = [] } = await versionOperationsResolver(apiType, prev?.version ?? '', prev?.packageId ?? '', undefined, false, prevOperationsCount) || {}
-  const { operations: currOperations = [] } = await versionOperationsResolver(apiType, curr?.version ?? '', curr?.packageId ?? '', undefined, false, currOperationsCount) || {}
+  const { operations: prevOperations = [] } = await versionOperationsResolver(apiType, prev?.version ?? '', prev?.packageId ?? '', undefined, false) || {}
+  const { operations: currOperations = [] } = await versionOperationsResolver(apiType, curr?.version ?? '', curr?.packageId ?? '', undefined, false) || {}
 
   const [prevReducedOperationIdToHashMap, prevReducedOperationIdToOriginal] = getOperationsHashMapByApiType(apiType, prevOperations, ctx)
   const [currReducedOperationIdToHashMap, currReducedOperationIdToOriginal] = getOperationsHashMapByApiType(apiType, currOperations, ctx, true)
