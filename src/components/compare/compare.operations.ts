@@ -197,7 +197,7 @@ async function compareCurrentApiType(
     ) || {}
 
     if (!operations?.length) {
-      const errorMessage = `Cannot get operations for package ${packageId} and version ${version} (with ids=${operationIds.join(',')})`
+      const errorMessage = `Cannot get operations for package ${packageId} and version ${version} (requested ids=${operationIds})`
       ctx.notifications.push({
         severity: MESSAGE_SEVERITY.Error,
         message: errorMessage,
@@ -206,7 +206,7 @@ async function compareCurrentApiType(
     }
     if (operations.length !== operationIds.length) {
       const notResolvedOperationIds = operationIds.filter(id => !operations.find(({ operationId }) => id === operationId))
-      const errorMessage = `Some operations (${notResolvedOperationIds}) for package ${packageId} and version ${version} (with ids=${operationIds.join(',')})`
+      const errorMessage = `Cannot get some operations (${notResolvedOperationIds}) for package ${packageId} and version ${version} (requested ids=${operationIds})`
       ctx.notifications.push({
         severity: MESSAGE_SEVERITY.Error,
         message: errorMessage,
