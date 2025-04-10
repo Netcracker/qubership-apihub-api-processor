@@ -418,7 +418,9 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       throw new Error('No versionResolver provided')
     }
 
-    const versionContent = await versionResolver(packageId, version)
+    // includeOperations=true is only used to extract unique apiTypes (see getUniqueApiTypesFromVersions)
+    // the operations map itself is no longer used in processor
+    const versionContent = await versionResolver(packageId, version, true)
 
     if (!versionContent) {
       this.notifications.push({

@@ -20,6 +20,7 @@ import { ChangeSummary } from './comparison'
 export type VersionResolver = (
   packageId: PackageId,
   version: VersionId,
+  includeOperations?: boolean,
 ) => Promise<ResolvedVersion | null>
 
 export type ResolvedVersion = {
