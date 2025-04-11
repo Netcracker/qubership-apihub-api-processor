@@ -81,7 +81,7 @@ export interface VersionsComparison<T extends DiffType | DiffTypeDto = DiffType>
   data?: OperationChanges[]
 }
 
-export interface VersionsComparisonDto<T extends DiffType | DiffTypeDto = DiffTypeDto> extends Omit<VersionsComparison<T>, 'data'> {
+export interface VersionsComparisonDto extends Omit<VersionsComparison<DiffTypeDto>, 'data'> {
   data?: OperationChangesDto[]
 }
 

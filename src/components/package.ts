@@ -29,7 +29,8 @@ import {
   PackageNotifications,
   PackageOperation,
   PackageOperations,
-  VersionDocument, VersionsComparisonDto, BuildResult,
+  VersionDocument,
+  BuildResult,
 } from '../types'
 import { unknownApiBuilder } from '../apitypes'
 import { MESSAGE_SEVERITY, PACKAGE } from '../consts'
@@ -57,7 +58,7 @@ export const createVersionPackage = async (
   }
   const buildResultDto: BuildResultDto = {
     ...buildResult,
-    comparisons: buildResult.comparisons.map(comparison => toVersionsComparisonDto(comparison, logError)) as VersionsComparisonDto[],
+    comparisons: buildResult.comparisons.map(comparison => toVersionsComparisonDto(comparison, logError)),
   }
 
   await createInfoFile(zip, buildResultDto.config)
