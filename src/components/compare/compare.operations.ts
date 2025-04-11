@@ -228,7 +228,7 @@ async function compareCurrentApiType(
 
       const changedOperation = {
         apiType,
-        operationId: operation.operationId,
+        [isOperationAdded ? 'operationId' : 'previousOperationId']: operation.operationId,
         [isOperationAdded ? 'dataHash' : 'previousDataHash']: operation.dataHash,
         [isOperationAdded ? 'apiKind' : 'previousApiKind']: operation.apiKind,
         diffs: operationDiffs,
