@@ -15,10 +15,12 @@
  */
 
 import {
+  ApiBuilder,
   ChangeSummary,
   CompareContext,
   DIFF_TYPES,
   ImpactedOperationSummary,
+  NormalizedOperationId,
   OperationChangesMetadata,
   OperationId,
   OperationsApiType,
@@ -94,22 +96,19 @@ export function getOperationTypesFromTwoVersions(
 type OperationIdWithoutGroupPrefix = string
 export type OperationIdentityMap = Record<OperationIdWithoutGroupPrefix, OperationId>
 
-type NormalizedOperationId = `${NormalizedPath}-${OpenAPIV3.HttpMethods}`
-
 export function getOperationsHashMapByApiType(
-  currentApiType: OperationsApiType,
+  apiBuilder: ApiBuilder,
   operations: ResolvedOperation[],
   ctx: CompareContext,
   areOperationsFromCurrentVersion: boolean = false,
 ): [ResolvedVersionOperationsHashMap, OperationIdentityMap] {
   const { buildType, currentGroup, previousGroup } = ctx.config
-  const currentApiTypeOperations = operations.filter(({ apiType }) => apiType === currentApiType)
-
   const resolvedHashMap: ResolvedVersionOperationsHashMap = {}
   const normalizedToOriginalOperationIdMap: Record<NormalizedOperationId | OperationId, OperationId> = {}
 
-  for (const { operationId, apiType, metadata, dataHash } of currentApiTypeOperations) {
-    const normalizedOperationId = apiType === REST_API_TYPE ? slugify(`${metadata.path}-${metadata.method}`, [], IGNORE_PATH_PARAM_UNIFIED_PLACEHOLDER) : operationId
+  for (const operation of operations) {
+    const { operationId, dataHash } = operation
+    const normalizedOperationId = apiBuilder.createNormalizedOperationId?.(operation) ?? operationId
     resolvedHashMap[normalizedOperationId] = dataHash
     normalizedToOriginalOperationIdMap[normalizedOperationId] = operationId
   }

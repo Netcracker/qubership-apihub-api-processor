@@ -16,6 +16,7 @@
 
 import {
   ApiAudienceTransition,
+  ApiBuilder,
   CompareContext,
   CompareOperationsPairContext,
   OperationChanges,
@@ -33,7 +34,6 @@ import {
   getOperationMetadata,
   getOperationsHashMapByApiType,
   getOperationTags,
-  getOperationTypesFromTwoVersions,
   getUniqueApiTypesFromVersions,
   takeSubstringIf,
   totalChanges,
@@ -45,14 +45,12 @@ import {
   calculateImpactedSummary,
   executeInBatches,
   getSplittedVersionKey,
-  IGNORE_PATH_PARAM_UNIFIED_PLACEHOLDER,
   removeFirstSlash,
   removeObjectDuplicates,
   slugify,
 } from '../../utils'
 import { asyncDebugPerformance, DebugPerformanceContext } from '../../utils/logs'
 import { validateBwcBreakingChanges } from './bwc.validation'
-import { REST_API_TYPE } from '../../apitypes'
 
 export async function compareVersionsOperations(
   prev: VersionParams,
@@ -137,8 +135,8 @@ async function compareCurrentApiType(
   const { operations: prevOperations = [] } = await versionOperationsResolver(apiType, prev?.version ?? '', prev?.packageId ?? '', undefined, false) || {}
   const { operations: currOperations = [] } = await versionOperationsResolver(apiType, curr?.version ?? '', curr?.packageId ?? '', undefined, false) || {}
 
-  const [prevReducedOperationIdToHashMap, prevReducedOperationIdToOriginal] = getOperationsHashMapByApiType(apiType, prevOperations, ctx)
-  const [currReducedOperationIdToHashMap, currReducedOperationIdToOriginal] = getOperationsHashMapByApiType(apiType, currOperations, ctx, true)
+  const [prevReducedOperationIdToHashMap, prevReducedOperationIdToOriginal] = getOperationsHashMapByApiType(apiBuilder, prevOperations, ctx)
+  const [currReducedOperationIdToHashMap, currReducedOperationIdToOriginal] = getOperationsHashMapByApiType(apiBuilder, currOperations, ctx, true)
 
   const reducedOperationIds = new Set([...Object.keys(prevReducedOperationIdToHashMap), ...Object.keys(currReducedOperationIdToHashMap)])
   const operationsMapping: OperationsMappingResult = { [HANDLE_TYPE_ADDED]: [], [HANDLE_TYPE_REMOVED]: [], [HANDLE_TYPE_CHANGED]: {} }
@@ -249,7 +247,7 @@ async function compareCurrentApiType(
     const { operations: currOperationsWithoutData = [] } = await versionOperationsResolver(apiType, currVersion, currPackageId, previousBatch, false) || {}
     const { operations: prevOperationsWithoutData = [] } = await versionOperationsResolver(apiType, prevVersion, prevPackageId, currentBatch, false) || {}
 
-    const pairOperationsMap = createPairOperationsMap(currGroupSlug, prevGroupSlug, currOperationsWithoutData, prevOperationsWithoutData)
+    const pairOperationsMap = createPairOperationsMap(currGroupSlug, prevGroupSlug, currOperationsWithoutData, prevOperationsWithoutData, apiBuilder)
     Object.values(pairOperationsMap).forEach((pair) => {
       calculateApiAudienceTransitions(pair.current, pair.previous, apiAudienceTransitions)
     })
@@ -359,19 +357,26 @@ async function compareCurrentApiType(
   ]
 }
 
-const createPairOperationsMap = (currGroupSlug: string, prevGroupSlug: string, currentOperations: ResolvedOperation[], previousOperations: ResolvedOperation[]): Record<string, { previous?: ResolvedOperation; current: ResolvedOperation }> => {
+const createPairOperationsMap = (
+  currGroupSlug: string,
+  prevGroupSlug: string,
+  currentOperations: ResolvedOperation[],
+  previousOperations: ResolvedOperation[],
+  apiBuilder: ApiBuilder,
+): Record<string, {
+  previous?: ResolvedOperation
+  current: ResolvedOperation
+}> => {
 
   const operationsMap: Record<string, { previous?: ResolvedOperation; current: ResolvedOperation }> = {}
 
   for (const currentOperation of currentOperations) {
-    // todo
-    const normalizedOperationId = currentOperation.apiType === REST_API_TYPE ? slugify(`${currentOperation.metadata.path}-${currentOperation.metadata.method}`, [], IGNORE_PATH_PARAM_UNIFIED_PLACEHOLDER) : currentOperation.operationId
+    const normalizedOperationId = apiBuilder.createNormalizedOperationId?.(currentOperation) ?? currentOperation.operationId
     operationsMap[takeSubstringIf(!!currGroupSlug, normalizedOperationId, currGroupSlug.length)] = { current: currentOperation }
   }
 
   for (const previousOperation of previousOperations) {
-    // todo
-    const normalizedOperationId = previousOperation.apiType === REST_API_TYPE ? slugify(`${previousOperation.metadata.path}-${previousOperation.metadata.method}`, [], IGNORE_PATH_PARAM_UNIFIED_PLACEHOLDER) : previousOperation.operationId
+    const normalizedOperationId = apiBuilder.createNormalizedOperationId?.(previousOperation) ?? previousOperation.operationId
     const prevOperationId = takeSubstringIf(!!prevGroupSlug, normalizedOperationId, prevGroupSlug.length)
     const operationsMappingElement = operationsMap[prevOperationId]
     if (operationsMappingElement) {
