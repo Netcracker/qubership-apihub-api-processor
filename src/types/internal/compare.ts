@@ -49,7 +49,8 @@ export type OperationChangesMetadata = {
 } & Partial<RestChangesMetadata> & Partial<GraphQLChangesMetadata>
 
 export interface OperationChanges {
-  operationId: string
+  operationId?: string
+  previousOperationId?: string
   apiType: BuilderType
   apiKind?: ApiKind
   previousApiKind?: ApiKind

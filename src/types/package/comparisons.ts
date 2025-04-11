@@ -39,7 +39,8 @@ export interface PackageComparisonOperations {
 }
 
 export interface PackageComparisonOperation {
-  operationId: OperationId
+  operationId?: OperationId
+  previousOperationId?: OperationId
   dataHash?: string
   previousDataHash?: string
   changeSummary?: ChangeSummary
