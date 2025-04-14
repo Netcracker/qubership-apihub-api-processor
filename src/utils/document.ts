@@ -88,7 +88,6 @@ createSlug.extend({ '_': '_' })
 createSlug.extend({ '.': '-' })
 createSlug.extend({ '(': '-' })
 createSlug.extend({ ')': '-' })
-// createSlug.extend({ '*': '*' })
 
 export const findSharedPath = (fileIds: string[]): string => {
   if (!fileIds.length) { return '' }

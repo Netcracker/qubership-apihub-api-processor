@@ -282,7 +282,7 @@ async function compareCurrentApiType(
       const { operations: prevOperationsWithData = [] } = await versionOperationsResolver(apiType, prevVersion, prevPackageId, previousBatch) || {}
       const { operations: currOperationsWithData = [] } = await versionOperationsResolver(apiType, currVersion, currPackageId, currentBatch) || {}
 
-      const operationsMap = createPairOperationsMap(currGroupSlug, prevGroupSlug, currOperationsWithData, prevOperationsWithData)
+      const operationsMap = createPairOperationsMap(currGroupSlug, prevGroupSlug, currOperationsWithData, prevOperationsWithData, apiBuilder)
 
       // compare Operations Data
       for (const operationId of Object.keys(operationsMap)) {
