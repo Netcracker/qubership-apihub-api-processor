@@ -28,6 +28,7 @@ import {
   ResolvedDocuments,
   ResolvedOperations,
   VersionId,
+  VersionsComparison,
 } from './types'
 import {
   ApiBuilder,
@@ -44,7 +45,6 @@ import {
   OperationChanges,
   VersionCache,
   VersionDocument,
-  VersionsComparisonDto,
 } from './types/internal'
 import type { NotificationMessage, PackageConfig } from './types/package'
 import { graphqlApiBuilder, REST_API_TYPE, restApiBuilder, textApiBuilder, unknownApiBuilder } from './apitypes'
@@ -79,7 +79,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
   apiBuilders: ApiBuilder[] = []
   documents = new Map<string, VersionDocument>()
   operations = new Map<string, ApiOperation>()
-  comparisons: VersionsComparisonDto[] = []
+  comparisons: VersionsComparison[] = []
 
   versionsCache = new Map<string, VersionCache>()
   referencesCache = new Map<string, BuildConfigRef[]>()
@@ -476,7 +476,10 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       return []
     }
 
-    const referencesCache: BuildConfigRef[] = Object.values(versionReferences.packages ?? {}).filter(pack => !pack.deletedAt).map(pack => ({ refId: pack.refId, version: pack.version }))
+    const referencesCache: BuildConfigRef[] = Object.values(versionReferences.packages ?? {}).filter(pack => !pack.deletedAt).map(pack => ({
+      refId: pack.refId,
+      version: pack.version,
+    }))
     this.referencesCache.set(compositeKey, referencesCache)
 
     return referencesCache
