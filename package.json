@@ -1,6 +1,6 @@
 {
   "name": "@netcracker/qubership-apihub-api-processor",
-  "version": "3.1.1",
+  "version": "3.1.1-feature-ignore-param-name-while-matching",
   "description": "",
   "license": "Apache-2.0",
   "module": "dist/esm/src/index.js",
@@ -16,6 +16,7 @@
     }
   },
   "scripts": {
+    "update-dev-deps": "npm ls --json | jq -r \".dependencies | keys[]\" | grep '@netcracker' | xargs --no-run-if-empty npm update",
     "build": "tsc --module commonjs --outDir dist/cjs && vite build",
     "build:web": "vite build",
     "performance:build": "vite build --sourcemap=inline -c=vite.performance.config.ts",
