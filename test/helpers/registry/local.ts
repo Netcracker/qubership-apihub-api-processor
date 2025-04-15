@@ -162,11 +162,15 @@ export class LocalRegistry implements IRegistry {
     const { operations } = await this.getVersion(packageId || this.packageId, version) ?? {}
 
     const versionOperations: ResolvedOperation[] = (operationsIds ?? [...operations?.keys() ?? []])
-      ?.filter(id => operations?.has(id))
-      .map((id) => ({
-        ...operations!.get(id)!,
-        data: includeData ? operations?.get(id)?.data : undefined,
-      }))
+      .flatMap(id => {
+        const operation = operations?.get(id)
+        return operation?.apiType === apiType
+          ? [{
+            ...operation,
+            data: includeData ? operation.data : undefined,
+          }]
+          : []
+      })
 
     return { operations: versionOperations }
   }

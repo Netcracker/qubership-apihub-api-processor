@@ -19,8 +19,7 @@ import { BUILD_TYPE } from '../src'
 
 const pkg = LocalRegistry.openPackage('apihub')
 
-// TODO 15.04.25: remove skip
-describe.skip('Prefix Groups test',  () => {
+describe('Prefix Groups test',  () => {
   beforeAll(async () => {
     // generate missing versions/apihub folder contents
     await pkg.publish(pkg.packageId, {
