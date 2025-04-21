@@ -232,7 +232,7 @@ async function compareCurrentApiType(
         diffs: operationDiffs,
         changeSummary: changeSummary,
         impactedSummary: impactedSummary,
-        metadata: getOperationMetadata(operation),
+        [isOperationAdded ? 'metadata' : 'previousMetadata']: getOperationMetadata(operation),
       }
       validateBwcBreakingChanges(changedOperation)
       changedOperations.set(operation.operationId, changedOperation)
@@ -323,10 +323,8 @@ async function compareCurrentApiType(
             diffs: operationDiffs,
             changeSummary: changeSummary,
             impactedSummary: impactedSummary,
-            metadata: {
-              ...getOperationMetadata(operationsEntry.current),
-              previousOperationMetadata: getOperationMetadata(operationsEntry.previous),
-            },
+            metadata: getOperationMetadata(operationsEntry.current),
+            previousMetadata: getOperationMetadata(operationsEntry.previous),
           }
           validateBwcBreakingChanges(changedOperation)
           changedOperations.set(operationId, changedOperation)
