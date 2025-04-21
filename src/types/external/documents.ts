@@ -15,6 +15,7 @@
  */
 
 import { OperationsApiType, PackageId, VersionId } from './types'
+import { ResolvedReferenceMap } from './references'
 
 export type VersionDocumentsResolver = (
   apiType: OperationsApiType,
@@ -25,6 +26,7 @@ export type VersionDocumentsResolver = (
 
 export type ResolvedDocuments = {
   documents: ReadonlyArray<ResolvedDocument>
+  packages: ResolvedReferenceMap
 }
 
 export type ResolvedDocument = {
@@ -38,4 +40,5 @@ export type ResolvedDocument = {
   labels: string[]
   includedOperationIds?: string[]
   data?: string
+  packageRef?: string
 }

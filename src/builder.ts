@@ -72,6 +72,8 @@ import { BuildStrategy, ChangelogStrategy, DocumentGroupStrategy, PrefixGroupsCh
 import { BuilderStrategyContext } from './builder-strategy'
 import { MergedDocumentGroupStrategy } from './strategies/merged-document-group.strategy'
 import { asyncDebugPerformance } from './utils/logs'
+import { ExportRestOperationsGroupStrategy } from './strategies/rest-operations-group.strategy'
+// import { ExportVersionStrategy } from './strategies/export-version.strategy'
 
 export const DEFAULT_RUN_OPTIONS: BuilderRunOptions = {
   cleanCache: false,
@@ -228,6 +230,18 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
 
     if (buildType === BUILD_TYPE.MERGED_SPECIFICATION) {
       builderStrategyContext.setStrategy(new MergedDocumentGroupStrategy())
+    }
+
+    // if (buildType === BUILD_TYPE.EXPORT_VERSION) {
+    //   builderStrategyContext.setStrategy(new ExportVersionStrategy())
+    // }
+
+    // if (buildType === BUILD_TYPE.EXPORT_REST_DOCUMENT) {
+    //   builderStrategyContext.setStrategy(new MergedDocumentGroupStrategy())
+    // }
+
+    if (buildType === BUILD_TYPE.EXPORT_REST_OPERATIONS_GROUP) {
+      builderStrategyContext.setStrategy(new ExportRestOperationsGroupStrategy())
     }
 
     await asyncDebugPerformance('[Builder]', async (debugCtx) => {

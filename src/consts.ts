@@ -80,6 +80,9 @@ export const BUILD_TYPE = {
   DOCUMENT_GROUP: 'documentGroup',
   REDUCED_SOURCE_SPECIFICATIONS: 'reducedSourceSpecifications',
   MERGED_SPECIFICATION: 'mergedSpecification',
+  EXPORT_VERSION: 'exportVersion',
+  EXPORT_REST_DOCUMENT: 'exportRestDocument',
+  EXPORT_REST_OPERATIONS_GROUP: 'exportRestOperationsGroup',
 } as const
 
 export const VERSION_STATUS = {

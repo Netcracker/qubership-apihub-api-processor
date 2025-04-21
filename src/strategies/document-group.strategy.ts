@@ -21,7 +21,7 @@ import {
   BuildTypeContexts,
   FileFormat,
   JSON_EXPORT_GROUP_FORMAT,
-  ResolvedDocument,
+  ResolvedDocument, ResolvedReferenceMap,
   VersionDocument,
 } from '../types'
 import { REST_API_TYPE } from '../apitypes'
@@ -43,7 +43,7 @@ import { normalize } from '@netcracker/qubership-apihub-api-unifier'
 import { calculateSpecRefs, extractCommonPathItemProperties } from '../apitypes/rest/rest.operation'
 import { groupBy } from 'graphql/jsutils/groupBy'
 
-async function getTransformedDocument(document: ResolvedDocument, format: FileFormat): Promise<VersionRestDocument> {
+async function getTransformedDocument(document: ResolvedDocument, format: FileFormat, packages: ResolvedReferenceMap): Promise<VersionRestDocument> {
   const versionDocument = toVersionDocument(document, format)
 
   const source = extractDocumentData(versionDocument)
@@ -59,6 +59,13 @@ async function getTransformedDocument(document: ResolvedDocument, format: FileFo
   versionDocument.publish = true
 
   calculateSpecRefs(source, normalizedDocument, versionDocument.data)
+
+  // dashboard case
+  if (document.packageRef) {
+    const { refId } = packages[document.packageRef]
+    versionDocument.fileId = `${refId}_${versionDocument.fileId}`
+    versionDocument.filename = `${refId}_${versionDocument.filename}`
+  }
 
   return versionDocument
 }
@@ -83,17 +90,17 @@ export class DocumentGroupStrategy implements BuilderStrategy {
 
     const builderContextObject = builderContext(config)
 
-    const { documents } = await builderContextObject.versionDocumentsResolver(
-      apiType,
+    const { documents, packages } = await builderContextObject.versionDocumentsResolver(
+      REST_API_TYPE,
       version,
       packageId,
       groupName,
-    ) ?? { documents: [] }
+    ) ?? { documents: [], packages: {} }
 
     const transformTasks = []
 
     for (const document of documents) {
-      transformTasks.push(getTransformedDocument(document, documentFormat))
+      transformTasks.push(getTransformedDocument(document, documentFormat, packages))
     }
 
     const transformedDocuments = await Promise.all(transformTasks)
