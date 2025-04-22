@@ -239,7 +239,7 @@ export class ApihubRegistry implements IRegistry {
   ): Promise<ResolvedDocuments | null> {
     const encodedPackageKey = encodeURIComponent(packageId)
     const encodedVersionKey = encodeURIComponent(version)
-    const response: ResolvedDocuments = { documents: [] }
+    const response: ResolvedDocuments = { documents: [], packages: {} }
 
     const LIMIT = 100
     let page = 0

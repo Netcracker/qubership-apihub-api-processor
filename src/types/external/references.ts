@@ -41,7 +41,7 @@ export interface ReferencedPackage {
   name: string
   version: string
   status: VersionStatus
-  parentPackages: string[]
+  parentPackages?: string[]
   deletedAt?: string
   deletedBy?: string
   notLatestRevision?: string
