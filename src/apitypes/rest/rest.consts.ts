@@ -37,7 +37,7 @@ export const REST_FILE_FORMAT = {
   YAML: FILE_FORMAT_YAML,
   YML: FILE_FORMAT_YML,
   JSON: FILE_FORMAT_JSON,
-}
+} as const
 
 export const REST_KIND_KEY = 'x-api-kind'
 
