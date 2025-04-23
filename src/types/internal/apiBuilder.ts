@@ -23,7 +23,7 @@ import {
   PackageId,
   ResolvedOperation,
   VersionDeprecatedResolver,
-  VersionDocumentsResolver,
+  GroupDocumentsResolver,
   VersionId,
 } from '../external'
 import { CompareContext, OperationChanges } from './compare'
@@ -54,7 +54,7 @@ export interface BuilderContext<T = any> {
   config: BuildConfig
   builderRunOptions: BuilderRunOptions
   configuration?: BuilderConfiguration
-  versionDocumentsResolver: VersionDocumentsResolver
+  groupDocumentsResolver: GroupDocumentsResolver
   templateResolver?: TemplateResolver
   versionLabels?: Array<string>
 }

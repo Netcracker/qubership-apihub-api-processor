@@ -15,7 +15,7 @@
  */
 
 import { BuildConfigFile, BuilderContext, File, FILE_KIND, TextFile, VersionDocument } from '../types'
-import { API_KIND, API_KIND_LABEL, DOCUMENT_TYPE } from '../consts'
+import { API_KIND, API_KIND_LABEL, DOCUMENT_TYPE, FILE_FORMAT_UNKNOWN } from '../consts'
 import { getDocumentTitle, getFileExtension, rawToApiKind } from '../utils'
 import { buildBinaryDocument, unknownApiBuilder } from '../apitypes'
 
@@ -24,7 +24,7 @@ export const buildErrorDocument = (file: BuildConfigFile, parsedFile?: TextFile)
   return {
     fileId: fileId,
     type: DOCUMENT_TYPE.UNKNOWN,
-    format: getFileExtension(fileId),
+    format: FILE_FORMAT_UNKNOWN,
     data: '',
     slug,
     publish,

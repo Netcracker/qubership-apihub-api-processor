@@ -114,6 +114,7 @@ export const FILE_FORMAT_UNKNOWN = 'unknown'
 export const FILE_FORMAT_GRAPHQL = 'graphql'
 export const FILE_FORMAT_GQL = 'gql'
 export const FILE_FORMAT_MD = 'md'
+export const FILE_FORMAT_PROTO = 'proto'
 
 export const FILE_FORMAT = {
   JSON: FILE_FORMAT_JSON,
@@ -123,7 +124,8 @@ export const FILE_FORMAT = {
   GRAPHQL: FILE_FORMAT_GRAPHQL,
   GQL: FILE_FORMAT_GQL,
   MD: FILE_FORMAT_MD,
-}
+  PROTO: FILE_FORMAT_PROTO,
+} as const
 
 export const SUPPORTED_FILE_FORMATS = Object.values(FILE_FORMAT)
 

@@ -24,7 +24,7 @@ export interface VersionDocuments {
 export interface VersionDocument<T = any> {
   fileId: FileId
   type: string
-  format: string
+  format: FileFormat
   data: T
   slug: string
   title: string

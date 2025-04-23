@@ -25,10 +25,9 @@ import {
   PackageId,
   ResolvedComparisonSummary,
   ResolvedDeprecatedOperations,
-  ResolvedDocuments,
+  ResolvedGroupDocuments,
   ResolvedOperations,
   ResolvedVersionOperationsHashMap,
-  VALIDATION_RULES_SEVERITY_LEVEL_WARNING,
   VersionId,
   VersionsComparison,
 } from './types'
@@ -172,7 +171,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       config: this.config,
       configuration: this.params.configuration,
       builderRunOptions: this.builderRunOptions,
-      versionDocumentsResolver: this.versionDocumentsResolver.bind(this),
+      groupDocumentsResolver: this.groupDocumentsResolver.bind(this),
       templateResolver: this.params.resolvers.templateResolver,
       versionLabels: this.config.metadata?.versionLabels as Array<string>,
     }
@@ -336,20 +335,20 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     return operations
   }
 
-  async versionDocumentsResolver(
+  async groupDocumentsResolver(
     apiType: OperationsApiType,
     version: VersionId,
     packageId: PackageId,
     filterByOperationGroup: string,
-  ): Promise<ResolvedDocuments | null> {
+  ): Promise<ResolvedGroupDocuments | null> {
     packageId = packageId ?? this.config.packageId
 
-    const { versionDocumentsResolver } = this.params.resolvers
-    if (!versionDocumentsResolver) {
-      throw new Error('No versionDocumentsResolver provided')
+    const { groupDocumentsResolver } = this.params.resolvers
+    if (!groupDocumentsResolver) {
+      throw new Error('No groupDocumentsResolver provided')
     }
 
-    const documents = await versionDocumentsResolver(
+    const documents = await groupDocumentsResolver(
       apiType,
       version,
       packageId,
@@ -542,7 +541,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       return this.parsedFiles.get(fileId) ?? null
     }
 
-    if (SUPPORTED_FILE_FORMATS.includes(getFileExtension(fileId))) {
+    if ((SUPPORTED_FILE_FORMATS as string[]).includes(getFileExtension(fileId))) {
       for (const { parser } of this.apiBuilders) {
         try {
           // todo check source.type

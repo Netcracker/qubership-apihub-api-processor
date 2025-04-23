@@ -16,7 +16,7 @@
 
 import { VersionComparisonResolver } from './comparison'
 import { VersionDeprecatedResolver } from './deprecated'
-import { VersionDocumentsResolver } from './documents'
+import { GroupDocumentsResolver, VersionDocumentsResolver } from './documents'
 import { VersionOperationsResolver } from './operations'
 import { VersionReferencesResolver } from './references'
 import { VersionResolver } from './version'
@@ -32,6 +32,7 @@ export interface BuilderResolvers {
   versionReferencesResolver?: VersionReferencesResolver
   versionDeprecatedResolver?: VersionDeprecatedResolver
   versionComparisonResolver?: VersionComparisonResolver
+  groupDocumentsResolver?: GroupDocumentsResolver
   versionDocumentsResolver?: VersionDocumentsResolver
   templateResolver?: TemplateResolver
 }

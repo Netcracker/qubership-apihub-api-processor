@@ -27,7 +27,7 @@ import {
   JSON_EXPORT_GROUP_FORMAT,
   OperationsGroupExportFormat,
   PackageDocument,
-  ResolvedDocument,
+  ResolvedGroupDocument,
   VALIDATION_RULES_SEVERITY_LEVEL_ERROR,
   VALIDATION_RULES_SEVERITY_LEVEL_WARNING,
   VersionDocument,
@@ -43,7 +43,7 @@ export const EXPORT_FORMAT_TO_FILE_FORMAT = new Map<OperationsGroupExportFormat,
   [HTML_EXPORT_GROUP_FORMAT, FILE_FORMAT_JSON],
 ])
 
-export function toVersionDocument(document: ResolvedDocument, fileFormat: FileFormat): VersionDocument {
+export function toVersionDocument(document: ResolvedGroupDocument, fileFormat: FileFormat): VersionDocument {
   return {
     data: document.data,
     version: document.version,

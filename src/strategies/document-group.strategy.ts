@@ -21,7 +21,7 @@ import {
   BuildTypeContexts,
   FileFormat,
   JSON_EXPORT_GROUP_FORMAT,
-  ResolvedDocument,
+  ResolvedGroupDocument,
   ResolvedReferenceMap,
   VersionDocument,
 } from '../types'
@@ -41,7 +41,7 @@ import { INLINE_REFS_FLAG, NORMALIZE_OPTIONS } from '../consts'
 import { normalize } from '@netcracker/qubership-apihub-api-unifier'
 import { calculateSpecRefs, extractCommonPathItemProperties } from '../apitypes/rest/rest.operation'
 
-async function getTransformedDocument(document: ResolvedDocument, format: FileFormat, packages: ResolvedReferenceMap): Promise<VersionRestDocument> {
+async function getTransformedDocument(document: ResolvedGroupDocument, format: FileFormat, packages: ResolvedReferenceMap): Promise<VersionRestDocument> {
   const versionDocument = toVersionDocument(document, format)
 
   const source = extractDocumentData(versionDocument)
@@ -88,7 +88,7 @@ export class DocumentGroupStrategy implements BuilderStrategy {
 
     const builderContextObject = builderContext(config)
 
-    const { documents, packages } = await builderContextObject.versionDocumentsResolver(
+    const { documents, packages } = await builderContextObject.groupDocumentsResolver(
       REST_API_TYPE,
       version,
       packageId,

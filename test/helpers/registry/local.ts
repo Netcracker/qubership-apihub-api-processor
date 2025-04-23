@@ -40,8 +40,8 @@ import {
   ResolvedComparisonSummary,
   ResolvedDeprecatedOperation,
   ResolvedDeprecatedOperations,
-  ResolvedDocument,
-  ResolvedDocuments,
+  ResolvedGroupDocument,
+  ResolvedGroupDocuments,
   ResolvedOperation,
   ResolvedOperations,
   ResolvedReferenceMap,
@@ -97,7 +97,7 @@ export class LocalRegistry implements IRegistry {
       versionReferencesResolver: this.versionReferencesResolver.bind(this),
       versionComparisonResolver: this.versionComparisonResolver.bind(this),
       versionDeprecatedResolver: this.versionDeprecatedResolver.bind(this),
-      versionDocumentsResolver: this.versionDocumentsResolver.bind(this),
+      groupDocumentsResolver: this.groupDocumentsResolver.bind(this),
     }
   }
 
@@ -190,12 +190,12 @@ export class LocalRegistry implements IRegistry {
     return { operations: versionOperations }
   }
 
-  async versionDocumentsResolver(
+  async groupDocumentsResolver(
     apiType: OperationsApiType,
     version: string,
     packageId: string,
     filterByOperationGroup: string,
-  ): Promise<ResolvedDocuments | null> {
+  ): Promise<ResolvedGroupDocuments | null> {
     const { config: { refs = [] } = {}, documents } = await this.getVersion(packageId || this.packageId, version) ?? {}
 
     const documentsFromVersion = Array.from(documents?.values() ?? [])
@@ -231,7 +231,7 @@ export class LocalRegistry implements IRegistry {
     return (id: string): boolean => this.groupToOperationIdsMap[filterByOperationGroup]?.includes(id)
   }
 
-  private resolveDocuments(documents: VersionDocument[], filterOperationIdsByGroup: (id: string) => boolean, refId?: string): ResolvedDocument[] {
+  private resolveDocuments(documents: VersionDocument[], filterOperationIdsByGroup: (id: string) => boolean, refId?: string): ResolvedGroupDocument[] {
     return documents
       .filter(versionDocument => versionDocument.operationIds.some(filterOperationIdsByGroup))
       .map(document => ({
@@ -244,6 +244,7 @@ export class LocalRegistry implements IRegistry {
         labels: [],
         title: document.title,
         includedOperationIds: document.operationIds.filter(filterOperationIdsByGroup),
+        description: document.description,
         data: toBase64(JSON.stringify(document.data)),
         ...takeIfDefined({ packageRef: refId }),
       }))

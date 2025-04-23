@@ -16,6 +16,9 @@
 
 import { BuildConfigRef, BuildType, PackageId, VersionId } from '../external'
 
+
+//todo this is info.json, add format and other missing fields
+// https://apihub.netcracker.com/portal/packages/NC.CP.AH.RS/2025.1/operations/rest/api-v3-packages-packageid-publish-publishid-status-post?mode=raw#/
 export interface PackageConfig {
   packageId: PackageId
   version: VersionId

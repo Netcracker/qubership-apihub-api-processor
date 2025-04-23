@@ -16,29 +16,57 @@
 
 import { OperationsApiType, PackageId, VersionId } from './types'
 import { ResolvedReferenceMap } from './references'
+import { FileFormat } from '../internal'
 
 export type VersionDocumentsResolver = (
   apiType: OperationsApiType,
   version: VersionId,
   packageId: PackageId,
   filterByOperationGroup: string,
-) => Promise<ResolvedDocuments | null>
+) => Promise<ResolvedVersionDocuments | null>
 
-export type ResolvedDocuments = {
-  documents: ReadonlyArray<ResolvedDocument>
+export type ResolvedVersionDocuments = {
+  documents: ReadonlyArray<ResolvedVersionDocument>
   packages: ResolvedReferenceMap
 }
 
-export type ResolvedDocument = {
+export type ResolvedVersionDocument = {
   fileId: string
   filename: string
   slug: string
   type: string
-  format: string
+  format: FileFormat
   title: string
   version?: string
-  labels: string[]
+  labels?: Labels
+  packageRef?: string
+}
+
+export type Labels = string[]
+
+export type GroupDocumentsResolver = (
+  apiType: OperationsApiType,
+  version: VersionId,
+  packageId: PackageId,
+  filterByOperationGroup: string,
+) => Promise<ResolvedGroupDocuments | null>
+
+export type ResolvedGroupDocuments = {
+  documents: ReadonlyArray<ResolvedGroupDocument>
+  packages: ResolvedReferenceMap
+}
+
+export type ResolvedGroupDocument = {
+  fileId: string
+  filename: string
+  slug: string
+  type: string
+  format: FileFormat
+  title: string
+  version?: string
+  labels?: Labels
   includedOperationIds?: string[]
   data?: string
   packageRef?: string
+  description: string
 }
