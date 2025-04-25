@@ -127,15 +127,6 @@ export interface BundlingError {
 }
 
 export const createBundlingErrorHandler = (ctx: BuilderContext, fileId: FileId) => (errors: BundlingError[]): void => {
-  // Always push all errors to notifications
-  for (const error of errors) {
-    ctx.notifications.push({
-      severity: MESSAGE_SEVERITY.Error,
-      message: error.message,
-      fileId: fileId,
-    })
-  }
-
   // Only throw if severity is ERROR and there's at least one critical error
   if (ctx.config.validationRulesSeverity?.brokenRefs === VALIDATION_RULES_SEVERITY_LEVEL_ERROR) {
     const criticalError = errors.find(error => 
@@ -146,6 +137,15 @@ export const createBundlingErrorHandler = (ctx: BuilderContext, fileId: FileId) 
     if (criticalError) {
       throw new Error(criticalError.message)
     }
+  }
+
+  // In other cases push all errors to notifications
+  for (const error of errors) {
+    ctx.notifications.push({
+      severity: MESSAGE_SEVERITY.Error,
+      message: error.message,
+      fileId: fileId,
+    })
   }
 }
 
