@@ -82,7 +82,7 @@ describe('Reference bundling test', () => {
     ).rejects.toThrow(/not a valid text file/)
   })
 
-  test('should not throw error on publishing specification with incorrect description override', async () => {
+  test('should collect notifications on publishing specification with incorrect description override', async () => {
     const pkg = LocalRegistry.openPackage('reference-bundling/description-override')
     const result = await pkg.publish(pkg.packageId, {
       validationRulesSeverity: {
