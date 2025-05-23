@@ -16,12 +16,12 @@
 
 import { VersionComparisonResolver } from './comparison'
 import { VersionDeprecatedResolver } from './deprecated'
-import { VersionDocumentsResolver } from './documents'
+import { GroupDocumentsResolver, VersionDocumentsResolver } from './documents'
 import { VersionOperationsResolver } from './operations'
 import { VersionReferencesResolver } from './references'
 import { VersionResolver } from './version'
 import { FileId } from './types'
-import { TemplateResolver } from '../internal'
+import { RawDocumentResolver, TemplateResolver } from '../internal'
 
 export type FileResolver = (fileId: FileId) => Promise<Blob | null>
 
@@ -32,6 +32,8 @@ export interface BuilderResolvers {
   versionReferencesResolver?: VersionReferencesResolver
   versionDeprecatedResolver?: VersionDeprecatedResolver
   versionComparisonResolver?: VersionComparisonResolver
+  groupDocumentsResolver?: GroupDocumentsResolver
   versionDocumentsResolver?: VersionDocumentsResolver
+  rawDocumentResolver?: RawDocumentResolver
   templateResolver?: TemplateResolver
 }

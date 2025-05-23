@@ -26,7 +26,9 @@ import {
   EMPTY_CHANGE_SUMMARY,
   FILE_FORMAT,
   GRAPHQL_API_TYPE,
-  graphqlApiBuilder, MESSAGE_SEVERITY,
+  graphqlApiBuilder,
+  KIND_PACKAGE,
+  MESSAGE_SEVERITY,
   NotificationMessage,
   OperationId,
   OperationsApiType,
@@ -38,8 +40,8 @@ import {
   ResolvedComparisonSummary,
   ResolvedDeprecatedOperation,
   ResolvedDeprecatedOperations,
-  ResolvedDocument,
-  ResolvedDocuments,
+  ResolvedGroupDocument,
+  ResolvedGroupDocuments,
   ResolvedOperation,
   ResolvedOperations,
   ResolvedReferenceMap,
@@ -66,7 +68,7 @@ import {
   saveNotifications,
   saveOperationsArray,
 } from './utils'
-import { getCompositeKey, getSplittedVersionKey, isNotEmpty, toBase64 } from '../../../src/utils'
+import { getCompositeKey, getSplittedVersionKey, isNotEmpty, takeIfDefined, toBase64 } from '../../../src/utils'
 import { groupBy } from 'graphql/jsutils/groupBy'
 import { IRegistry } from './types'
 import { calculateTotalChangeSummary } from '../../../src/components/compare'
@@ -94,7 +96,7 @@ export class LocalRegistry implements IRegistry {
       versionReferencesResolver: this.versionReferencesResolver.bind(this),
       versionComparisonResolver: this.versionComparisonResolver.bind(this),
       versionDeprecatedResolver: this.versionDeprecatedResolver.bind(this),
-      versionDocumentsResolver: this.versionDocumentsResolver.bind(this),
+      groupDocumentsResolver: this.groupDocumentsResolver.bind(this),
     }
   }
 
@@ -175,18 +177,18 @@ export class LocalRegistry implements IRegistry {
     return { operations: versionOperations }
   }
 
-  async versionDocumentsResolver(
+  async groupDocumentsResolver(
     apiType: OperationsApiType,
     version: string,
     packageId: string,
     filterByOperationGroup: string,
-  ): Promise<ResolvedDocuments | null> {
+  ): Promise<ResolvedGroupDocuments | null> {
     const { config: { refs = [] } = {}, documents } = await this.getVersion(packageId || this.packageId, version) ?? {}
 
     const documentsFromVersion = Array.from(documents?.values() ?? [])
 
     if (isNotEmpty(documentsFromVersion)) {
-      return { documents: this.resolveDocuments(documentsFromVersion, this.filterOperationIdsByGroup(filterByOperationGroup)) }
+      return { documents: this.resolveDocuments(documentsFromVersion, this.filterOperationIdsByGroup(filterByOperationGroup)), packages: {} }
     }
 
     const documentsFromRefs = (
@@ -194,18 +196,29 @@ export class LocalRegistry implements IRegistry {
         const versionCache = await this.getVersion(refId, version)
         if (!versionCache) return []
         const { documents } = versionCache
-        return Array.from(documents.values())
+        return this.resolveDocuments(Array.from(documents.values()), this.filterOperationIdsByGroup(filterByOperationGroup), refId)
       }))
     ).flat()
 
-    return { documents: this.resolveDocuments(documentsFromRefs, this.filterOperationIdsByGroup(filterByOperationGroup)) }
+    const packages = refs.reduce((acc, ref) => {
+      acc[ref.refId] = {
+        refId: ref.refId,
+        version: ref.version,
+        kind: KIND_PACKAGE,
+        name: ref.refId,
+        status: VERSION_STATUS.DRAFT,
+      }
+      return acc
+    }, {} as ResolvedReferenceMap)
+
+    return { documents: documentsFromRefs, packages: packages }
   }
 
   private filterOperationIdsByGroup(filterByOperationGroup: string): (id: string) => boolean {
     return (id: string): boolean => this.groupToOperationIdsMap[filterByOperationGroup]?.includes(id)
   }
 
-  private resolveDocuments(documents: VersionDocument[], filterOperationIdsByGroup: (id: string) => boolean): ResolvedDocument[] {
+  private resolveDocuments(documents: VersionDocument[], filterOperationIdsByGroup: (id: string) => boolean, refId?: string): ResolvedGroupDocument[] {
     return documents
       .filter(versionDocument => versionDocument.operationIds.some(filterOperationIdsByGroup))
       .map(document => ({
@@ -218,7 +231,9 @@ export class LocalRegistry implements IRegistry {
         labels: [],
         title: document.title,
         includedOperationIds: document.operationIds.filter(filterOperationIdsByGroup),
+        description: document.description,
         data: toBase64(JSON.stringify(document.data)),
+        ...takeIfDefined({ packageRef: refId }),
       }))
   }
 
@@ -282,7 +297,9 @@ export class LocalRegistry implements IRegistry {
           packages[packageRef] = {
             refId: ref.refId,
             version: ref.version,
-            versionRevision: 0,
+            kind: KIND_PACKAGE,
+            name: ref.refId,
+            status: VERSION_STATUS.DRAFT,
           }
           references.push({
             packageRef: packageRef,
