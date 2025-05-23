@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { BuildConfigFile, BuilderContext, File, FILE_KIND, TextFile, VersionDocument } from '../types'
+import { BuildConfigFile, BuilderContext, SourceFile, FILE_KIND, TextFile, VersionDocument } from '../types'
 import { API_KIND, API_KIND_LABEL, DOCUMENT_TYPE, FILE_FORMAT_UNKNOWN } from '../consts'
 import { getDocumentTitle, getFileExtension, rawToApiKind } from '../utils'
 import { buildBinaryDocument, unknownApiBuilder } from '../apitypes'
@@ -38,7 +38,7 @@ export const buildErrorDocument = (file: BuildConfigFile, parsedFile?: TextFile)
   }
 }
 
-export const buildDocument = async (parsedFile: File, file: BuildConfigFile, ctx: BuilderContext): Promise<VersionDocument> => {
+export const buildDocument = async (parsedFile: SourceFile, file: BuildConfigFile, ctx: BuilderContext): Promise<VersionDocument> => {
 
   if (parsedFile.kind === FILE_KIND.BINARY) {
     return await buildBinaryDocument(parsedFile, file)

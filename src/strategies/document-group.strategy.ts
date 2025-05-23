@@ -41,11 +41,11 @@ import { INLINE_REFS_FLAG, NORMALIZE_OPTIONS } from '../consts'
 import { normalize } from '@netcracker/qubership-apihub-api-unifier'
 import { calculateSpecRefs, extractCommonPathItemProperties } from '../apitypes/rest/rest.operation'
 
-async function getTransformedDocument(document: ResolvedGroupDocument, format: FileFormat, packages: ResolvedReferenceMap): Promise<VersionRestDocument> {
+function getTransformedDocument(document: ResolvedGroupDocument, format: FileFormat, packages: ResolvedReferenceMap): VersionRestDocument {
   const versionDocument = toVersionDocument(document, format)
 
   const source = extractDocumentData(versionDocument)
-  versionDocument.data = await transformDocumentData(versionDocument)
+  versionDocument.data = transformDocumentData(versionDocument)
   const normalizedDocument = normalize(
     versionDocument.data,
     {
@@ -95,16 +95,9 @@ export class DocumentGroupStrategy implements BuilderStrategy {
       groupName,
     ) ?? { documents: [], packages: {} }
 
-    const transformTasks = []
-
     for (const document of documents) {
-      transformTasks.push(getTransformedDocument(document, documentFormat, packages))
-    }
-
-    const transformedDocuments = await Promise.all(transformTasks)
-
-    for (const document of transformedDocuments) {
-      buildResult.documents.set(document.fileId, document)
+      const transformedDocument = getTransformedDocument(document, documentFormat, packages)
+      buildResult.documents.set(transformedDocument.fileId, transformedDocument)
     }
 
     return buildResult
@@ -123,7 +116,7 @@ function extractDocumentData(versionDocument: VersionDocument): OpenAPIV3.Docume
   }
 }
 
-async function transformDocumentData(versionDocument: VersionDocument): Promise<OpenAPIV3.Document> {
+function transformDocumentData(versionDocument: VersionDocument): OpenAPIV3.Document {
 
   const documentData = extractDocumentData(versionDocument)
   const { paths, components, ...rest } = documentData

@@ -15,7 +15,7 @@
  */
 
 import { FileId, KeyOfConstType, OperationsApiType, PackageId, VersionId } from './types'
-import { BUILD_TYPE, VERSION_STATUS } from '../../consts'
+import { BUILD_TYPE, FILE_FORMAT_HTML, FILE_FORMAT_JSON, FILE_FORMAT_YAML, VERSION_STATUS } from '../../consts'
 import { OpenApiExtensionKey } from '@netcracker/qubership-apihub-api-unifier'
 
 export type BuildType = KeyOfConstType<typeof BUILD_TYPE>
@@ -30,6 +30,11 @@ export type OperationsGroupExportFormat =
   | typeof JSON_EXPORT_GROUP_FORMAT
   | typeof HTML_EXPORT_GROUP_FORMAT
 
+export type ExportFormat =
+  | typeof FILE_FORMAT_YAML
+  | typeof FILE_FORMAT_JSON
+  | typeof FILE_FORMAT_HTML
+
 export const VALIDATION_RULES_SEVERITY_LEVEL_ERROR = 'error'
 export const VALIDATION_RULES_SEVERITY_LEVEL_WARNING = 'warning'
 
@@ -41,14 +46,14 @@ export interface ValidationRulesSeverity {
   brokenRefs: ValidationRulesSeverityLevel
 }
 
-export interface BuildConfig {
+export interface BuildConfig extends BuildConfigBase {
   packageId: PackageId
   version: VersionId // @revision for rebuild
   status: VersionStatus
   previousVersion?: VersionId
   previousVersionPackageId?: PackageId
 
-  buildType?: BuildType
+  buildType: BuildType
 
   currentGroup?: string
   previousGroup?: string
@@ -61,13 +66,19 @@ export interface BuildConfig {
   metadata?: Record<string, unknown>
   format?: OperationsGroupExportFormat
 
+  // todo since it goes straight to the info.json, remove it from every buildconfig except the one that is 'build'
   validationRulesSeverity?: ValidationRulesSeverity
   operationsSpecTransformation?: OperationsSpecTransformation
 }
 
+// todo rename
 export interface BuildConfigBase {
 // export interface BuildConfig {
   buildType: BuildType
+}
+
+export function isPublishBuildConfig(config: BuildConfigBase): config is PublishBuildConfig {
+  return config.buildType === BUILD_TYPE.BUILD
 }
 
 export interface PublishBuildConfig extends BuildConfigBase {
@@ -98,7 +109,7 @@ export interface ExportRestDocumentBuildConfig extends BuildConfigBase {
   documentId: string
   // apiType?: OperationsApiType //todo Document transformation is available only for apiType = REST
   format: OperationsGroupExportFormat
-  allowedOasExtensions?: OpenApiExtensionKey
+  allowedOasExtensions?: OpenApiExtensionKey[]
 }
 
 export interface ExportRestOperationsGroupBuildConfig extends BuildConfigBase {

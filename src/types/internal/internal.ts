@@ -41,7 +41,7 @@ export interface BinaryFile extends FileBase {
   kind: typeof FILE_KIND.BINARY
 }
 
-export type File = TextFile | BinaryFile
+export type SourceFile = TextFile | BinaryFile
 
 export interface VersionFiles<T = VersionDocument> {
   files: T[]
