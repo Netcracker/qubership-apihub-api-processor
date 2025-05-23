@@ -84,6 +84,8 @@ export interface CompareOperationsPairContext {
   currentPackageId: PackageId
 }
 
+export type NormalizedOperationId = string
+
 export type FileParser = (fileId: string, data: Blob) => Promise<SourceFile | undefined>
 export type DocumentBuilder<T> = (parsedFile: TextFile, file: BuildConfigFile, ctx: BuilderContext<T>) => Promise<VersionDocument<T>>
 export type OperationsBuilder<T, M = any> = (document: VersionDocument<T>, ctx: BuilderContext<T>, debugCtx?: DebugPerformanceContext) => Promise<ApiOperation<M>[]>
@@ -94,6 +96,7 @@ export type OperationChangesValidator = (
   previousOperation?: RestOperationData, // TODO remove
   prePreviousOperation?: RestOperationData, // TODO remove
 ) => boolean
+export type OperationIdNormalizer = (operation: ResolvedOperation) => NormalizedOperationId
 export type BreakingChangeReclassifier = (changes: OperationChanges[], previousVersion: string, previousPackageId: string, ctx: CompareContext) => Promise<void>
 
 export interface ApiBuilder<T = any, O = any, M = any> {
@@ -105,6 +108,7 @@ export interface ApiBuilder<T = any, O = any, M = any> {
   buildOperations?: OperationsBuilder<T, M>
   compareOperationsData?: OperationDataCompare<O>
   validateOperationChanges?: OperationChangesValidator
+  createNormalizedOperationId?: OperationIdNormalizer
 }
 
 // internal
