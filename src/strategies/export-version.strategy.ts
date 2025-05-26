@@ -50,7 +50,7 @@ async function getTransformedDocument(document: ResolvedVersionDocument, format:
     const sourceString = JSON.parse(await source.text())
     return {
       ...versionDocumentBase,
-      data: removeOasExtensions(JSON.parse(sourceString), allowedOasExtensions),
+      data: removeOasExtensions(sourceString, allowedOasExtensions),
     }
   }
   if (source.type.startsWith('application/octet-stream')) {
