@@ -107,7 +107,7 @@ export class Editor {
     return this.builder.createVersionPackage()
   }
 
-  async createNodeVersionPackage(): Promise<Buffer> {
+  async createNodeVersionPackage(): Promise<{ packageVersion: any; fileName: string }> {
     return this.builder.createNodeVersionPackage()
   }
 

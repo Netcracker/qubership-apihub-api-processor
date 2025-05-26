@@ -21,10 +21,11 @@ export interface VersionDocuments {
   documents: VersionDocument[]
 }
 
+// todo is there's a need to convert everything to VersionDocument, even if it is for export? (looks like yes cos buildBinaryDocument and buildUnknownDocument already use it) (nope)
 export interface VersionDocument<T = any> {
   fileId: FileId
   type: string
-  format: string
+  format: FileFormat
   data: T
   slug: string
   title: string
@@ -32,7 +33,6 @@ export interface VersionDocument<T = any> {
   version?: string
   filename: string
   dependencies: string[]
-  //TODO: Rename to operationIds in future
   operationIds: OperationId[]
   metadata: Record<string, unknown>
   errors?: number

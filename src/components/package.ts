@@ -20,6 +20,7 @@ import { version } from '../../package.json'
 import {
   ApiOperation,
   BuilderContext,
+  BuildResult,
   BuildResultDto,
   PackageComparison,
   PackageComparisonOperations,
@@ -30,18 +31,39 @@ import {
   PackageOperation,
   PackageOperations,
   VersionDocument,
-  BuildResult,
 } from '../types'
 import { unknownApiBuilder } from '../apitypes'
-import { MESSAGE_SEVERITY, PACKAGE } from '../consts'
+import { BUILD_TYPE, MESSAGE_SEVERITY, PACKAGE } from '../consts'
 import { takeIf, toPackageDocument } from '../utils'
 import { toVersionsComparisonDto } from '../utils/transformToDto'
+import { dumpRestDocument } from '../apitypes/rest/rest.document'
+// import license from '../../templates/ls.html?raw'
+// import license from './ls.html?raw'
 
 export interface ZipTool {
   // todo method should only accept Blob content, transformation is not a responsibility of this method
   file: (name: string, content: object | string | Blob) => Promise<void>
   folder: (name: string) => ZipTool
   buildResult: (options?: JSZip.JSZipGeneratorOptions) => Promise<any>
+}
+
+export const createExportResult = async (
+  buildResult: BuildResult,
+  zip: ZipTool,
+  ctx: BuilderContext,
+  options?: JSZip.JSZipGeneratorOptions,
+): Promise<any> => {
+  const { config: { format } } = ctx
+
+  for (const document of [...buildResult.documents.values()]) {
+    // const apiBuilder = apiBuilders.find(({ types }) => types.includes(document.type)) || unknownApiBuilder
+    // const data = apiBuilder.dumpDocument(document, format)
+    const data = dumpRestDocument(document, format)
+
+    await zip.file(document.filename, data)
+  }
+
+  return await zip.buildResult(options)
 }
 
 export const createVersionPackage = async (
@@ -61,12 +83,25 @@ export const createVersionPackage = async (
     comparisons: buildResult.comparisons.map(comparison => toVersionsComparisonDto(comparison, logError)),
   }
 
-  await createInfoFile(zip, buildResultDto.config)
-
   const documents = buildResultDto.merged ? [buildResultDto.merged] : [...buildResultDto.documents.values()]
+
+  if (buildResult.config.buildType === BUILD_TYPE.EXPORT_REST_DOCUMENT) {
+    const { config: { format } } = ctx
+    return Buffer.from(await dumpRestDocument(buildResultDto.exportDocuments[0], format).arrayBuffer())
+  }
+
+  if (
+    buildResult.config.buildType === BUILD_TYPE.EXPORT_VERSION ||
+    buildResult.config.buildType === BUILD_TYPE.EXPORT_REST_OPERATIONS_GROUP
+  ) {
+    await createExportDocumentDataFiles(zip, buildResultDto.exportDocuments, ctx)
+    // await zip.file('ls.html', license)
+    return await zip.buildResult(options)
+  }
 
   createDocumentsFile(zip, documents)
   await createDocumentDataFiles(zip, documents, ctx)
+  await createInfoFile(zip, buildResultDto.config)
 
   createOperationsFile(zip, buildResultDto.operations)
   const operationsDir = zip.folder(PACKAGE.OPERATIONS_DIR_NAME)!
@@ -122,6 +157,21 @@ const createDocumentDataFiles = async (zip: ZipTool, documents: VersionDocument[
       apiBuilders.find(({ types }) => types.includes(document.type)) || unknownApiBuilder
     const data = apiBuilder.dumpDocument(document, format)
     await documentsDir?.file(document.filename, data)
+  }
+}
+
+const createExportDocumentDataFiles = async (zip: ZipTool, documents: VersionDocument[], ctx: BuilderContext): Promise<void> => {
+
+  const { apiBuilders, config: { format } } = ctx
+
+  for (const document of documents) {
+    // skip components
+    if (!document.publish) { continue }
+
+    const apiBuilder =
+      apiBuilders.find(({ types }) => types.includes(document.type)) || unknownApiBuilder
+    const data = apiBuilder.dumpDocument(document, format)
+    await zip.file(document.filename, data)
   }
 }
 

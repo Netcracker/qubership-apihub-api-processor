@@ -76,6 +76,8 @@ export class MergedDocumentGroupStrategy extends DocumentGroupStrategy {
     buildResult.merged = {
       fileId: info.title,
       type: firstDocument.type,
+      // todo html will be handled in api-processor
+      // @ts-ignore
       format: format,
       data: mergeOpenapiDocuments(specs, info, templateDocument),
       slug: info.title,

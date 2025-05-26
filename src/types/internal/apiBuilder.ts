@@ -18,6 +18,7 @@ import {
   BuildConfig,
   BuildConfigFile,
   BuildConfigRef,
+  GroupDocumentsResolver,
   OperationsApiType,
   OperationsGroupExportFormat,
   PackageId,
@@ -33,7 +34,7 @@ import { NotificationMessage } from '../package/notifications'
 import { RestOperationData } from '../../apitypes/rest/rest.types'
 import { GRAPHQL_API_TYPE, REST_API_TYPE, TEXT_API_TYPE, UNKNOWN_API_TYPE } from '../../apitypes'
 import { ChangeMessage } from '../package'
-import { File, TextFile } from './internal'
+import { SourceFile, TextFile } from './internal'
 import { ApiOperation } from './operation'
 import { Diff } from '@netcracker/qubership-apihub-api-diff'
 import { DebugPerformanceContext } from '../../utils/logs'
@@ -55,7 +56,9 @@ export interface BuilderContext<T = any> {
   builderRunOptions: BuilderRunOptions
   configuration?: BuilderConfiguration
   versionDocumentsResolver: VersionDocumentsResolver
+  groupDocumentsResolver: GroupDocumentsResolver
   templateResolver?: TemplateResolver
+  rawDocumentResolver?: RawDocumentResolver
   versionLabels?: Array<string>
 }
 
@@ -65,6 +68,12 @@ export type TemplateResolver = (
   packageId: PackageId,
   filterByOperationGroup: string,
 ) => Promise<string>
+
+export type RawDocumentResolver = (
+  version: VersionId,
+  packageId: PackageId,
+  slug: string,
+) => Promise<File | null>
 
 export interface CompareOperationsPairContext {
   notifications: NotificationMessage[]
@@ -77,7 +86,7 @@ export interface CompareOperationsPairContext {
 
 export type NormalizedOperationId = string
 
-export type FileParser = (fileId: string, data: Blob) => Promise<File | undefined>
+export type FileParser = (fileId: string, data: Blob) => Promise<SourceFile | undefined>
 export type DocumentBuilder<T> = (parsedFile: TextFile, file: BuildConfigFile, ctx: BuilderContext<T>) => Promise<VersionDocument<T>>
 export type OperationsBuilder<T, M = any> = (document: VersionDocument<T>, ctx: BuilderContext<T>, debugCtx?: DebugPerformanceContext) => Promise<ApiOperation<M>[]>
 export type DocumentDumper<T> = (document: VersionDocument<T>, format?: OperationsGroupExportFormat) => Blob
@@ -106,5 +115,5 @@ export interface ApiBuilder<T = any, O = any, M = any> {
 export type _VersionResolver = (packageId: PackageId, version: VersionId) => Promise<VersionCache | null>
 export type _VersionReferencesResolver = (packageId: PackageId, version: VersionId) => Promise<BuildConfigRef[]>
 
-export type _ParsedFileResolver = (fileId: string) => Promise<File | null>
+export type _ParsedFileResolver = (fileId: string) => Promise<SourceFile | null>
 export type _OperationResolver = (operationId: string) => ResolvedOperation | null
