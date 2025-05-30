@@ -19,32 +19,44 @@ import {
   BuildResult,
   BuildTypeContexts,
   ExportRestDocumentBuildConfig,
-  FileFormat,
-  VersionDocument,
+  HTML_EXPORT_GROUP_FORMAT,
+  OperationsGroupExportFormat,
+  ZippableDocument,
 } from '../types'
 import { REST_DOCUMENT_TYPE } from '../apitypes'
 import { getDocumentTitle } from '../utils'
 import { OpenApiExtensionKey } from '@netcracker/qubership-apihub-api-unifier'
 import { removeOasExtensions } from '../utils/removeOasExtensions'
+import {
+  createCommonStaticExportDocuments,
+  createExportDocument,
+  createHtmlDocument,
+  createSingleFileExportName,
+} from '../utils/export'
 
-async function getTransformedDocument(documentId: string, format: FileFormat, file: File, allowedOasExtensions?: OpenApiExtensionKey[]): Promise<VersionDocument> {
-  const sourceString = await file.text()
+async function createTransformedDocument(
+  file: File,
+  format: OperationsGroupExportFormat,
+  packageId: string,
+  version: string,
+  allowedOasExtensions?: OpenApiExtensionKey[],
+): Promise<ZippableDocument> {
+  const data = removeOasExtensions(JSON.parse(await file.text()), allowedOasExtensions)
+
+  if (format === HTML_EXPORT_GROUP_FORMAT) {
+    return createExportDocument(
+      `${getDocumentTitle(file.name)}.${HTML_EXPORT_GROUP_FORMAT}`,
+      await createHtmlDocument(JSON.stringify(data, undefined, 2), getDocumentTitle(file.name), packageId, version),
+    )
+  }
 
   return {
-    // todo make data optional
-    data: removeOasExtensions(JSON.parse(sourceString), allowedOasExtensions),
+    data: data,
     fileId: file.name,
     type: REST_DOCUMENT_TYPE.OAS3, // todo one of REST_DOCUMENT_TYPE
-    format,
-    slug: documentId,
-    title: getDocumentTitle(file.name),
-    dependencies: [],
     description: '',
-    operationIds: [],
     publish: true,
-    // filename: file.name,
-    filename: file.name,
-    metadata: {},
+    filename: `${getDocumentTitle(file.name)}.${format}`,
     source: file,
   }
 }
@@ -55,21 +67,21 @@ export class ExportRestDocumentStrategy implements BuilderStrategy {
     const builderContextObject = builderContext(config)
     const { packageId, version, documentId, format, allowedOasExtensions } = config
 
-    const file = await builderContextObject.rawDocumentResolver?.(
+    const file = await builderContextObject.rawDocumentResolver(
       version,
       packageId,
       documentId, //document.slug,
     )
 
-    if (!file) {
-      throw new Error(`File ${documentId} is missing`)
+    buildResult.exportDocuments.push(await createTransformedDocument(file, format, packageId, version, allowedOasExtensions))
+
+    if (format === HTML_EXPORT_GROUP_FORMAT) {
+      buildResult.exportDocuments.push(...await createCommonStaticExportDocuments())
+      buildResult.exportFileName = createSingleFileExportName(packageId, version, getDocumentTitle(file.name), 'zip')
+      return buildResult
     }
 
-    // buildResult.documents.set(document.fileId, getTransformedDocument(document, format, file))
-    // todo handle HTML format
-    // @ts-ignore
-    buildResult.exportDocuments.push(await getTransformedDocument(documentId, format, file, allowedOasExtensions))
-    buildResult.exportFileName = `${packageId}_${version}_${getDocumentTitle(file.name)}.${format}`
+    buildResult.exportFileName = createSingleFileExportName(packageId, version, getDocumentTitle(file.name), format)
 
     return buildResult
   }

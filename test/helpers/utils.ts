@@ -16,6 +16,7 @@
 
 import fs from 'fs/promises'
 import path from 'path'
+import mime from 'mime-types'
 
 import {
   BUILD_TYPE,
@@ -34,10 +35,14 @@ export const loadFileAsString = async (filePath: string, folder: string, fileNam
   return (await loadFile(filePath, folder, fileName))?.text() ?? null
 }
 
-export const loadFile = async (filePath: string, folder: string, fileName: string): Promise<Blob | null> => {
+export const loadFile = async (filePath: string, folder: string, fileName: string): Promise<File | null> => {
   try {
     const filepath = path.join(process.cwd(), filePath, folder, fileName)
-    return new Blob([await fs.readFile(filepath)])
+    const mediaType = mime.lookup(filepath)
+    if (!mediaType) {
+      console.error('Can\'t lookup the media type')
+    }
+    return new File([await fs.readFile(filepath)], fileName, { type: mediaType || '' })
   } catch (error) {
     //throw new Error(`Error while reading file: ${error}`)
     return null

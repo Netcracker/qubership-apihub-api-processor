@@ -2,24 +2,24 @@
 <html>
 <head>
    <meta charset="utf-8">
-   <title>%s</title>
+   <title>{{title}}</title>
    <link rel="stylesheet" type="text/css" href="resources/styles.css">
 </head>
 <body>
-   <script>%s</script>
+   <script>{{apispecViewScript}}</script>
 
    <div class="header">
      <img class="header__logo" src="resources/corporatelogo.png"/>
      <div class="header__info">
-       <h3>%s</h3>
-       <h4>Version: %s</h4>
+       <h3>{{packageId}}</h3>
+       <h4>Version: {{version}}</h4>
      </div>
    </div>
 
    <div class="page">
      <div class="card content">
        <apispec-view
-         apiDescriptionDocument='%s'
+         apiDescriptionDocument='{{spec}}'
          router="hash"
          layout="sidebar"
          hideExport
@@ -30,7 +30,7 @@
         <a href="ls.html">Legal statement</a>
       </span>
        <span class="footer__legal">
-        %s<br><br>
+        {{projectTitle}}<br><br>
         qubership-apihub
       </span>
      </div>

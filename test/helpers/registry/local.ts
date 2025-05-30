@@ -33,6 +33,7 @@ import {
   OperationId,
   OperationsApiType,
   PACKAGE,
+  PackageId,
   PackageNotifications,
   PackageVersionBuilder,
   ReferenceElement,
@@ -47,6 +48,7 @@ import {
   ResolvedReferenceMap,
   ResolvedReferences,
   ResolvedVersion,
+  ResolvedVersionDocuments,
   REST_API_TYPE,
   restApiBuilder,
   REVISION_DELIMITER,
@@ -55,6 +57,7 @@ import {
   VERSION_STATUS,
   VersionDocument,
   VersionDocuments,
+  VersionId,
   VersionsComparison,
 } from '../../../src'
 import {
@@ -69,7 +72,6 @@ import {
   saveOperationsArray,
 } from './utils'
 import { getCompositeKey, getSplittedVersionKey, isNotEmpty, takeIfDefined, toBase64 } from '../../../src/utils'
-import { groupBy } from 'graphql/jsutils/groupBy'
 import { IRegistry } from './types'
 import { calculateTotalChangeSummary } from '../../../src/components/compare'
 import { toVersionsComparisonDto } from '../../../src/utils/transformToDto'
@@ -97,6 +99,8 @@ export class LocalRegistry implements IRegistry {
       versionComparisonResolver: this.versionComparisonResolver.bind(this),
       versionDeprecatedResolver: this.versionDeprecatedResolver.bind(this),
       groupDocumentsResolver: this.groupDocumentsResolver.bind(this),
+      versionDocumentsResolver: this.versionDocumentsResolver.bind(this),
+      rawDocumentResolver: this.rawDocumentResolver.bind(this),
     }
   }
 
@@ -188,7 +192,10 @@ export class LocalRegistry implements IRegistry {
     const documentsFromVersion = Array.from(documents?.values() ?? [])
 
     if (isNotEmpty(documentsFromVersion)) {
-      return { documents: this.resolveDocuments(documentsFromVersion, this.filterOperationIdsByGroup(filterByOperationGroup)), packages: {} }
+      return {
+        documents: this.resolveDocuments(documentsFromVersion, this.filterOperationIdsByGroup(filterByOperationGroup)),
+        packages: {},
+      }
     }
 
     const documentsFromRefs = (
@@ -212,6 +219,53 @@ export class LocalRegistry implements IRegistry {
     }, {} as ResolvedReferenceMap)
 
     return { documents: documentsFromRefs, packages: packages }
+  }
+
+  async versionDocumentsResolver(
+    version: VersionId,
+    packageId: PackageId,
+    apiType?: OperationsApiType,
+  ): Promise<ResolvedVersionDocuments | null> {
+    const { config: { refs = [] } = {}, documents } = await this.getVersion(packageId || this.packageId, version) ?? {}
+
+    const documentsFromVersion = Array.from(documents?.values() ?? [])
+
+    if (isNotEmpty(documentsFromVersion)) {
+      return {
+        documents: this.resolveDocuments(documentsFromVersion, (_) => true),
+        packages: {},
+      }
+    }
+
+    const documentsFromRefs = (
+      await Promise.all(refs.map(async ({ refId, version }) => {
+        const versionCache = await this.getVersion(refId, version)
+        if (!versionCache) return []
+        const { documents } = versionCache
+        return this.resolveDocuments(Array.from(documents.values()), (_) => true, refId)
+      }))
+    ).flat()
+
+    const packages = refs.reduce((acc, ref) => {
+      acc[ref.refId] = {
+        refId: ref.refId,
+        version: ref.version,
+        kind: KIND_PACKAGE,
+        name: ref.refId,
+        status: VERSION_STATUS.DRAFT,
+      }
+      return acc
+    }, {} as ResolvedReferenceMap)
+
+    return { documents: documentsFromRefs, packages: packages }
+  }
+
+  async rawDocumentResolver(
+    version: VersionId,
+    packageId: PackageId,
+    slug: string,
+  ): Promise<File | null> {
+    return loadFile(VERSIONS_PATH, `${packageId}/${version}/documents`, `${slug}.json`)
   }
 
   private filterOperationIdsByGroup(filterByOperationGroup: string): (id: string) => boolean {

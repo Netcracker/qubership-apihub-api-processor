@@ -22,6 +22,7 @@ import {
   BuilderContext,
   BuildResult,
   BuildResultDto,
+  HTML_EXPORT_GROUP_FORMAT,
   PackageComparison,
   PackageComparisonOperations,
   PackageComparisons,
@@ -31,14 +32,13 @@ import {
   PackageOperation,
   PackageOperations,
   VersionDocument,
+  ZippableDocument,
 } from '../types'
 import { unknownApiBuilder } from '../apitypes'
 import { BUILD_TYPE, MESSAGE_SEVERITY, PACKAGE } from '../consts'
 import { takeIf, toPackageDocument } from '../utils'
 import { toVersionsComparisonDto } from '../utils/transformToDto'
 import { dumpRestDocument } from '../apitypes/rest/rest.document'
-// import license from '../../templates/ls.html?raw'
-// import license from './ls.html?raw'
 
 export interface ZipTool {
   // todo method should only accept Blob content, transformation is not a responsibility of this method
@@ -85,18 +85,19 @@ export const createVersionPackage = async (
 
   const documents = buildResultDto.merged ? [buildResultDto.merged] : [...buildResultDto.documents.values()]
 
-  if (buildResult.config.buildType === BUILD_TYPE.EXPORT_REST_DOCUMENT) {
-    const { config: { format } } = ctx
-    return Buffer.from(await dumpRestDocument(buildResultDto.exportDocuments[0], format).arrayBuffer())
-  }
+  // todo refactor accordingly to new reqs
+  switch (buildResult.config.buildType) {
+    case BUILD_TYPE.EXPORT_REST_DOCUMENT:
+      if (buildResult.config.format !== HTML_EXPORT_GROUP_FORMAT) {
+        return Buffer.from(await dumpRestDocument(buildResultDto.exportDocuments[0], ctx.config.format).arrayBuffer())
+      }
+      await createExportDocumentDataFiles(zip, buildResultDto.exportDocuments, ctx)
+      return await zip.buildResult(options)
 
-  if (
-    buildResult.config.buildType === BUILD_TYPE.EXPORT_VERSION ||
-    buildResult.config.buildType === BUILD_TYPE.EXPORT_REST_OPERATIONS_GROUP
-  ) {
-    await createExportDocumentDataFiles(zip, buildResultDto.exportDocuments, ctx)
-    // await zip.file('ls.html', license)
-    return await zip.buildResult(options)
+    case BUILD_TYPE.EXPORT_VERSION:
+    case BUILD_TYPE.EXPORT_REST_OPERATIONS_GROUP:
+      await createExportDocumentDataFiles(zip, buildResultDto.exportDocuments, ctx)
+      return await zip.buildResult(options)
   }
 
   createDocumentsFile(zip, documents)
@@ -144,24 +145,7 @@ const createDocumentsFile = (zip: ZipTool, documents: VersionDocument[]): void =
   zip.file(PACKAGE.DOCUMENTS_FILE_NAME, result)
 }
 
-const createDocumentDataFiles = async (zip: ZipTool, documents: VersionDocument[], ctx: BuilderContext): Promise<void> => {
-  const documentsDir = zip.folder(PACKAGE.DOCUMENTS_DIR_NAME)
-
-  const { apiBuilders, config: { format } } = ctx
-
-  for (const document of documents) {
-    // skip components
-    if (!document.publish) { continue }
-
-    const apiBuilder =
-      apiBuilders.find(({ types }) => types.includes(document.type)) || unknownApiBuilder
-    const data = apiBuilder.dumpDocument(document, format)
-    await documentsDir?.file(document.filename, data)
-  }
-}
-
-const createExportDocumentDataFiles = async (zip: ZipTool, documents: VersionDocument[], ctx: BuilderContext): Promise<void> => {
-
+const writeDocumentsToZip = async (zip: ZipTool, documents: ZippableDocument[], ctx: BuilderContext): Promise<void> => {
   const { apiBuilders, config: { format } } = ctx
 
   for (const document of documents) {
@@ -173,6 +157,15 @@ const createExportDocumentDataFiles = async (zip: ZipTool, documents: VersionDoc
     const data = apiBuilder.dumpDocument(document, format)
     await zip.file(document.filename, data)
   }
+}
+
+const createDocumentDataFiles = async (zip: ZipTool, documents: VersionDocument[], ctx: BuilderContext): Promise<void> => {
+  const documentsDir = zip.folder(PACKAGE.DOCUMENTS_DIR_NAME)
+  await writeDocumentsToZip(documentsDir, documents, ctx)
+}
+
+const createExportDocumentDataFiles = async (zip: ZipTool, documents: ZippableDocument[], ctx: BuilderContext): Promise<void> => {
+  await writeDocumentsToZip(zip, documents, ctx)
 }
 
 const createOperationsFile = (zip: ZipTool, operations: Map<string, ApiOperation>): void => {

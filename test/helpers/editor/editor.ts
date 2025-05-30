@@ -16,8 +16,14 @@
 
 import * as YAML from 'js-yaml'
 
-import type { BuildConfig, BuilderConfiguration, BuilderRunOptions, BuildResult } from '../../../src'
-import { PackageVersionBuilder } from '../../../src'
+import {
+  BuildConfig,
+  BuildConfigAggregator,
+  BuilderConfiguration,
+  BuilderRunOptions,
+  BuildResult,
+  PackageVersionBuilder,
+} from '../../../src'
 import { loadConfig, loadFile } from '../utils'
 import { LocalRegistry } from '../registry'
 import { IRegistry } from '../registry/types'
@@ -97,7 +103,7 @@ export class Editor {
     })
   }
 
-  async run(config: Partial<BuildConfig> = {}): Promise<BuildResult> {
+  async run(config: Partial<BuildConfigAggregator> = {}): Promise<BuildResult> {
     this.builder.config = { ...this.builder.config, ...config }
     this.config = this.builder.config
     return this.builder.run()

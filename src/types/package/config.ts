@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { BuildConfigRef, BuildType, PackageId, VersionId } from '../external'
+import { BuildConfigRef, BuildType, OperationsGroupExportFormat, PackageId, VersionId } from '../external'
 
 
 //todo this is info.json, add format and other missing fields
@@ -30,4 +30,6 @@ export interface PackageConfig {
   refs?: BuildConfigRef[]
 
   metadata?: Record<string, unknown>
+  // todo
+  format?: OperationsGroupExportFormat
 }

@@ -29,7 +29,7 @@ import {
 } from '../external'
 import { CompareContext, OperationChanges } from './compare'
 import { BuilderConfiguration, BuilderRunOptions, VersionCache } from './builder'
-import { VersionDocument } from './documents'
+import { VersionDocument, ZippableDocument } from './documents'
 import { NotificationMessage } from '../package/notifications'
 import { RestOperationData } from '../../apitypes/rest/rest.types'
 import { GRAPHQL_API_TYPE, REST_API_TYPE, TEXT_API_TYPE, UNKNOWN_API_TYPE } from '../../apitypes'
@@ -58,7 +58,7 @@ export interface BuilderContext<T = any> {
   versionDocumentsResolver: VersionDocumentsResolver
   groupDocumentsResolver: GroupDocumentsResolver
   templateResolver?: TemplateResolver
-  rawDocumentResolver?: RawDocumentResolver
+  rawDocumentResolver: _RawDocumentResolver
   versionLabels?: Array<string>
 }
 
@@ -69,11 +69,11 @@ export type TemplateResolver = (
   filterByOperationGroup: string,
 ) => Promise<string>
 
-export type RawDocumentResolver = (
+export type _RawDocumentResolver = (
   version: VersionId,
   packageId: PackageId,
   slug: string,
-) => Promise<File | null>
+) => Promise<File>
 
 export interface CompareOperationsPairContext {
   notifications: NotificationMessage[]
@@ -89,7 +89,7 @@ export type NormalizedOperationId = string
 export type FileParser = (fileId: string, data: Blob) => Promise<SourceFile | undefined>
 export type DocumentBuilder<T> = (parsedFile: TextFile, file: BuildConfigFile, ctx: BuilderContext<T>) => Promise<VersionDocument<T>>
 export type OperationsBuilder<T, M = any> = (document: VersionDocument<T>, ctx: BuilderContext<T>, debugCtx?: DebugPerformanceContext) => Promise<ApiOperation<M>[]>
-export type DocumentDumper<T> = (document: VersionDocument<T>, format?: OperationsGroupExportFormat) => Blob
+export type DocumentDumper<T> = (document: ZippableDocument<T>, format?: OperationsGroupExportFormat) => Blob
 export type OperationDataCompare<T> = (current: T, previous: T, ctx: CompareOperationsPairContext) => Promise<Diff[]>
 export type OperationChangesValidator = (
   changes: ChangeMessage, // + ctx with internal resolvers

@@ -16,12 +16,12 @@
 
 import { VersionComparisonResolver } from './comparison'
 import { VersionDeprecatedResolver } from './deprecated'
-import { GroupDocumentsResolver, VersionDocumentsResolver } from './documents'
+import { GroupDocumentsResolver, RawDocumentResolver, VersionDocumentsResolver } from './documents'
 import { VersionOperationsResolver } from './operations'
 import { VersionReferencesResolver } from './references'
 import { VersionResolver } from './version'
 import { FileId } from './types'
-import { RawDocumentResolver, TemplateResolver } from '../internal'
+import { TemplateResolver } from '../internal'
 
 export type FileResolver = (fileId: FileId) => Promise<Blob | null>
 

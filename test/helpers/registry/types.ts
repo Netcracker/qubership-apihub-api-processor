@@ -17,6 +17,7 @@
 import {
   BuilderResolvers,
   GroupDocumentsResolver,
+  RawDocumentResolver,
   VersionComparisonResolver,
   VersionDeprecatedResolver,
   VersionDocumentsResolver,
@@ -35,5 +36,6 @@ export interface IRegistry extends Omit<BuilderResolvers, 'fileResolver'> {
   versionDeprecatedResolver: VersionDeprecatedResolver
   // todo make not optional
   versionDocumentsResolver?: VersionDocumentsResolver
+  rawDocumentResolver?: RawDocumentResolver
   groupDocumentsResolver: GroupDocumentsResolver
 }

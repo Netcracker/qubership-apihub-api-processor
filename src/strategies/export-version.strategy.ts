@@ -19,47 +19,71 @@ import {
   BuildResult,
   BuildTypeContexts,
   ExportVersionBuildConfig,
-  FileFormat,
+  HTML_EXPORT_GROUP_FORMAT,
   JSON_EXPORT_GROUP_FORMAT,
+  OperationsGroupExportFormat,
   ResolvedVersionDocument,
-  VersionDocument,
+  ZippableDocument,
 } from '../types'
 import { getDocumentTitle } from '../utils'
+import {
+  createCommonStaticExportDocuments,
+  createExportDocument,
+  createHtmlDocument,
+  createSingleFileExportName,
+  generateIndexHtmlDocument,
+} from '../utils/export'
 import { removeOasExtensions } from '../utils/removeOasExtensions'
 import { OpenApiExtensionKey } from '@netcracker/qubership-apihub-api-unifier'
+import { isRestDocument } from '../apitypes'
 
-async function getTransformedDocument(document: ResolvedVersionDocument, format: FileFormat, source: Blob, allowedOasExtensions?: OpenApiExtensionKey[]): Promise<VersionDocument> {
-  const { fileId, type, slug } = document
+function extractTypeAndSubtype(type: string): string {
+  return type.split('.')[0]
+}
 
-  const versionDocumentBase = {
+async function prepareData(file: File, allowedOasExtensions?: OpenApiExtensionKey[]): Promise<ZippableDocument['data']> {
+  switch (extractTypeAndSubtype(file.type)) {
+    case 'text/plain':
+    case 'application/json':
+      return removeOasExtensions(JSON.parse(await file.text()), allowedOasExtensions)
+    case 'application/octet-stream':
+      return ''
+    default:
+      throw new Error(`File media type ${file.type} is not supported`)
+  }
+}
+
+async function createTransformedDocument(
+  document: ResolvedVersionDocument,
+  file: File,
+  format: OperationsGroupExportFormat,
+  packageId: string,
+  version: string,
+  generatedHtmlExportDocuments: ZippableDocument[],
+  allowedOasExtensions?: OpenApiExtensionKey[],
+): Promise<ZippableDocument> {
+  const { fileId, type } = document
+
+  const data = await prepareData(file, allowedOasExtensions)
+
+  if (format === HTML_EXPORT_GROUP_FORMAT && isRestDocument(document)) {
+    const htmlExportDocument = createExportDocument(
+      `${getDocumentTitle(file.name)}.${HTML_EXPORT_GROUP_FORMAT}`,
+      await createHtmlDocument(JSON.stringify(data, undefined, 2), getDocumentTitle(file.name), packageId, version),
+    )
+    generatedHtmlExportDocuments.push(htmlExportDocument)
+    return htmlExportDocument
+  }
+
+  return {
     fileId,
     type,
-    format,
-    slug,
-    title: getDocumentTitle(fileId),
-    dependencies: [],
+    data: data,
     description: '',
-    operationIds: [],
     publish: true,
     filename: `${getDocumentTitle(fileId)}.${format}`,
-    metadata: {},
-    source,
+    source: file,
   }
-
-  if (source.type.startsWith('text/plain')) {
-    const sourceString = JSON.parse(await source.text())
-    return {
-      ...versionDocumentBase,
-      data: removeOasExtensions(sourceString, allowedOasExtensions),
-    }
-  }
-  if (source.type.startsWith('application/octet-stream')) {
-    return {
-      ...versionDocumentBase,
-      data: '',
-    }
-  }
-  throw new Error(`File media type ${source.type} is not supported`)
 }
 
 export class ExportVersionStrategy implements BuilderStrategy {
@@ -73,20 +97,23 @@ export class ExportVersionStrategy implements BuilderStrategy {
       packageId,
     ) ?? { documents: [] }
 
-    for (const document of documents) {
-      const file = await builderContextObject.rawDocumentResolver?.(
-        version,
-        packageId,
-        document.slug,
-      )
 
-      if (!file) {
-        throw new Error(`File ${document.fileId} is missing`)
-      }
+    const generatedHtmlExportDocuments: ZippableDocument[] = []
+    const transformedDocuments = await Promise.all(documents.map(async document => {
+      const file = await builderContextObject.rawDocumentResolver(version, packageId, document.slug)
+      return await createTransformedDocument(document, file, format, packageId, version, generatedHtmlExportDocuments, allowedOasExtensions)
+    }))
 
-      // todo handle HTML format
-      // @ts-ignore
-      buildResult.exportDocuments.push(await getTransformedDocument(document, format, file, allowedOasExtensions))
+    buildResult.exportDocuments.push(...transformedDocuments)
+
+    if (buildResult.exportDocuments.length === 1) {
+      buildResult.exportFileName = createSingleFileExportName(packageId, version, getDocumentTitle(buildResult.exportDocuments[0].fileId), format)
+      return buildResult
+    }
+
+    if (format === HTML_EXPORT_GROUP_FORMAT) {
+      buildResult.exportDocuments.push(createExportDocument('index.html', await generateIndexHtmlDocument(packageId, version, generatedHtmlExportDocuments)))
+      buildResult.exportDocuments.push(...await createCommonStaticExportDocuments())
     }
 
     buildResult.exportFileName = `${packageId}_${version}.zip`

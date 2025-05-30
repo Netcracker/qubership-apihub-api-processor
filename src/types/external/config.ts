@@ -99,7 +99,7 @@ export interface ExportVersionBuildConfig extends BuildConfigBase {
   version: VersionId // @revision for rebuild
   // apiType?: OperationsApiType //todo Document transformation is available only for apiType = REST
   format: OperationsGroupExportFormat
-  allowedOasExtensions?: OpenApiExtensionKey
+  allowedOasExtensions?: OpenApiExtensionKey[]
 }
 
 export interface ExportRestDocumentBuildConfig extends BuildConfigBase {
@@ -120,8 +120,10 @@ export interface ExportRestOperationsGroupBuildConfig extends BuildConfigBase {
   groupName: string
   operationsSpecTransformation: OperationsSpecTransformation
   format: OperationsGroupExportFormat
-  allowedOasExtensions?: OpenApiExtensionKey
+  allowedOasExtensions?: OpenApiExtensionKey[]
 }
+
+export type BuildConfigAggregator = PublishBuildConfig | ExportVersionBuildConfig | ExportRestDocumentBuildConfig | ExportRestOperationsGroupBuildConfig
 
 export const TRANSFORMATION_KIND_REDUCED = 'reducedSourceSpecifications'
 export const TRANSFORMATION_KIND_MERGED = 'mergedSpecification'

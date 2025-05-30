@@ -64,3 +64,9 @@ export type ResolvedGroupDocument = ResolvedDocument & {
   packageRef?: string
   description: string
 }
+
+export type RawDocumentResolver = (
+  version: VersionId,
+  packageId: PackageId,
+  slug: string,
+) => Promise<File | null>

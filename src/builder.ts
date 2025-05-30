@@ -30,9 +30,9 @@ import {
   ResolvedGroupDocuments,
   ResolvedOperations,
   ResolvedVersionDocuments,
-  ResolvedVersionOperationsHashMap,
   VersionId,
   VersionsComparison,
+  ZippableDocument,
 } from './types'
 import {
   ApiBuilder,
@@ -74,7 +74,7 @@ import { BuildStrategy, ChangelogStrategy, DocumentGroupStrategy, PrefixGroupsCh
 import { BuilderStrategyContext } from './builder-strategy'
 import { MergedDocumentGroupStrategy } from './strategies/merged-document-group.strategy'
 import { asyncDebugPerformance } from './utils/logs'
-import { ExportRestOperationsGroupStrategy } from './strategies/rest-operations-group.strategy'
+// import { ExportRestOperationsGroupStrategy } from './strategies/rest-operations-group.strategy'
 import { ExportVersionStrategy } from './strategies/export-version.strategy'
 import { ExportRestDocumentStrategy } from './strategies/export-rest-document.strategy'
 
@@ -85,7 +85,7 @@ export const DEFAULT_RUN_OPTIONS: BuilderRunOptions = {
 export class PackageVersionBuilder implements IPackageVersionBuilder {
   apiBuilders: ApiBuilder[] = []
   documents = new Map<string, VersionDocument>()
-  exportDocuments: VersionDocument[] = []
+  exportDocuments: ZippableDocument[] = []
   exportFileName: string = ''
   operations = new Map<string, ApiOperation>()
   comparisons: VersionsComparison[] = []
@@ -263,6 +263,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     // }
 
     if (buildType === BUILD_TYPE.EXPORT_REST_OPERATIONS_GROUP) {
+      const { ExportRestOperationsGroupStrategy } = await import('./strategies/rest-operations-group.strategy')
       builderStrategyContext.setStrategy(new ExportRestOperationsGroupStrategy())
     }
 
@@ -294,17 +295,17 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     version: VersionId,
     packageId: PackageId,
     slug: string,
-  ): Promise<File | null> {
+  ): Promise<File> {
     if (!this.params.resolvers.rawDocumentResolver) {
-      return null
+      throw new Error('rawDocumentResolver is not provided')
     }
 
-    const source = await this.params.resolvers.rawDocumentResolver(version, packageId, slug)
-    if (!source) {
-      return null
+    const document = await this.params.resolvers.rawDocumentResolver(version, packageId, slug)
+    if (!document) {
+      throw new Error(`Raw document ${slug} is missing`)
     }
 
-    return source
+    return document
   }
 
   async versionComparisonResolver(
