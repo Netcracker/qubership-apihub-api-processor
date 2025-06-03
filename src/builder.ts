@@ -86,7 +86,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
   apiBuilders: ApiBuilder[] = []
   documents = new Map<string, VersionDocument>()
   exportDocuments: ZippableDocument[] = []
-  exportFileName: string = ''
+  exportFileName?: string
   operations = new Map<string, ApiOperation>()
   comparisons: VersionsComparison[] = []
 
@@ -134,8 +134,8 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
   }
 
   // todo rename
-  async createNodeVersionPackage(): Promise<{ packageVersion: any; fileName: string }> {
-    return {packageVersion: await createVersionPackage(this.buildResult, new AdmZipTool(), this.builderContext(this.config)), fileName: this.buildResult.exportFileName}
+  async createNodeVersionPackage(): Promise<{ packageVersion: any; exportFileName?: string }> {
+    return {packageVersion: await createVersionPackage(this.buildResult, new AdmZipTool(), this.builderContext(this.config)), exportFileName: this.buildResult.exportFileName}
   }
 
   get operationList(): ApiOperation[] {

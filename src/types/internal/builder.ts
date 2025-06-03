@@ -43,7 +43,7 @@ export interface BuildResult {
   notifications: NotificationMessage[]
   documents: Map<string, VersionDocument>
   exportDocuments: ZippableDocument[]
-  exportFileName: string
+  exportFileName?: string
   operations: Map<string, ApiOperation>
   merged?: VersionDocument
 }
