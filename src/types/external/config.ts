@@ -91,7 +91,8 @@ export interface PublishBuildConfig extends BuildConfigBase {
   versionLabels?: string[]
   refs?: BuildConfigRef[]
   files?: BuildConfigFile[]
-  // apiType?: OperationsApiType //todo Document transformation is available only for apiType = REST
+
+  metadata?: Record<string, unknown>
 }
 
 export interface ExportVersionBuildConfig extends BuildConfigBase {
@@ -136,7 +137,7 @@ export interface ReducedSourceSpecificationsBuildConfig extends BuildConfigBase 
 
 // deprecated
 export interface MergedSpecificationBuildConfig extends BuildConfigBase {
-  buildType: typeof BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS
+  buildType: typeof BUILD_TYPE.MERGED_SPECIFICATION
   packageId: PackageId
   version: VersionId // @revision for rebuild
   groupName: string
@@ -166,6 +167,8 @@ export interface PrefixGroupsChangelogBuildConfig extends BuildConfigBase {
   status: VersionStatus
   previousVersion?: VersionId
   previousVersionPackageId?: PackageId
+  currentGroup?: string
+  previousGroup?: string
 
   format: OperationsGroupExportFormat
   // allowedOasExtensions?: OpenApiExtensionKey[]

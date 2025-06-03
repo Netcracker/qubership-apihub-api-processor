@@ -113,7 +113,7 @@ export class Editor {
     return this.builder.createVersionPackage()
   }
 
-  async createNodeVersionPackage(): Promise<{ packageVersion: any; fileName: string }> {
+  async createNodeVersionPackage(): Promise<{ packageVersion: any; exportFileName?: string }> {
     return this.builder.createNodeVersionPackage()
   }
 
