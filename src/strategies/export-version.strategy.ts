@@ -29,23 +29,25 @@ import { getDocumentTitle } from '../utils'
 import {
   createCommonStaticExportDocuments,
   createExportDocument,
-  createHtmlDocument,
+  generateHtmlPage,
   createSingleFileExportName,
-  generateIndexHtmlDocument,
+  generateIndexHtmlPage,
 } from '../utils/export'
 import { removeOasExtensions } from '../utils/removeOasExtensions'
 import { OpenApiExtensionKey } from '@netcracker/qubership-apihub-api-unifier'
-import { isRestDocument } from '../apitypes'
+import { isRestDocument, isTextDocument } from '../apitypes'
 
 function extractTypeAndSubtype(type: string): string {
   return type.split('.')[0]
 }
 
-async function prepareData(file: File, allowedOasExtensions?: OpenApiExtensionKey[]): Promise<ZippableDocument['data']> {
+async function prepareData(file: File): Promise<ZippableDocument['data']> {
   switch (extractTypeAndSubtype(file.type)) {
+    // BE responds with either 'text/plain' or 'application/octet-stream', which is not precise enough
     case 'text/plain':
     case 'application/json':
-      return removeOasExtensions(JSON.parse(await file.text()), allowedOasExtensions)
+    case 'text/markdown':
+      return await file.text()
     case 'application/octet-stream':
       return ''
     default:
@@ -64,12 +66,12 @@ async function createTransformedDocument(
 ): Promise<ZippableDocument> {
   const { fileId, type } = document
 
-  const data = await prepareData(file, allowedOasExtensions)
+  const data = await prepareData(file)
 
-  if (format === HTML_EXPORT_GROUP_FORMAT && isRestDocument(document)) {
+  if (isRestDocument(document) && format === HTML_EXPORT_GROUP_FORMAT) {
     const htmlExportDocument = createExportDocument(
       `${getDocumentTitle(file.name)}.${HTML_EXPORT_GROUP_FORMAT}`,
-      await createHtmlDocument(JSON.stringify(data, undefined, 2), getDocumentTitle(file.name), packageId, version),
+      await generateHtmlPage(JSON.stringify(removeOasExtensions(JSON.parse(data), allowedOasExtensions), undefined, 2), getDocumentTitle(file.name), packageId, version, true),
     )
     generatedHtmlExportDocuments.push(htmlExportDocument)
     return htmlExportDocument
@@ -78,10 +80,10 @@ async function createTransformedDocument(
   return {
     fileId,
     type,
-    data: data,
-    description: '',
+    data: isRestDocument(document) ? removeOasExtensions(JSON.parse(data), allowedOasExtensions) : '',
+    description: isTextDocument(document) ? data : '',
     publish: true,
-    filename: `${getDocumentTitle(fileId)}.${format}`,
+    filename: isRestDocument(document) ? `${getDocumentTitle(fileId)}.${format}` : fileId,
     source: file,
   }
 }
@@ -97,7 +99,6 @@ export class ExportVersionStrategy implements BuilderStrategy {
       packageId,
     ) ?? { documents: [] }
 
-
     const generatedHtmlExportDocuments: ZippableDocument[] = []
     const transformedDocuments = await Promise.all(documents.map(async document => {
       const file = await builderContextObject.rawDocumentResolver(version, packageId, document.slug)
@@ -112,8 +113,9 @@ export class ExportVersionStrategy implements BuilderStrategy {
     }
 
     if (format === HTML_EXPORT_GROUP_FORMAT) {
-      buildResult.exportDocuments.push(createExportDocument('index.html', await generateIndexHtmlDocument(packageId, version, generatedHtmlExportDocuments)))
-      buildResult.exportDocuments.push(...await createCommonStaticExportDocuments())
+      const readme = buildResult.exportDocuments.find(({fileId}) => fileId.toLowerCase() === 'readme.md')?.description
+      buildResult.exportDocuments.push(createExportDocument('index.html', await generateIndexHtmlPage(packageId, version, generatedHtmlExportDocuments, readme)))
+      buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageId, version, true))
     }
 
     buildResult.exportFileName = `${packageId}_${version}.zip`

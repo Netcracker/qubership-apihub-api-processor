@@ -23,28 +23,25 @@
 </head>
 <body>
 <div class="header">
-  <img class="header__logo" src="resources/corporatelogo.png"/>
+  <img class="header__logo" src="resources/corporatelogo.svg"/>
   <div class="header__info">
-    <h3>%s</h3>
-    <h4>Version: %s</h4>
+    <h3>{{packageName}}</h3>
+    <h4>Version: {{version}}</h4>
   </div>
 </div>
 
 <div class="page">
-  <div class="breadcrumbs"><a href="index.html">Back</a></div>
+  {{breadcrumbs}}
   <div class="card content">
     <div class="card__title">Legal Statement</div>
 
     <p class="card__text">
       qubership-apihub
     </p>
-    <p class="card__text">
-      qubership-apihub
-    </p>
   </div>
   <div class="footer">
     <span class="footer__legal">
-        %s<br><br>
+        {{packageNameAndVersion}}<br><br>
         qubership-apihub
       </span>
   </div>

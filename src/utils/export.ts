@@ -19,10 +19,10 @@ import path from 'path'
 import fs from 'fs/promises'
 import { getDocumentTitle } from './document'
 
-export async function createCommonStaticExportDocuments(): Promise<ZippableDocument[]> {
+export async function createCommonStaticExportDocuments(packageId: string, version: string, addBackLink: boolean = false): Promise<ZippableDocument[]> {
   return [
-    createExportDocument('ls.html', new Blob([await fs.readFile(path.join(__dirname, '..', '..', 'templates', 'ls.html'))])),
-    createExportDocument('resources/corporatelogo.png', new Blob([await fs.readFile(path.join(__dirname, '..', '..', 'templates', 'resources', 'corporatelogo.png'))])),
+    createExportDocument('ls.html', await generateLegalStatementPage(packageId, version, addBackLink)),
+    createExportDocument('resources/corporatelogo.svg', new Blob([await fs.readFile(path.join(__dirname, '..', '..', 'templates', 'resources', 'corporatelogo.svg'))])),
     createExportDocument('resources/styles.css', new Blob([await fs.readFile(path.join(__dirname, '..', '..', 'templates', 'resources', 'styles.css'))])),
   ]
 }
@@ -39,32 +39,60 @@ export function createExportDocument(fileId: string, source: Blob): ZippableDocu
   }
 }
 
-export async function createHtmlDocument(document: string, title: string, packageId: string, version: string): Promise<Blob> {
-  const template = await fs.readFile(path.join(__dirname, '..', '..', 'templates', 'single_page.html'), 'utf-8')
-  const apispecViewScript = await fs.readFile(path.join(__dirname, '..', '..', 'templates', 'scripts', 'apispec-view.js'), 'utf-8')
+export async function generateLegalStatementPage(packageId: string, version: string, addBackLink: boolean): Promise<Blob> {
+  const template = await fs.readFile(path.join(__dirname, '..', '..', 'templates', 'ls.html'), 'utf-8')
+  const breadcrumbs = addBackLink ? '<div class="breadcrumbs"><a href="index.html">Back</a></div>' : ''
   const filled = template
-    .replace('{{title}}', title)
+    // todo use packageName instead of packageId
+    .replace('{{packageName}}', packageId)
+    .replace('{{version}}', version)
+    .replace('{{breadcrumbs}}', breadcrumbs)
+    // todo use packageName instead of packageId
+    .replace('{{packageNameAndVersion}}', `${packageId} ${version}`)
+  return new Blob([filled])
+}
+
+export async function generateHtmlPage(document: string, fileTitle: string, packageId: string, version: string, addBackLink: boolean = false): Promise<Blob> {
+  const template = await fs.readFile(path.join(__dirname, '..', '..', 'templates', 'page.html'), 'utf-8')
+  const apispecViewScript = await fs.readFile(path.join(__dirname, '..', '..', 'templates', 'scripts', 'apispec-view.js'), 'utf-8')
+  const breadcrumbs = addBackLink ? `<div class="breadcrumbs"><a href="index.html">Table of contents</a> > <span>${fileTitle}</span></div>` : ''
+  const filled = template
+    .replace('{{fileTitle}}', fileTitle)
     .replace('{{apispecViewScript}}', () => apispecViewScript)
     // todo use packageName instead of packageId
     .replace('{{packageName}}', packageId)
     .replace('{{version}}', version)
+    .replace('{{breadcrumbs}}', breadcrumbs)
     .replace('{{spec}}', document)
     // todo use packageName instead of packageId
     .replace('{{packageNameAndVersion}}', `${packageId} ${version}`)
   return new Blob([filled])
 }
 
-export async function generateIndexHtmlDocument(packageId: string, version: string, generatedHtmlExportDocuments: ZippableDocument[]): Promise<Blob> {
+async function generateReadmeParts(readme?: string): Promise<[string, string]> {
+  if (!readme) {
+    return ['', '']
+  }
+  const markdownIt = await fs.readFile(path.join(__dirname, '..', '..', 'templates', 'scripts', 'markdown-it.min.js'), 'utf-8')
+  const readmeHtml = '    <div id="readmeMdDiv" class="card content">\n        <div class="card content"></div>\n    </div>\n    <br>\n    <script>\n        var md = window.markdownit();\n        let temp=md.render(`${readme}`);\n        const readmeMdDiv = document.getElementById(\'readmeMdDiv\');\n        readmeMdDiv.innerHTML=temp;\n    </script>'
+  return [readmeHtml, `<script>${markdownIt}</script>`]
+}
+
+export async function generateIndexHtmlPage(packageId: string, version: string, generatedHtmlExportDocuments: ZippableDocument[], readme?: string): Promise<Blob> {
   const template = await fs.readFile(path.join(__dirname, '..', '..', 'templates', 'index.html'), 'utf-8')
   const htmlList = generatedHtmlExportDocuments.reduce(
     (acc, { filename }) => acc.concat(`        <li><a href="${filename}">${getDocumentTitle(filename)}</a></li>\n`),
     '',
   )
+
+  const [readmeHtml, markdownItScript] = await generateReadmeParts(readme)
+
   const filled = template
     // todo use packageName instead of packageId
     .replaceAll('{{packageName}}', packageId)
+    .replace('{{markdownItScript}}', markdownItScript)
     .replace('{{version}}', version)
-    // todo add mdJs and readmeHtml if needed
+    .replace('{{readmeHtml}}', readmeHtml)
     .replace('{{htmlList}}', htmlList)
     // todo use packageName instead of packageId
     .replace('{{packageNameAndVersion}}', `${packageId} ${version}`)

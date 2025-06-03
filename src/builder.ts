@@ -258,10 +258,6 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       builderStrategyContext.setStrategy(new ExportRestDocumentStrategy())
     }
 
-    // if (buildType === BUILD_TYPE.EXPORT_REST_DOCUMENT) {
-    //   builderStrategyContext.setStrategy(new MergedDocumentGroupStrategy())
-    // }
-
     if (buildType === BUILD_TYPE.EXPORT_REST_OPERATIONS_GROUP) {
       const { ExportRestOperationsGroupStrategy } = await import('./strategies/rest-operations-group.strategy')
       builderStrategyContext.setStrategy(new ExportRestOperationsGroupStrategy())

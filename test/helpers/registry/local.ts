@@ -232,7 +232,7 @@ export class LocalRegistry implements IRegistry {
 
     if (isNotEmpty(documentsFromVersion)) {
       return {
-        documents: this.resolveDocuments(documentsFromVersion, (_) => true),
+        documents: this.resolveDocuments(documentsFromVersion),
         packages: {},
       }
     }
@@ -242,7 +242,7 @@ export class LocalRegistry implements IRegistry {
         const versionCache = await this.getVersion(refId, version)
         if (!versionCache) return []
         const { documents } = versionCache
-        return this.resolveDocuments(Array.from(documents.values()), (_) => true, refId)
+        return this.resolveDocuments(Array.from(documents.values()), undefined, refId)
       }))
     ).flat()
 
@@ -265,16 +265,17 @@ export class LocalRegistry implements IRegistry {
     packageId: PackageId,
     slug: string,
   ): Promise<File | null> {
-    return loadFile(VERSIONS_PATH, `${packageId}/${version}/documents`, `${slug}.json`)
+    const fileName = slug === 'readme' ? `${slug}.md` : `${slug}.json`
+    return loadFile(VERSIONS_PATH, `${packageId}/${version}/documents`, fileName)
   }
 
   private filterOperationIdsByGroup(filterByOperationGroup: string): (id: string) => boolean {
     return (id: string): boolean => this.groupToOperationIdsMap[filterByOperationGroup]?.includes(id)
   }
 
-  private resolveDocuments(documents: VersionDocument[], filterOperationIdsByGroup: (id: string) => boolean, refId?: string): ResolvedGroupDocument[] {
+  private resolveDocuments(documents: VersionDocument[], filterOperationIdsByGroup?: (id: string) => boolean, refId?: string): ResolvedGroupDocument[] {
     return documents
-      .filter(versionDocument => versionDocument.operationIds.some(filterOperationIdsByGroup))
+      .filter(versionDocument => (filterOperationIdsByGroup ? versionDocument.operationIds.some(filterOperationIdsByGroup) : true))
       .map(document => ({
         version: document.version,
         fileId: document.fileId,
@@ -284,7 +285,7 @@ export class LocalRegistry implements IRegistry {
         filename: document.filename,
         labels: [],
         title: document.title,
-        includedOperationIds: document.operationIds.filter(filterOperationIdsByGroup),
+        ...(filterOperationIdsByGroup ? { includedOperationIds: document.operationIds.filter(filterOperationIdsByGroup!) } : {}),
         description: document.description,
         data: toBase64(JSON.stringify(document.data)),
         ...takeIfDefined({ packageRef: refId }),

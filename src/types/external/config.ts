@@ -46,6 +46,7 @@ export interface ValidationRulesSeverity {
   brokenRefs: ValidationRulesSeverityLevel
 }
 
+// todo remove
 export interface BuildConfig extends BuildConfigBase {
   packageId: PackageId
   version: VersionId // @revision for rebuild
@@ -97,7 +98,6 @@ export interface ExportVersionBuildConfig extends BuildConfigBase {
   buildType: typeof BUILD_TYPE.EXPORT_VERSION
   packageId: PackageId
   version: VersionId // @revision for rebuild
-  // apiType?: OperationsApiType //todo Document transformation is available only for apiType = REST
   format: OperationsGroupExportFormat
   allowedOasExtensions?: OpenApiExtensionKey[]
 }
@@ -123,7 +123,65 @@ export interface ExportRestOperationsGroupBuildConfig extends BuildConfigBase {
   allowedOasExtensions?: OpenApiExtensionKey[]
 }
 
-export type BuildConfigAggregator = PublishBuildConfig | ExportVersionBuildConfig | ExportRestDocumentBuildConfig | ExportRestOperationsGroupBuildConfig
+// deprecated
+export interface ReducedSourceSpecificationsBuildConfig extends BuildConfigBase {
+  buildType: typeof BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS
+  packageId: PackageId
+  version: VersionId // @revision for rebuild
+  groupName: string
+  format: OperationsGroupExportFormat
+  // allowedOasExtensions?: OpenApiExtensionKey[]
+  apiType?: OperationsApiType
+}
+
+// deprecated
+export interface MergedSpecificationBuildConfig extends BuildConfigBase {
+  buildType: typeof BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS
+  packageId: PackageId
+  version: VersionId // @revision for rebuild
+  groupName: string
+  format: OperationsGroupExportFormat
+  // allowedOasExtensions?: OpenApiExtensionKey[]
+  apiType?: OperationsApiType
+}
+
+// todo
+export interface ChangelogBuildConfig extends BuildConfigBase {
+  buildType: typeof BUILD_TYPE.CHANGELOG
+  packageId: PackageId
+  version: VersionId // @revision for rebuild
+  status: VersionStatus
+  previousVersion?: VersionId
+  previousVersionPackageId?: PackageId
+
+  format: OperationsGroupExportFormat
+  // allowedOasExtensions?: OpenApiExtensionKey[]
+  apiType?: OperationsApiType
+}
+// todo
+export interface PrefixGroupsChangelogBuildConfig extends BuildConfigBase {
+  buildType: typeof BUILD_TYPE.PREFIX_GROUPS_CHANGELOG
+  packageId: PackageId
+  version: VersionId // @revision for rebuild
+  status: VersionStatus
+  previousVersion?: VersionId
+  previousVersionPackageId?: PackageId
+
+  format: OperationsGroupExportFormat
+  // allowedOasExtensions?: OpenApiExtensionKey[]
+  apiType?: OperationsApiType
+}
+
+// todo rename
+export type BuildConfigAggregator =
+  | PublishBuildConfig
+  | ExportVersionBuildConfig
+  | ExportRestDocumentBuildConfig
+  | ExportRestOperationsGroupBuildConfig
+  | ReducedSourceSpecificationsBuildConfig
+  | MergedSpecificationBuildConfig
+  | ChangelogBuildConfig
+  | PrefixGroupsChangelogBuildConfig
 
 export const TRANSFORMATION_KIND_REDUCED = 'reducedSourceSpecifications'
 export const TRANSFORMATION_KIND_MERGED = 'mergedSpecification'

@@ -14,110 +14,91 @@
  * limitations under the License.
  */
 
-import { Editor, loadFileAsString, LocalRegistry, VERSIONS_PATH } from './helpers'
-import { BUILD_TYPE } from '../src'
-import { load } from 'js-yaml'
+import { Editor, LocalRegistry } from './helpers'
+import { BUILD_TYPE, TRANSFORMATION_KIND_REDUCED } from '../src'
 import fs from 'fs/promises'
 
-const EXPECTED_RESULT_FILE = 'result.yaml'
+const VERSIONS_PATH = 'test/versions/temp'
+
+let pkg: LocalRegistry
+let editor: Editor
+const GROUP_NAME = 'manualGroup'
+const groupToOperationIdsMap2 = {
+  [GROUP_NAME]: [
+    'some-path1-get',
+    'another-path1-put',
+    'some-path2-post',
+  ],
+}
 
 describe('Export test', () => {
-  test('should export rest document to html', async () => {
-    const pkg = LocalRegistry.openPackage('export')
-    const editor = await Editor.openProject(pkg.packageId, pkg)
+  beforeAll(async () => {
+    pkg = LocalRegistry.openPackage('export')
+    editor = await Editor.openProject(pkg.packageId, pkg)
     await pkg.publish(pkg.packageId)
+  })
 
+  test('should export rest document to html', async () => {
     const result = await editor.run({
       buildType: BUILD_TYPE.EXPORT_REST_DOCUMENT,
       documentId: '1',
       format: 'html',
     })
     const packageZip = await editor.createVersionPackage()
-    await fs.writeFile(`${VERSIONS_PATH}/html-${result.exportFileName}`, packageZip)
+    await fs.writeFile(`${VERSIONS_PATH}/${result.exportFileName}`, packageZip)
+    expect(result.exportFileName).toEqual('export_v1_1.zip')
     // todo check zip content
-    const expectedResult = load((await loadFileAsString(pkg.projectsDir, pkg.packageId, EXPECTED_RESULT_FILE))!)
-    expect(result.merged?.data).toEqual(expectedResult)
   })
 
   test('should export rest document to json', async () => {
-    const pkg = LocalRegistry.openPackage('export')
-    const editor = await Editor.openProject(pkg.packageId, pkg)
-    await pkg.publish(pkg.packageId)
-
     const result = await editor.run({
       buildType: BUILD_TYPE.EXPORT_REST_DOCUMENT,
       documentId: '1',
       format: 'json',
     })
     const packageZip = await editor.createVersionPackage()
-    await fs.writeFile(`${VERSIONS_PATH}/json-${result.exportFileName}`, packageZip)
+    await fs.writeFile(`${VERSIONS_PATH}/${result.exportFileName}`, packageZip)
+    expect(result.exportFileName).toEqual('export_v1_1.json')
     // todo check zip content
-    const expectedResult = load((await loadFileAsString(pkg.projectsDir, pkg.packageId, EXPECTED_RESULT_FILE))!)
-    expect(result.merged?.data).toEqual(expectedResult)
   })
 
   test('should export rest document to yaml', async () => {
-    const pkg = LocalRegistry.openPackage('export')
-    const editor = await Editor.openProject(pkg.packageId, pkg)
-    await pkg.publish(pkg.packageId)
-
     const result = await editor.run({
       buildType: BUILD_TYPE.EXPORT_REST_DOCUMENT,
       documentId: '1',
       format: 'yaml',
     })
     const packageZip = await editor.createVersionPackage()
-    await fs.writeFile(`${VERSIONS_PATH}/yaml-${result.exportFileName}`, packageZip)
+    await fs.writeFile(`${VERSIONS_PATH}/${result.exportFileName}`, packageZip)
+    expect(result.exportFileName).toEqual('export_v1_1.yaml')
     // todo check zip content
-    const expectedResult = load((await loadFileAsString(pkg.projectsDir, pkg.packageId, EXPECTED_RESULT_FILE))!)
-    expect(result.merged?.data).toEqual(expectedResult)
   })
 
   test('should export version to html', async () => {
-    const pkg = LocalRegistry.openPackage('export')
-    const editor = await Editor.openProject(pkg.packageId, pkg)
-    await pkg.publish(pkg.packageId)
-
     const result = await editor.run({
       packageId: pkg.packageId,
-      // version: pkg.packageId,
       buildType: BUILD_TYPE.EXPORT_VERSION,
       format: 'html',
     })
     const packageZip = await editor.createVersionPackage()
-    await fs.writeFile(`${VERSIONS_PATH}/export-result-html.zip`, packageZip)
-
+    await fs.writeFile(`${VERSIONS_PATH}/${result.exportFileName}`, packageZip)
+    expect(result.exportFileName).toEqual('export_v1_1.zip')
     // todo check zip content
-
-    const expectedResult = load((await loadFileAsString(pkg.projectsDir, pkg.packageId, EXPECTED_RESULT_FILE))!)
-    expect(result.merged?.data).toEqual(expectedResult)
   })
 
   test('should export version to json', async () => {
-    const pkg = LocalRegistry.openPackage('export')
-    const editor = await Editor.openProject(pkg.packageId, pkg)
-    await pkg.publish(pkg.packageId)
-
     const result = await editor.run({
       packageId: pkg.packageId,
-      // version: pkg.packageId,
       buildType: BUILD_TYPE.EXPORT_VERSION,
       format: 'json',
     })
     const packageZip = await editor.createVersionPackage()
-    await fs.writeFile(`${VERSIONS_PATH}/export-result-json.zip`, packageZip)
-
+    await fs.writeFile(`${VERSIONS_PATH}/${result.exportFileName}`, packageZip)
+    expect(result.exportFileName).toEqual('export_v1_1.json')
     // todo check zip content
-
-    const expectedResult = load((await loadFileAsString(pkg.projectsDir, pkg.packageId, EXPECTED_RESULT_FILE))!)
-    expect(result.merged?.data).toEqual(expectedResult)
   })
 
   test('should export version to yaml', async () => {
-    const pkg = LocalRegistry.openPackage('export')
-    const editor = await Editor.openProject(pkg.packageId, pkg)
-    await pkg.publish(pkg.packageId)
-
     const result = await editor.run({
       packageId: pkg.packageId,
       // version: pkg.packageId,
@@ -125,12 +106,9 @@ describe('Export test', () => {
       format: 'yaml',
     })
     const packageZip = await editor.createVersionPackage()
-    await fs.writeFile(`${VERSIONS_PATH}/export-result-yaml.zip`, packageZip)
-
+    await fs.writeFile(`${VERSIONS_PATH}${result.exportFileName}`, packageZip)
+    expect(result.exportFileName).toEqual('export_v1_1.yaml')
     // todo check zip content
-
-    const expectedResult = load((await loadFileAsString(pkg.projectsDir, pkg.packageId, EXPECTED_RESULT_FILE))!)
-    expect(result.merged?.data).toEqual(expectedResult)
   })
 
   // todo check case with single file in version

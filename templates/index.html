@@ -4,18 +4,18 @@
   <meta charset="utf-8">
   <title>{{packageName}}</title>
   <link rel="stylesheet" type="text/css" href="resources/styles.css">
-  %s
+  {{markdownItScript}}
 </head>
 <body>
   <div class="header">
-    <img class="header__logo" src="resources/corporatelogo.png"/>
+    <img class="header__logo" src="resources/corporatelogo.svg"/>
     <div class="header__info">
       <h3>{{packageName}}</h3>
       <h4>Version: {{version}}</h4>
     </div>
   </div>
   <div class="page">
-    %s
+    {{readmeHtml}}
     <div class="card content">
       <div class="card__title">Table of contents</div>
       <ul class="card__list">
