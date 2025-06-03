@@ -38,7 +38,7 @@ import { OpenApiExtensionKey } from '@netcracker/qubership-apihub-api-unifier'
 import { isRestDocument, isTextDocument } from '../apitypes'
 
 function extractTypeAndSubtype(type: string): string {
-  return type.split('.')[0]
+  return type.split(';')[0]
 }
 
 async function prepareData(file: File): Promise<ZippableDocument['data']> {
@@ -107,15 +107,17 @@ export class ExportVersionStrategy implements BuilderStrategy {
 
     buildResult.exportDocuments.push(...transformedDocuments)
 
-    if (buildResult.exportDocuments.length === 1) {
-      buildResult.exportFileName = createSingleFileExportName(packageId, version, getDocumentTitle(buildResult.exportDocuments[0].fileId), format)
-      return buildResult
-    }
-
     if (format === HTML_EXPORT_GROUP_FORMAT) {
       const readme = buildResult.exportDocuments.find(({fileId}) => fileId.toLowerCase() === 'readme.md')?.description
       buildResult.exportDocuments.push(createExportDocument('index.html', await generateIndexHtmlPage(packageId, version, generatedHtmlExportDocuments, readme)))
       buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageId, version))
+      buildResult.exportFileName = `${packageId}_${version}.zip`
+      return buildResult
+    }
+
+    if (buildResult.exportDocuments.length === 1) {
+      buildResult.exportFileName = createSingleFileExportName(packageId, version, getDocumentTitle(buildResult.exportDocuments[0].fileId), format)
+      return buildResult
     }
 
     buildResult.exportFileName = `${packageId}_${version}.zip`

@@ -95,6 +95,12 @@ export const createVersionPackage = async (
       return await zip.buildResult(options)
 
     case BUILD_TYPE.EXPORT_VERSION:
+      if (buildResult.config.format !== HTML_EXPORT_GROUP_FORMAT && buildResult.exportDocuments.length === 1) {
+        return Buffer.from(await dumpRestDocument(buildResultDto.exportDocuments[0], ctx.config.format).arrayBuffer())
+      }
+      await createExportDocumentDataFiles(zip, buildResultDto.exportDocuments, ctx)
+      return await zip.buildResult(options)
+
     case BUILD_TYPE.EXPORT_REST_OPERATIONS_GROUP:
       await createExportDocumentDataFiles(zip, buildResultDto.exportDocuments, ctx)
       return await zip.buildResult(options)

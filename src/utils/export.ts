@@ -62,10 +62,19 @@ export async function generateHtmlPage(document: string, fileTitle: string, pack
     .replace('{{packageName}}', packageId)
     .replace('{{version}}', version)
     .replace('{{breadcrumbs}}', breadcrumbs)
-    .replace('{{spec}}', document)
+    .replace('{{spec}}', escapeHTML(document))
     // todo use packageName instead of packageId
     .replace('{{packageNameAndVersion}}', `${packageId} ${version}`)
   return new Blob([filled])
+}
+
+function escapeHTML(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&#34;')
 }
 
 async function generateReadmeParts(readme?: string): Promise<[string, string]> {
