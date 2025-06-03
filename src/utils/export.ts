@@ -19,9 +19,9 @@ import path from 'path'
 import fs from 'fs/promises'
 import { getDocumentTitle } from './document'
 
-export async function createCommonStaticExportDocuments(packageId: string, version: string, addBackLink: boolean = false): Promise<ZippableDocument[]> {
+export async function createCommonStaticExportDocuments(packageId: string, version: string, backLinkFilename: string = 'index.html'): Promise<ZippableDocument[]> {
   return [
-    createExportDocument('ls.html', await generateLegalStatementPage(packageId, version, addBackLink)),
+    createExportDocument('ls.html', await generateLegalStatementPage(packageId, version, backLinkFilename)),
     createExportDocument('resources/corporatelogo.svg', new Blob([await fs.readFile(path.join(__dirname, '..', '..', 'templates', 'resources', 'corporatelogo.svg'))])),
     createExportDocument('resources/styles.css', new Blob([await fs.readFile(path.join(__dirname, '..', '..', 'templates', 'resources', 'styles.css'))])),
   ]
@@ -39,14 +39,13 @@ export function createExportDocument(fileId: string, source: Blob): ZippableDocu
   }
 }
 
-export async function generateLegalStatementPage(packageId: string, version: string, addBackLink: boolean): Promise<Blob> {
+export async function generateLegalStatementPage(packageId: string, version: string, backLinkFilename: string): Promise<Blob> {
   const template = await fs.readFile(path.join(__dirname, '..', '..', 'templates', 'ls.html'), 'utf-8')
-  const breadcrumbs = addBackLink ? '<div class="breadcrumbs"><a href="index.html">Back</a></div>' : ''
   const filled = template
     // todo use packageName instead of packageId
     .replace('{{packageName}}', packageId)
     .replace('{{version}}', version)
-    .replace('{{breadcrumbs}}', breadcrumbs)
+    .replace('{{backLinkFilename}}', backLinkFilename)
     // todo use packageName instead of packageId
     .replace('{{packageNameAndVersion}}', `${packageId} ${version}`)
   return new Blob([filled])
@@ -74,7 +73,7 @@ async function generateReadmeParts(readme?: string): Promise<[string, string]> {
     return ['', '']
   }
   const markdownIt = await fs.readFile(path.join(__dirname, '..', '..', 'templates', 'scripts', 'markdown-it.min.js'), 'utf-8')
-  const readmeHtml = '    <div id="readmeMdDiv" class="card content">\n        <div class="card content"></div>\n    </div>\n    <br>\n    <script>\n        var md = window.markdownit();\n        let temp=md.render(`${readme}`);\n        const readmeMdDiv = document.getElementById(\'readmeMdDiv\');\n        readmeMdDiv.innerHTML=temp;\n    </script>'
+  const readmeHtml = `    <div id="readmeMdDiv" class="card content">\n        <div class="card content"></div>\n    </div>\n    <br>\n    <script>\n        var md = window.markdownit();\n        let temp=md.render(\`${readme}\`);\n        const readmeMdDiv = document.getElementById('readmeMdDiv');\n        readmeMdDiv.innerHTML=temp;\n    </script>`
   return [readmeHtml, `<script>${markdownIt}</script>`]
 }
 

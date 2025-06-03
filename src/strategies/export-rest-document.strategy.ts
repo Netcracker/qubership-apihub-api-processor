@@ -76,7 +76,7 @@ export class ExportRestDocumentStrategy implements BuilderStrategy {
     buildResult.exportDocuments.push(await createTransformedDocument(file, format, packageId, version, allowedOasExtensions))
 
     if (format === HTML_EXPORT_GROUP_FORMAT) {
-      buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageId, version))
+      buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageId, version, buildResult.exportDocuments[0].fileId))
       buildResult.exportFileName = createSingleFileExportName(packageId, version, getDocumentTitle(file.name), 'zip')
       return buildResult
     }

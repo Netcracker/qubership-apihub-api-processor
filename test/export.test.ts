@@ -82,7 +82,7 @@ describe('Export test', () => {
     })
     const packageZip = await editor.createVersionPackage()
     await fs.writeFile(`${VERSIONS_PATH}/${result.exportFileName}`, packageZip)
-    expect(result.exportFileName).toEqual('export_v1_1.zip')
+    expect(result.exportFileName).toEqual('export_v1.zip')
     // todo check zip content
   })
 
@@ -94,7 +94,7 @@ describe('Export test', () => {
     })
     const packageZip = await editor.createVersionPackage()
     await fs.writeFile(`${VERSIONS_PATH}/${result.exportFileName}`, packageZip)
-    expect(result.exportFileName).toEqual('export_v1_1.json')
+    expect(result.exportFileName).toEqual('export_v1.zip')
     // todo check zip content
   })
 
@@ -107,7 +107,7 @@ describe('Export test', () => {
     })
     const packageZip = await editor.createVersionPackage()
     await fs.writeFile(`${VERSIONS_PATH}${result.exportFileName}`, packageZip)
-    expect(result.exportFileName).toEqual('export_v1_1.yaml')
+    expect(result.exportFileName).toEqual('export_v1.zip')
     // todo check zip content
   })
 

@@ -115,7 +115,7 @@ export class ExportVersionStrategy implements BuilderStrategy {
     if (format === HTML_EXPORT_GROUP_FORMAT) {
       const readme = buildResult.exportDocuments.find(({fileId}) => fileId.toLowerCase() === 'readme.md')?.description
       buildResult.exportDocuments.push(createExportDocument('index.html', await generateIndexHtmlPage(packageId, version, generatedHtmlExportDocuments, readme)))
-      buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageId, version, true))
+      buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageId, version))
     }
 
     buildResult.exportFileName = `${packageId}_${version}.zip`
