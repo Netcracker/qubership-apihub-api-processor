@@ -71,10 +71,11 @@ import {
   saveNotifications,
   saveOperationsArray,
 } from './utils'
-import { getCompositeKey, getSplittedVersionKey, isNotEmpty, takeIfDefined, toBase64 } from '../../../src/utils'
+import { getCompositeKey, getDocumentTitle, getSplittedVersionKey, isNotEmpty, takeIfDefined, toBase64 } from '../../../src/utils'
 import { IRegistry } from './types'
 import { calculateTotalChangeSummary } from '../../../src/components/compare'
 import { toVersionsComparisonDto } from '../../../src/utils/transformToDto'
+import path from 'path'
 
 const VERSIONS_PATH = 'test/versions'
 const DEFAULT_PROJECTS_PATH = 'test/projects'
@@ -260,13 +261,23 @@ export class LocalRegistry implements IRegistry {
     return { documents: documentsFromRefs, packages: packages }
   }
 
+  private async findFileNameBySlug(directory: string, slug: string): Promise<string> {
+    const files = await fs.readdir(directory)
+    const fileName = files.find(file => getDocumentTitle(file).toLowerCase() === slug.toLowerCase())
+    if (!fileName) {
+      throw new Error(`File for slug ${slug} was not found in ${directory}`)
+    }
+    return fileName
+  }
+
   async rawDocumentResolver(
     version: VersionId,
     packageId: PackageId,
     slug: string,
   ): Promise<File | null> {
-    const fileName = slug === 'readme' ? `${slug}.md` : `${slug}.json`
-    return loadFile(VERSIONS_PATH, `${packageId}/${version}/documents`, fileName)
+    const documentsPath = `${packageId}/${version}/documents`
+    const fileName = await this.findFileNameBySlug(path.join(process.cwd(), VERSIONS_PATH, documentsPath), slug)
+    return loadFile(VERSIONS_PATH, documentsPath, fileName)
   }
 
   private filterOperationIdsByGroup(filterByOperationGroup: string): (id: string) => boolean {
