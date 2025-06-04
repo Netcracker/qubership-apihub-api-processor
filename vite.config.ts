@@ -29,8 +29,8 @@ export default defineConfig({
         {
           src: 'templates',
           dest: [
-            path.resolve('dist', 'cjs', 'templates'),
-            path.resolve('dist', 'esm', 'templates'),
+            path.resolve('dist', 'cjs'),
+            path.resolve('dist', 'esm'),
           ],
         },
       ],
