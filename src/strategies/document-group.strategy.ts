@@ -15,12 +15,12 @@
  */
 
 import {
-  BuildConfig,
   BuilderStrategy,
   BuildResult,
   BuildTypeContexts,
   FileFormat,
   JSON_EXPORT_GROUP_FORMAT,
+  ReducedSourceSpecificationsBuildConfig,
   ResolvedGroupDocument,
   ResolvedReferenceMap,
   VersionDocument,
@@ -69,7 +69,7 @@ function getTransformedDocument(document: ResolvedGroupDocument, format: FileFor
 }
 
 export class DocumentGroupStrategy implements BuilderStrategy {
-  async execute(config: BuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
+  async execute(config: ReducedSourceSpecificationsBuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
     const { builderContext } = contexts
     const { packageId, version, groupName, apiType, format = JSON_EXPORT_GROUP_FORMAT } = config
 

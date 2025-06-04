@@ -12,6 +12,12 @@ paths:
       responses:
         '200':
           description: response description
+    get:
+      parameters:
+        - $ref: '#/components/parameters/usedParameter1'
+      responses:
+        '200':
+          description: get response description
 components:
   parameters:
     usedParameter1:

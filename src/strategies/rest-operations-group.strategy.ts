@@ -15,27 +15,140 @@
  */
 
 import {
-  BuildConfig,
+  BuilderStrategy,
   BuildResult,
   BuildTypeContexts,
+  ExportRestOperationsGroupBuildConfig,
+  HTML_EXPORT_GROUP_FORMAT,
+  JSON_EXPORT_GROUP_FORMAT,
+  OperationsGroupExportFormat,
   TRANSFORMATION_KIND_MERGED,
   TRANSFORMATION_KIND_REDUCED,
+  VersionDocument,
+  ZippableDocument,
 } from '../types'
 import { DocumentGroupStrategy } from './document-group.strategy'
 import { MergedDocumentGroupStrategy } from './merged-document-group.strategy'
+import { EXPORT_FORMAT_TO_FILE_FORMAT, getDocumentTitle } from '../utils'
+import { OpenApiExtensionKey } from '@netcracker/qubership-apihub-api-unifier'
+import { BUILD_TYPE } from '../consts'
+import { isRestDocument, REST_DOCUMENT_TYPE } from '../apitypes'
+import {
+  createCommonStaticExportDocuments,
+  createExportDocument,
+  generateHtmlPage,
+  generateIndexHtmlPage,
+} from '../utils/export'
+import { removeOasExtensions } from '../utils/removeOasExtensions'
 
-export class ExportRestOperationsGroupStrategy extends DocumentGroupStrategy {
-  async execute(config: BuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
+export class ExportRestOperationsGroupStrategy implements BuilderStrategy {
+  async execute(config: ExportRestOperationsGroupBuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
 
     switch (config.operationsSpecTransformation) {
       case TRANSFORMATION_KIND_MERGED:
-        await new MergedDocumentGroupStrategy().execute(config, buildResult, contexts)
-        break
+        await exportMergedDocument(config, buildResult, contexts)
+        return buildResult
       case TRANSFORMATION_KIND_REDUCED:
-        await new DocumentGroupStrategy().execute(config, buildResult, contexts)
-        break
+        await exportReducedDocuments(config, buildResult, contexts)
+        return buildResult
     }
+  }
+}
 
+async function exportMergedDocument(config: ExportRestOperationsGroupBuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
+  const { packageId, version, groupName, format = JSON_EXPORT_GROUP_FORMAT, allowedOasExtensions } = config
+
+  await new MergedDocumentGroupStrategy().execute({
+    ...config,
+    buildType: BUILD_TYPE.MERGED_SPECIFICATION,
+    format: EXPORT_FORMAT_TO_FILE_FORMAT.get(format)!,
+  }, buildResult, contexts)
+
+  if (!buildResult.merged) {
+    throw Error('No merged result')
+  }
+
+  if (format === HTML_EXPORT_GROUP_FORMAT) {
+    const htmlExportDocument = createExportDocument(
+      `${getDocumentTitle(buildResult.merged.filename)}.${HTML_EXPORT_GROUP_FORMAT}`,
+      await generateHtmlPage(JSON.stringify(removeOasExtensions(buildResult.merged?.data, allowedOasExtensions), undefined, 2), getDocumentTitle(buildResult.merged.filename), packageId, version, false),
+    )
+    buildResult.exportDocuments.push(htmlExportDocument)
+    buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageId, version, htmlExportDocument.filename))
+    buildResult.exportFileName = `${packageId}_${version}_${groupName}.zip`
     return buildResult
+  }
+
+  buildResult.exportDocuments.push({
+    data: removeOasExtensions(buildResult.merged?.data, allowedOasExtensions),
+    fileId: `${getDocumentTitle(buildResult.merged.filename)}.${format}`,
+    type: REST_DOCUMENT_TYPE.OAS3, // todo one of REST_DOCUMENT_TYPE
+    description: '',
+    publish: true,
+    filename: `${getDocumentTitle(buildResult.merged.filename)}.${format}`,
+  })
+  buildResult.exportFileName = `${packageId}_${version}_${groupName}.${format}`
+
+  return buildResult
+}
+
+async function exportReducedDocuments(config: ExportRestOperationsGroupBuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
+  const { packageId, version, groupName, format = JSON_EXPORT_GROUP_FORMAT, allowedOasExtensions } = config
+
+  await new DocumentGroupStrategy().execute({
+    ...config,
+    buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
+    format: EXPORT_FORMAT_TO_FILE_FORMAT.get(format)!,
+  }, buildResult, contexts)
+
+  const generatedHtmlExportDocuments: ZippableDocument[] = []
+  const transformedDocuments = await Promise.all([...buildResult.documents.values()].map(async document => {
+    return await createTransformedDocument(document, format, packageId, version, generatedHtmlExportDocuments, allowedOasExtensions)
+  }))
+
+  buildResult.exportDocuments.push(...transformedDocuments)
+
+  if (format === HTML_EXPORT_GROUP_FORMAT) {
+    buildResult.exportDocuments.push(createExportDocument('index.html', await generateIndexHtmlPage(packageId, version, generatedHtmlExportDocuments)))
+    buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageId, version))
+    return buildResult
+  }
+
+  if (buildResult.exportDocuments.length > 1) {
+    buildResult.exportFileName = `${packageId}_${version}_${groupName}.zip`
+    return buildResult
+  }
+
+  buildResult.exportFileName = `${packageId}_${version}_${groupName}.${format}`
+  return buildResult
+}
+
+async function createTransformedDocument(
+  document: VersionDocument,
+  format: OperationsGroupExportFormat,
+  packageId: string,
+  version: string,
+  generatedHtmlExportDocuments: ZippableDocument[],
+  allowedOasExtensions?: OpenApiExtensionKey[],
+): Promise<ZippableDocument> {
+  const { fileId, type } = document
+
+  if (isRestDocument(document) && format === HTML_EXPORT_GROUP_FORMAT) {
+    const htmlExportDocument = createExportDocument(
+      `${getDocumentTitle(document.filename)}.${HTML_EXPORT_GROUP_FORMAT}`,
+      await generateHtmlPage(JSON.stringify(removeOasExtensions(document.data, allowedOasExtensions), undefined, 2), getDocumentTitle(document.filename), packageId, version, true),
+    )
+    generatedHtmlExportDocuments.push(htmlExportDocument)
+    return htmlExportDocument
+  }
+
+  return {
+    fileId,
+    type,
+    data: isRestDocument(document) ? removeOasExtensions(document.data, allowedOasExtensions) : '',
+    description: '',
+    publish: true,
+    filename: `${getDocumentTitle(fileId)}.${format}`,
+    source: document.source,
   }
 }

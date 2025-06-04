@@ -38,7 +38,7 @@ import { isNotEmpty } from './arrays'
 import { PATH_PARAM_UNIFIED_PLACEHOLDER } from './builder'
 import { RefErrorType, RefErrorTypes } from '@netcracker/qubership-apihub-api-unifier'
 
-export const EXPORT_FORMAT_TO_FILE_FORMAT = new Map<OperationsGroupExportFormat, FileFormat>([
+export const EXPORT_FORMAT_TO_FILE_FORMAT = new Map<OperationsGroupExportFormat, typeof FILE_FORMAT_YAML | typeof FILE_FORMAT_JSON>([
   [YAML_EXPORT_GROUP_FORMAT, FILE_FORMAT_YAML],
   [JSON_EXPORT_GROUP_FORMAT, FILE_FORMAT_JSON],
   [HTML_EXPORT_GROUP_FORMAT, FILE_FORMAT_JSON],

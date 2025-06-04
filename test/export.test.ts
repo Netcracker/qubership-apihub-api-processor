@@ -15,7 +15,15 @@
  */
 
 import { Editor, LocalRegistry } from './helpers'
-import { BUILD_TYPE, TRANSFORMATION_KIND_REDUCED } from '../src'
+import {
+  BUILD_TYPE,
+  ExportRestOperationsGroupBuildConfig,
+  HTML_EXPORT_GROUP_FORMAT,
+  JSON_EXPORT_GROUP_FORMAT,
+  TRANSFORMATION_KIND_MERGED,
+  TRANSFORMATION_KIND_REDUCED,
+  YAML_EXPORT_GROUP_FORMAT,
+} from '../src'
 import fs from 'fs/promises'
 
 const VERSIONS_PATH = 'test/versions/temp'
@@ -25,15 +33,35 @@ let editor: Editor
 const GROUP_NAME = 'manualGroup'
 const groupToOperationIdsMap2 = {
   [GROUP_NAME]: [
-    'some-path1-get',
-    'another-path1-put',
-    'some-path2-post',
+    'path1-get',
+    'path2-post',
   ],
+}
+
+const COMMON_GROUP_EXPORT_CONFIG = {
+  packageId: 'export',
+  version: 'v1',
+  groupName: GROUP_NAME,
+}
+
+const COMMON_REDUCED_GROUP_EXPORT_CONFIG: Partial<ExportRestOperationsGroupBuildConfig> = {
+  ...COMMON_GROUP_EXPORT_CONFIG,
+  groupName: GROUP_NAME,
+  buildType: BUILD_TYPE.EXPORT_REST_OPERATIONS_GROUP,
+  operationsSpecTransformation: TRANSFORMATION_KIND_REDUCED,
+}
+
+const COMMON_MERGED_GROUP_EXPORT_CONFIG: Partial<ExportRestOperationsGroupBuildConfig> = {
+  ...COMMON_GROUP_EXPORT_CONFIG,
+  groupName: GROUP_NAME,
+  buildType: BUILD_TYPE.EXPORT_REST_OPERATIONS_GROUP,
+  operationsSpecTransformation: TRANSFORMATION_KIND_MERGED,
 }
 
 describe('Export test', () => {
   beforeAll(async () => {
     pkg = LocalRegistry.openPackage('export')
+    // pkgForGroupExport = LocalRegistry.openPackage('export')
     editor = await Editor.openProject(pkg.packageId, pkg)
     await pkg.publish(pkg.packageId)
   })
@@ -101,7 +129,6 @@ describe('Export test', () => {
   test('should export version to yaml', async () => {
     const result = await editor.run({
       packageId: pkg.packageId,
-      // version: pkg.packageId,
       buildType: BUILD_TYPE.EXPORT_VERSION,
       format: 'yaml',
     })
@@ -114,4 +141,86 @@ describe('Export test', () => {
   // todo check case with single file in version
 
   // todo same 3 tests but without extensions?
+
+  test('should export reduced rest operations group to html', async () => {
+    pkg = LocalRegistry.openPackage('export', groupToOperationIdsMap2)
+    editor = await Editor.openProject(pkg.packageId, pkg)
+
+    const result = await editor.run({
+      ...COMMON_REDUCED_GROUP_EXPORT_CONFIG,
+      format: HTML_EXPORT_GROUP_FORMAT,
+    })
+    const packageZip = await editor.createVersionPackage()
+    await fs.writeFile(`${VERSIONS_PATH}/${result.exportFileName}`, packageZip)
+    expect(result.exportFileName).toEqual('export_v1_manualGroup.zip')
+    // todo check zip content
+  })
+
+  test('should export reduced rest operations group to json', async () => {
+    pkg = LocalRegistry.openPackage('export', groupToOperationIdsMap2)
+    editor = await Editor.openProject(pkg.packageId, pkg)
+
+    const result = await editor.run({
+      ...COMMON_REDUCED_GROUP_EXPORT_CONFIG,
+      format: JSON_EXPORT_GROUP_FORMAT,
+    })
+    const packageZip = await editor.createVersionPackage()
+    await fs.writeFile(`${VERSIONS_PATH}/${result.exportFileName}`, packageZip)
+    expect(result.exportFileName).toEqual('export_v1_manualGroup.zip')
+    // todo check zip content
+  })
+
+  test('should export reduced rest operations group to yaml', async () => {
+    pkg = LocalRegistry.openPackage('export', groupToOperationIdsMap2)
+    editor = await Editor.openProject(pkg.packageId, pkg)
+
+    const result = await editor.run({
+      ...COMMON_REDUCED_GROUP_EXPORT_CONFIG,
+      format: YAML_EXPORT_GROUP_FORMAT,
+    })
+    const packageZip = await editor.createVersionPackage()
+    await fs.writeFile(`${VERSIONS_PATH}/${result.exportFileName}`, packageZip)
+    expect(result.exportFileName).toEqual('export_v1_manualGroup.zip')
+    // todo check zip content
+  })
+
+  test('should export merged rest operations group to html', async () => {
+    pkg = LocalRegistry.openPackage('export', groupToOperationIdsMap2)
+    editor = await Editor.openProject(pkg.packageId, pkg)
+    const result = await editor.run({
+      ...COMMON_MERGED_GROUP_EXPORT_CONFIG,
+      format: HTML_EXPORT_GROUP_FORMAT,
+    })
+    const packageZip = await editor.createVersionPackage()
+    await fs.writeFile(`${VERSIONS_PATH}/${result.exportFileName}`, packageZip)
+    expect(result.exportFileName).toEqual('export_v1_manualGroup.zip')
+    // todo check zip content
+  })
+
+  test('should export merged rest operations group to json', async () => {
+    pkg = LocalRegistry.openPackage('export', groupToOperationIdsMap2)
+    editor = await Editor.openProject(pkg.packageId, pkg)
+    const result = await editor.run({
+      ...COMMON_MERGED_GROUP_EXPORT_CONFIG,
+      format: JSON_EXPORT_GROUP_FORMAT,
+    })
+    const packageZip = await editor.createVersionPackage()
+    await fs.writeFile(`${VERSIONS_PATH}/${result.exportFileName}`, packageZip)
+    expect(result.exportFileName).toEqual('export_v1_manualGroup.json')
+    // todo check zip content
+  })
+
+  test('should export merged rest operations group to yaml', async () => {
+    pkg = LocalRegistry.openPackage('export', groupToOperationIdsMap2)
+    editor = await Editor.openProject(pkg.packageId, pkg)
+
+    const result = await editor.run({
+      ...COMMON_MERGED_GROUP_EXPORT_CONFIG,
+      format: YAML_EXPORT_GROUP_FORMAT,
+    })
+    const packageZip = await editor.createVersionPackage()
+    await fs.writeFile(`${VERSIONS_PATH}/${result.exportFileName}`, packageZip)
+    expect(result.exportFileName).toEqual('export_v1_manualGroup.yaml')
+    // todo check zip content
+  })
 })
