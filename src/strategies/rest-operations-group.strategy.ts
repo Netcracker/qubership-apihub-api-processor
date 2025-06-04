@@ -111,7 +111,6 @@ async function exportReducedDocuments(config: ExportRestOperationsGroupBuildConf
   if (format === HTML_EXPORT_GROUP_FORMAT) {
     buildResult.exportDocuments.push(createExportDocument('index.html', await generateIndexHtmlPage(packageId, version, generatedHtmlExportDocuments)))
     buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageId, version))
-    return buildResult
   }
 
   if (buildResult.exportDocuments.length > 1) {

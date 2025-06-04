@@ -24,9 +24,9 @@ import {
   TRANSFORMATION_KIND_REDUCED,
   YAML_EXPORT_GROUP_FORMAT,
 } from '../src'
-import fs from 'fs/promises'
+// import fs from 'fs/promises'
 
-const VERSIONS_PATH = 'test/versions/temp'
+// const EXPORT_RESULTS_PATH = 'test/versions/export_results'
 
 let pkg: LocalRegistry
 let editor: Editor
@@ -64,6 +64,15 @@ describe('Export test', () => {
     // pkgForGroupExport = LocalRegistry.openPackage('export')
     editor = await Editor.openProject(pkg.packageId, pkg)
     await pkg.publish(pkg.packageId)
+
+    // if (!await fs.stat(EXPORT_RESULTS_PATH)) {
+    //   await fs.mkdir(EXPORT_RESULTS_PATH)
+    // }
+  })
+
+  afterEach(async () => {
+    // const { packageVersion, exportFileName } = await editor.createNodeVersionPackage()
+    // await fs.writeFile(`${EXPORT_RESULTS_PATH}/${exportFileName}`, packageVersion)
   })
 
   test('should export rest document to html', async () => {
@@ -72,8 +81,6 @@ describe('Export test', () => {
       documentId: '1',
       format: 'html',
     })
-    const packageZip = await editor.createVersionPackage()
-    await fs.writeFile(`${VERSIONS_PATH}/${result.exportFileName}`, packageZip)
     expect(result.exportFileName).toEqual('export_v1_1.zip')
     // todo check zip content
   })
@@ -84,8 +91,6 @@ describe('Export test', () => {
       documentId: '1',
       format: 'json',
     })
-    const packageZip = await editor.createVersionPackage()
-    await fs.writeFile(`${VERSIONS_PATH}/${result.exportFileName}`, packageZip)
     expect(result.exportFileName).toEqual('export_v1_1.json')
     // todo check zip content
   })
@@ -96,8 +101,6 @@ describe('Export test', () => {
       documentId: '1',
       format: 'yaml',
     })
-    const packageZip = await editor.createVersionPackage()
-    await fs.writeFile(`${VERSIONS_PATH}/${result.exportFileName}`, packageZip)
     expect(result.exportFileName).toEqual('export_v1_1.yaml')
     // todo check zip content
   })
@@ -108,8 +111,6 @@ describe('Export test', () => {
       buildType: BUILD_TYPE.EXPORT_VERSION,
       format: 'html',
     })
-    const packageZip = await editor.createVersionPackage()
-    await fs.writeFile(`${VERSIONS_PATH}/${result.exportFileName}`, packageZip)
     expect(result.exportFileName).toEqual('export_v1.zip')
     // todo check zip content
   })
@@ -120,8 +121,6 @@ describe('Export test', () => {
       buildType: BUILD_TYPE.EXPORT_VERSION,
       format: 'json',
     })
-    const packageZip = await editor.createVersionPackage()
-    await fs.writeFile(`${VERSIONS_PATH}/${result.exportFileName}`, packageZip)
     expect(result.exportFileName).toEqual('export_v1.zip')
     // todo check zip content
   })
@@ -132,8 +131,6 @@ describe('Export test', () => {
       buildType: BUILD_TYPE.EXPORT_VERSION,
       format: 'yaml',
     })
-    const packageZip = await editor.createVersionPackage()
-    await fs.writeFile(`${VERSIONS_PATH}${result.exportFileName}`, packageZip)
     expect(result.exportFileName).toEqual('export_v1.zip')
     // todo check zip content
   })
@@ -150,8 +147,6 @@ describe('Export test', () => {
       ...COMMON_REDUCED_GROUP_EXPORT_CONFIG,
       format: HTML_EXPORT_GROUP_FORMAT,
     })
-    const packageZip = await editor.createVersionPackage()
-    await fs.writeFile(`${VERSIONS_PATH}/${result.exportFileName}`, packageZip)
     expect(result.exportFileName).toEqual('export_v1_manualGroup.zip')
     // todo check zip content
   })
@@ -164,8 +159,6 @@ describe('Export test', () => {
       ...COMMON_REDUCED_GROUP_EXPORT_CONFIG,
       format: JSON_EXPORT_GROUP_FORMAT,
     })
-    const packageZip = await editor.createVersionPackage()
-    await fs.writeFile(`${VERSIONS_PATH}/${result.exportFileName}`, packageZip)
     expect(result.exportFileName).toEqual('export_v1_manualGroup.zip')
     // todo check zip content
   })
@@ -178,8 +171,6 @@ describe('Export test', () => {
       ...COMMON_REDUCED_GROUP_EXPORT_CONFIG,
       format: YAML_EXPORT_GROUP_FORMAT,
     })
-    const packageZip = await editor.createVersionPackage()
-    await fs.writeFile(`${VERSIONS_PATH}/${result.exportFileName}`, packageZip)
     expect(result.exportFileName).toEqual('export_v1_manualGroup.zip')
     // todo check zip content
   })
@@ -191,8 +182,6 @@ describe('Export test', () => {
       ...COMMON_MERGED_GROUP_EXPORT_CONFIG,
       format: HTML_EXPORT_GROUP_FORMAT,
     })
-    const packageZip = await editor.createVersionPackage()
-    await fs.writeFile(`${VERSIONS_PATH}/${result.exportFileName}`, packageZip)
     expect(result.exportFileName).toEqual('export_v1_manualGroup.zip')
     // todo check zip content
   })
@@ -204,8 +193,6 @@ describe('Export test', () => {
       ...COMMON_MERGED_GROUP_EXPORT_CONFIG,
       format: JSON_EXPORT_GROUP_FORMAT,
     })
-    const packageZip = await editor.createVersionPackage()
-    await fs.writeFile(`${VERSIONS_PATH}/${result.exportFileName}`, packageZip)
     expect(result.exportFileName).toEqual('export_v1_manualGroup.json')
     // todo check zip content
   })
@@ -218,8 +205,6 @@ describe('Export test', () => {
       ...COMMON_MERGED_GROUP_EXPORT_CONFIG,
       format: YAML_EXPORT_GROUP_FORMAT,
     })
-    const packageZip = await editor.createVersionPackage()
-    await fs.writeFile(`${VERSIONS_PATH}/${result.exportFileName}`, packageZip)
     expect(result.exportFileName).toEqual('export_v1_manualGroup.yaml')
     // todo check zip content
   })
