@@ -107,10 +107,14 @@ export class ExportVersionStrategy implements BuilderStrategy {
 
     buildResult.exportDocuments.push(...transformedDocuments)
 
-    if (format === HTML_EXPORT_GROUP_FORMAT) {
-      const readme = buildResult.exportDocuments.find(({fileId}) => fileId.toLowerCase() === 'readme.md')?.description
-      buildResult.exportDocuments.push(createExportDocument('index.html', await generateIndexHtmlPage(packageId, version, generatedHtmlExportDocuments, readme)))
+    const restDocuments = documents.filter(isRestDocument)
+    if (format === HTML_EXPORT_GROUP_FORMAT && restDocuments.length > 0) {
       buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageId, version))
+      const readme = buildResult.exportDocuments.find(({ fileId }) => fileId.toLowerCase() === 'readme.md')?.description
+
+      if (restDocuments.length > 1 || readme) {
+        buildResult.exportDocuments.push(createExportDocument('index.html', await generateIndexHtmlPage(packageId, version, generatedHtmlExportDocuments, readme)))
+      }
     }
 
     if (buildResult.exportDocuments.length > 1) {

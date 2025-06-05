@@ -15,7 +15,7 @@
  */
 
 import { FILE_FORMAT_JSON, FILE_FORMAT_YAML, FILE_FORMAT_YML } from '../../consts'
-import { KeyOfConstType, ResolvedVersionDocument } from '../../types'
+import { KeyOfConstType, ResolvedVersionDocument, ZippableDocument } from '../../types'
 import { TEXT_DOCUMENT_TYPE, TextDocumentType } from '../text'
 
 export const REST_API_TYPE = 'rest' as const
@@ -47,7 +47,7 @@ export const REST_KIND_KEY = 'x-api-kind'
 
 export const DEPRECATED_META_KEY = 'x-deprecated-meta'
 
-export function isRestDocument(document: ResolvedVersionDocument): boolean {
+export function isRestDocument(document: ZippableDocument | ResolvedVersionDocument): boolean {
   return Object.values(REST_DOCUMENT_TYPE).includes(document.type as RestDocumentType)
 }
 
