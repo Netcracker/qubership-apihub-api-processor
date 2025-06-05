@@ -24,9 +24,9 @@ import {
   TRANSFORMATION_KIND_REDUCED,
   YAML_EXPORT_GROUP_FORMAT,
 } from '../src'
-// import fs from 'fs/promises'
+import fs from 'fs/promises'
 
-// const EXPORT_RESULTS_PATH = 'test/versions/export_results'
+const EXPORT_RESULTS_PATH = 'test/versions/export_results'
 
 let pkg: LocalRegistry
 let editor: Editor
@@ -40,7 +40,7 @@ const groupToOperationIdsMap2 = {
 
 const COMMON_GROUP_EXPORT_CONFIG = {
   packageId: 'export',
-  version: 'v1',
+  version: 'regular-version',
   groupName: GROUP_NAME,
 }
 
@@ -61,18 +61,19 @@ const COMMON_MERGED_GROUP_EXPORT_CONFIG: Partial<ExportRestOperationsGroupBuildC
 describe('Export test', () => {
   beforeAll(async () => {
     pkg = LocalRegistry.openPackage('export')
-    // pkgForGroupExport = LocalRegistry.openPackage('export')
-    editor = await Editor.openProject(pkg.packageId, pkg)
-    await pkg.publish(pkg.packageId)
+    await pkg.publish(pkg.packageId, {version: 'regular-version'})
+    await pkg.publish(pkg.packageId, {version: 'single-document-version', files: [{fileId: '1.yaml'}]})
 
-    // if (!await fs.stat(EXPORT_RESULTS_PATH)) {
-    //   await fs.mkdir(EXPORT_RESULTS_PATH)
-    // }
+    editor = await Editor.openProject(pkg.packageId, pkg)
+
+    if (!await fs.stat(EXPORT_RESULTS_PATH)) {
+      await fs.mkdir(EXPORT_RESULTS_PATH)
+    }
   })
 
   afterEach(async () => {
-    // const { packageVersion, exportFileName } = await editor.createNodeVersionPackage()
-    // await fs.writeFile(`${EXPORT_RESULTS_PATH}/${exportFileName}`, packageVersion)
+    const { packageVersion, exportFileName } = await editor.createNodeVersionPackage()
+    await fs.writeFile(`${EXPORT_RESULTS_PATH}/${exportFileName}`, packageVersion)
   })
 
   test('should export rest document to html', async () => {
@@ -81,7 +82,7 @@ describe('Export test', () => {
       documentId: '1',
       format: 'html',
     })
-    expect(result.exportFileName).toEqual('export_v1_1.zip')
+    expect(result.exportFileName).toEqual('export_regular-version_1.zip')
     // todo check zip content
   })
 
@@ -91,7 +92,7 @@ describe('Export test', () => {
       documentId: '1',
       format: 'json',
     })
-    expect(result.exportFileName).toEqual('export_v1_1.json')
+    expect(result.exportFileName).toEqual('export_regular-version_1.json')
     // todo check zip content
   })
 
@@ -101,7 +102,7 @@ describe('Export test', () => {
       documentId: '1',
       format: 'yaml',
     })
-    expect(result.exportFileName).toEqual('export_v1_1.yaml')
+    expect(result.exportFileName).toEqual('export_regular-version_1.yaml')
     // todo check zip content
   })
 
@@ -111,7 +112,7 @@ describe('Export test', () => {
       buildType: BUILD_TYPE.EXPORT_VERSION,
       format: 'html',
     })
-    expect(result.exportFileName).toEqual('export_v1.zip')
+    expect(result.exportFileName).toEqual('export_regular-version.zip')
     // todo check zip content
   })
 
@@ -121,7 +122,7 @@ describe('Export test', () => {
       buildType: BUILD_TYPE.EXPORT_VERSION,
       format: 'json',
     })
-    expect(result.exportFileName).toEqual('export_v1.zip')
+    expect(result.exportFileName).toEqual('export_regular-version.zip')
     // todo check zip content
   })
 
@@ -131,13 +132,43 @@ describe('Export test', () => {
       buildType: BUILD_TYPE.EXPORT_VERSION,
       format: 'yaml',
     })
-    expect(result.exportFileName).toEqual('export_v1.zip')
+    expect(result.exportFileName).toEqual('export_regular-version.zip')
     // todo check zip content
   })
 
-  // todo check case with single file in version
+  test('should export single document version to html', async () => {
+    const result = await editor.run({
+      version: 'single-document-version',
+      buildType: BUILD_TYPE.EXPORT_VERSION,
+      format: 'html',
+    })
+    expect(result.exportFileName).toEqual('export_single-document-version.zip')
+    // todo check zip content
+  })
 
-  // todo same 3 tests but without extensions?
+  test('should export single document version to json', async () => {
+    const result = await editor.run({
+      version: 'single-document-version',
+      buildType: BUILD_TYPE.EXPORT_VERSION,
+      format: 'json',
+    })
+    expect(result.exportFileName).toEqual('export_single-document-version.zip')
+    // todo check zip content
+  })
+
+  test('should export single document version to yaml', async () => {
+    const result = await editor.run({
+      version: 'single-document-version',
+      buildType: BUILD_TYPE.EXPORT_VERSION,
+      format: 'yaml',
+    })
+    expect(result.exportFileName).toEqual('export_single-document-version.zip')
+    // todo check zip content
+  })
+
+  // todo check case with readme
+
+  // todo same 3 tests but without extensions? (excessive)
 
   test('should export reduced rest operations group to html', async () => {
     pkg = LocalRegistry.openPackage('export', groupToOperationIdsMap2)
@@ -147,7 +178,7 @@ describe('Export test', () => {
       ...COMMON_REDUCED_GROUP_EXPORT_CONFIG,
       format: HTML_EXPORT_GROUP_FORMAT,
     })
-    expect(result.exportFileName).toEqual('export_v1_manualGroup.zip')
+    expect(result.exportFileName).toEqual('export_regular-version_manualGroup.zip')
     // todo check zip content
   })
 
@@ -159,7 +190,7 @@ describe('Export test', () => {
       ...COMMON_REDUCED_GROUP_EXPORT_CONFIG,
       format: JSON_EXPORT_GROUP_FORMAT,
     })
-    expect(result.exportFileName).toEqual('export_v1_manualGroup.zip')
+    expect(result.exportFileName).toEqual('export_regular-version_manualGroup.zip')
     // todo check zip content
   })
 
@@ -171,7 +202,7 @@ describe('Export test', () => {
       ...COMMON_REDUCED_GROUP_EXPORT_CONFIG,
       format: YAML_EXPORT_GROUP_FORMAT,
     })
-    expect(result.exportFileName).toEqual('export_v1_manualGroup.zip')
+    expect(result.exportFileName).toEqual('export_regular-version_manualGroup.zip')
     // todo check zip content
   })
 
@@ -182,7 +213,7 @@ describe('Export test', () => {
       ...COMMON_MERGED_GROUP_EXPORT_CONFIG,
       format: HTML_EXPORT_GROUP_FORMAT,
     })
-    expect(result.exportFileName).toEqual('export_v1_manualGroup.zip')
+    expect(result.exportFileName).toEqual('export_regular-version_manualGroup.zip')
     // todo check zip content
   })
 
@@ -193,7 +224,7 @@ describe('Export test', () => {
       ...COMMON_MERGED_GROUP_EXPORT_CONFIG,
       format: JSON_EXPORT_GROUP_FORMAT,
     })
-    expect(result.exportFileName).toEqual('export_v1_manualGroup.json')
+    expect(result.exportFileName).toEqual('export_regular-version_manualGroup.json')
     // todo check zip content
   })
 
@@ -205,7 +236,7 @@ describe('Export test', () => {
       ...COMMON_MERGED_GROUP_EXPORT_CONFIG,
       format: YAML_EXPORT_GROUP_FORMAT,
     })
-    expect(result.exportFileName).toEqual('export_v1_manualGroup.yaml')
+    expect(result.exportFileName).toEqual('export_regular-version_manualGroup.yaml')
     // todo check zip content
   })
 })
