@@ -24,9 +24,9 @@ import {
   TRANSFORMATION_KIND_REDUCED,
   YAML_EXPORT_GROUP_FORMAT,
 } from '../src'
-import fs from 'fs/promises'
+// import fs from 'fs/promises'
 
-const EXPORT_RESULTS_PATH = 'test/versions/export_results'
+// const EXPORT_RESULTS_PATH = 'test/versions/export_results'
 
 let pkg: LocalRegistry
 let editor: Editor
@@ -66,15 +66,15 @@ describe('Export test', () => {
 
     editor = await Editor.openProject(pkg.packageId, pkg)
 
-    if (!await fs.stat(EXPORT_RESULTS_PATH)) {
-      await fs.mkdir(EXPORT_RESULTS_PATH)
-    }
+    // if (!await fs.stat(EXPORT_RESULTS_PATH)) {
+    //   await fs.mkdir(EXPORT_RESULTS_PATH)
+    // }
   })
 
-  afterEach(async () => {
-    const { packageVersion, exportFileName } = await editor.createNodeVersionPackage()
-    await fs.writeFile(`${EXPORT_RESULTS_PATH}/${exportFileName}`, packageVersion)
-  })
+  // afterEach(async () => {
+    // const { packageVersion, exportFileName } = await editor.createNodeVersionPackage()
+    // await fs.writeFile(`${EXPORT_RESULTS_PATH}/${exportFileName}`, packageVersion)
+  // })
 
   test('should export rest document to html', async () => {
     const result = await editor.run({
