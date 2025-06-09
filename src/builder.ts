@@ -76,7 +76,7 @@ import { MergedDocumentGroupStrategy } from './strategies/merged-document-group.
 import { asyncDebugPerformance } from './utils/logs'
 import { ExportVersionStrategy } from './strategies/export-version.strategy'
 import { ExportRestDocumentStrategy } from './strategies/export-rest-document.strategy'
-import { ExportRestOperationsGroupStrategy } from './strategies/rest-operations-group.strategy'
+import { ExportRestOperationsGroupStrategy } from './strategies/export-rest-operations-group.strategy'
 
 export const DEFAULT_RUN_OPTIONS: BuilderRunOptions = {
   cleanCache: false,
