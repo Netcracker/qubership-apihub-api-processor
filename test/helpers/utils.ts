@@ -49,7 +49,11 @@ export const loadFile = async (filePath: string, folder: string, fileName: strin
   }
 }
 
-export const loadConfig = async (filePath: string, folder: string, filename?: string): Promise<BuildConfig | null> => {
+export interface PackageInfo {
+  packageName: string
+}
+
+export const loadConfig = async (filePath: string, folder: string, filename?: string): Promise<BuildConfig & PackageInfo | null> => {
   try {
     const filepath = path.join(process.cwd(), filePath, folder, filename ?? 'config.json')
     const file = await fs.readFile(filepath, 'utf8')

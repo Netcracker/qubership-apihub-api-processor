@@ -60,7 +60,7 @@ async function createTransformedDocument(
   document: ResolvedVersionDocument,
   file: File,
   format: OperationsGroupExportFormat,
-  packageId: string,
+  packageName: string,
   version: string,
   generatedHtmlExportDocuments: ZippableDocument[],
   templateResolver: _TemplateResolver,
@@ -73,7 +73,7 @@ async function createTransformedDocument(
   if (isRestDocument(document) && format === HTML_EXPORT_GROUP_FORMAT) {
     const htmlExportDocument = createExportDocument(
       `${getDocumentTitle(file.name)}.${HTML_EXPORT_GROUP_FORMAT}`,
-      await generateHtmlPage(JSON.stringify(removeOasExtensions(JSON.parse(data), allowedOasExtensions), undefined, 2), getDocumentTitle(file.name), packageId, version, templateResolver, true),
+      await generateHtmlPage(JSON.stringify(removeOasExtensions(JSON.parse(data), allowedOasExtensions), undefined, 2), getDocumentTitle(file.name), packageName, version, templateResolver, true),
     )
     generatedHtmlExportDocuments.push(htmlExportDocument)
     return htmlExportDocument
@@ -93,8 +93,9 @@ async function createTransformedDocument(
 export class ExportVersionStrategy implements BuilderStrategy {
   async execute(config: ExportVersionBuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
     const { builderContext } = contexts
-    const { versionDocumentsResolver, rawDocumentResolver, templateResolver } = builderContext(config)
+    const { versionDocumentsResolver, rawDocumentResolver, templateResolver, packageResolver } = builderContext(config)
     const { packageId, version, format = JSON_EXPORT_GROUP_FORMAT, allowedOasExtensions } = config
+    const { name: packageName } = await packageResolver(packageId)
 
     const { documents } = await versionDocumentsResolver(
       version,
@@ -104,18 +105,18 @@ export class ExportVersionStrategy implements BuilderStrategy {
     const generatedHtmlExportDocuments: ZippableDocument[] = []
     const transformedDocuments = await Promise.all(documents.map(async document => {
       const file = await rawDocumentResolver(version, packageId, document.slug)
-      return await createTransformedDocument(document, file, format, packageId, version, generatedHtmlExportDocuments, templateResolver, allowedOasExtensions)
+      return await createTransformedDocument(document, file, format, packageName, version, generatedHtmlExportDocuments, templateResolver, allowedOasExtensions)
     }))
 
     buildResult.exportDocuments.push(...transformedDocuments)
 
     const restDocuments = documents.filter(isRestDocument)
     if (format === HTML_EXPORT_GROUP_FORMAT && restDocuments.length > 0) {
-      buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageId, version, templateResolver))
+      buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageName, version, templateResolver))
       const readme = buildResult.exportDocuments.find(({ fileId }) => fileId.toLowerCase() === 'readme.md')?.description
 
       if (restDocuments.length > 1 || readme) {
-        buildResult.exportDocuments.push(createExportDocument('index.html', await generateIndexHtmlPage(packageId, version, generatedHtmlExportDocuments, templateResolver, readme)))
+        buildResult.exportDocuments.push(createExportDocument('index.html', await generateIndexHtmlPage(packageName, version, generatedHtmlExportDocuments, templateResolver, readme)))
       }
     }
 

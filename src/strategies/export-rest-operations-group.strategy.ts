@@ -58,7 +58,8 @@ export class ExportRestOperationsGroupStrategy implements BuilderStrategy {
 
 async function exportMergedDocument(config: ExportRestOperationsGroupBuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
   const { packageId, version, groupName, format = JSON_EXPORT_GROUP_FORMAT, allowedOasExtensions } = config
-  const { templateResolver } = contexts.builderContext(config)
+  const { templateResolver, packageResolver } = contexts.builderContext(config)
+  const { name: packageName } = await packageResolver(packageId)
 
   await new MergedDocumentGroupStrategy().execute({
     ...config,
@@ -73,10 +74,10 @@ async function exportMergedDocument(config: ExportRestOperationsGroupBuildConfig
   if (format === HTML_EXPORT_GROUP_FORMAT) {
     const htmlExportDocument = createExportDocument(
       `${getDocumentTitle(buildResult.merged.filename)}.${HTML_EXPORT_GROUP_FORMAT}`,
-      await generateHtmlPage(JSON.stringify(removeOasExtensions(buildResult.merged?.data, allowedOasExtensions), undefined, 2), getDocumentTitle(buildResult.merged.filename), packageId, version, templateResolver, false),
+      await generateHtmlPage(JSON.stringify(removeOasExtensions(buildResult.merged?.data, allowedOasExtensions), undefined, 2), getDocumentTitle(buildResult.merged.filename), packageName, version, templateResolver, false),
     )
     buildResult.exportDocuments.push(htmlExportDocument)
-    buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageId, version, templateResolver, htmlExportDocument.filename))
+    buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageName, version, templateResolver, htmlExportDocument.filename))
     buildResult.exportFileName = `${packageId}_${version}_${groupName}.zip`
     return buildResult
   }
@@ -96,7 +97,8 @@ async function exportMergedDocument(config: ExportRestOperationsGroupBuildConfig
 
 async function exportReducedDocuments(config: ExportRestOperationsGroupBuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
   const { packageId, version, groupName, format = JSON_EXPORT_GROUP_FORMAT, allowedOasExtensions } = config
-  const { templateResolver } = contexts.builderContext(config)
+  const { templateResolver, packageResolver } = contexts.builderContext(config)
+  const { name: packageName } = await packageResolver(packageId)
 
   await new DocumentGroupStrategy().execute({
     ...config,
@@ -106,14 +108,14 @@ async function exportReducedDocuments(config: ExportRestOperationsGroupBuildConf
 
   const generatedHtmlExportDocuments: ZippableDocument[] = []
   const transformedDocuments = await Promise.all([...buildResult.documents.values()].map(async document => {
-    return await createTransformedDocument(document, format, packageId, version, generatedHtmlExportDocuments, templateResolver, allowedOasExtensions)
+    return await createTransformedDocument(document, format, packageName, version, generatedHtmlExportDocuments, templateResolver, allowedOasExtensions)
   }))
 
   buildResult.exportDocuments.push(...transformedDocuments)
 
   if (format === HTML_EXPORT_GROUP_FORMAT) {
-    buildResult.exportDocuments.push(createExportDocument('index.html', await generateIndexHtmlPage(packageId, version, generatedHtmlExportDocuments, templateResolver)))
-    buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageId, version, templateResolver))
+    buildResult.exportDocuments.push(createExportDocument('index.html', await generateIndexHtmlPage(packageName, version, generatedHtmlExportDocuments, templateResolver)))
+    buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageName, version, templateResolver))
   }
 
   if (buildResult.exportDocuments.length > 1) {
@@ -128,7 +130,7 @@ async function exportReducedDocuments(config: ExportRestOperationsGroupBuildConf
 async function createTransformedDocument(
   document: VersionDocument,
   format: OperationsGroupExportFormat,
-  packageId: string,
+  packageName: string,
   version: string,
   generatedHtmlExportDocuments: ZippableDocument[],
   templateResolver: _TemplateResolver,
@@ -139,7 +141,7 @@ async function createTransformedDocument(
   if (isRestDocument(document) && format === HTML_EXPORT_GROUP_FORMAT) {
     const htmlExportDocument = createExportDocument(
       `${getDocumentTitle(document.filename)}.${HTML_EXPORT_GROUP_FORMAT}`,
-      await generateHtmlPage(JSON.stringify(removeOasExtensions(document.data, allowedOasExtensions), undefined, 2), getDocumentTitle(document.filename), packageId, version, templateResolver, true),
+      await generateHtmlPage(JSON.stringify(removeOasExtensions(document.data, allowedOasExtensions), undefined, 2), getDocumentTitle(document.filename), packageName, version, templateResolver, true),
     )
     generatedHtmlExportDocuments.push(htmlExportDocument)
     return htmlExportDocument

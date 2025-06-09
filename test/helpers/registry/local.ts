@@ -76,6 +76,7 @@ import { IRegistry } from './types'
 import { calculateTotalChangeSummary } from '../../../src/components/compare'
 import { toVersionsComparisonDto } from '../../../src/utils/transformToDto'
 import path from 'path'
+import { ResolvedPackage } from '../../../src/types/external/package'
 
 const VERSIONS_PATH = 'test/versions'
 const DEFAULT_PROJECTS_PATH = 'test/projects'
@@ -94,6 +95,7 @@ export class LocalRegistry implements IRegistry {
 
   get versionResolvers(): Omit<BuilderResolvers, 'fileResolver'> {
     return {
+      packageResolver: this.packageResolver.bind(this),
       versionResolver: this.versionResolver.bind(this),
       versionOperationsResolver: this.versionOperationsResolver.bind(this),
       versionReferencesResolver: this.versionReferencesResolver.bind(this),
@@ -115,6 +117,21 @@ export class LocalRegistry implements IRegistry {
 
   static openPackage(packageId: string, groupOperationIds: Record<string, string[]> = {}, projectsDir: string = DEFAULT_PROJECTS_PATH): LocalRegistry {
     return new LocalRegistry(packageId, groupOperationIds, projectsDir)
+  }
+
+  async packageResolver(
+    packageId: string,
+  ): Promise<ResolvedPackage | null> {
+    const config = await loadConfig(this.projectsDir, packageId)
+
+    if (!config || !config.packageName) {
+      return null
+    }
+
+    return {
+      packageId: config.packageId,
+      name: config.packageName,
+    }
   }
 
   async versionResolver(

@@ -27,9 +27,11 @@ import { VersionOperationsResolver } from './operations'
 import { VersionReferencesResolver } from './references'
 import { VersionResolver } from './version'
 import { GroupExportTemplateResolver } from '../internal'
+import { PackageResolver } from './package'
 
 export interface BuilderResolvers {
   fileResolver: FileResolver
+  packageResolver?: PackageResolver
   versionResolver?: VersionResolver
   versionOperationsResolver?: VersionOperationsResolver
   versionReferencesResolver?: VersionReferencesResolver

@@ -41,6 +41,7 @@ import { SourceFile, TextFile } from './internal'
 import { ApiOperation } from './operation'
 import { Diff } from '@netcracker/qubership-apihub-api-diff'
 import { DebugPerformanceContext } from '../../utils/logs'
+import { ResolvedPackage } from '../external/package'
 
 export type BuilderType =
   | typeof REST_API_TYPE
@@ -55,6 +56,7 @@ export interface BuilderContext<T = any> {
   basePath: string
   parsedFileResolver: _ParsedFileResolver
   templateResolver: _TemplateResolver
+  packageResolver: _PackageResolver
   notifications: NotificationMessage[]
   config: BuildConfig
   builderRunOptions: BuilderRunOptions
@@ -116,6 +118,7 @@ export interface ApiBuilder<T = any, O = any, M = any> {
 }
 
 // internal
+export type _PackageResolver = (packageId: PackageId) => Promise<ResolvedPackage>
 export type _VersionResolver = (packageId: PackageId, version: VersionId) => Promise<VersionCache | null>
 export type _VersionReferencesResolver = (packageId: PackageId, version: VersionId) => Promise<BuildConfigRef[]>
 

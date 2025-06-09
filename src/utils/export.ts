@@ -17,9 +17,9 @@ import { _TemplateResolver, ZippableDocument } from '../types'
 import { UNKNOWN_API_TYPE } from '../apitypes'
 import { getDocumentTitle } from './document'
 
-export async function createCommonStaticExportDocuments(packageId: string, version: string, templateResolver: _TemplateResolver, backLinkFilename: string = 'index.html'): Promise<ZippableDocument[]> {
+export async function createCommonStaticExportDocuments(packageName: string, version: string, templateResolver: _TemplateResolver, backLinkFilename: string = 'index.html'): Promise<ZippableDocument[]> {
   return [
-    createExportDocument('ls.html', await generateLegalStatementPage(packageId, version, await templateResolver('ls.html'), backLinkFilename)),
+    createExportDocument('ls.html', await generateLegalStatementPage(packageName, version, await templateResolver('ls.html'), backLinkFilename)),
     createExportDocument('resources/corporatelogo.svg', await templateResolver('resources/corporatelogo.svg')),
     createExportDocument('resources/styles.css', await templateResolver('resources/styles.css')),
   ]
@@ -37,31 +37,25 @@ export function createExportDocument(fileId: string, source: Blob): ZippableDocu
   }
 }
 
-export async function generateLegalStatementPage(packageId: string, version: string, legalStatement: Blob, backLinkFilename: string): Promise<Blob> {
+export async function generateLegalStatementPage(packageName: string, version: string, legalStatement: Blob, backLinkFilename: string): Promise<Blob> {
   const filled = (await legalStatement.text())
-    // todo use packageName instead of packageId
-    .replace('{{packageName}}', packageId)
-    .replace('{{version}}', version)
+    .replaceAll('{{packageName}}', packageName)
+    .replaceAll('{{version}}', version)
     .replace('{{backLinkFilename}}', backLinkFilename)
-    // todo use packageName instead of packageId
-    .replace('{{packageNameAndVersion}}', `${packageId} ${version}`)
   return new Blob([filled])
 }
 
-export async function generateHtmlPage(document: string, fileTitle: string, packageId: string, version: string, templateResolver: _TemplateResolver, addBackLink: boolean = false): Promise<Blob> {
+export async function generateHtmlPage(document: string, fileTitle: string, packageName: string, version: string, templateResolver: _TemplateResolver, addBackLink: boolean = false): Promise<Blob> {
   const template = await (await templateResolver('page.html')).text()
   const apispecViewScript = await (await templateResolver('scripts/apispec-view.js')).text()
   const breadcrumbs = addBackLink ? `<div class="breadcrumbs"><a href="index.html">Table of contents</a> > <span>${fileTitle}</span></div>` : ''
   const filled = template
     .replace('{{fileTitle}}', fileTitle)
     .replace('{{apispecViewScript}}', () => apispecViewScript)
-    // todo use packageName instead of packageId
-    .replace('{{packageName}}', packageId)
-    .replace('{{version}}', version)
+    .replaceAll('{{packageName}}', packageName)
+    .replaceAll('{{version}}', version)
     .replace('{{breadcrumbs}}', breadcrumbs)
     .replace('{{spec}}', escapeHTML(document))
-    // todo use packageName instead of packageId
-    .replace('{{packageNameAndVersion}}', `${packageId} ${version}`)
   return new Blob([filled])
 }
 
@@ -83,7 +77,7 @@ async function generateReadmeParts(templateResolver: _TemplateResolver, readme?:
   return [readmeHtml, `<script>${markdownIt}</script>`]
 }
 
-export async function generateIndexHtmlPage(packageId: string, version: string, generatedHtmlExportDocuments: ZippableDocument[], templateResolver: _TemplateResolver, readme?: string): Promise<Blob> {
+export async function generateIndexHtmlPage(packageName: string, version: string, generatedHtmlExportDocuments: ZippableDocument[], templateResolver: _TemplateResolver, readme?: string): Promise<Blob> {
   const template = await (await templateResolver('index.html')).text()
   const htmlList = generatedHtmlExportDocuments.reduce(
     (acc, { filename }) => acc.concat(`        <li><a href="${filename}">${getDocumentTitle(filename)}</a></li>\n`),
@@ -93,14 +87,11 @@ export async function generateIndexHtmlPage(packageId: string, version: string, 
   const [readmeHtml, markdownItScript] = await generateReadmeParts(templateResolver, readme)
 
   const filled = template
-    // todo use packageName instead of packageId
-    .replaceAll('{{packageName}}', packageId)
+    .replaceAll('{{packageName}}', packageName)
+    .replaceAll('{{version}}', version)
     .replace('{{markdownItScript}}', markdownItScript)
-    .replace('{{version}}', version)
     .replace('{{readmeHtml}}', readmeHtml)
     .replace('{{htmlList}}', htmlList)
-    // todo use packageName instead of packageId
-    .replace('{{packageNameAndVersion}}', `${packageId} ${version}`)
   return new Blob([filled])
 }
 

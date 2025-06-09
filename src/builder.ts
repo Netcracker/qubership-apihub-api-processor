@@ -77,6 +77,7 @@ import { asyncDebugPerformance } from './utils/logs'
 import { ExportVersionStrategy } from './strategies/export-version.strategy'
 import { ExportRestDocumentStrategy } from './strategies/export-rest-document.strategy'
 import { ExportRestOperationsGroupStrategy } from './strategies/export-rest-operations-group.strategy'
+import { ResolvedPackage } from './types/external/package'
 
 export const DEFAULT_RUN_OPTIONS: BuilderRunOptions = {
   cleanCache: false,
@@ -181,6 +182,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       apiBuilders: this.apiBuilders,
       // todo only used in build strategy, move to the dedicated BuilderContext subtype
       basePath: basePath,
+      packageResolver: this.packageResolver.bind(this),
       versionDeprecatedResolver: this.versionDeprecatedResolver.bind(this),
       templateResolver: this.templateResolver.bind(this),
       parsedFileResolver: this.parsedFileResolver.bind(this),
@@ -425,6 +427,22 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     }
 
     return documents
+  }
+
+  async packageResolver(
+    packageId: string,
+  ): Promise<ResolvedPackage> {
+    const { packageResolver } = this.params.resolvers
+    if (!packageResolver) {
+      throw new Error('No packageResolver provided')
+    }
+
+    const resolvedPackage = await packageResolver(packageId)
+    if (!resolvedPackage) {
+      throw new Error(`No such package: packageId: ${packageId}`)
+    }
+
+    return resolvedPackage
   }
 
   async versionDocumentsResolver(

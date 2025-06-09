@@ -1,5 +1,6 @@
 {
   "packageId": "export",
+  "packageName": "export pkg",
   "apiType": "rest",
   "version": "regular-version",
   "files": [
