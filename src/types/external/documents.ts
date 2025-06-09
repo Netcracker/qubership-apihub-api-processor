@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { OperationsApiType, PackageId, VersionId } from './types'
+import { FileId, OperationsApiType, PackageId, TemplatePath, VersionId } from './types'
 import { ResolvedReferenceMap } from './references'
 import { FileFormat } from '../internal'
 
@@ -70,3 +70,7 @@ export type RawDocumentResolver = (
   packageId: PackageId,
   slug: string,
 ) => Promise<File | null>
+
+export type FileResolver = (fileId: FileId) => Promise<Blob | null>
+
+export type TemplateResolver = (templatePath: TemplatePath) => Promise<Blob | null>

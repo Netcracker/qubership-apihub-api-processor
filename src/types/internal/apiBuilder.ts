@@ -18,11 +18,14 @@ import {
   BuildConfig,
   BuildConfigFile,
   BuildConfigRef,
+  FileId,
   GroupDocumentsResolver,
+  OperationId,
   OperationsApiType,
   OperationsGroupExportFormat,
   PackageId,
   ResolvedOperation,
+  TemplatePath,
   VersionDeprecatedResolver,
   VersionDocumentsResolver,
   VersionId,
@@ -51,18 +54,19 @@ export interface BuilderContext<T = any> {
   versionDeprecatedResolver: VersionDeprecatedResolver
   basePath: string
   parsedFileResolver: _ParsedFileResolver
+  templateResolver: _TemplateResolver
   notifications: NotificationMessage[]
   config: BuildConfig
   builderRunOptions: BuilderRunOptions
   configuration?: BuilderConfiguration
   versionDocumentsResolver: VersionDocumentsResolver
   groupDocumentsResolver: GroupDocumentsResolver
-  templateResolver?: TemplateResolver
+  groupExportTemplateResolver?: GroupExportTemplateResolver
   rawDocumentResolver: _RawDocumentResolver
   versionLabels?: Array<string>
 }
 
-export type TemplateResolver = (
+export type GroupExportTemplateResolver = (
   apiType: OperationsApiType,
   version: VersionId,
   packageId: PackageId,
@@ -115,5 +119,6 @@ export interface ApiBuilder<T = any, O = any, M = any> {
 export type _VersionResolver = (packageId: PackageId, version: VersionId) => Promise<VersionCache | null>
 export type _VersionReferencesResolver = (packageId: PackageId, version: VersionId) => Promise<BuildConfigRef[]>
 
-export type _ParsedFileResolver = (fileId: string) => Promise<SourceFile | null>
-export type _OperationResolver = (operationId: string) => ResolvedOperation | null
+export type _ParsedFileResolver = (fileId: FileId) => Promise<SourceFile | null>
+export type _TemplateResolver = (templatePath: TemplatePath) => Promise<Blob>
+export type _OperationResolver = (operationId: OperationId) => ResolvedOperation | null

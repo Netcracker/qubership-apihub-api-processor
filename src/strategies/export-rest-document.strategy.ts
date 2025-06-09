@@ -15,6 +15,7 @@
  */
 
 import {
+  _TemplateResolver,
   BuilderStrategy,
   BuildResult,
   BuildTypeContexts,
@@ -30,8 +31,8 @@ import { removeOasExtensions } from '../utils/removeOasExtensions'
 import {
   createCommonStaticExportDocuments,
   createExportDocument,
-  generateHtmlPage,
   createSingleFileExportName,
+  generateHtmlPage,
 } from '../utils/export'
 
 async function createTransformedDocument(
@@ -39,6 +40,7 @@ async function createTransformedDocument(
   format: OperationsGroupExportFormat,
   packageId: string,
   version: string,
+  templateResolver: _TemplateResolver,
   allowedOasExtensions?: OpenApiExtensionKey[],
 ): Promise<ZippableDocument> {
   const data = removeOasExtensions(JSON.parse(await file.text()), allowedOasExtensions)
@@ -46,7 +48,7 @@ async function createTransformedDocument(
   if (format === HTML_EXPORT_GROUP_FORMAT) {
     return createExportDocument(
       `${getDocumentTitle(file.name)}.${HTML_EXPORT_GROUP_FORMAT}`,
-      await generateHtmlPage(JSON.stringify(data, undefined, 2), getDocumentTitle(file.name), packageId, version),
+      await generateHtmlPage(JSON.stringify(data, undefined, 2), getDocumentTitle(file.name), packageId, version, templateResolver),
     )
   }
 
@@ -64,19 +66,19 @@ async function createTransformedDocument(
 export class ExportRestDocumentStrategy implements BuilderStrategy {
   async execute(config: ExportRestDocumentBuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
     const { builderContext } = contexts
-    const builderContextObject = builderContext(config)
+    const { rawDocumentResolver, templateResolver } = builderContext(config)
     const { packageId, version, documentId, format, allowedOasExtensions } = config
 
-    const file = await builderContextObject.rawDocumentResolver(
+    const file = await rawDocumentResolver(
       version,
       packageId,
       documentId, //document.slug,
     )
 
-    buildResult.exportDocuments.push(await createTransformedDocument(file, format, packageId, version, allowedOasExtensions))
+    buildResult.exportDocuments.push(await createTransformedDocument(file, format, packageId, version, templateResolver, allowedOasExtensions))
 
     if (format === HTML_EXPORT_GROUP_FORMAT) {
-      buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageId, version, buildResult.exportDocuments[0].fileId))
+      buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageId, version, templateResolver, buildResult.exportDocuments[0].fileId))
       buildResult.exportFileName = createSingleFileExportName(packageId, version, getDocumentTitle(file.name), 'zip')
       return buildResult
     }

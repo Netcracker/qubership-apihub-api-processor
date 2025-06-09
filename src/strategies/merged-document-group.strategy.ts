@@ -64,7 +64,7 @@ export class MergedDocumentGroupStrategy implements BuilderStrategy {
     const { builderContext } = contexts
     const builderContextObject = builderContext(config)
 
-    const template = await builderContextObject.templateResolver?.(
+    const template = await builderContextObject.groupExportTemplateResolver?.(
       apiType,
       version,
       packageId,

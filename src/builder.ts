@@ -74,9 +74,9 @@ import { BuildStrategy, ChangelogStrategy, DocumentGroupStrategy, PrefixGroupsCh
 import { BuilderStrategyContext } from './builder-strategy'
 import { MergedDocumentGroupStrategy } from './strategies/merged-document-group.strategy'
 import { asyncDebugPerformance } from './utils/logs'
-// import { ExportRestOperationsGroupStrategy } from './strategies/rest-operations-group.strategy'
 import { ExportVersionStrategy } from './strategies/export-version.strategy'
 import { ExportRestDocumentStrategy } from './strategies/export-rest-document.strategy'
+import { ExportRestOperationsGroupStrategy } from './strategies/rest-operations-group.strategy'
 
 export const DEFAULT_RUN_OPTIONS: BuilderRunOptions = {
   cleanCache: false,
@@ -182,6 +182,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       // todo only used in build strategy, move to the dedicated BuilderContext subtype
       basePath: basePath,
       versionDeprecatedResolver: this.versionDeprecatedResolver.bind(this),
+      templateResolver: this.templateResolver.bind(this),
       parsedFileResolver: this.parsedFileResolver.bind(this),
       rawDocumentResolver: this.rawDocumentResolver.bind(this),
       operationResolver: (operationId: OperationId) => this.operations.get(operationId) ?? null,
@@ -191,7 +192,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       builderRunOptions: this.builderRunOptions,
       groupDocumentsResolver: this.groupDocumentsResolver.bind(this),
       versionDocumentsResolver: this.versionDocumentsResolver.bind(this),
-      templateResolver: this.params.resolvers.templateResolver,
+      groupExportTemplateResolver: this.params.resolvers.groupExportTemplateResolver,
       versionLabels: this.config.metadata?.versionLabels as Array<string>,
     }
   }
@@ -259,7 +260,6 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     }
 
     if (buildType === BUILD_TYPE.EXPORT_REST_OPERATIONS_GROUP) {
-      const { ExportRestOperationsGroupStrategy } = await import('./strategies/rest-operations-group.strategy')
       builderStrategyContext.setStrategy(new ExportRestOperationsGroupStrategy())
     }
 
@@ -285,6 +285,21 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     }
 
     return await this.parseFile(fileId, source)
+  }
+
+  async templateResolver(
+    templatePath: string,
+  ): Promise<Blob> {
+    if (!this.params.resolvers.templateResolver) {
+      throw new Error('templateResolver is not provided')
+    }
+
+    const template = await this.params.resolvers.templateResolver(templatePath)
+    if (!template) {
+      throw new Error(`Template ${templatePath} is missing`)
+    }
+
+    return template
   }
 
   async rawDocumentResolver(

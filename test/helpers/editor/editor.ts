@@ -27,6 +27,8 @@ import {
 import { loadConfig, loadFile } from '../utils'
 import { LocalRegistry } from '../registry'
 import { IRegistry } from '../registry/types'
+import fs from 'fs/promises'
+import path from 'path'
 
 export class Editor {
   state: Map<string, Blob | null> = new Map()
@@ -58,6 +60,7 @@ export class Editor {
     this.builder = new PackageVersionBuilder(config, {
       resolvers: {
         fileResolver: this.fileResolver.bind(this),
+        templateResolver: this.templateResolver.bind(this),
         ...this.registry.versionResolvers,
       },
       configuration: {
@@ -79,6 +82,15 @@ export class Editor {
     }
 
     return data || null
+  }
+
+  async templateResolver(templatePath: string): Promise<Blob | null> {
+    const template = await fs.readFile(path.join(__dirname, '..', '..', '..', 'templates', templatePath))
+    if (!template) {
+      throw new Error(`Error during reading file ${templatePath} from templates`)
+    }
+
+    return new Blob([template])
   }
 
   async updateTextFile(fileId: string, modifier: (data: string) => string): Promise<void> {
