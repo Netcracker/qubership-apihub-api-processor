@@ -51,6 +51,7 @@ export async function generateHtmlPage(document: string, fileTitle: string, pack
   const breadcrumbs = addBackLink ? `<div class="breadcrumbs"><a href="index.html">Table of contents</a> > <span>${fileTitle}</span></div>` : ''
   const filled = template
     .replace('{{fileTitle}}', fileTitle)
+    // arrow function disables replacement patterns like $&
     .replace('{{apispecViewScript}}', () => apispecViewScript)
     .replaceAll('{{packageName}}', packageName)
     .replaceAll('{{version}}', version)

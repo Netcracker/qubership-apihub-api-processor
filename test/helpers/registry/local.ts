@@ -488,16 +488,15 @@ export class LocalRegistry implements IRegistry {
     )
   }
 
-  async getVersion(packageId: string, version: string): Promise<PackageVersionCache | undefined> {
-    const [verisonKey] = getSplittedVersionKey(version)
-    const compositeKey = getCompositeKey(packageId, verisonKey)
+  async getVersion(packageId: string, versionKey: string): Promise<PackageVersionCache | undefined> {
+    const compositeKey = getCompositeKey(packageId, versionKey)
     if (this.versions.has(compositeKey)) {
       return this.versions.get(compositeKey)
     }
 
     const versionConfig = await loadConfig(
       VERSIONS_PATH,
-      `${packageId}/${verisonKey}`,
+      `${packageId}/${versionKey}`,
       PACKAGE.INFO_FILE_NAME,
     ) as BuildConfig
     const versionCache: PackageVersionCache = {
@@ -514,7 +513,7 @@ export class LocalRegistry implements IRegistry {
 
     const operationsFile = await loadFileAsString(
       VERSIONS_PATH,
-      `${packageId}/${verisonKey}`,
+      `${packageId}/${versionKey}`,
       PACKAGE.OPERATIONS_FILE_NAME,
     )
 
@@ -527,7 +526,7 @@ export class LocalRegistry implements IRegistry {
 
       const data = await loadFileAsString(
         VERSIONS_PATH,
-        `${packageId}/${verisonKey}/${PACKAGE.OPERATIONS_DIR_NAME}`,
+        `${packageId}/${versionKey}/${PACKAGE.OPERATIONS_DIR_NAME}`,
         `${operation.operationId}.json`,
       )
       versionCache.operations.set(
@@ -541,14 +540,14 @@ export class LocalRegistry implements IRegistry {
 
     const documentsFile = await loadFileAsString(
       VERSIONS_PATH,
-      `${packageId}/${verisonKey}`,
+      `${packageId}/${versionKey}`,
       PACKAGE.DOCUMENTS_FILE_NAME,
     )
     const { documents } = documentsFile ? JSON.parse(documentsFile) : null as VersionDocuments | null ?? { documents: [] }
     for (const document of documents) {
       const data = await loadFileAsString(
         VERSIONS_PATH,
-        `${packageId}/${verisonKey}/${PACKAGE.DOCUMENTS_DIR_NAME}`,
+        `${packageId}/${versionKey}/${PACKAGE.DOCUMENTS_DIR_NAME}`,
         document.filename,
       )
 
@@ -565,7 +564,7 @@ export class LocalRegistry implements IRegistry {
 
     const comparisonsFile = await loadFileAsString(
       VERSIONS_PATH,
-      `${packageId}/${verisonKey}`,
+      `${packageId}/${versionKey}`,
       PACKAGE.COMPARISONS_FILE_NAME,
     )
     const { comparisons } = (comparisonsFile
@@ -578,7 +577,7 @@ export class LocalRegistry implements IRegistry {
 
     const notificationsFile = await loadFileAsString(
       VERSIONS_PATH,
-      `${packageId}/${verisonKey}`,
+      `${packageId}/${versionKey}`,
       PACKAGE.NOTIFICATIONS_FILE_NAME,
     )
     const { notifications } = (notificationsFile

@@ -69,14 +69,16 @@ describe('Export test', () => {
 
     editor = await Editor.openProject(pkg.packageId, pkg)
 
-    // if (!await fs.stat(EXPORT_RESULTS_PATH)) {
+    // try {
     //   await fs.mkdir(EXPORT_RESULTS_PATH)
+    // } catch (e) {
+      //
     // }
   })
 
   // afterEach(async () => {
-    // const { packageVersion, exportFileName } = await editor.createNodeVersionPackage()
-    // await fs.writeFile(`${EXPORT_RESULTS_PATH}/${exportFileName}`, packageVersion)
+  //   const { packageVersion, exportFileName } = await editor.createNodeVersionPackage()
+  //   await fs.writeFile(`${EXPORT_RESULTS_PATH}/${exportFileName}`, packageVersion)
   // })
 
   test('should export rest document to html', async () => {

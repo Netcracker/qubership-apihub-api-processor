@@ -2,7 +2,7 @@
   "packageId": "export",
   "packageName": "export pkg",
   "apiType": "rest",
-  "version": "regular-version",
+  "version": "regular-version@123",
   "files": [
     {
       "fileId": "1.yaml",
