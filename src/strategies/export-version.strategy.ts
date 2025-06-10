@@ -26,7 +26,7 @@ import {
   ResolvedVersionDocument,
   ZippableDocument,
 } from '../types'
-import { getDocumentTitle } from '../utils'
+import { getDocumentTitle, getSplittedVersionKey } from '../utils'
 import {
   createCommonStaticExportDocuments,
   createExportDocument,
@@ -94,17 +94,18 @@ export class ExportVersionStrategy implements BuilderStrategy {
   async execute(config: ExportVersionBuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
     const { builderContext } = contexts
     const { versionDocumentsResolver, rawDocumentResolver, templateResolver, packageResolver } = builderContext(config)
-    const { packageId, version, format = JSON_EXPORT_GROUP_FORMAT, allowedOasExtensions } = config
+    const { packageId, version: versionWithRevision, format = JSON_EXPORT_GROUP_FORMAT, allowedOasExtensions } = config
+    const [version] = getSplittedVersionKey(versionWithRevision)
     const { name: packageName } = await packageResolver(packageId)
 
     const { documents } = await versionDocumentsResolver(
-      version,
+      versionWithRevision,
       packageId,
     ) ?? { documents: [] }
 
     const generatedHtmlExportDocuments: ZippableDocument[] = []
     const transformedDocuments = await Promise.all(documents.map(async document => {
-      const file = await rawDocumentResolver(version, packageId, document.slug)
+      const file = await rawDocumentResolver(versionWithRevision, packageId, document.slug)
       return await createTransformedDocument(document, file, format, packageName, version, generatedHtmlExportDocuments, templateResolver, allowedOasExtensions)
     }))
 

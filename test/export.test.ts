@@ -38,9 +38,12 @@ const groupToOperationIdsMap2 = {
   ],
 }
 
+const REGULAR_VERSION = 'regular-version@123'
+const SINGLE_DOCUMENT_VERSION = 'single-document-version@24'
+
 const COMMON_GROUP_EXPORT_CONFIG = {
   packageId: 'export',
-  version: 'regular-version',
+  version: REGULAR_VERSION,
   groupName: GROUP_NAME,
 }
 
@@ -61,8 +64,8 @@ const COMMON_MERGED_GROUP_EXPORT_CONFIG: Partial<ExportRestOperationsGroupBuildC
 describe('Export test', () => {
   beforeAll(async () => {
     pkg = LocalRegistry.openPackage('export')
-    await pkg.publish(pkg.packageId, {version: 'regular-version'})
-    await pkg.publish(pkg.packageId, {version: 'single-document-version', files: [{fileId: '1.yaml'}]})
+    await pkg.publish(pkg.packageId, {version: REGULAR_VERSION})
+    await pkg.publish(pkg.packageId, {version: SINGLE_DOCUMENT_VERSION, files: [{fileId: '1.yaml'}]})
 
     editor = await Editor.openProject(pkg.packageId, pkg)
 
@@ -138,7 +141,7 @@ describe('Export test', () => {
 
   test('should export single document version to html', async () => {
     const result = await editor.run({
-      version: 'single-document-version',
+      version: SINGLE_DOCUMENT_VERSION,
       buildType: BUILD_TYPE.EXPORT_VERSION,
       format: 'html',
     })
@@ -148,7 +151,7 @@ describe('Export test', () => {
 
   test('should export single document version to json', async () => {
     const result = await editor.run({
-      version: 'single-document-version',
+      version: SINGLE_DOCUMENT_VERSION,
       buildType: BUILD_TYPE.EXPORT_VERSION,
       format: 'json',
     })
@@ -158,7 +161,7 @@ describe('Export test', () => {
 
   test('should export single document version to yaml', async () => {
     const result = await editor.run({
-      version: 'single-document-version',
+      version: SINGLE_DOCUMENT_VERSION,
       buildType: BUILD_TYPE.EXPORT_VERSION,
       format: 'yaml',
     })

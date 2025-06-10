@@ -25,7 +25,7 @@ import {
   ZippableDocument,
 } from '../types'
 import { REST_DOCUMENT_TYPE } from '../apitypes'
-import { getDocumentTitle } from '../utils'
+import { getDocumentTitle, getSplittedVersionKey } from '../utils'
 import { OpenApiExtensionKey } from '@netcracker/qubership-apihub-api-unifier'
 import { removeOasExtensions } from '../utils/removeOasExtensions'
 import {
@@ -67,12 +67,13 @@ export class ExportRestDocumentStrategy implements BuilderStrategy {
   async execute(config: ExportRestDocumentBuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
     const { builderContext } = contexts
     const { rawDocumentResolver, templateResolver, packageResolver } = builderContext(config)
-    const { packageId, version, documentId, format, allowedOasExtensions } = config
+    const { packageId, version: versionWithRevision, documentId, format, allowedOasExtensions } = config
+    const [version] = getSplittedVersionKey(versionWithRevision)
 
     const file = await rawDocumentResolver(
-      version,
+      versionWithRevision,
       packageId,
-      documentId, //document.slug,
+      documentId,
     )
     const { name: packageName } = await packageResolver(packageId)
 

@@ -30,7 +30,7 @@ import {
 } from '../types'
 import { DocumentGroupStrategy } from './document-group.strategy'
 import { MergedDocumentGroupStrategy } from './merged-document-group.strategy'
-import { EXPORT_FORMAT_TO_FILE_FORMAT, getDocumentTitle } from '../utils'
+import { EXPORT_FORMAT_TO_FILE_FORMAT, getDocumentTitle, getSplittedVersionKey } from '../utils'
 import { OpenApiExtensionKey } from '@netcracker/qubership-apihub-api-unifier'
 import { BUILD_TYPE } from '../consts'
 import { isRestDocument, REST_DOCUMENT_TYPE } from '../apitypes'
@@ -57,7 +57,8 @@ export class ExportRestOperationsGroupStrategy implements BuilderStrategy {
 }
 
 async function exportMergedDocument(config: ExportRestOperationsGroupBuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
-  const { packageId, version, groupName, format = JSON_EXPORT_GROUP_FORMAT, allowedOasExtensions } = config
+  const { packageId, version: versionWithRevision, groupName, format = JSON_EXPORT_GROUP_FORMAT, allowedOasExtensions } = config
+  const [version] = getSplittedVersionKey(versionWithRevision)
   const { templateResolver, packageResolver } = contexts.builderContext(config)
   const { name: packageName } = await packageResolver(packageId)
 
@@ -96,7 +97,8 @@ async function exportMergedDocument(config: ExportRestOperationsGroupBuildConfig
 }
 
 async function exportReducedDocuments(config: ExportRestOperationsGroupBuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
-  const { packageId, version, groupName, format = JSON_EXPORT_GROUP_FORMAT, allowedOasExtensions } = config
+  const { packageId, version: versionWithRevision, groupName, format = JSON_EXPORT_GROUP_FORMAT, allowedOasExtensions } = config
+  const [version] = getSplittedVersionKey(versionWithRevision)
   const { templateResolver, packageResolver } = contexts.builderContext(config)
   const { name: packageName } = await packageResolver(packageId)
 
