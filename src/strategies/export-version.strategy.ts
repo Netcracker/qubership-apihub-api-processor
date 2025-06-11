@@ -44,15 +44,16 @@ function extractTypeAndSubtype(type: string): string {
 
 async function prepareData(file: File): Promise<ZippableDocument['data']> {
   switch (extractTypeAndSubtype(file.type)) {
-    // BE responds with either 'text/plain' or 'application/octet-stream', which is not precise enough
+    // BE responds with 'text/plain' for all textual files and a more precise content-type in other cases
+    // however, just in case, other processable types are also listed here
     case 'text/plain':
     case 'application/json':
+    case 'application/yaml':
     case 'text/markdown':
       return await file.text()
+    default:
     case 'application/octet-stream':
       return ''
-    default:
-      throw new Error(`File media type ${file.type} is not supported`)
   }
 }
 
