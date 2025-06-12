@@ -30,6 +30,7 @@ import {
 import { buildSchema, introspectionFromSchema } from 'graphql/utilities'
 import { LocalRegistry } from './registry'
 import { Editor } from './editor'
+import { getFileExtension } from '../../src/utils'
 
 export const loadFileAsString = async (filePath: string, folder: string, fileName: string): Promise<string | null> => {
   return (await loadFile(filePath, folder, fileName))?.text() ?? null
@@ -38,7 +39,7 @@ export const loadFileAsString = async (filePath: string, folder: string, fileNam
 export const loadFile = async (filePath: string, folder: string, fileName: string): Promise<File | null> => {
   try {
     const filepath = path.join(process.cwd(), filePath, folder, fileName)
-    const mediaType = mime.lookup(filepath)
+    const mediaType = mime.lookup(fileName) || (['graphql', 'gql'].includes(getFileExtension(fileName)) ? 'text/plain' : false)
     if (!mediaType) {
       console.error('Can\'t lookup the media type')
     }
