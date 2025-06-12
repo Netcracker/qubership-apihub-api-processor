@@ -20,7 +20,7 @@ import { getDocumentTitle } from './document'
 export async function createCommonStaticExportDocuments(packageName: string, version: string, templateResolver: _TemplateResolver, backLinkFilename: string = 'index.html'): Promise<ZippableDocument[]> {
   return [
     createExportDocument('ls.html', await generateLegalStatementPage(packageName, version, await templateResolver('ls.html'), backLinkFilename)),
-    createExportDocument('resources/corporatelogo.svg', await templateResolver('resources/corporatelogo.svg')),
+    createExportDocument('resources/corporatelogo.png', await templateResolver('resources/corporatelogo.png')),
     createExportDocument('resources/styles.css', await templateResolver('resources/styles.css')),
   ]
 }
