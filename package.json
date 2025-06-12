@@ -1,6 +1,6 @@
 {
   "name": "@netcracker/qubership-apihub-api-processor",
-  "version": "4.0.1",
+  "version": "4.0.2",
   "description": "",
   "license": "Apache-2.0",
   "module": "dist/esm/src/index.js",
@@ -49,8 +49,7 @@
     "swagger2openapi": "^7.0.8"
   },
   "devDependencies": {
-    "@netcracker/qubership-apihub-npm-gitflow": "3.0.1",
-    "@rollup/plugin-url": "^8.0.2",
+    "@netcracker/qubership-apihub-npm-gitflow": "3.1.0",
     "@types/adm-zip": "0.5.7",
     "@types/jest": "^29.5.12",
     "@types/js-yaml": "^4.0.5",
