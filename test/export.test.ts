@@ -117,6 +117,7 @@ describe('Export test', () => {
     expect(result).toEqual(exportDocumentsMatcher([
       exportDocumentMatcher('1.html'),
       exportDocumentMatcher('ls.html'),
+      exportDocumentMatcher('index.html'),
       exportDocumentMatcher('resources/corporatelogo.png'),
       exportDocumentMatcher('resources/styles.css'),
     ]))
