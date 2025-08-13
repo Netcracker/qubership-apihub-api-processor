@@ -301,7 +301,7 @@ describe('Export test', () => {
     expect(result.exportFileName).toEqual('export_regular-version_GROUP_WITH_OPERATIONS_FROM_ONE_DOCUMENT_ONLY.zip')
     expect(result).toEqual(exportDocumentsMatcher([
       exportDocumentMatcher('2.html'),
-
+      exportDocumentMatcher('index.html'),
       exportDocumentMatcher('ls.html'),
       exportDocumentMatcher('resources/corporatelogo.png'),
       exportDocumentMatcher('resources/styles.css'),

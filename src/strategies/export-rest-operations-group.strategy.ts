@@ -110,8 +110,6 @@ async function exportReducedDocuments(config: ExportRestOperationsGroupBuildConf
     const shouldAddIndexPage = generatedHtmlExportDocuments.length > 1
     buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageName, version, templateResolver, shouldAddIndexPage ? 'index.html' : buildResult.exportDocuments[0].filename))
 
-    if (shouldAddIndexPage) {
-      buildResult.exportDocuments.push(createUnknownExportDocument('index.html', await generateIndexHtmlPage(packageName, version, generatedHtmlExportDocuments, templateResolver)))
-    }
+    buildResult.exportDocuments.push(createUnknownExportDocument('index.html', await generateIndexHtmlPage(packageName, version, generatedHtmlExportDocuments, templateResolver)))
   }
 }
