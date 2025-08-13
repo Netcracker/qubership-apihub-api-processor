@@ -100,9 +100,8 @@ async function exportReducedDocuments(config: ExportRestOperationsGroupBuildConf
   }, buildResult, contexts)
 
   const generatedHtmlExportDocuments: ExportDocument[] = []
-  const restDocuments = [...buildResult.documents.values()].filter(isRestDocument)
   const transformedDocuments = await Promise.all([...buildResult.documents.values()].map(async document => {
-    return createRestExportDocument?.(document.filename, JSON.stringify(document.data), format, packageName, version, templateResolver, allowedOasExtensions, generatedHtmlExportDocuments, restDocuments.length > 1)
+    return createRestExportDocument?.(document.filename, JSON.stringify(document.data), format, packageName, version, templateResolver, allowedOasExtensions, generatedHtmlExportDocuments)
   }))
 
   buildResult.exportDocuments.push(...transformedDocuments)
