@@ -39,10 +39,10 @@ export async function generateLegalStatementPage(packageName: string, version: s
   return new Blob([filled])
 }
 
-export async function generateHtmlPage(document: string, fileTitle: string, packageName: string, version: string, templateResolver: _TemplateResolver, addBackLink: boolean = false): Promise<Blob> {
+export async function generateHtmlPage(document: string, fileTitle: string, packageName: string, version: string, templateResolver: _TemplateResolver): Promise<Blob> {
   const template = await (await templateResolver('page.html')).text()
   const apispecViewScript = await (await templateResolver('scripts/apispec-view.js')).text()
-  const breadcrumbs = addBackLink ? `<div class="breadcrumbs"><a href="index.html">Table of contents</a> > <span>${fileTitle}</span></div>` : ''
+  const breadcrumbs = `<div class="breadcrumbs"><a href="index.html">Table of contents</a> > <span>${fileTitle}</span></div>`
   const filled = template
     .replace('{{fileTitle}}', fileTitle)
     // arrow function disables replacement patterns like $&

@@ -211,7 +211,7 @@ describe('Export test', () => {
     expect(result.exportFileName).toEqual('export_single-document-version.zip')
     expect(result).toEqual(exportDocumentsMatcher([
       exportDocumentMatcher('1.html'),
-
+      exportDocumentMatcher('index.html'),
       exportDocumentMatcher('ls.html'),
       exportDocumentMatcher('resources/corporatelogo.png'),
       exportDocumentMatcher('resources/styles.css'),
@@ -268,6 +268,7 @@ describe('Export test', () => {
     })
     expect(result.exportFileName).toEqual('export_no-documents-version.zip')
     expect(result).toEqual(exportDocumentsMatcher([
+      exportDocumentMatcher('index.html'),
       exportDocumentMatcher('Document.docx'),
       exportDocumentMatcher('README.md'),
       exportDocumentMatcher('Test.png'),
