@@ -269,7 +269,6 @@ describe('Export test', () => {
     })
     expect(result.exportFileName).toEqual('export_no-documents-version.zip')
     expect(result).toEqual(exportDocumentsMatcher([
-      exportDocumentMatcher('index.html'),
       exportDocumentMatcher('Document.docx'),
       exportDocumentMatcher('README.md'),
       exportDocumentMatcher('Test.png'),

@@ -78,7 +78,7 @@ async function exportMergedDocument(config: ExportRestOperationsGroupBuildConfig
   buildResult.exportDocuments.push(await createRestExportDocument(buildResult.merged.filename, JSON.stringify(buildResult.merged?.data), format, packageName, version, templateResolver, allowedOasExtensions))
 
   if (format === FILE_FORMAT_HTML) {
-    buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageName, version, templateResolver, buildResult.exportDocuments[0].filename))
+    buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageName, version, templateResolver))
   }
 }
 
@@ -107,8 +107,7 @@ async function exportReducedDocuments(config: ExportRestOperationsGroupBuildConf
   buildResult.exportDocuments.push(...transformedDocuments)
 
   if (format === FILE_FORMAT_HTML) {
-    const shouldAddIndexPage = generatedHtmlExportDocuments.length > 1
-    buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageName, version, templateResolver, shouldAddIndexPage ? 'index.html' : buildResult.exportDocuments[0].filename))
+    buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageName, version, templateResolver))
 
     buildResult.exportDocuments.push(createUnknownExportDocument('index.html', await generateIndexHtmlPage(packageName, version, generatedHtmlExportDocuments, templateResolver)))
   }

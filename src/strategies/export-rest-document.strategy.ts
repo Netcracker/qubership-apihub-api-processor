@@ -46,7 +46,7 @@ export class ExportRestDocumentStrategy implements BuilderStrategy {
     const { name: packageName } = await packageResolver(packageId)
     buildResult.exportDocuments.push(await createRestExportDocument(file.name, await file.text(), format, packageName, version, templateResolver, allowedOasExtensions, generatedHtmlExportDocuments))
     if (format === FILE_FORMAT_HTML) {
-      buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageName, version, templateResolver, buildResult.exportDocuments[0].filename))
+      buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageName, version, templateResolver))
       buildResult.exportDocuments.push(createUnknownExportDocument('index.html', await generateIndexHtmlPage(packageName, version, generatedHtmlExportDocuments, templateResolver)))
       buildResult.exportFileName = createSingleFileExportName(packageId, version, getDocumentTitle(file.name), 'zip')
       return buildResult
