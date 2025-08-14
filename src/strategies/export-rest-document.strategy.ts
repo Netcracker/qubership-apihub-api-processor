@@ -25,7 +25,8 @@ import { getDocumentTitle, getSplittedVersionKey } from '../utils'
 import {
   createCommonStaticExportDocuments,
   createSingleFileExportName,
-  createUnknownExportDocument, generateIndexHtmlPage,
+  createUnknownExportDocument,
+  generateIndexHtmlPage,
 } from '../utils/export'
 import { createRestExportDocument } from '../apitypes/rest/rest.document'
 import { FILE_FORMAT_HTML } from '../consts'
@@ -43,12 +44,10 @@ export class ExportRestDocumentStrategy implements BuilderStrategy {
       documentId,
     )
     const { name: packageName } = await packageResolver(packageId)
-    buildResult.exportDocuments.push(await createRestExportDocument(file.name, await file.text(), format, packageName, version, templateResolver, allowedOasExtensions))
-
+    buildResult.exportDocuments.push(await createRestExportDocument(file.name, await file.text(), format, packageName, version, templateResolver, allowedOasExtensions, generatedHtmlExportDocuments))
     if (format === FILE_FORMAT_HTML) {
-      const readme = await buildResult.exportDocuments.find(({ filename }) => filename.toLowerCase() === 'readme.md')?.data.text()
       buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageName, version, templateResolver, buildResult.exportDocuments[0].filename))
-      buildResult.exportDocuments.push(createUnknownExportDocument('index.html', await generateIndexHtmlPage(packageName, version, generatedHtmlExportDocuments, templateResolver, readme)))
+      buildResult.exportDocuments.push(createUnknownExportDocument('index.html', await generateIndexHtmlPage(packageName, version, generatedHtmlExportDocuments, templateResolver)))
       buildResult.exportFileName = createSingleFileExportName(packageId, version, getDocumentTitle(file.name), 'zip')
       return buildResult
     }
