@@ -254,7 +254,7 @@ describe('Export test', () => {
       exportDocumentMatcher('1.html'),
       exportDocumentMatcher('README.md'),
 
-      exportDocumentMatcher('index.html'), // contains index.html due to the presence of README
+      exportDocumentMatcher('index.html'),
       exportDocumentMatcher('ls.html'),
       exportDocumentMatcher('resources/corporatelogo.png'),
       exportDocumentMatcher('resources/styles.css'),
