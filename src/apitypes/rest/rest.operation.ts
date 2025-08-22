@@ -15,7 +15,7 @@
  */
 
 import { JsonPath, syncCrawl } from '@netcracker/qubership-apihub-json-crawl'
-import { OpenAPIV3 } from 'openapi-types'
+import {  OpenAPIV3 } from 'openapi-types'
 import { REST_API_TYPE, REST_KIND_KEY } from './rest.consts'
 import { operationRules } from './rest.rules'
 import type * as TYPE from './rest.types'
@@ -257,22 +257,57 @@ const createSingleOperationSpec = (
 ): TYPE.RestOperationData => {
   const pathData = document.paths[path] as OpenAPIV3.PathItemObject
 
-  return {
+  const resolveRefPathItem = (ref: string): OpenAPIV3.PathItemObject => {
+    const { jsonPath } = parseRef(ref)
+    const target = getValueByPath(document, jsonPath) as OpenAPIV3.PathItemObject
+    return {
+      ...extractCommonPathItemProperties(target),
+      [method]: { ...target[method] },
+    }
+  }
+
+  const buildComponentsFromRef = (ref: string): any => {
+    const { jsonPath } = parseRef(ref)
+    const resolved = resolveRefPathItem(ref)
+    const container: any = {}
+    setValueByPath(container, jsonPath, resolved)
+    return container.components
+  }
+
+  const specBase = {
     openapi: openapi ?? '3.0.0',
     ...takeIfDefined({ servers }),
     ...takeIfDefined({ security }), // TODO: remove duplicates in security
+    components: {
+      ...takeIfDefined({ securitySchemes }),
+    },
+  }
+
+  if ('$ref' in pathData) {
+    return {
+      ...specBase,
+      paths: {
+        [path]: { ...pathData },
+      },
+      components: {
+        ...specBase.components,
+        ...buildComponentsFromRef(pathData.$ref ?? ''),
+      },
+    }
+  }
+
+  return {
+    ...specBase,
     paths: {
       [path]: {
         ...extractCommonPathItemProperties(pathData),
         [method]: { ...pathData[method] },
       },
     },
-    components: {
-      ...takeIfDefined({ securitySchemes }),
-    },
   }
 }
 
+const getValueByPath = (value: any, path: JsonPath): any => path.reduce((data, key) => data[key], value)
 export const extractCommonPathItemProperties = (
   pathData: OpenAPIV3.PathItemObject,
 ): Pick<OpenAPIV3.PathItemObject, 'summary' | 'description' | 'servers' | 'parameters'> => ({
