@@ -15,7 +15,7 @@
  */
 
 import { JsonPath, syncCrawl } from '@netcracker/qubership-apihub-json-crawl'
-import {  OpenAPIV3 } from 'openapi-types'
+import { OpenAPIV3 } from 'openapi-types'
 import { REST_API_TYPE, REST_KIND_KEY } from './rest.consts'
 import { operationRules } from './rest.rules'
 import type * as TYPE from './rest.types'
@@ -59,6 +59,7 @@ import {
 } from '@netcracker/qubership-apihub-api-unifier'
 import { calculateObjectHash } from '../../utils/hashes'
 import { calculateTolerantHash } from '../../components/deprecated'
+import { getValueByPath } from '../../utils/path'
 
 export const buildRestOperation = (
   operationId: string,
@@ -307,7 +308,6 @@ const createSingleOperationSpec = (
   }
 }
 
-const getValueByPath = (value: any, path: JsonPath): any => path.reduce((data, key) => data[key], value)
 export const extractCommonPathItemProperties = (
   pathData: OpenAPIV3.PathItemObject,
 ): Pick<OpenAPIV3.PathItemObject, 'summary' | 'description' | 'servers' | 'parameters'> => ({

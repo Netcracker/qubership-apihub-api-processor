@@ -29,6 +29,7 @@ import {
   EXPORT_FORMAT_TO_FILE_FORMAT,
   fromBase64,
   removeFirstSlash,
+  setValueByPath,
   slugify,
   takeIfDefined,
   toVersionDocument,
@@ -37,25 +38,19 @@ import { OpenAPIV3 } from 'openapi-types'
 import { getOperationBasePath } from '../apitypes/rest/rest.utils'
 import { VersionRestDocument } from '../apitypes/rest/rest.types'
 import { FILE_FORMAT_JSON, INLINE_REFS_FLAG, NORMALIZE_OPTIONS } from '../consts'
-import { normalize } from '@netcracker/qubership-apihub-api-unifier'
+import { normalize, parseRef } from '@netcracker/qubership-apihub-api-unifier'
 import { calculateSpecRefs, extractCommonPathItemProperties } from '../apitypes/rest/rest.operation'
+import { getValueByPath } from '../utils/path'
 
 function getTransformedDocument(document: ResolvedGroupDocument, format: FileFormat, packages: ResolvedReferenceMap): VersionRestDocument {
   const versionDocument = toVersionDocument(document, format)
 
-  const source = extractDocumentData(versionDocument)
+  const sourceDocument = extractDocumentData(versionDocument)
   versionDocument.data = transformDocumentData(versionDocument)
-  const normalizedDocument = normalize(
-    versionDocument.data,
-    {
-      ...NORMALIZE_OPTIONS,
-      inlineRefsFlag: INLINE_REFS_FLAG,
-      source,
-    },
-  ) as OpenAPIV3.Document
+  const normalizedDocument = normalizeOpenApi(versionDocument.data, sourceDocument)
   versionDocument.publish = true
 
-  calculateSpecRefs(source, normalizedDocument, versionDocument.data)
+  calculateSpecRefs(sourceDocument, normalizedDocument, versionDocument.data)
 
   // dashboard case
   if (document.packageRef) {
@@ -116,48 +111,119 @@ function extractDocumentData(versionDocument: VersionDocument): OpenAPIV3.Docume
 }
 
 function transformDocumentData(versionDocument: VersionDocument): OpenAPIV3.Document {
+  const sourceDocument = extractDocumentData(versionDocument)
+  const normalizedDocument = normalizeOpenApi(sourceDocument)
 
-  const documentData = extractDocumentData(versionDocument)
-  const { paths, components, ...rest } = documentData
-  const result: OpenAPIV3.Document = {
-    ...rest,
+  const { paths: sourcePaths, components: sourceComponents, ...restOfSource } = sourceDocument
+  const { paths: normalizedPaths } = normalizedDocument
+
+  const resultDocument: OpenAPIV3.Document = {
+    ...restOfSource,
     paths: {},
   }
 
-  for (const path of Object.keys(paths)) {
-    const pathData = paths[path]
-    if (typeof pathData !== 'object' || !pathData) {
+  for (const path of Object.keys(normalizedPaths)) {
+    const sourcePathItem = sourcePaths[path]
+    const normalizedPathItem = normalizedPaths[path]
+
+    if (!isNonNullObject(sourcePathItem) || !isNonNullObject(normalizedPathItem)) {
       continue
     }
-    const commonPathItemProperties = extractCommonPathItemProperties(pathData)
 
-    for (const method of Object.keys(pathData)) {
+    const commonPathProps = extractCommonPathItemProperties(sourcePathItem)
+    const pathItemRef = '$ref' in sourcePathItem ? sourcePathItem.$ref : undefined
+
+    for (const method of Object.keys(normalizedPathItem)) {
       const inferredMethod = method as OpenAPIV3.HttpMethods
-
-      // check if field is a valid openapi http method defined in OpenAPIV3.HttpMethods
-      if (!Object.values(OpenAPIV3.HttpMethods).includes(inferredMethod)) {
+      if (!isValidHttpMethod(inferredMethod)) {
         continue
       }
 
-      const methodData = pathData[inferredMethod]
-      const basePath = getOperationBasePath(methodData?.servers || pathData?.servers || documentData?.servers || [])
+      const methodData = normalizedPathItem[inferredMethod]
+      const basePath = getOperationBasePath(methodData?.servers || sourcePathItem?.servers || sourcePathItem?.servers || [])
       const operationPath = basePath + path
 
       const operationId = slugify(`${removeFirstSlash(operationPath)}-${method}`)
 
-      if (versionDocument.operationIds.includes(operationId)) {
-        const pathData = documentData.paths[path]!
-        result.paths[path] = {
-          ...result.paths[path],
-          ...commonPathItemProperties,
-          [inferredMethod]: { ...pathData[inferredMethod] },
-        }
-        result.components = {
-          ...takeIfDefined({ securitySchemes: components?.securitySchemes }),
-        }
+      if (!versionDocument.operationIds.includes(operationId)) {
+        continue
+      }
+
+      const { updatedPathItem, extraComponents } = buildPathAndComponents(
+        sourceDocument,
+        path,
+        inferredMethod,
+        commonPathProps,
+        pathItemRef,
+      )
+
+      resultDocument.paths[path] = {
+        ...(resultDocument.paths[path] || {}),
+        ...updatedPathItem,
+      }
+      resultDocument.components = {
+        ...takeIfDefined({ securitySchemes: sourceComponents?.securitySchemes }),
+        ...extraComponents,
       }
     }
   }
 
-  return result
+  return resultDocument
+}
+
+function normalizeOpenApi(document: OpenAPIV3.Document, source?: OpenAPIV3.Document): OpenAPIV3.Document {
+  return normalize(
+    document,
+    {
+      ...NORMALIZE_OPTIONS,
+      inlineRefsFlag: INLINE_REFS_FLAG,
+      ...(source ? { source } : {}),
+    },
+  ) as OpenAPIV3.Document
+}
+
+function isValidHttpMethod(method: string): method is OpenAPIV3.HttpMethods {
+  return (Object.values(OpenAPIV3.HttpMethods) as string[]).includes(method)
+}
+
+function isNonNullObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function buildPathAndComponents(
+  sourceDocument: OpenAPIV3.Document,
+  path: string,
+  method: OpenAPIV3.HttpMethods,
+  commonPathProps: Partial<OpenAPIV3.PathItemObject>,
+  pathItemRef?: string,
+): { updatedPathItem: OpenAPIV3.PathItemObject; extraComponents?: OpenAPIV3.ComponentsObject } {
+  if (!pathItemRef) {
+    const originalPathItem = sourceDocument.paths[path]!
+    return {
+      updatedPathItem: {
+        ...commonPathProps,
+        [method]: { ...originalPathItem[method] },
+      } as OpenAPIV3.PathItemObject,
+    }
+  }
+
+  const { jsonPath } = parseRef(pathItemRef)
+  const targetPathItem = getValueByPath(sourceDocument, jsonPath) as OpenAPIV3.PathItemObject
+  const resolvedPathItem = {
+    ...extractCommonPathItemProperties(targetPathItem),
+    [method]: { ...targetPathItem[method] },
+  }
+  const componentsContainer: any = {}
+  setValueByPath(componentsContainer, jsonPath, resolvedPathItem)
+
+  const originalPathItem = sourceDocument.paths[path]!
+  const mergedPathItem: OpenAPIV3.PathItemObject = {
+    ...(originalPathItem),
+    ...commonPathProps,
+  }
+
+  return {
+    updatedPathItem: mergedPathItem,
+    extraComponents: componentsContainer.components,
+  }
 }
