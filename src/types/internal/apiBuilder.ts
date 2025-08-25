@@ -18,13 +18,15 @@ import {
   BuildConfig,
   BuildConfigFile,
   BuildConfigRef,
+  ExportFormat,
   FileId,
   GroupDocumentsResolver,
   OperationId,
   OperationsApiType,
-  ExportFormat,
   PackageId,
+  RawDocumentResolver,
   ResolvedOperation,
+  ResolvedVersionDocument,
   TemplatePath,
   VersionDeprecatedResolver,
   VersionDocumentsResolver,
@@ -85,11 +87,14 @@ export type _RawDocumentResolver = (
 
 export interface CompareOperationsPairContext {
   notifications: NotificationMessage[]
+  rawDocumentResolver: RawDocumentResolver
   versionDeprecatedResolver: VersionDeprecatedResolver
   previousVersion: VersionId
   currentVersion: VersionId
   previousPackageId: PackageId
   currentPackageId: PackageId
+  currentGroup?: string
+  previousGroup?: string
 }
 
 export type NormalizedOperationId = string
@@ -99,6 +104,10 @@ export type DocumentBuilder<T> = (parsedFile: TextFile, file: BuildConfigFile, c
 export type OperationsBuilder<T, M = any> = (document: VersionDocument<T>, ctx: BuilderContext<T>, debugCtx?: DebugPerformanceContext) => Promise<ApiOperation<M>[]>
 export type DocumentDumper<T> = (document: ZippableDocument<T>, format?: typeof FILE_FORMAT_YAML | typeof FILE_FORMAT_JSON) => Blob
 export type OperationDataCompare<T> = (current: T, previous: T, ctx: CompareOperationsPairContext) => Promise<Diff[]>
+export type DocumentsCompare = (apiType: OperationsApiType, operationsMap: Record<NormalizedOperationId, {
+  previous?: ResolvedOperation
+  current?: ResolvedOperation
+}>, currDoc: ResolvedVersionDocument | undefined, prevDoc: ResolvedVersionDocument | undefined, ctx: CompareOperationsPairContext) => Promise<{operationChanges: OperationChanges[]; tags: string[]}>
 export type OperationChangesValidator = (
   changes: ChangeMessage, // + ctx with internal resolvers
   previousOperation?: RestOperationData, // TODO remove
@@ -126,6 +135,7 @@ export interface ApiBuilder<T = any, O = any, M = any> {
   dumpDocument: DocumentDumper<T>
   buildOperations?: OperationsBuilder<T, M>
   compareOperationsData?: OperationDataCompare<O>
+  compareDocuments?: DocumentsCompare
   validateOperationChanges?: OperationChangesValidator
   createNormalizedOperationId?: OperationIdNormalizer
   createExportDocument?: DocumentExporter

@@ -21,6 +21,7 @@ import {
   DIFF_TYPES,
   ImpactedOperationSummary,
   NormalizedOperationId,
+  OperationChanges,
   OperationChangesMetadata,
   OperationId,
   OperationsApiType,
@@ -31,14 +32,14 @@ import {
 } from '../../types'
 import { BUILD_TYPE, EMPTY_CHANGE_SUMMARY, MESSAGE_SEVERITY } from '../../consts'
 import {
+  calculateChangeSummary,
+  calculateImpactedSummary,
   convertToSlug,
-  IGNORE_PATH_PARAM_UNIFIED_PLACEHOLDER,
-  NormalizedPath,
-  slugify,
+  removeFirstSlash,
   takeIfDefined,
 } from '../../utils'
-import { REST_API_TYPE } from '../../apitypes'
-import { OpenAPIV3 } from 'openapi-types'
+import { validateBwcBreakingChanges } from './bwc.validation'
+import { Diff } from '@netcracker/qubership-apihub-api-diff'
 
 export const totalChanges = (changeSummary?: ChangeSummary): number => {
   return changeSummary
@@ -68,7 +69,7 @@ export function calculateTotalImpactedSummary(
   }, { ...EMPTY_CHANGE_SUMMARY })
 }
 
-export function getOperationTags(operation: ResolvedOperation): string[] {
+export function getOperationTags(operation?: ResolvedOperation): string[] {
   return operation?.tags || operation?.metadata?.tags || []
 }
 
@@ -95,6 +96,36 @@ export function getOperationTypesFromTwoVersions(
 
 type OperationIdWithoutGroupPrefix = string
 export type OperationIdentityMap = Record<OperationIdWithoutGroupPrefix, OperationId>
+
+export function dedupePairs<A extends object, B extends object>(
+  pairs: ReadonlyArray<[A, B]>,
+): Array<[A, B]> {
+  const seen = new WeakMap<A, WeakSet<B>>()
+  const out: Array<[A, B]> = []
+
+  for (const [a, b] of pairs) {
+    let bs = seen.get(a)
+    if (!bs) {
+      bs = new WeakSet<B>()
+      seen.set(a, bs)
+    }
+    if (bs.has(b)) continue
+    bs.add(b)
+    out.push([a, b])
+  }
+
+  return out
+}
+
+export function normalizeOperationIds(operations: ResolvedOperation[], apiBuilder: ApiBuilder, group: string): [OperationId[], Record<NormalizedOperationId | OperationId, ResolvedOperation>] {
+  const normalizedOperationIdToOperation: Record<NormalizedOperationId | OperationId, ResolvedOperation> = {}
+  const groupSlug = convertToSlug(group)
+  operations.forEach(operation => {
+    const normalizedOperationId = apiBuilder.createNormalizedOperationId?.(operation) ?? operation.operationId
+    normalizedOperationIdToOperation[takeSubstringIf(!!groupSlug, normalizedOperationId, groupSlug.length)] = operation
+  })
+  return [Object.keys(normalizedOperationIdToOperation), normalizedOperationIdToOperation]
+}
 
 export function getOperationsHashMapByApiType(
   apiBuilder: ApiBuilder,
@@ -160,4 +191,68 @@ export function takeSubstringIf(condition: boolean, value: string, startIndex: n
   }
 
   return value.substring(startIndex)
+}
+
+export const createPairOperationsMap = (
+  prevGroupSlug: string,
+  currGroupSlug: string,
+  previousOperations: ResolvedOperation[],
+  currentOperations: ResolvedOperation[],
+  apiBuilder: ApiBuilder,
+): Record<NormalizedOperationId, {
+  previous?: ResolvedOperation
+  current?: ResolvedOperation
+}> => {
+
+  const operationsMap: Record<NormalizedOperationId, {
+    previous?: ResolvedOperation
+    current?: ResolvedOperation
+  }> = {}
+
+  for (const currentOperation of currentOperations) {
+    const normalizedOperationId = apiBuilder.createNormalizedOperationId?.(currentOperation) ?? currentOperation.operationId
+    operationsMap[takeSubstringIf(!!currGroupSlug, normalizedOperationId, currGroupSlug.length + '-'.length)] = { current: currentOperation }
+  }
+
+  for (const previousOperation of previousOperations) {
+    const normalizedOperationId = apiBuilder.createNormalizedOperationId?.(previousOperation) ?? previousOperation.operationId
+    const prevOperationId = takeSubstringIf(!!prevGroupSlug, normalizedOperationId, prevGroupSlug.length + '-'.length)
+    // todo it won't work if groups have different length (add test with /api/v1/ and /api/abc/)
+    const operationsMappingElement = operationsMap[prevOperationId]
+    operationsMap[prevOperationId] = {
+      ...takeIfDefined({ ...operationsMappingElement }),
+      previous: previousOperation,
+    }
+  }
+
+  return operationsMap
+}
+
+export function createOperationChange(apiType: OperationsApiType, operationDiffs: Diff[], previous?: ResolvedOperation, current?: ResolvedOperation, currGroupSlug?: string, prevGroupSlug?: string, currentGroup?: string, previousGroup?: string): OperationChanges {
+  const changeSummary = calculateChangeSummary(operationDiffs)
+  const impactedSummary = calculateImpactedSummary([changeSummary])
+
+  const currentOperationFields = current && {
+    operationId: takeSubstringIf(!!currGroupSlug, current.operationId, removeFirstSlash(currentGroup ?? '').length),
+    apiKind: current.apiKind,
+    metadata: getOperationMetadata(current),
+  }
+
+  const previousOperationFields = previous && {
+    previousOperationId: takeSubstringIf(!!prevGroupSlug, previous.operationId, removeFirstSlash(previousGroup ?? '').length),
+    previousApiKind: previous.apiKind,
+    previousMetadata: getOperationMetadata(previous),
+  }
+
+  const operationChange = {
+    apiType,
+    diffs: operationDiffs,
+    changeSummary: changeSummary,
+    impactedSummary: impactedSummary,
+    ...currentOperationFields,
+    ...previousOperationFields,
+  }
+  validateBwcBreakingChanges(operationChange)
+
+  return operationChange
 }

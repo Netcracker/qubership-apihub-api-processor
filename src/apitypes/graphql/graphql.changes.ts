@@ -15,11 +15,126 @@
  */
 
 import { VersionGraphQLOperation } from './graphql.types'
-import { removeComponents, takeIf } from '../../utils'
-import { apiDiff, COMPARE_MODE_OPERATION, Diff } from '@netcracker/qubership-apihub-api-diff'
-import { NORMALIZE_OPTIONS } from '../../consts'
-import { GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
+import { isEmpty, removeComponents, removeFirstSlash, slugify, takeIf } from '../../utils'
+import {
+  apiDiff,
+  COMPARE_MODE_OPERATION,
+  Diff,
+  DIFF_META_KEY,
+  DIFFS_AGGREGATED_META_KEY,
+} from '@netcracker/qubership-apihub-api-diff'
+import { NORMALIZE_OPTIONS, ORIGINS_SYMBOL } from '../../consts'
+import { GraphApiOperation, GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
+import { buildSchema } from 'graphql/utilities'
+import { buildGraphQLDocument } from './graphql.document'
+import {
+  CompareOperationsPairContext,
+  FILE_KIND,
+  NormalizedOperationId,
+  OperationChanges,
+  OperationsApiType,
+  ResolvedOperation,
+  ResolvedVersionDocument,
+  WithAggregatedDiffs,
+  WithDiffMetaRecord,
+} from '../../types'
+import { GRAPHQL_TYPE, GRAPHQL_TYPE_KEYS } from './graphql.consts'
+import { createOperationChange, getOperationTags } from '../../components'
 
+export const compareDocuments = async (apiType: OperationsApiType, operationsMap: Record<NormalizedOperationId, {
+  previous?: ResolvedOperation
+  current?: ResolvedOperation
+}>, prevDoc: ResolvedVersionDocument | undefined, currDoc: ResolvedVersionDocument | undefined, ctx: CompareOperationsPairContext): Promise<{
+  operationChanges: OperationChanges[]
+  tags: string[]
+}> => {
+  const { rawDocumentResolver, previousVersion, currentVersion, previousPackageId, currentPackageId } = ctx
+  const prevFile = prevDoc && await rawDocumentResolver(previousVersion, previousPackageId, prevDoc.slug)
+  const currFile = currDoc && await rawDocumentResolver(currentVersion, currentPackageId, currDoc.slug)
+  const prevDocSchema = prevFile && buildSchema(await prevFile.text(), { noLocation: true })
+  const currDocSchema = currFile && buildSchema(await currFile.text(), { noLocation: true })
+
+  let prevDocData = prevDocSchema && (await buildGraphQLDocument({
+    ...prevDoc,
+    source: prevFile,
+    kind: FILE_KIND.TEXT,
+    data: prevDocSchema,
+  }, prevDoc)).data
+  let currDocData = currDocSchema && (await buildGraphQLDocument({
+    ...currDoc,
+    source: currFile,
+    kind: FILE_KIND.TEXT,
+    data: currDocSchema,
+  }, currDoc)).data
+
+  if (!prevDocData && currDocData) {
+    prevDocData = getCopyWithEmptyOperations(currDocData)
+  }
+  if (prevDocData && !currDocData) {
+    currDocData = getCopyWithEmptyOperations(prevDocData)
+  }
+
+  const { merged, diffs } = apiDiff(
+    prevDocData,
+    currDocData,
+    {
+      ...NORMALIZE_OPTIONS,
+      metaKey: DIFF_META_KEY,
+      originsFlag: ORIGINS_SYMBOL,
+      diffsAggregatedFlag: DIFFS_AGGREGATED_META_KEY,
+      // mode: COMPARE_MODE_OPERATION,
+      normalizedResult: true,
+    },
+  ) as {merged: GraphApiSchema; diffs: Diff[]}
+
+  if (isEmpty(diffs)) {
+    return { operationChanges: [], tags: [] }
+  }
+
+  let operationDiffs: Diff[] = []
+
+  const { currentGroup, previousGroup } = ctx
+  const currGroupSlug = slugify(removeFirstSlash(currentGroup || ''))
+  const prevGroupSlug = slugify(removeFirstSlash(previousGroup || ''))
+
+  const tags = new Set<string>()
+  const changedOperations: OperationChanges[] = []
+
+  for (const type of GRAPHQL_TYPE_KEYS) {
+    const operationsByType = merged[type]
+    if (!operationsByType) { continue }
+
+    for (const operationKey of Object.keys(operationsByType)) {
+      const operationId = slugify(`${GRAPHQL_TYPE[type]}-${operationKey}`)
+      const methodData = operationsByType[operationKey]
+
+      const { current, previous } = operationsMap[operationId] ?? {}
+      if (current && previous) {
+        operationDiffs = [...(methodData as WithAggregatedDiffs<GraphApiOperation>)[DIFFS_AGGREGATED_META_KEY]]
+      } else if (current || previous) {
+        for (const type of GRAPHQL_TYPE_KEYS) {
+          const operationsByType = (merged[type] as WithDiffMetaRecord<Record<string, GraphApiOperation>>)?.[DIFF_META_KEY]
+          if (!operationsByType) { continue }
+          operationDiffs.push(...Object.values(operationsByType))
+        }
+        if (isEmpty(operationDiffs)) {
+          throw new Error('should not happen')
+        }
+      }
+
+      if (isEmpty(operationDiffs)) {
+        continue
+      }
+
+      changedOperations.push(createOperationChange(apiType, operationDiffs, previous, current, currGroupSlug, prevGroupSlug, currentGroup, previousGroup))
+      getOperationTags(current ?? previous).forEach(tag => tags.add(tag))
+    }
+  }
+
+  return { operationChanges: changedOperations, tags: [...tags.values()] }
+}
+
+/** @deprecated */
 export const graphqlOperationsCompare = async (current: VersionGraphQLOperation | undefined, previous: VersionGraphQLOperation | undefined): Promise<Diff[]> => {
   let previousOperation = removeComponents(previous?.data)
   let currentOperation = removeComponents(current?.data)
