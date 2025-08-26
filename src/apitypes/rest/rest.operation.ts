@@ -258,21 +258,28 @@ const createSingleOperationSpec = (
 ): TYPE.RestOperationData => {
   const pathData = document.paths[path] as OpenAPIV3.PathItemObject
 
-  const resolveRefPathItem = (ref: string): OpenAPIV3.PathItemObject => {
+  const resolveRefPathItem = (ref: string): OpenAPIV3.PathItemObject | null => {
+    if (!ref) {
+      return null
+    }
     const { jsonPath } = parseRef(ref)
     const target = getValueByPath(document, jsonPath) as OpenAPIV3.PathItemObject
+    if (!target || typeof target !== 'object') {
+      return null
+    }
     return {
       ...extractCommonPathItemProperties(target),
       [method]: { ...target[method] },
     }
   }
 
-  const buildComponentsFromRef = (ref: string): any => {
-    const { jsonPath } = parseRef(ref)
+  const buildComponentsFromRef = (ref: string): OpenAPIV3.ComponentsObject => {
     const resolved = resolveRefPathItem(ref)
+    if (!resolved) {return {}}
+    const { jsonPath } = parseRef(ref)
     const container: any = {}
     setValueByPath(container, jsonPath, resolved)
-    return container.components
+    return container.components || {}
   }
 
   const specBase = {
@@ -284,7 +291,7 @@ const createSingleOperationSpec = (
     },
   }
 
-  if ('$ref' in pathData) {
+  if (pathData && '$ref' in pathData && pathData.$ref) {
     return {
       ...specBase,
       paths: {

@@ -131,7 +131,7 @@ function transformDocumentData(versionDocument: VersionDocument): OpenAPIV3.Docu
     }
 
     const commonPathProps = extractCommonPathItemProperties(sourcePathItem)
-    const pathItemRef = '$ref' in sourcePathItem ? sourcePathItem.$ref : undefined
+    const pathItemRef = sourcePathItem?.$ref
 
     for (const method of Object.keys(normalizedPathItem)) {
       const inferredMethod = method as OpenAPIV3.HttpMethods
@@ -209,6 +209,8 @@ function buildPathAndComponents(
 
   const { jsonPath } = parseRef(pathItemRef)
   const targetPathItem = getValueByPath(sourceDocument, jsonPath) as OpenAPIV3.PathItemObject
+  if (!targetPathItem) return { updatedPathItem: {} }
+
   const resolvedPathItem = {
     ...extractCommonPathItemProperties(targetPathItem),
     [method]: { ...targetPathItem[method] },
