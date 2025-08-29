@@ -295,7 +295,7 @@ const createSingleOperationSpec = (
     return {
       ...specBase,
       paths: {
-        [path]: { ...pathData },
+        [path]: pathData,
       },
       components: {
         ...specBase.components,

@@ -47,8 +47,18 @@ describe('Document Group test', () => {
     await runMergeOperationsCase('case1')
   })
 
-  test('should have properly merged documents with pathItems', async () => {
-    await runMergeOperationsCase('case2')
+  describe('PathItems tests', () => {
+    test('should have properly merged documents', async () => {
+      await runMergeOperationsCase('case2')
+    })
+
+    test('should have properly merged documents and delete unused operations', async () => {
+      await runMergeOperationsCase('case3')
+    })
+
+    test('should have properly merged documents mixed formats (operation + pathItems operation)', async () => {
+      await runMergeOperationsCase('case4')
+    })
   })
 
   async function runMergeOperationsCase(caseName: string): Promise<void> {
