@@ -59,6 +59,7 @@ import {
 } from '@netcracker/qubership-apihub-api-unifier'
 import { calculateObjectHash } from '../../utils/hashes'
 import { calculateTolerantHash } from '../../components/deprecated'
+import { getValueByPath } from '../../utils/path'
 
 export const buildRestOperation = (
   operationId: string,
@@ -257,18 +258,59 @@ const createSingleOperationSpec = (
 ): TYPE.RestOperationData => {
   const pathData = document.paths[path] as OpenAPIV3.PathItemObject
 
-  return {
+  const resolveRefPathItem = (ref: string): OpenAPIV3.PathItemObject | null => {
+    if (!ref) {
+      return null
+    }
+    const { jsonPath } = parseRef(ref)
+    const target = getValueByPath(document, jsonPath) as OpenAPIV3.PathItemObject
+    if (!target || typeof target !== 'object') {
+      return null
+    }
+    return {
+      ...extractCommonPathItemProperties(target),
+      [method]: { ...target[method] },
+    }
+  }
+
+  const buildComponentsFromRef = (ref: string): OpenAPIV3.ComponentsObject => {
+    const resolved = resolveRefPathItem(ref)
+    if (!resolved) {return {}}
+    const { jsonPath } = parseRef(ref)
+    const container: any = {}
+    setValueByPath(container, jsonPath, resolved)
+    return container.components || {}
+  }
+
+  const specBase = {
     openapi: openapi ?? '3.0.0',
     ...takeIfDefined({ servers }),
     ...takeIfDefined({ security }), // TODO: remove duplicates in security
+    components: {
+      ...takeIfDefined({ securitySchemes }),
+    },
+  }
+
+  if (pathData && '$ref' in pathData && pathData.$ref) {
+    return {
+      ...specBase,
+      paths: {
+        [path]: pathData,
+      },
+      components: {
+        ...specBase.components,
+        ...buildComponentsFromRef(pathData.$ref ?? ''),
+      },
+    }
+  }
+
+  return {
+    ...specBase,
     paths: {
       [path]: {
         ...extractCommonPathItemProperties(pathData),
         [method]: { ...pathData[method] },
       },
-    },
-    components: {
-      ...takeIfDefined({ securitySchemes }),
     },
   }
 }

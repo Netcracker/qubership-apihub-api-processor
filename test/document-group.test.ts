@@ -44,19 +44,42 @@ describe('Document Group test', () => {
   })
 
   test('should have properly merged documents', async () => {
-    const pkg = LocalRegistry.openPackage('merge-operations', groupToOperationIdsMap)
+    await runMergeOperationsCase('case1')
+  })
+
+  describe('PathItems tests', () => {
+    test('should have properly merged documents', async () => {
+      await runMergeOperationsCase('case2')
+    })
+
+    test('should have properly merged documents and delete unused operations', async () => {
+      await runMergeOperationsCase('case3')
+    })
+
+    test('should have properly merged documents mixed formats (operation + pathItems operation)', async () => {
+      await runMergeOperationsCase('case4')
+    })
+  })
+
+  async function runMergeOperationsCase(caseName: string): Promise<void> {
+    const pkg = LocalRegistry.openPackage(`merge-operations/${caseName}`, groupToOperationIdsMap)
     const editor = await Editor.openProject(pkg.packageId, pkg)
 
     await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+
     const result = await editor.run({
       packageId: pkg.packageId,
       buildType: BUILD_TYPE.MERGED_SPECIFICATION,
       groupName: GROUP_NAME,
       apiType: REST_API_TYPE,
     })
-    const expectedResult = load((await loadFileAsString(pkg.projectsDir, pkg.packageId, EXPECTED_RESULT_FILE))!)
+
+    const expectedResult = load(
+      (await loadFileAsString(pkg.projectsDir, pkg.packageId, EXPECTED_RESULT_FILE))!,
+    )
+
     expect(result.merged?.data).toEqual(expectedResult)
-  })
+  }
 
   test('should rename documents with matching names', async () => {
     const dashboard = LocalRegistry.openPackage('documents-collision', groupToOperationIdsMap2)
