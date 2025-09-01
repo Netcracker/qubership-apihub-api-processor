@@ -29,7 +29,6 @@ import {
   EXPORT_FORMAT_TO_FILE_FORMAT,
   fromBase64,
   removeFirstSlash,
-  setValueByPath,
   slugify,
   takeIfDefined,
   toVersionDocument,
@@ -149,7 +148,7 @@ function transformDocumentData(versionDocument: VersionDocument): OpenAPIV3.Docu
         continue
       }
 
-      const { updatedPathItem, extraComponents } = buildPathAndComponents(
+      const updatedPathItem = buildPath(
         sourceDocument,
         path,
         inferredMethod,
@@ -163,7 +162,6 @@ function transformDocumentData(versionDocument: VersionDocument): OpenAPIV3.Docu
       }
       resultDocument.components = {
         ...takeIfDefined({ securitySchemes: sourceComponents?.securitySchemes }),
-        ...extraComponents,
       }
     }
   }
@@ -190,42 +188,28 @@ function isNonNullObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-function buildPathAndComponents(
+function buildPath(
   sourceDocument: OpenAPIV3.Document,
   path: string,
   method: OpenAPIV3.HttpMethods,
   commonPathProps: Partial<OpenAPIV3.PathItemObject>,
   pathItemRef?: string,
-): { updatedPathItem: OpenAPIV3.PathItemObject; extraComponents?: OpenAPIV3.ComponentsObject } {
+): OpenAPIV3.PathItemObject {
   if (!pathItemRef) {
     const originalPathItem = sourceDocument.paths[path]!
     return {
-      updatedPathItem: {
-        ...commonPathProps,
-        [method]: { ...originalPathItem[method] },
-      } as OpenAPIV3.PathItemObject,
-    }
+      ...commonPathProps,
+      [method]: { ...originalPathItem[method] },
+    } as OpenAPIV3.PathItemObject
   }
 
   const { jsonPath } = parseRef(pathItemRef)
   const targetPathItem = getValueByPath(sourceDocument, jsonPath) as OpenAPIV3.PathItemObject
-  if (!targetPathItem) return { updatedPathItem: {} }
-
-  const resolvedPathItem = {
-    ...extractCommonPathItemProperties(targetPathItem),
-    [method]: { ...targetPathItem[method] },
-  }
-  const componentsContainer: any = {}
-  setValueByPath(componentsContainer, jsonPath, resolvedPathItem)
+  if (!targetPathItem) return {}
 
   const originalPathItem = sourceDocument.paths[path]!
-  const mergedPathItem: OpenAPIV3.PathItemObject = {
+  return {
     ...(originalPathItem),
     ...commonPathProps,
-  }
-
-  return {
-    updatedPathItem: mergedPathItem,
-    extraComponents: componentsContainer.components,
   }
 }

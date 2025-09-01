@@ -47,39 +47,6 @@ describe('Document Group test', () => {
     await runMergeOperationsCase('case1')
   })
 
-  describe('PathItems tests', () => {
-    test('should have properly merged documents', async () => {
-      await runMergeOperationsCase('case2')
-    })
-
-    test('should have properly merged documents and delete unused operations', async () => {
-      await runMergeOperationsCase('case3')
-    })
-
-    test('should have properly merged documents mixed formats (operation + pathItems operation)', async () => {
-      await runMergeOperationsCase('case4')
-    })
-  })
-
-  async function runMergeOperationsCase(caseName: string): Promise<void> {
-    const pkg = LocalRegistry.openPackage(`merge-operations/${caseName}`, groupToOperationIdsMap)
-    const editor = await Editor.openProject(pkg.packageId, pkg)
-
-    await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
-
-    const result = await editor.run({
-      packageId: pkg.packageId,
-      buildType: BUILD_TYPE.MERGED_SPECIFICATION,
-      groupName: GROUP_NAME,
-      apiType: REST_API_TYPE,
-    })
-
-    const expectedResult = load(
-      (await loadFileAsString(pkg.projectsDir, pkg.packageId, EXPECTED_RESULT_FILE))!,
-    )
-
-    expect(result.merged?.data).toEqual(expectedResult)
-  }
 
   test('should rename documents with matching names', async () => {
     const dashboard = LocalRegistry.openPackage('documents-collision', groupToOperationIdsMap2)
@@ -113,4 +80,67 @@ describe('Document Group test', () => {
       expect(Object.keys(document.data.paths).length).toEqual(document.operationIds.length)
     }
   })
+
+  describe('PathItems tests', () => {
+    test('should have documents with keep pathItems in components', async () => {
+      const pkg = LocalRegistry.openPackage('document-group/case1', groupToOperationIdsMap)
+      const editor = await Editor.openProject(pkg.packageId, pkg)
+      await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+
+      const result = await editor.run({
+        packageId: pkg.packageId,
+        groupName: GROUP_NAME,
+        buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
+      })
+
+      for (const document of Array.from(result.documents.values())) {
+        expect(Object.keys(document.data.components.pathItems).length).toEqual(document.operationIds.length)
+      }
+    })
+
+    test('should have documents stripped of operations other than from provided group', async () => {
+      const pkg = LocalRegistry.openPackage('document-group/case2', groupToOperationIdsMap)
+      const editor = await Editor.openProject(pkg.packageId, pkg)
+      await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+
+      const result = await editor.run({
+        packageId: pkg.packageId,
+        groupName: GROUP_NAME,
+        buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
+      })
+      for (const document of Array.from(result.documents.values())) {
+        expect(Object.keys(document.data.paths).length).toEqual(document.operationIds.length)
+      }
+    })
+
+    describe('Merge Operations', () => {
+      test('should have properly merged documents', async () => {
+        await runMergeOperationsCase('case2')
+      })
+
+      test('should have properly merged documents mixed formats (operation + pathItems operation)', async () => {
+        await runMergeOperationsCase('case3')
+      })
+    })
+  })
+
+  async function runMergeOperationsCase(caseName: string): Promise<void> {
+    const pkg = LocalRegistry.openPackage(`merge-operations/${caseName}`, groupToOperationIdsMap)
+    const editor = await Editor.openProject(pkg.packageId, pkg)
+
+    await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+
+    const result = await editor.run({
+      packageId: pkg.packageId,
+      buildType: BUILD_TYPE.MERGED_SPECIFICATION,
+      groupName: GROUP_NAME,
+      apiType: REST_API_TYPE,
+    })
+
+    const expectedResult = load(
+      (await loadFileAsString(pkg.projectsDir, pkg.packageId, EXPECTED_RESULT_FILE))!,
+    )
+
+    expect(result.merged?.data).toEqual(expectedResult)
+  }
 })

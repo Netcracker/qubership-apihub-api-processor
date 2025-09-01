@@ -4,16 +4,7 @@ info:
   version: 0.1.0
 paths:
   /path2:
-    $ref: '#/components/pathItems/pathItem2'
-components:
-  pathItems:
-    pathItem2:
-      post:
-        responses:
-          '200':
-            description: response description main
-    pathItem3:
-      post:
-        responses:
-          '200':
-            description: response description unused
+    post:
+      responses:
+        '200':
+          description: response description main

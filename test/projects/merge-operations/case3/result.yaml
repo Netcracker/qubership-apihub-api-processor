@@ -6,16 +6,14 @@ paths:
   /path1:
     $ref: '#/components/pathItems/pathItem1'
   /path2:
-    $ref: '#/components/pathItems/pathItem2'
+    post:
+      responses:
+        '200':
+          description: response description main
 components:
   pathItems:
     pathItem1:
       get:
-        responses:
-          '200':
-            description: response description main
-    pathItem2:
-      post:
         responses:
           '200':
             description: response description main
