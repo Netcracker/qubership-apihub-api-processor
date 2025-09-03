@@ -32,6 +32,13 @@ const groupToOperationIdsMap2 = {
     'some-path2-post',
   ],
 }
+
+const groupToOnePathOperationIdsMap = {
+  [GROUP_NAME]: [
+    'path1-get',
+    'path1-post',
+  ],
+}
 const EXPECTED_RESULT_FILE = 'result.yaml'
 
 describe('Document Group test', () => {
@@ -44,9 +51,23 @@ describe('Document Group test', () => {
   })
 
   test('should have properly merged documents', async () => {
-    await runMergeOperationsCase('case1')
+    await runMergeOperationsCase('basic-documents-for-merge')
   })
 
+  test('should have keep a few operations in one path', async () => {
+    const pkg = LocalRegistry.openPackage('document-group/few-operations-in-one-path', groupToOnePathOperationIdsMap)
+    const editor = await Editor.openProject(pkg.packageId, pkg)
+    await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+
+    const result = await editor.run({
+      packageId: pkg.packageId,
+      groupName: GROUP_NAME,
+      buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
+    })
+    for (const document of Array.from(result.documents.values())) {
+      expect(Object.keys(document.data.paths['/path1']).length).toEqual(document.operationIds.length)
+    }
+  })
 
   test('should rename documents with matching names', async () => {
     const dashboard = LocalRegistry.openPackage('documents-collision', groupToOperationIdsMap2)
@@ -83,7 +104,39 @@ describe('Document Group test', () => {
 
   describe('PathItems tests', () => {
     test('should have documents with keep pathItems in components', async () => {
-      const pkg = LocalRegistry.openPackage('document-group/case1', groupToOperationIdsMap)
+      const pkg = LocalRegistry.openPackage('document-group/operations-in-pathitems', groupToOperationIdsMap)
+      const editor = await Editor.openProject(pkg.packageId, pkg)
+      await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+
+      const result = await editor.run({
+        packageId: pkg.packageId,
+        groupName: GROUP_NAME,
+        buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
+      })
+
+      for (const document of Array.from(result.documents.values())) {
+        expect(Object.keys(document.data.components.pathItems).length).toEqual(document.operationIds.length)
+      }
+    })
+
+    test('should have keep a few operations in one pathItems', async () => {
+      const pkg = LocalRegistry.openPackage('document-group/few-operations-in-one-pathitems', groupToOnePathOperationIdsMap)
+      const editor = await Editor.openProject(pkg.packageId, pkg)
+      await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+
+      const result = await editor.run({
+        packageId: pkg.packageId,
+        groupName: GROUP_NAME,
+        buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
+      })
+
+      for (const document of Array.from(result.documents.values())) {
+        expect(Object.keys(document.data.components.pathItems['pathItem1']).length).toEqual(document.operationIds.length)
+      }
+    })
+
+    test('should delete pathItems object which is not referenced', async () => {
+      const pkg = LocalRegistry.openPackage('document-group/pathitems-object-which-is-not-referenced', groupToOperationIdsMap)
       const editor = await Editor.openProject(pkg.packageId, pkg)
       await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
 
@@ -99,7 +152,7 @@ describe('Document Group test', () => {
     })
 
     test('should have documents stripped of operations other than from provided group', async () => {
-      const pkg = LocalRegistry.openPackage('document-group/case2', groupToOperationIdsMap)
+      const pkg = LocalRegistry.openPackage('document-group/stripped-of-pathitems-operations', groupToOperationIdsMap)
       const editor = await Editor.openProject(pkg.packageId, pkg)
       await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
 
@@ -115,11 +168,11 @@ describe('Document Group test', () => {
 
     describe('Merge Operations', () => {
       test('should have properly merged documents', async () => {
-        await runMergeOperationsCase('case2')
+        await runMergeOperationsCase('basic-documents-pathitems-for-merge')
       })
 
       test('should have properly merged documents mixed formats (operation + pathItems operation)', async () => {
-        await runMergeOperationsCase('case3')
+        await runMergeOperationsCase('documents-pathitems-with-mixed-formats')
       })
     })
   })

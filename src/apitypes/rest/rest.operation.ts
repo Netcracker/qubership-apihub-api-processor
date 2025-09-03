@@ -48,6 +48,7 @@ import {
   grepValue,
   JSON_SCHEMA_PROPERTY_DEPRECATED,
   matchPaths,
+  normalize,
   OPEN_API_PROPERTY_COMPONENTS,
   OPEN_API_PROPERTY_PATHS,
   OPEN_API_PROPERTY_SCHEMAS,
@@ -59,7 +60,6 @@ import {
 } from '@netcracker/qubership-apihub-api-unifier'
 import { calculateObjectHash } from '../../utils/hashes'
 import { calculateTolerantHash } from '../../components/deprecated'
-import { getValueByPath } from '../../utils/path'
 
 export const buildRestOperation = (
   operationId: string,
@@ -262,8 +262,7 @@ const createSingleOperationSpec = (
     if (!ref) {
       return null
     }
-    const { jsonPath } = parseRef(ref)
-    const target = getValueByPath(document, jsonPath) as OpenAPIV3.PathItemObject
+    const target = normalize(pathData, { source: document }) as OpenAPIV3.PathItemObject
     if (!target || typeof target !== 'object') {
       return null
     }
