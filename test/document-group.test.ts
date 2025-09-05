@@ -39,6 +39,12 @@ const groupToOnePathOperationIdsMap = {
     'path1-post',
   ],
 }
+
+const groupWithOneOperationIdsMap = {
+  [GROUP_NAME]: [
+    'path1-post',
+  ],
+}
 const EXPECTED_RESULT_FILE = 'result.yaml'
 
 describe('Document Group test', () => {
@@ -66,6 +72,21 @@ describe('Document Group test', () => {
     })
     for (const document of Array.from(result.documents.values())) {
       expect(Object.keys(document.data.paths['/path1']).length).toEqual(document.operationIds.length)
+    }
+  })
+
+  test('should have components schema object which is referenced', async () => {
+    const pkg = LocalRegistry.openPackage('document-group/referenced-json-schema-object', groupToOnePathOperationIdsMap)
+    const editor = await Editor.openProject(pkg.packageId, pkg)
+    await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+
+    const result = await editor.run({
+      packageId: pkg.packageId,
+      groupName: GROUP_NAME,
+      buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
+    })
+    for (const document of Array.from(result.documents.values())) {
+      expect(document.data).toHaveProperty(['components', 'schemas', 'MySchema'])
     }
   })
 
@@ -136,7 +157,7 @@ describe('Document Group test', () => {
     })
 
     test('should delete pathItems object which is not referenced', async () => {
-      const pkg = LocalRegistry.openPackage('document-group/pathitems-object-which-is-not-referenced', groupToOperationIdsMap)
+      const pkg = LocalRegistry.openPackage('document-group/not-referenced-pathitems-object', groupToOperationIdsMap)
       const editor = await Editor.openProject(pkg.packageId, pkg)
       await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
 
@@ -164,6 +185,92 @@ describe('Document Group test', () => {
       for (const document of Array.from(result.documents.values())) {
         expect(Object.keys(document.data.paths).length).toEqual(document.operationIds.length)
       }
+    })
+
+    describe('Chain refs', () => {
+      const COMPONENTS_ITEM_1_PATH =['components', 'pathItems', 'componentsPathItem1']
+      test('should have documents with keep pathItems in components', async () => {
+        const pkg = LocalRegistry.openPackage('document-group/define-pathitems-via-reference-object-chain', groupToOnePathOperationIdsMap)
+        const editor = await Editor.openProject(pkg.packageId, pkg)
+        await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+
+        const result = await editor.run({
+          packageId: pkg.packageId,
+          groupName: GROUP_NAME,
+          buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
+        })
+        for (const document of Array.from(result.documents.values())) {
+          expect(document.data).toHaveProperty([...COMPONENTS_ITEM_1_PATH, 'post'])
+          expect(document.data).toHaveProperty([...COMPONENTS_ITEM_1_PATH, 'get'])
+        }
+      })
+
+      test('should have documents stripped of operations other than from provided group', async () => {
+        const pkg = LocalRegistry.openPackage('document-group/define-pathitems-via-reference-object-chain', groupWithOneOperationIdsMap)
+        const editor = await Editor.openProject(pkg.packageId, pkg)
+        await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+
+        const result = await editor.run({
+          packageId: pkg.packageId,
+          groupName: GROUP_NAME,
+          buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
+        })
+        for (const document of Array.from(result.documents.values())) {
+          expect(document.data).toHaveProperty([...COMPONENTS_ITEM_1_PATH, 'post'])
+          expect(document.data).not.toHaveProperty([...COMPONENTS_ITEM_1_PATH, 'get'])
+        }
+      })
+    })
+
+    describe('reference-object', ()=> {
+      test('second-level-object-are-the-same-when-overriding-for-response', async () => {
+        const pkg = LocalRegistry.openPackage('document-group/second-level-object-are-the-same-when-overriding-for-response', groupToOnePathOperationIdsMap)
+        const editor = await Editor.openProject(pkg.packageId, pkg)
+        await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+
+        const result = await editor.run({
+          packageId: pkg.packageId,
+          groupName: GROUP_NAME,
+          buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
+        })
+
+        const expectedResult = load(
+          (await loadFileAsString(pkg.projectsDir, pkg.packageId, EXPECTED_RESULT_FILE))!,
+        )
+        for (const document of Array.from(result.documents.values())) {
+          expect(document.data).toEqual(expectedResult)
+        }
+      })
+
+      test('not-hang-up-when-processing-for-response-which-points-to-itself', async () => {
+        const pkg = LocalRegistry.openPackage('document-group/not-hang-up-when-processing-for-response-which-points-to-itself', groupToOnePathOperationIdsMap)
+        const editor = await Editor.openProject(pkg.packageId, pkg)
+        await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+
+        const result = await editor.run({
+          packageId: pkg.packageId,
+          groupName: GROUP_NAME,
+          buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
+        })
+
+        expect(result.documents.size).toEqual(0)
+      })
+
+      test.skip('not-hang-up-when-processing-cycled-chain-for-response', async () => {
+        const pkg = LocalRegistry.openPackage('document-group/not-hang-up-when-processing-cycled-chain-for-response', groupToOnePathOperationIdsMap)
+        const editor = await Editor.openProject(pkg.packageId, pkg)
+        await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+
+        const result = await editor.run({
+          packageId: pkg.packageId,
+          groupName: GROUP_NAME,
+          buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
+        })
+
+        for (const document of Array.from(result.documents.values())) {
+          expect(Object.keys(document.data.components.pathItems['pathItem1']).length).toEqual(document.operationIds.length)
+        }
+      })
     })
 
     describe('Merge Operations', () => {
