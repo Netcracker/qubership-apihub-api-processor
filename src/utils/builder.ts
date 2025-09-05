@@ -29,6 +29,7 @@ import {
 import { API_KIND } from '../consts'
 import { Diff, DiffType } from '@netcracker/qubership-apihub-api-diff'
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
+import { parseRef } from '@netcracker/qubership-apihub-api-unifier'
 
 export type ObjPath = (string | number)[]
 
@@ -167,6 +168,93 @@ export const getValueByOpenAPIPath = (obj: any, path: string): any => {
   })
 
   return value
+}
+
+const isRecordObject = (candidate: unknown): candidate is Record<string, any> => {
+  return typeof candidate === 'object' && candidate !== null
+}
+
+const getValueByJsonPath = (root: any, path: JsonPath): any => {
+  let current: any = root
+  for (const part of path) {
+    if (typeof part === 'string') {
+      if (part === '$') {
+        continue
+      }
+      if (part === '*') {
+        const keys = Object.keys(current ?? {})
+        current = keys.length > 0 ? current[keys[0]] : undefined
+        continue
+      }
+    }
+    current = current?.[part as any]
+  }
+  return current
+}
+
+export const getParentValueByRef = (obj: any, ref: string): any => {
+  const visited = new Set<string>()
+  let currentRef: string | undefined = ref
+
+  while (currentRef) {
+    if (visited.has(currentRef)) {
+      // circular reference guard
+      return undefined
+    }
+    visited.add(currentRef)
+
+    const { jsonPath } = parseRef(currentRef)
+    const value = getValueByJsonPath(obj, jsonPath)
+
+    if (isRecordObject(value) && typeof value.$ref === 'string') {
+      currentRef = value.$ref
+      continue
+    }
+    return value
+  }
+
+  return undefined
+}
+
+export const resolveRefAndMap = (
+  obj: any,
+  ref: string,
+  valueMapper: (target: any) => any,
+  component: any = {},
+): any => {
+  const visited = new Set<string>()
+  let currentRef: string | undefined = ref
+  let lastPath: JsonPath = []
+
+  while (currentRef) {
+    if (visited.has(currentRef)) {
+      // circular reference guard
+      break
+    }
+    visited.add(currentRef)
+
+    const { jsonPath } = parseRef(currentRef)
+    lastPath = jsonPath
+    const value = getValueByJsonPath(obj, jsonPath)
+
+    if (isRecordObject(value) && typeof value.$ref === 'string') {
+      // preserve intermediate referenced node
+      setValueByPath(component, jsonPath, value)
+      currentRef = value.$ref
+      continue
+    }
+
+    // terminal value reached; apply mapper
+    setValueByPath(component, jsonPath, valueMapper(value))
+    return component
+  }
+
+  // Fallback when loop breaks due to cycle or missing ref
+  if (lastPath.length) {
+    const terminal = getValueByJsonPath(obj, lastPath)
+    setValueByPath(component, lastPath, valueMapper(terminal))
+  }
+  return component
 }
 
 export const rawToApiKind = (apiKindLike: string): ApiKind => {

@@ -48,7 +48,6 @@ import {
   grepValue,
   JSON_SCHEMA_PROPERTY_DEPRECATED,
   matchPaths,
-  normalize,
   OPEN_API_PROPERTY_COMPONENTS,
   OPEN_API_PROPERTY_PATHS,
   OPEN_API_PROPERTY_SCHEMAS,
@@ -212,22 +211,39 @@ export const calculateSpecRefs = (sourceDocument: unknown, normalizedSpec: unkno
     if (!matchResult) {
       return
     }
+    //todo why? description?
     const componentName = matchResult.grepValues[grepKey].toString()
-    const component = getKeyValue(sourceDocument, ...matchResult.path)
-    if (!component) {
+    const sourceComponents = getKeyValue(sourceDocument, ...matchResult.path)
+    const resultComponents = getKeyValue(resultSpec, ...matchResult.path)
+    const httpMethods = new Set<string>(Object.values(OpenAPIV3.HttpMethods) as string[])
+    const allowedOps = (typeof resultComponents === 'object' && resultComponents !== null)
+      ? Object.keys(resultComponents as object).filter(key => httpMethods.has(key))
+      : []
+    if (!sourceComponents || typeof sourceComponents !== 'object') {
       return
     }
+    if (allowedOps.length > 0) {
+      Object.keys(sourceComponents as object).forEach((key: string) => {
+        if (httpMethods.has(key) && !allowedOps.includes(key)) {
+          // prune operations not present in the partial result component
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-ignore
+          delete (sourceComponents as any)[key]
+        }
+      })
+    }
+    // component is defined and object at this point
     if (models && !models[componentName] && isComponentsSchemaRef(matchResult.path)) {
       let componentHash = componentsHashMap?.get(componentName)
       if (componentHash) {
         models[componentName] = componentHash
       } else {
-        componentHash = calculateObjectHash(component)
+        componentHash = calculateObjectHash(sourceComponents)
         componentsHashMap?.set(componentName, componentHash)
         models[componentName] = componentHash
       }
     }
-    setValueByPath(resultSpec, matchResult.path, component)
+    setValueByPath(resultSpec, matchResult.path, sourceComponents)
   })
 }
 
@@ -258,58 +274,33 @@ const createSingleOperationSpec = (
 ): TYPE.RestOperationData => {
   const pathData = document.paths[path] as OpenAPIV3.PathItemObject
 
-  const resolveRefPathItem = (ref: string): OpenAPIV3.PathItemObject | null => {
-    if (!ref) {
-      return null
-    }
-    const target = normalize(pathData, { source: document }) as OpenAPIV3.PathItemObject
-    if (!target || typeof target !== 'object') {
-      return null
-    }
+  if (INLINE_REFS_FLAG in pathData || (pathData && '$ref' in pathData && pathData.$ref)) {
+    //todo check
     return {
-      ...extractCommonPathItemProperties(target),
-      [method]: { ...target[method] },
-    }
-  }
-
-  const buildComponentsFromRef = (ref: string): OpenAPIV3.ComponentsObject => {
-    const resolved = resolveRefPathItem(ref)
-    if (!resolved) {return {}}
-    const { jsonPath } = parseRef(ref)
-    const container: any = {}
-    setValueByPath(container, jsonPath, resolved)
-    return container.components || {}
-  }
-
-  const specBase = {
-    openapi: openapi ?? '3.0.0',
-    ...takeIfDefined({ servers }),
-    ...takeIfDefined({ security }), // TODO: remove duplicates in security
-    components: {
-      ...takeIfDefined({ securitySchemes }),
-    },
-  }
-
-  if (pathData && '$ref' in pathData && pathData.$ref) {
-    return {
-      ...specBase,
+      openapi: openapi ?? '3.0.0',
+      ...takeIfDefined({ servers }),
+      ...takeIfDefined({ security }), // TODO: remove duplicates in security
       paths: {
         [path]: pathData,
       },
       components: {
-        ...specBase.components,
-        ...buildComponentsFromRef(pathData.$ref ?? ''),
+        ...takeIfDefined({ securitySchemes }),
       },
     }
   }
 
   return {
-    ...specBase,
+    openapi: openapi ?? '3.0.0',
+    ...takeIfDefined({ servers }),
+    ...takeIfDefined({ security }), // TODO: remove duplicates in security
     paths: {
       [path]: {
         ...extractCommonPathItemProperties(pathData),
         [method]: { ...pathData[method] },
       },
+    },
+    components: {
+      ...takeIfDefined({ securitySchemes }),
     },
   }
 }
