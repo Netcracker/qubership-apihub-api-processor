@@ -154,17 +154,19 @@ function transformDocumentData(versionDocument: VersionDocument): OpenAPIV3.Docu
       const pathData = sourceDocument.paths[path]!
       if (pathItemRef) {
         const targetFromResultDocument = getParentValueByRef(resultDocument, pathData.$ref ?? '')
-        const target = resolveRefAndMap(sourceDocument, pathData.$ref ?? '', (value) => ({
+        const target = resolveRefAndMap(sourceDocument, pathData.$ref ?? '', (pathItemObject: OpenAPIV3.PathItemObject) => ({
           ...targetFromResultDocument,
-          ...extractCommonPathItemProperties(value),
-          [method]: { ...value[method] },
+          ...extractCommonPathItemProperties(pathItemObject),
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-ignore
+          [method]: { ...pathItemObject[method] },
         }))
 
         resultDocument.paths[path] = pathData
 
         resultDocument.components = {
           ...takeIfDefined({ securitySchemes: sourceComponents?.securitySchemes }),
-          ...target.components,
+          ...target.components ?? {},
         }
       } else {
         const existingPath = resultDocument.paths[path]

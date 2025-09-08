@@ -36,6 +36,7 @@ import {
   isOperationDeprecated,
   normalizePath,
   rawToApiKind,
+  resolveRefAndMap,
   setValueByPath,
   takeIf,
   takeIfDefined,
@@ -213,7 +214,7 @@ export const calculateSpecRefs = (sourceDocument: unknown, normalizedSpec: unkno
     }
     //todo why? description?
     const componentName = matchResult.grepValues[grepKey].toString()
-    const sourceComponents = getKeyValue(sourceDocument, ...matchResult.path)
+    let sourceComponents = getKeyValue(sourceDocument, ...matchResult.path)
     const resultComponents = getKeyValue(resultSpec, ...matchResult.path)
     const httpMethods = new Set<string>(Object.values(OpenAPIV3.HttpMethods) as string[])
     const allowedOps = (typeof resultComponents === 'object' && resultComponents !== null)
@@ -223,6 +224,7 @@ export const calculateSpecRefs = (sourceDocument: unknown, normalizedSpec: unkno
       return
     }
     if (allowedOps.length > 0) {
+      sourceComponents = { ...sourceComponents }
       Object.keys(sourceComponents as object).forEach((key: string) => {
         if (httpMethods.has(key) && !allowedOps.includes(key)) {
           // prune operations not present in the partial result component
@@ -238,6 +240,8 @@ export const calculateSpecRefs = (sourceDocument: unknown, normalizedSpec: unkno
       if (componentHash) {
         models[componentName] = componentHash
       } else {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
         componentHash = calculateObjectHash(sourceComponents)
         componentsHashMap?.set(componentName, componentHash)
         models[componentName] = componentHash
@@ -274,8 +278,12 @@ const createSingleOperationSpec = (
 ): TYPE.RestOperationData => {
   const pathData = document.paths[path] as OpenAPIV3.PathItemObject
 
-  if (INLINE_REFS_FLAG in pathData || (pathData && '$ref' in pathData && pathData.$ref)) {
-    //todo check
+  const ref = pathData?.$ref
+  if (pathData && ref) {
+    const cleanedDocument = resolveRefAndMap(document, ref, (pathItemObject: OpenAPIV3.PathItemObject) => ({
+      ...extractCommonPathItemProperties(pathItemObject),
+      [method]: { ...pathItemObject[method] },
+    }))
     return {
       openapi: openapi ?? '3.0.0',
       ...takeIfDefined({ servers }),
@@ -285,6 +293,7 @@ const createSingleOperationSpec = (
       },
       components: {
         ...takeIfDefined({ securitySchemes }),
+        ...cleanedDocument?.components ?? {},
       },
     }
   }

@@ -30,6 +30,7 @@ import { API_KIND } from '../consts'
 import { Diff, DiffType } from '@netcracker/qubership-apihub-api-diff'
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import { parseRef } from '@netcracker/qubership-apihub-api-unifier'
+import { OpenAPIV3 } from 'openapi-types'
 
 export type ObjPath = (string | number)[]
 
@@ -217,44 +218,51 @@ export const getParentValueByRef = (obj: any, ref: string): any => {
 }
 
 export const resolveRefAndMap = (
-  obj: any,
+  document: OpenAPIV3.Document,
   ref: string,
-  valueMapper: (target: any) => any,
-  component: any = {},
-): any => {
-  const visited = new Set<string>()
+  valueMapper: (target: Record<string, unknown>) => Record<string, unknown>,
+  result: Record<string, unknown> = {},
+): Record<string, unknown> => {
+  const cyclingGuard = new Set<string>()
   let currentRef: string | undefined = ref
   let lastPath: JsonPath = []
 
   while (currentRef) {
-    if (visited.has(currentRef)) {
-      // circular reference guard
+    if (cyclingGuard.has(currentRef)) {
       break
     }
-    visited.add(currentRef)
+    cyclingGuard.add(currentRef)
 
     const { jsonPath } = parseRef(currentRef)
     lastPath = jsonPath
-    const value = getValueByJsonPath(obj, jsonPath)
+
+    const rawValue = getValueByJsonPath(document, jsonPath)
+    if (rawValue === null) {
+      break
+    }
+
+    const value = { ...rawValue }
 
     if (isRecordObject(value) && typeof value.$ref === 'string') {
       // preserve intermediate referenced node
-      setValueByPath(component, jsonPath, value)
+      setValueByPath(result, jsonPath, value)
       currentRef = value.$ref
       continue
     }
 
     // terminal value reached; apply mapper
-    setValueByPath(component, jsonPath, valueMapper(value))
-    return component
+    setValueByPath(result, jsonPath, valueMapper(value))
+    return result
   }
 
   // Fallback when loop breaks due to cycle or missing ref
   if (lastPath.length) {
-    const terminal = getValueByJsonPath(obj, lastPath)
-    setValueByPath(component, lastPath, valueMapper(terminal))
+    const terminal = getValueByJsonPath(document, lastPath)
+    if (terminal !== undefined) {
+      setValueByPath(result, lastPath, valueMapper(terminal))
+    }
   }
-  return component
+  return result
 }
 
 export const rawToApiKind = (apiKindLike: string): ApiKind => {
