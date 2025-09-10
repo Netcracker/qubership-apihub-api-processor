@@ -244,18 +244,15 @@ export const resolveRefAndMap = (
     const value = { ...rawValue }
 
     if (isRecordObject(value) && typeof value.$ref === 'string') {
-      // preserve intermediate referenced node
       setValueByPath(result, jsonPath, value)
       currentRef = value.$ref
       continue
     }
 
-    // terminal value reached; apply mapper
     setValueByPath(result, jsonPath, valueMapper(value))
     return result
   }
 
-  // Fallback when loop breaks due to cycle or missing ref
   if (lastPath.length) {
     const terminal = getValueByJsonPath(document, lastPath)
     if (terminal !== undefined) {

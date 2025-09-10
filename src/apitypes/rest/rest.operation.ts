@@ -214,12 +214,17 @@ export const calculateSpecRefs = (sourceDocument: unknown, normalizedSpec: unkno
       return
     }
     const componentName = matchResult.grepValues[grepKey].toString()
-    let sourceComponents = getKeyValue(sourceDocument, ...matchResult.path) as unknown
+    let sourceComponents = getKeyValue(sourceDocument, ...matchResult.path)
     if (!sourceComponents || typeof sourceComponents !== 'object') {
       return
     }
-    sourceComponents = prunePathItemMethods(sourceComponents, resultSpec, matchResult.path)
-    // component is defined and object at this point
+
+    if (typeof sourceComponents === 'object') {
+      const allowedOps = getAllowedHttpOps(resultSpec, matchResult.path)
+      if (allowedOps.length > 0 && isComponentsPathItemRef(matchResult.path)) {
+        sourceComponents = filterPathItemOperations(sourceComponents, allowedOps)
+      }
+    }
     if (models && !models[componentName] && isComponentsSchemaRef(matchResult.path)) {
       const existingHash = componentsHashMap?.get(componentName)
       if (existingHash) {
@@ -247,41 +252,22 @@ export const isComponentsPathItemRef = (path: JsonPath): boolean => {
   )
 }
 
-/**
- * Returns a shallow-copied object with HTTP method keys pruned to the allowed set,
- * but only when the jsonPath points to components.pathItems.
- *
- * If jsonPath does not match components.pathItems or allowedOps is empty, returns input unchanged.
- */
-export const prunePathItemMethods = (
+export const filterPathItemOperations = (
   source: unknown,
-  resultSpec: unknown,
-  jsonPath: JsonPath,
+  allowedMethods: string[],
 ): unknown => {
-  const allowedOps = getAllowedHttpOps(resultSpec, jsonPath)
-  if (!source || typeof source !== 'object') {
-    return source
-  }
-  if (allowedOps.length === 0) {
-    return source
-  }
-  if (!isComponentsPathItemRef(jsonPath)) {
-    return source
-  }
   const httpMethods = new Set<string>(Object.values(OpenAPIV3.HttpMethods) as string[])
-  const copy: Record<string, unknown> = { ...(source as Record<string, unknown>) }
-  Object.keys(copy).forEach((key: string) => {
-    if (httpMethods.has(key) && !allowedOps.includes(key)) {
-      delete copy[key]
+  const filteredSource: Record<string, unknown> = { ...(source as Record<string, unknown>) }
+
+  for (const key of Object.keys(filteredSource)) {
+    if (httpMethods.has(key) && !allowedMethods.includes(key)) {
+      delete filteredSource[key]
     }
-  })
-  return copy
+  }
+
+  return filteredSource
 }
 
-/**
- * Extracts the set of HTTP methods allowed by the partial component found at jsonPath
- * within the resultSpec. If the path does not resolve to an object, returns an empty list.
- */
 export const getAllowedHttpOps = (resultSpec: unknown, jsonPath: JsonPath): string[] => {
   const resultComponents = getKeyValue(resultSpec, ...jsonPath) as unknown
   if (typeof resultComponents !== 'object' || resultComponents === null) {
@@ -310,40 +296,49 @@ const createSingleOperationSpec = (
   security?: OpenAPIV3.SecurityRequirementObject[],
   securitySchemes?: { [p: string]: OpenAPIV3.ReferenceObject | OpenAPIV3.SecuritySchemeObject },
 ): TYPE.RestOperationData => {
-  const pathData = document.paths[path] as OpenAPIV3.PathItemObject
+  const pathData = document.paths[path] as OpenAPIV3.PathItemObject | undefined
+  if (!pathData) {
+    throw new Error(`Path "${path}" not found in the document`)
+  }
 
-  const ref = pathData?.$ref
-  if (pathData && ref) {
-    const cleanedDocument = resolveRefAndMap(document, ref, (pathItemObject: OpenAPIV3.PathItemObject) => ({
-      ...extractCommonPathItemProperties(pathItemObject),
-      [method]: { ...pathItemObject[method] },
-    }))
+  const baseSpec = {
+    openapi: openapi ?? '3.0.0',
+    ...takeIfDefined({ servers }),
+    ...takeIfDefined({ security }), // TODO: remove duplicates in security
+    components: {
+      ...takeIfDefined({ securitySchemes }),
+    },
+  }
+
+  if (pathData.$ref) {
+    const cleanedDocument = resolveRefAndMap(
+      document,
+      pathData.$ref,
+      (pathItemObject: OpenAPIV3.PathItemObject) => ({
+        ...extractCommonPathItemProperties(pathItemObject),
+        [method]: { ...pathItemObject[method] },
+      }),
+    )
+
     return {
-      openapi: openapi ?? '3.0.0',
-      ...takeIfDefined({ servers }),
-      ...takeIfDefined({ security }), // TODO: remove duplicates in security
+      ...baseSpec,
       paths: {
         [path]: pathData,
       },
       components: {
-        ...takeIfDefined({ securitySchemes }),
+        ...baseSpec.components,
         ...cleanedDocument?.components ?? {},
       },
     }
   }
 
   return {
-    openapi: openapi ?? '3.0.0',
-    ...takeIfDefined({ servers }),
-    ...takeIfDefined({ security }), // TODO: remove duplicates in security
+    ...baseSpec,
     paths: {
       [path]: {
         ...extractCommonPathItemProperties(pathData),
         [method]: { ...pathData[method] },
       },
-    },
-    components: {
-      ...takeIfDefined({ securitySchemes }),
     },
   }
 }
