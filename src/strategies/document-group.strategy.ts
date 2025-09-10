@@ -142,7 +142,7 @@ function transformDocumentData(versionDocument: VersionDocument): OpenAPIV3.Docu
       }
 
       const methodData = normalizedPathItem[inferredMethod]
-      const basePath = getOperationBasePath(methodData?.servers || sourcePathItem?.servers || [])
+      const basePath = getOperationBasePath(methodData?.servers || sourcePathItem?.servers || sourceDocument?.servers || [])
       const operationPath = basePath + path
       const operationId = slugify(`${removeFirstSlash(operationPath)}-${method}`)
 

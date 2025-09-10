@@ -50,6 +50,7 @@ import {
   JSON_SCHEMA_PROPERTY_DEPRECATED,
   matchPaths,
   OPEN_API_PROPERTY_COMPONENTS,
+  OPEN_API_PROPERTY_PATH_ITEMS,
   OPEN_API_PROPERTY_PATHS,
   OPEN_API_PROPERTY_SCHEMAS,
   parseRef,
@@ -212,39 +213,21 @@ export const calculateSpecRefs = (sourceDocument: unknown, normalizedSpec: unkno
     if (!matchResult) {
       return
     }
-    //todo why? description?
     const componentName = matchResult.grepValues[grepKey].toString()
-    let sourceComponents = getKeyValue(sourceDocument, ...matchResult.path)
-    const resultComponents = getKeyValue(resultSpec, ...matchResult.path)
-    const httpMethods = new Set<string>(Object.values(OpenAPIV3.HttpMethods) as string[])
-    const allowedOps = (typeof resultComponents === 'object' && resultComponents !== null)
-      ? Object.keys(resultComponents as object).filter(key => httpMethods.has(key))
-      : []
+    let sourceComponents = getKeyValue(sourceDocument, ...matchResult.path) as unknown
     if (!sourceComponents || typeof sourceComponents !== 'object') {
       return
     }
-    if (allowedOps.length > 0) {
-      sourceComponents = { ...sourceComponents }
-      Object.keys(sourceComponents as object).forEach((key: string) => {
-        if (httpMethods.has(key) && !allowedOps.includes(key)) {
-          // prune operations not present in the partial result component
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-ignore
-          delete (sourceComponents as any)[key]
-        }
-      })
-    }
+    sourceComponents = prunePathItemMethods(sourceComponents, resultSpec, matchResult.path)
     // component is defined and object at this point
     if (models && !models[componentName] && isComponentsSchemaRef(matchResult.path)) {
-      let componentHash = componentsHashMap?.get(componentName)
-      if (componentHash) {
-        models[componentName] = componentHash
+      const existingHash = componentsHashMap?.get(componentName)
+      if (existingHash) {
+        models[componentName] = existingHash
       } else {
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore
-        componentHash = calculateObjectHash(sourceComponents)
-        componentsHashMap?.set(componentName, componentHash)
-        models[componentName] = componentHash
+        const componentHashCalculated = calculateObjectHash(sourceComponents as object)
+        componentsHashMap?.set(componentName, componentHashCalculated)
+        models[componentName] = componentHashCalculated
       }
     }
     setValueByPath(resultSpec, matchResult.path, sourceComponents)
@@ -257,6 +240,57 @@ export const isComponentsSchemaRef = (path: JsonPath): boolean => {
     [[OPEN_API_PROPERTY_COMPONENTS, OPEN_API_PROPERTY_SCHEMAS, PREDICATE_UNCLOSED_END]],
   )
 }
+export const isComponentsPathItemRef = (path: JsonPath): boolean => {
+  return !!matchPaths(
+    [path],
+    [[OPEN_API_PROPERTY_COMPONENTS, OPEN_API_PROPERTY_PATH_ITEMS, PREDICATE_UNCLOSED_END]],
+  )
+}
+
+/**
+ * Returns a shallow-copied object with HTTP method keys pruned to the allowed set,
+ * but only when the jsonPath points to components.pathItems.
+ *
+ * If jsonPath does not match components.pathItems or allowedOps is empty, returns input unchanged.
+ */
+export const prunePathItemMethods = (
+  source: unknown,
+  resultSpec: unknown,
+  jsonPath: JsonPath,
+): unknown => {
+  const allowedOps = getAllowedHttpOps(resultSpec, jsonPath)
+  if (!source || typeof source !== 'object') {
+    return source
+  }
+  if (allowedOps.length === 0) {
+    return source
+  }
+  if (!isComponentsPathItemRef(jsonPath)) {
+    return source
+  }
+  const httpMethods = new Set<string>(Object.values(OpenAPIV3.HttpMethods) as string[])
+  const copy: Record<string, unknown> = { ...(source as Record<string, unknown>) }
+  Object.keys(copy).forEach((key: string) => {
+    if (httpMethods.has(key) && !allowedOps.includes(key)) {
+      delete copy[key]
+    }
+  })
+  return copy
+}
+
+/**
+ * Extracts the set of HTTP methods allowed by the partial component found at jsonPath
+ * within the resultSpec. If the path does not resolve to an object, returns an empty list.
+ */
+export const getAllowedHttpOps = (resultSpec: unknown, jsonPath: JsonPath): string[] => {
+  const resultComponents = getKeyValue(resultSpec, ...jsonPath) as unknown
+  if (typeof resultComponents !== 'object' || resultComponents === null) {
+    return []
+  }
+  const httpMethods = new Set<string>(Object.values(OpenAPIV3.HttpMethods) as string[])
+  return Object.keys(resultComponents as Record<string, unknown>).filter(key => httpMethods.has(key))
+}
+
 const isOperationPaths = (paths: JsonPath[]): boolean => {
   return !!matchPaths(
     paths,
@@ -322,3 +356,4 @@ export const extractCommonPathItemProperties = (
   ...takeIfDefined({ servers: pathData?.servers }),
   ...takeIfDefined({ parameters: pathData?.parameters }),
 })
+

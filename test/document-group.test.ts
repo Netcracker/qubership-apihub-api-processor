@@ -45,6 +45,14 @@ const groupWithOneOperationIdsMap = {
     'path1-post',
   ],
 }
+
+const groupToOneServerPrefixPathOperationIdsMap = {
+  [GROUP_NAME]: [
+    'api-v1-path1-get',
+    'api-v1-path2-post',
+  ],
+}
+
 const EXPECTED_RESULT_FILE = 'result.yaml'
 
 describe('Document Group test', () => {
@@ -90,6 +98,21 @@ describe('Document Group test', () => {
     }
   })
 
+  test('should define operations with servers prefix', async () => {
+    const pkg = LocalRegistry.openPackage('document-group/define-operations-with-servers-prefix', groupToOneServerPrefixPathOperationIdsMap)
+    const editor = await Editor.openProject(pkg.packageId, pkg)
+    await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+
+    const result = await editor.run({
+      packageId: pkg.packageId,
+      groupName: GROUP_NAME,
+      buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
+    })
+    for (const document of Array.from(result.documents.values())) {
+      expect(Object.keys(document.data.paths).length).toEqual(document.operationIds.length)
+    }
+  })
+
   test('should rename documents with matching names', async () => {
     const dashboard = LocalRegistry.openPackage('documents-collision', groupToOperationIdsMap2)
     const package1 = LocalRegistry.openPackage('documents-collision/package1')
@@ -111,10 +134,22 @@ describe('Document Group test', () => {
 
     expect(Array.from(result.documents.values())).toEqual(
       expect.toIncludeSameMembers([
-        expect.objectContaining({ fileId: 'documents-collision/package1_1.yaml', filename: 'documents-collision/package1_1.json' }),
-        expect.objectContaining({ fileId: 'documents-collision/package1_2.yaml', filename: 'documents-collision/package1_2.json' }),
-        expect.objectContaining({ fileId: 'documents-collision/package2_1.yaml', filename: 'documents-collision/package2_1.json' }),
-        expect.objectContaining({ fileId: 'documents-collision/package3_1.yaml', filename: 'documents-collision/package3_1.json' }),
+        expect.objectContaining({
+          fileId: 'documents-collision/package1_1.yaml',
+          filename: 'documents-collision/package1_1.json',
+        }),
+        expect.objectContaining({
+          fileId: 'documents-collision/package1_2.yaml',
+          filename: 'documents-collision/package1_2.json',
+        }),
+        expect.objectContaining({
+          fileId: 'documents-collision/package2_1.yaml',
+          filename: 'documents-collision/package2_1.json',
+        }),
+        expect.objectContaining({
+          fileId: 'documents-collision/package3_1.yaml',
+          filename: 'documents-collision/package3_1.json',
+        }),
       ]),
     )
 
@@ -187,8 +222,23 @@ describe('Document Group test', () => {
       }
     })
 
+    test('should define pathitems operations with servers prefix', async () => {
+      const pkg = LocalRegistry.openPackage('document-group/define-pathitems-operations-with-servers-prefix', groupToOneServerPrefixPathOperationIdsMap)
+      const editor = await Editor.openProject(pkg.packageId, pkg)
+      await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+
+      const result = await editor.run({
+        packageId: pkg.packageId,
+        groupName: GROUP_NAME,
+        buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
+      })
+      for (const document of Array.from(result.documents.values())) {
+        expect(Object.keys(document.data.paths).length).toEqual(document.operationIds.length)
+      }
+    })
+
     describe('Chain refs', () => {
-      const COMPONENTS_ITEM_1_PATH =['components', 'pathItems', 'componentsPathItem1']
+      const COMPONENTS_ITEM_1_PATH = ['components', 'pathItems', 'componentsPathItem1']
       test('should have documents with keep pathItems in components', async () => {
         const pkg = LocalRegistry.openPackage('document-group/define-pathitems-via-reference-object-chain', groupToOnePathOperationIdsMap)
         const editor = await Editor.openProject(pkg.packageId, pkg)
@@ -222,7 +272,7 @@ describe('Document Group test', () => {
       })
     })
 
-    describe('reference-object', ()=> {
+    describe('reference-object', () => {
       test('second-level-object-are-the-same-when-overriding-for-response', async () => {
         const pkg = LocalRegistry.openPackage('document-group/second-level-object-are-the-same-when-overriding-for-response', groupToOnePathOperationIdsMap)
         const editor = await Editor.openProject(pkg.packageId, pkg)
