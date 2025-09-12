@@ -29,10 +29,9 @@ import {
   EXPORT_FORMAT_TO_FILE_FORMAT,
   fromBase64,
   getParentValueByRef,
-  resolveRefAndMap,
+  getValueByRefAndUpdate,
   removeFirstSlash,
   slugify,
-  takeIfDefined,
   toVersionDocument,
 } from '../utils'
 import { OpenAPIV3 } from 'openapi-types'
@@ -182,30 +181,27 @@ function transformDocumentData(versionDocument: VersionDocument): OpenAPIV3.Docu
 }
 
 function handleRefPathItem(
-  resultDoc: OpenAPIV3.Document,
-  sourceDoc: OpenAPIV3.Document,
+  resultDocument: OpenAPIV3.Document,
+  sourceDocument: OpenAPIV3.Document,
   path: string,
   pathData: OpenAPIV3.PathItemObject | OpenAPIV3.ReferenceObject,
   method: OpenAPIV3.HttpMethods,
 ): void {
-  const targetFromResultDoc = getParentValueByRef(resultDoc, (pathData as any).$ref ?? '')
+  const ref = pathData.$ref ?? ''
+  const operationsFormResult = getParentValueByRef(ref, resultDocument)
 
-  const target = resolveRefAndMap(
-    sourceDoc,
-    (pathData as any).$ref ?? '',
-    (pathItemObject: OpenAPIV3.PathItemObject) => ({
-      ...targetFromResultDoc,
-      ...extractCommonPathItemProperties(pathItemObject),
-      [method]: { ...pathItemObject[method] },
-    }),
-  )
+  const clearedDocument = getValueByRefAndUpdate(ref, sourceDocument, (pathItemObject: OpenAPIV3.PathItemObject) => ({
+    ...operationsFormResult,
+    ...extractCommonPathItemProperties(pathItemObject),
+    [method]: { ...pathItemObject[method] },
+  }))
 
-  resultDoc.paths[path] = pathData
+  resultDocument.paths[path] = pathData
 
-  if (target.components) {
-    resultDoc.components = {
-      ...resultDoc.components,
-      ...target.components,
+  if (clearedDocument.components) {
+    resultDocument.components = {
+      ...resultDocument.components,
+      ...clearedDocument.components,
     }
   }
 }

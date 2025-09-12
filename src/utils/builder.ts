@@ -193,19 +193,18 @@ const getValueByJsonPath = (root: any, path: JsonPath): any => {
   return current
 }
 
-export const getParentValueByRef = (obj: any, ref: string): any => {
-  const visited = new Set<string>()
+export const getParentValueByRef = (ref: string, document: OpenAPIV3.Document): any => {
+  const cyclingGuard = new Set<string>()
   let currentRef: string | undefined = ref
 
   while (currentRef) {
-    if (visited.has(currentRef)) {
-      // circular reference guard
+    if (cyclingGuard.has(currentRef)) {
       return undefined
     }
-    visited.add(currentRef)
+    cyclingGuard.add(currentRef)
 
     const { jsonPath } = parseRef(currentRef)
-    const value = getValueByJsonPath(obj, jsonPath)
+    const value = getValueByJsonPath(document, jsonPath)
 
     if (isRecordObject(value) && typeof value.$ref === 'string') {
       currentRef = value.$ref
@@ -217,9 +216,9 @@ export const getParentValueByRef = (obj: any, ref: string): any => {
   return undefined
 }
 
-export const resolveRefAndMap = (
-  document: OpenAPIV3.Document,
+export const getValueByRefAndUpdate = (
   ref: string,
+  document: OpenAPIV3.Document,
   valueMapper: (target: Record<string, unknown>) => Record<string, unknown>,
   result: Record<string, unknown> = {},
 ): Record<string, unknown> => {

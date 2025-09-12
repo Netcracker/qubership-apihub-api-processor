@@ -36,7 +36,7 @@ import {
   isOperationDeprecated,
   normalizePath,
   rawToApiKind,
-  resolveRefAndMap,
+  getValueByRefAndUpdate,
   setValueByPath,
   takeIf,
   takeIfDefined,
@@ -311,14 +311,10 @@ const createSingleOperationSpec = (
   }
 
   if (pathData.$ref) {
-    const cleanedDocument = resolveRefAndMap(
-      document,
-      pathData.$ref,
-      (pathItemObject: OpenAPIV3.PathItemObject) => ({
-        ...extractCommonPathItemProperties(pathItemObject),
-        [method]: { ...pathItemObject[method] },
-      }),
-    )
+    const cleanedDocument = getValueByRefAndUpdate(pathData.$ref, document, (pathItemObject: OpenAPIV3.PathItemObject) => ({
+      ...extractCommonPathItemProperties(pathItemObject),
+      [method]: { ...pathItemObject[method] },
+    }))
 
     return {
       ...baseSpec,
