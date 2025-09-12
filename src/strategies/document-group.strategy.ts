@@ -190,7 +190,7 @@ function handleRefPathItem(
   const ref = pathData.$ref ?? ''
   const operationsFormResult = getParentValueByRef(ref, resultDocument)
 
-  const clearedDocument = getValueByRefAndUpdate(ref, sourceDocument, (pathItemObject: OpenAPIV3.PathItemObject) => ({
+  const cleanedDocument = getValueByRefAndUpdate(ref, sourceDocument, (pathItemObject: OpenAPIV3.PathItemObject) => ({
     ...operationsFormResult,
     ...extractCommonPathItemProperties(pathItemObject),
     [method]: { ...pathItemObject[method] },
@@ -198,10 +198,10 @@ function handleRefPathItem(
 
   resultDocument.paths[path] = pathData
 
-  if (clearedDocument.components) {
+  if (cleanedDocument.components) {
     resultDocument.components = {
       ...resultDocument.components,
-      ...clearedDocument.components,
+      ...cleanedDocument.components,
     }
   }
 }
