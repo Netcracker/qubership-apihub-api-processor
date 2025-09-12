@@ -19,12 +19,13 @@ import { OpenAPIV3 } from 'openapi-types'
 import { REST_API_TYPE, REST_KIND_KEY } from './rest.consts'
 import { operationRules } from './rest.rules'
 import type * as TYPE from './rest.types'
-import type {
+import {
   BuildConfig,
   CrawlRule,
   DeprecateItem,
   NotificationMessage,
   OperationCrawlState,
+  OperationId,
   SearchScopes,
 } from '../../types'
 import {
@@ -32,17 +33,19 @@ import {
   capitalize,
   getKeyValue,
   getSplittedVersionKey,
-  getValueByRefAndUpdate,
   isDeprecatedOperationItem,
+  isObject,
   isOperationDeprecated,
   normalizePath,
   rawToApiKind,
+  removeFirstSlash,
   setValueByPath,
+  slugify,
   takeIf,
   takeIfDefined,
 } from '../../utils'
 import { API_KIND, INLINE_REFS_FLAG, ORIGINS_SYMBOL, VERSION_STATUS } from '../../consts'
-import { getCustomTags, resolveApiAudience } from './rest.utils'
+import { getCustomTags, getOperationBasePath, resolveApiAudience } from './rest.utils'
 import { DebugPerformanceContext, syncDebugPerformance } from '../../utils/logs'
 import {
   calculateDeprecatedItems,
@@ -50,7 +53,6 @@ import {
   JSON_SCHEMA_PROPERTY_DEPRECATED,
   matchPaths,
   OPEN_API_PROPERTY_COMPONENTS,
-  OPEN_API_PROPERTY_PATH_ITEMS,
   OPEN_API_PROPERTY_PATHS,
   OPEN_API_PROPERTY_SCHEMAS,
   parseRef,
@@ -61,6 +63,7 @@ import {
 } from '@netcracker/qubership-apihub-api-unifier'
 import { calculateObjectHash } from '../../utils/hashes'
 import { calculateTolerantHash } from '../../components/deprecated'
+import { getValueByPath } from '../../utils/path'
 
 export const buildRestOperation = (
   operationId: string,
@@ -145,7 +148,8 @@ export const buildRestOperation = (
       security,
       components?.securitySchemes,
     )
-    calculateSpecRefs(document.data, refsOnlySingleOperationSpec, specWithSingleOperation, models, componentsHashMap)
+    calculateSpecRefs(document.data, refsOnlySingleOperationSpec, specWithSingleOperation, [operationId], models, componentsHashMap)
+    createSinglePathItemOperationSpec(specWithSingleOperation as OpenAPIV3.Document, refsOnlySingleOperationSpec as OpenAPIV3.Document, [operationId])
     const dataHash = calculateObjectHash(specWithSingleOperation)
     return [specWithSingleOperation, dataHash]
   }, debugCtx)
@@ -182,7 +186,7 @@ export const buildRestOperation = (
   }
 }
 
-export const calculateSpecRefs = (sourceDocument: unknown, normalizedSpec: unknown, resultSpec: unknown, models?: Record<string, string>, componentsHashMap?: Map<string, string>): void => {
+export const calculateSpecRefs = (sourceDocument: unknown, normalizedSpec: unknown, resultSpec: unknown, operations: OperationId[], models?: Record<string, string>, componentsHashMap?: Map<string, string>): void => {
   const handledObjects = new Set<unknown>()
   const inlineRefs = new Set<string>()
   syncCrawl(
@@ -214,29 +218,63 @@ export const calculateSpecRefs = (sourceDocument: unknown, normalizedSpec: unkno
       return
     }
     const componentName = matchResult.grepValues[grepKey].toString()
-    let sourceComponents = getKeyValue(sourceDocument, ...matchResult.path)
-    if (!sourceComponents || typeof sourceComponents !== 'object') {
+    let component: any = getKeyValue(sourceDocument, ...matchResult.path)
+    if (!component) {
       return
     }
-
-    if (typeof sourceComponents === 'object') {
-      const allowedOps = getAllowedHttpOps(resultSpec, matchResult.path)
-      if (allowedOps.length > 0 && isComponentsPathItemRef(matchResult.path)) {
-        sourceComponents = filterPathItemOperations(sourceComponents, allowedOps)
-      }
+    if (isObject(component)) {
+      component = { ...component }
     }
     if (models && !models[componentName] && isComponentsSchemaRef(matchResult.path)) {
-      const existingHash = componentsHashMap?.get(componentName)
-      if (existingHash) {
-        models[componentName] = existingHash
+      let componentHash = componentsHashMap?.get(componentName)
+      if (componentHash) {
+        models[componentName] = componentHash
       } else {
-        const componentHashCalculated = calculateObjectHash(sourceComponents as object)
-        componentsHashMap?.set(componentName, componentHashCalculated)
-        models[componentName] = componentHashCalculated
+        componentHash = calculateObjectHash(component)
+        componentsHashMap?.set(componentName, componentHash)
+        models[componentName] = componentHash
       }
     }
-    setValueByPath(resultSpec, matchResult.path, sourceComponents)
+
+    setValueByPath(resultSpec, matchResult.path, component)
   })
+}
+
+export function createSinglePathItemOperationSpec(sourceDocument: OpenAPIV3.Document, normalizedDocument: OpenAPIV3.Document, operations: OperationId[]): void {
+  const { paths } = normalizedDocument
+
+  for (const path of Object.keys(paths)) {
+    const sourcePathItem = paths[path]
+
+    const refs = (sourcePathItem as any)[INLINE_REFS_FLAG]
+    if (!isNonNullObject(sourcePathItem) || !refs || refs.length === 0) {
+      continue
+    }
+    const richReference = parseRef(refs[0])
+    const valueByPath = getValueByPath(sourceDocument, richReference.jsonPath)
+    for (const method of Object.keys(valueByPath)) {
+      const httpMethod = method as OpenAPIV3.HttpMethods
+      if (!isValidHttpMethod(httpMethod)) continue
+
+      const methodData = sourcePathItem[httpMethod]
+      const basePath = getOperationBasePath(
+        methodData?.servers ||
+        sourcePathItem?.servers ||
+        [],
+      )
+
+      const operationPath = basePath + path
+      const operationId = slugify(`${removeFirstSlash(operationPath)}-${method}`)
+
+      if (!operations.includes(operationId)) {
+        delete valueByPath[method]
+      }
+    }
+  }
+}
+
+function isNonNullObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
 }
 
 export const isComponentsSchemaRef = (path: JsonPath): boolean => {
@@ -244,37 +282,6 @@ export const isComponentsSchemaRef = (path: JsonPath): boolean => {
     [path],
     [[OPEN_API_PROPERTY_COMPONENTS, OPEN_API_PROPERTY_SCHEMAS, PREDICATE_UNCLOSED_END]],
   )
-}
-export const isComponentsPathItemRef = (path: JsonPath): boolean => {
-  return !!matchPaths(
-    [path],
-    [[OPEN_API_PROPERTY_COMPONENTS, OPEN_API_PROPERTY_PATH_ITEMS, PREDICATE_UNCLOSED_END]],
-  )
-}
-
-export const filterPathItemOperations = (
-  source: unknown,
-  allowedMethods: string[],
-): unknown => {
-  const httpMethods = new Set<string>(Object.values(OpenAPIV3.HttpMethods) as string[])
-  const filteredSource: Record<string, unknown> = { ...(source as Record<string, unknown>) }
-
-  for (const key of Object.keys(filteredSource)) {
-    if (httpMethods.has(key) && !allowedMethods.includes(key)) {
-      delete filteredSource[key]
-    }
-  }
-
-  return filteredSource
-}
-
-export const getAllowedHttpOps = (resultSpec: unknown, jsonPath: JsonPath): string[] => {
-  const resultComponents = getKeyValue(resultSpec, ...jsonPath) as unknown
-  if (typeof resultComponents !== 'object' || resultComponents === null) {
-    return []
-  }
-  const httpMethods = new Set<string>(Object.values(OpenAPIV3.HttpMethods) as string[])
-  return Object.keys(resultComponents as Record<string, unknown>).filter(key => httpMethods.has(key))
 }
 
 const isOperationPaths = (paths: JsonPath[]): boolean => {
@@ -296,49 +303,25 @@ const createSingleOperationSpec = (
   security?: OpenAPIV3.SecurityRequirementObject[],
   securitySchemes?: { [p: string]: OpenAPIV3.ReferenceObject | OpenAPIV3.SecuritySchemeObject },
 ): TYPE.RestOperationData => {
-  const pathData = document.paths[path] as OpenAPIV3.PathItemObject | undefined
-  if (!pathData) {
-    throw new Error(`Path "${path}" not found in the document`)
-  }
+  const pathData = document.paths[path] as OpenAPIV3.PathItemObject
 
-  const baseSpec = {
+  const ref = pathData.$ref
+  const refFlag = (pathData as any)[INLINE_REFS_FLAG]
+  return {
     openapi: openapi ?? '3.0.0',
     ...takeIfDefined({ servers }),
     ...takeIfDefined({ security }), // TODO: remove duplicates in security
+    paths: {
+      [path]: ref
+        ? pathData
+        : {
+          ...extractCommonPathItemProperties(pathData),
+          [method]: { ...pathData[method] },
+          ...(refFlag ? { [INLINE_REFS_FLAG]: refFlag } : {}),
+        },
+    },
     components: {
       ...takeIfDefined({ securitySchemes }),
-    },
-  }
-
-  const ref = pathData.$ref
-  if (ref) {
-    const cleanedDocument = getValueByRefAndUpdate(
-      ref,
-      document,
-      (pathItemObject: OpenAPIV3.PathItemObject) => ({
-        ...extractCommonPathItemProperties(pathItemObject),
-        [method]: { ...pathItemObject[method] },
-      }))
-
-    return {
-      ...baseSpec,
-      paths: {
-        [path]: pathData,
-      },
-      components: {
-        ...baseSpec.components,
-        ...cleanedDocument.components ?? {},
-      },
-    }
-  }
-
-  return {
-    ...baseSpec,
-    paths: {
-      [path]: {
-        ...extractCommonPathItemProperties(pathData),
-        [method]: { ...pathData[method] },
-      },
     },
   }
 }
@@ -352,3 +335,6 @@ export const extractCommonPathItemProperties = (
   ...takeIfDefined({ parameters: pathData?.parameters }),
 })
 
+function isValidHttpMethod(method: string): method is OpenAPIV3.HttpMethods {
+  return (Object.values(OpenAPIV3.HttpMethods) as string[]).includes(method)
+}
