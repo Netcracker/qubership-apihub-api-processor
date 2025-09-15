@@ -263,7 +263,7 @@ export function createSinglePathItemOperationSpec(
     if (!isNonNullObject(sourcePathItem)) {
       continue
     }
-    const refs = hasInlineRefsFlag(sourcePathItem) ? sourcePathItem[INLINE_REFS_FLAG] : []
+    const refs: string[] = hasInlineRefsFlag(sourcePathItem) ? sourcePathItem[INLINE_REFS_FLAG] : []
     if (refs.length === 0) {
       continue
     }
@@ -271,24 +271,36 @@ export function createSinglePathItemOperationSpec(
     if (!richReference) {
       continue
     }
-    const valueByPath = getValueByPath(sourceDocument, richReference.jsonPath)
-    for (const method of Object.keys(valueByPath)) {
-      const httpMethod = method as OpenAPIV3.HttpMethods
-      if (!isValidHttpMethod(httpMethod)) continue
+    const valueByPath = getValueByPath(sourceDocument, richReference.jsonPath) as OpenAPIV3.PathItemObject
 
-      const methodData = sourcePathItem[httpMethod]
-      const basePath = getOperationBasePath(
-        methodData?.servers ||
-        sourcePathItem?.servers ||
-        [],
-      )
+    const operationIds: OpenAPIV3.HttpMethods[] = (Object.keys(valueByPath) as OpenAPIV3.HttpMethods[])
+      .filter((httpMethod) => isValidHttpMethod(httpMethod))
+      .filter(httpMethod => {
+        const methodData = sourcePathItem[httpMethod as OpenAPIV3.HttpMethods]
+        if (!methodData) return false
+        const basePath = getOperationBasePath(
+          methodData?.servers ||
+          sourcePathItem?.servers ||
+          [],
+        )
 
-      const operationPath = basePath + path
-      const operationId = slugify(`${removeFirstSlash(operationPath)}-${method}`)
+        const operationPath = basePath + path
+        const operationId = slugify(`${removeFirstSlash(operationPath)}-${httpMethod}`)
+        return operations.includes(operationId)
+      })
 
-      if (!operations.includes(operationId)) {
-        delete valueByPath[method]
+    if (operationIds?.length) {
+      const pathItem = {
+        ...extractCommonPathItemProperties(valueByPath),
+        ...operationIds.reduce<OpenAPIV3.PathItemObject>((pathItemObject: OpenAPIV3.PathItemObject, operationId: OpenAPIV3.HttpMethods) => {
+          const operationData = valueByPath[operationId]
+          if (operationData) {
+            pathItemObject[operationId] = { ...operationData }
+          }
+          return pathItemObject
+        }, {}),
       }
+      setValueByPath(sourceDocument, richReference.jsonPath, pathItem)
     }
   }
 }
