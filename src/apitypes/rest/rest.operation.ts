@@ -247,11 +247,11 @@ export const calculateSpecRefs = (
   })
 
   if (operations?.length) {
-    createSinglePathItemOperationSpec(resultSpec, normalizedSpec, operations)
+    resolveComponentsPathItemOperationSpec(resultSpec, normalizedSpec, operations)
   }
 }
 
-export function createSinglePathItemOperationSpec(
+export function resolveComponentsPathItemOperationSpec(
   sourceDocument: RestOperationData,
   normalizedDocument: RestOperationData,
   operations: OperationId[],
@@ -267,11 +267,12 @@ export function createSinglePathItemOperationSpec(
     if (refs.length === 0) {
       continue
     }
-    const richReference = parseRef(refs[0])
-    if (!richReference) {
+    const { jsonPath } = parseRef(refs[0])
+    if (!jsonPath) {
       continue
     }
-    const valueByPath = getValueByPath(sourceDocument, richReference.jsonPath) as OpenAPIV3.PathItemObject
+
+    const valueByPath = getValueByPath(sourceDocument, jsonPath) as OpenAPIV3.PathItemObject
 
     const operationIds: OpenAPIV3.HttpMethods[] = (Object.keys(valueByPath) as OpenAPIV3.HttpMethods[])
       .filter((httpMethod) => isValidHttpMethod(httpMethod))
@@ -298,7 +299,7 @@ export function createSinglePathItemOperationSpec(
           return pathItemObject
         }, {}),
       }
-      setValueByPath(sourceDocument, richReference.jsonPath, pathItemObject)
+      setValueByPath(sourceDocument, jsonPath, pathItemObject)
     }
   }
 }
