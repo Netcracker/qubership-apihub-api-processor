@@ -16,13 +16,12 @@
 
 import { OpenAPIV3 } from 'openapi-types'
 
-import { buildRestOperation } from './rest.operation'
+import { buildRestOperation, getOperationId } from './rest.operation'
 import { OperationIdNormalizer, OperationsBuilder } from '../../types'
 import {
   createBundlingErrorHandler,
   IGNORE_PATH_PARAM_UNIFIED_PLACEHOLDER,
   removeComponents,
-  removeFirstSlash,
   slugify,
 } from '../../utils'
 import { getOperationBasePath } from './rest.utils'
@@ -77,9 +76,8 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
       await asyncFunction(() => {
         const methodData = pathData[key as OpenAPIV3.HttpMethods]
         const basePath = getOperationBasePath(methodData?.servers || pathData?.servers || servers || [])
-        const operationPath = basePath + path
 
-        const operationId = slugify(`${removeFirstSlash(operationPath)}-${key}`)
+        const operationId = getOperationId(basePath, key, path)
 
         if (ctx.operationResolver(operationId)) {
           ctx.notifications.push({

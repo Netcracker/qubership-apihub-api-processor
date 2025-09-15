@@ -283,14 +283,12 @@ export function createSinglePathItemOperationSpec(
           sourcePathItem?.servers ||
           [],
         )
-
-        const operationPath = basePath + path
-        const operationId = slugify(`${removeFirstSlash(operationPath)}-${httpMethod}`)
+        const operationId = getOperationId(basePath, httpMethod, path)
         return operations.includes(operationId)
       })
 
     if (operationIds?.length) {
-      const pathItem = {
+      const pathItemObject = {
         ...extractCommonPathItemProperties(valueByPath),
         ...operationIds.reduce<OpenAPIV3.PathItemObject>((pathItemObject: OpenAPIV3.PathItemObject, operationId: OpenAPIV3.HttpMethods) => {
           const operationData = valueByPath[operationId]
@@ -300,7 +298,7 @@ export function createSinglePathItemOperationSpec(
           return pathItemObject
         }, {}),
       }
-      setValueByPath(sourceDocument, richReference.jsonPath, pathItem)
+      setValueByPath(sourceDocument, richReference.jsonPath, pathItemObject)
     }
   }
 }
@@ -373,4 +371,13 @@ export const extractCommonPathItemProperties = (
 
 function isValidHttpMethod(method: string): method is OpenAPIV3.HttpMethods {
   return (Object.values(OpenAPIV3.HttpMethods) as string[]).includes(method)
+}
+
+export function getOperationId(
+  basePath: string,
+  key: string,
+  path: string,
+): string {
+  const operationPath = basePath + path
+  return slugify(`${removeFirstSlash(operationPath)}-${key}`)
 }
