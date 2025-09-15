@@ -259,13 +259,18 @@ export function createSinglePathItemOperationSpec(
   const { paths } = normalizedDocument
 
   for (const path of Object.keys(paths)) {
-    const sourcePathItem = paths[path]
-
-    const refs = (sourcePathItem as any)[INLINE_REFS_FLAG]
-    if (!isNonNullObject(sourcePathItem) || !refs || refs.length === 0) {
+    const sourcePathItem = paths[path] as OpenAPIV3.PathItemObject
+    if (!isNonNullObject(sourcePathItem)) {
+      continue
+    }
+    const refs = hasInlineRefsFlag(sourcePathItem) ? sourcePathItem[INLINE_REFS_FLAG] : []
+    if (refs.length === 0) {
       continue
     }
     const richReference = parseRef(refs[0])
+    if (!richReference) {
+      continue
+    }
     const valueByPath = getValueByPath(sourceDocument, richReference.jsonPath)
     for (const method of Object.keys(valueByPath)) {
       const httpMethod = method as OpenAPIV3.HttpMethods
@@ -306,6 +311,10 @@ const isOperationPaths = (paths: JsonPath[]): boolean => {
   )
 }
 
+function hasInlineRefsFlag(obj: unknown): obj is { [INLINE_REFS_FLAG]: string[] } {
+  return typeof obj === 'object' && obj !== null && INLINE_REFS_FLAG in obj
+}
+
 // todo output of this method disrupts document normalization.
 //  origin symbols are not being transferred to the resulting spec.
 //  DO NOT pass output of this method to apiDiff
@@ -320,14 +329,14 @@ const createSingleOperationSpec = (
 ): TYPE.RestOperationData => {
   const pathData = document.paths[path] as OpenAPIV3.PathItemObject
 
-  const ref = pathData.$ref
-  const refFlag = (pathData as any)[INLINE_REFS_FLAG]
+  const isContainsRef = !!pathData.$ref
+  const refFlag = hasInlineRefsFlag(pathData) ? pathData[INLINE_REFS_FLAG] : false
   return {
     openapi: openapi ?? '3.0.0',
     ...takeIfDefined({ servers }),
     ...takeIfDefined({ security }), // TODO: remove duplicates in security
     paths: {
-      [path]: ref
+      [path]: isContainsRef
         ? pathData
         : {
           ...extractCommonPathItemProperties(pathData),
