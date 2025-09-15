@@ -38,11 +38,7 @@ import { getOperationBasePath } from '../apitypes/rest/rest.utils'
 import { VersionRestDocument } from '../apitypes/rest/rest.types'
 import { FILE_FORMAT_JSON, INLINE_REFS_FLAG, NORMALIZE_OPTIONS } from '../consts'
 import { normalize } from '@netcracker/qubership-apihub-api-unifier'
-import {
-  calculateSpecRefs,
-  createSinglePathItemOperationSpec,
-  extractCommonPathItemProperties,
-} from '../apitypes/rest/rest.operation'
+import { calculateSpecRefs, extractCommonPathItemProperties } from '../apitypes/rest/rest.operation'
 
 function getTransformedDocument(document: ResolvedGroupDocument, format: FileFormat, packages: ResolvedReferenceMap): VersionRestDocument {
   const versionDocument = toVersionDocument(document, format)
@@ -50,7 +46,6 @@ function getTransformedDocument(document: ResolvedGroupDocument, format: FileFor
   const sourceDocument = extractDocumentData(versionDocument)
   versionDocument.data = transformDocumentData(versionDocument)
   const normalizedDocument = normalizeOpenApi(versionDocument.data, sourceDocument)
-  createSinglePathItemOperationSpec(sourceDocument, normalizedDocument, versionDocument.operationIds)
   versionDocument.publish = true
 
   calculateSpecRefs(sourceDocument, normalizedDocument, versionDocument.data, versionDocument.operationIds)
@@ -155,17 +150,15 @@ function transformDocumentData(versionDocument: VersionDocument): OpenAPIV3.Docu
 
       if (versionDocument.operationIds.includes(operationId)) {
         const pathData = sourceDocument.paths[path]!
-        const ref = pathData.$ref ?? ''
-        if (ref) {
-          resultDocument.paths[path] = pathData
-        } else {
-          resultDocument.paths[path] = {
-            ...resultDocument.paths[path],
-            ...commonPathItemProperties,
-            [httpMethod]: { ...pathData[httpMethod] },
-          }
+        const isContainsRef = !!pathData.$ref
+        resultDocument.paths[path] = isContainsRef
+            ? pathData
+            : {
+              ...resultDocument.paths[path],
+              ...commonPathItemProperties,
+              [httpMethod]: { ...pathData[httpMethod] },
+            }
 
-        }
         resultDocument.components = {
           ...takeIfDefined({ securitySchemes: sourceComponents?.securitySchemes }),
         }

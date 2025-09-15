@@ -19,6 +19,7 @@ import { OpenAPIV3 } from 'openapi-types'
 import { REST_API_TYPE, REST_KIND_KEY } from './rest.consts'
 import { operationRules } from './rest.rules'
 import type * as TYPE from './rest.types'
+import { RestOperationData } from './rest.types'
 import {
   BuildConfig,
   CrawlRule,
@@ -149,7 +150,6 @@ export const buildRestOperation = (
       components?.securitySchemes,
     )
     calculateSpecRefs(document.data, refsOnlySingleOperationSpec, specWithSingleOperation, [operationId], models, componentsHashMap)
-    createSinglePathItemOperationSpec(specWithSingleOperation as OpenAPIV3.Document, refsOnlySingleOperationSpec as OpenAPIV3.Document, [operationId])
     const dataHash = calculateObjectHash(specWithSingleOperation)
     return [specWithSingleOperation, dataHash]
   }, debugCtx)
@@ -186,7 +186,14 @@ export const buildRestOperation = (
   }
 }
 
-export const calculateSpecRefs = (sourceDocument: unknown, normalizedSpec: unknown, resultSpec: unknown, operations: OperationId[], models?: Record<string, string>, componentsHashMap?: Map<string, string>): void => {
+export const calculateSpecRefs = (
+  sourceDocument: TYPE.RestOperationData,
+  normalizedSpec: TYPE.RestOperationData,
+  resultSpec: TYPE.RestOperationData,
+  operations: OperationId[],
+  models?: Record<string, string>,
+  componentsHashMap?: Map<string, string>,
+): void => {
   const handledObjects = new Set<unknown>()
   const inlineRefs = new Set<string>()
   syncCrawl(
@@ -218,7 +225,7 @@ export const calculateSpecRefs = (sourceDocument: unknown, normalizedSpec: unkno
       return
     }
     const componentName = matchResult.grepValues[grepKey].toString()
-    let component: any = getKeyValue(sourceDocument, ...matchResult.path)
+    let component = getKeyValue(sourceDocument, ...matchResult.path) as Record<string, unknown>
     if (!component) {
       return
     }
@@ -238,9 +245,17 @@ export const calculateSpecRefs = (sourceDocument: unknown, normalizedSpec: unkno
 
     setValueByPath(resultSpec, matchResult.path, component)
   })
+
+  if (operations?.length) {
+    createSinglePathItemOperationSpec(resultSpec, normalizedSpec, operations)
+  }
 }
 
-export function createSinglePathItemOperationSpec(sourceDocument: OpenAPIV3.Document, normalizedDocument: OpenAPIV3.Document, operations: OperationId[]): void {
+export function createSinglePathItemOperationSpec(
+  sourceDocument: RestOperationData,
+  normalizedDocument: RestOperationData,
+  operations: OperationId[],
+): void {
   const { paths } = normalizedDocument
 
   for (const path of Object.keys(paths)) {
