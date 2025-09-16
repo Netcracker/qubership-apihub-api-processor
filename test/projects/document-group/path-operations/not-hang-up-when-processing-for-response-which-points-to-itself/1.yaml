@@ -1,0 +1,11 @@
+openapi: 3.1.0
+paths:
+  /path:
+    post:
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+components:
+  responses:
+    SuccessResponse:
+      $ref: '#/components/responses/SuccessResponse'
