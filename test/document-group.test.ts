@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { Editor, loadFileAsString, LocalRegistry } from './helpers'
-import { BUILD_TYPE, REST_API_TYPE } from '../src'
+import { Editor, loadFileAsString, LocalRegistry, VERSIONS_PATH } from './helpers'
+import { BUILD_TYPE, PACKAGE, PackageNotifications, REST_API_TYPE } from '../src'
 import { load } from 'js-yaml'
 
 const GROUP_NAME = 'manualGroup'
@@ -68,8 +68,8 @@ describe('Document Group test', () => {
     await runMergeOperationsCase('basic-documents-for-merge')
   })
 
-  test('should have keep a few operations in one path', async () => {
-    const pkg = LocalRegistry.openPackage('document-group/few-operations-in-one-path', groupToOnePathOperationIdsMap)
+  test('should have keep a multiple operations in one path', async () => {
+    const pkg = LocalRegistry.openPackage('document-group/multiple-operations-in-one-path', groupToOnePathOperationIdsMap)
     const editor = await Editor.openProject(pkg.packageId, pkg)
     await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
 
@@ -159,7 +159,7 @@ describe('Document Group test', () => {
   })
 
   describe('PathItems tests', () => {
-    test('should have documents with keep pathItems in components', async () => {
+    test('should have save pathItems in components', async () => {
       const pkg = LocalRegistry.openPackage('document-group/operations-in-pathitems', groupToOperationIdsMap)
       const editor = await Editor.openProject(pkg.packageId, pkg)
       await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
@@ -175,8 +175,8 @@ describe('Document Group test', () => {
       }
     })
 
-    test('should have keep a few operations in one pathItems', async () => {
-      const pkg = LocalRegistry.openPackage('document-group/few-operations-in-one-pathitems', groupToOnePathOperationIdsMap)
+    test('should be saved multiple operations in one pathItems', async () => {
+      const pkg = LocalRegistry.openPackage('document-group/multiple-operations-in-one-pathitems', groupToOnePathOperationIdsMap)
       const editor = await Editor.openProject(pkg.packageId, pkg)
       await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
 
@@ -237,7 +237,7 @@ describe('Document Group test', () => {
       }
     })
 
-    describe('Chain refs', () => {
+    describe('Chain pathItems Refs', () => {
       const COMPONENTS_ITEM_1_PATH = ['components', 'pathItems', 'componentsPathItem1']
       test('should have documents with keep pathItems in components', async () => {
         const pkg = LocalRegistry.openPackage('document-group/define-pathitems-via-reference-object-chain', groupToOnePathOperationIdsMap)
@@ -272,9 +272,9 @@ describe('Document Group test', () => {
       })
     })
 
-    describe('reference-object', () => {
-      test('second-level-object-are-the-same-when-overriding-for-response', async () => {
-        const pkg = LocalRegistry.openPackage('document-group/second-level-object-are-the-same-when-overriding-for-response', groupToOnePathOperationIdsMap)
+    describe('PathItems Reference Object', () => {
+      test('second level object are the same when overriding for pathitems response', async () => {
+        const pkg = LocalRegistry.openPackage('document-group/second-level-object-are-the-same-when-overriding-for-pathitems-response', groupToOnePathOperationIdsMap)
         const editor = await Editor.openProject(pkg.packageId, pkg)
         await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
 
@@ -292,8 +292,8 @@ describe('Document Group test', () => {
         }
       })
 
-      test('not-hang-up-when-processing-for-response-which-points-to-itself', async () => {
-        const pkg = LocalRegistry.openPackage('document-group/not-hang-up-when-processing-for-response-which-points-to-itself', groupToOnePathOperationIdsMap)
+      test('should not hang up when processing for pathitems response which points to itself', async () => {
+        const pkg = LocalRegistry.openPackage('document-group/not-hang-up-when-processing-for-pathitems-response-which-points-to-itself', groupToOnePathOperationIdsMap)
         const editor = await Editor.openProject(pkg.packageId, pkg)
         await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
 
@@ -306,24 +306,32 @@ describe('Document Group test', () => {
         expect(result.documents.size).toEqual(0)
       })
 
-      test.skip('not-hang-up-when-processing-cycled-chain-for-response', async () => {
-        const pkg = LocalRegistry.openPackage('document-group/not-hang-up-when-processing-cycled-chain-for-response', groupToOnePathOperationIdsMap)
-        const editor = await Editor.openProject(pkg.packageId, pkg)
+      test('should not hang up when processing cycled chain for pathitems response', async () => {
+        const pkg = LocalRegistry.openPackage('document-group/not-hang-up-when-processing-cycled-chain-for-pathitems-response', groupToOnePathOperationIdsMap)
         await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
 
-        const result = await editor.run({
-          packageId: pkg.packageId,
-          groupName: GROUP_NAME,
-          buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
-        })
+        const notificationFile = await loadFileAsString(
+          VERSIONS_PATH,
+          `${pkg.packageId}/v1`,
+          `${PACKAGE.NOTIFICATIONS_FILE_NAME}`,
+        )
+        expect(notificationFile).not.toBeNull()
 
-        for (const document of Array.from(result.documents.values())) {
-          expect(Object.keys(document.data.components.pathItems['pathItem1']).length).toEqual(document.operationIds.length)
-        }
+        const { notifications } = JSON.parse(notificationFile!) as PackageNotifications
+
+        const brokenRefMessages = [
+          '$ref can\'t be resolved: #/components/responses/SuccessResponse2',
+          '$ref can\'t be resolved: #/components/responses/SuccessResponse',
+        ]
+
+        brokenRefMessages.forEach((message) => {
+          const found = notifications.some(notification => notification.message === message)
+          expect(found).toBe(true)
+        })
       })
     })
 
-    describe('Merge Operations', () => {
+    describe('Merge Pathitems Operations', () => {
       test('should have properly merged documents', async () => {
         await runMergeOperationsCase('basic-documents-pathitems-for-merge')
       })

@@ -19,7 +19,7 @@ describe('Hash test', () => {
       const operationFile = await loadFileAsString(
         VERSIONS_PATH,
         `${pkg.packageId}/v1`,
-        `${PACKAGE.OPERATIONS_DIR_NAME}.json`,
+        `${PACKAGE.OPERATIONS_FILE_NAME}`,
       )
       expect(operationFile).not.toBeNull()
 
