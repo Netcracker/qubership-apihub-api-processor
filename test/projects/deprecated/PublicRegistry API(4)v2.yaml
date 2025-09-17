@@ -2842,7 +2842,7 @@ components:
               anyOf:
                 - type: string
                 - type: integer
-          example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"],["/quoteManagement/v5/quote"]]
+          example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"], ["/quoteManagement/v5/quote"]]
         currentValueHash:
           type: string
           description: |
@@ -2863,7 +2863,7 @@ components:
               anyOf:
                 - type: string
                 - type: integer
-          example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"],["/quoteManagement/v5/quote"]]
+          example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"], ["/quoteManagement/v5/quote"]]
         previousValueHash:
           type: string
           description: |
@@ -2884,7 +2884,7 @@ components:
               anyOf:
                 - type: string
                 - type: integer
-          example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"],["/quoteManagement/v5/quote"]]
+          example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"], ["/quoteManagement/v5/quote"]]
         previousDeclarationJsonPaths:
           description: |
             (below, a document is not considered to be an original document, but a document with one specific operation)\
@@ -2896,7 +2896,7 @@ components:
               anyOf:
                 - type: string
                 - type: integer
-          example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"],["/quoteManagement/v5/quote"]]
+          example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"], ["/quoteManagement/v5/quote"]]
         previousValueHash:
           type: string
           description: |
@@ -2922,7 +2922,7 @@ components:
               anyOf:
                 - type: string
                 - type: integer
-          example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"],["/quoteManagement/v5/quote"]]
+          example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"], ["/quoteManagement/v5/quote"]]
         previousDeclarationJsonPaths:
           description: |
             (below, a document is not considered to be an original document, but a document with one specific operation)\
@@ -2934,7 +2934,7 @@ components:
               anyOf:
                 - type: string
                 - type: integer
-          example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"],["/quoteManagement/v5/quote"]]
+          example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"], ["/quoteManagement/v5/quote"]]
         previousKey:
           type: string
           description: Previous key (name) of the renamed entity.
