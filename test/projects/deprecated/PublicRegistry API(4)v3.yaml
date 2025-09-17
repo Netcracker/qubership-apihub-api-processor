@@ -2783,8 +2783,8 @@ components:
             type: array
             items:
               anyOf:
-               - type: string
-               - type: integer
+                - type: string
+                - type: integer
           example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"],["/quoteManagement/v5/quote"]]
         currentValueHash:
           type: string
@@ -2804,8 +2804,8 @@ components:
             type: array
             items:
               anyOf:
-               - type: string
-               - type: integer
+                - type: string
+                - type: integer
           example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"],["/quoteManagement/v5/quote"]]
         previousValueHash:
           type: string
@@ -2825,8 +2825,8 @@ components:
             type: array
             items:
               anyOf:
-               - type: string
-               - type: integer
+                - type: string
+                - type: integer
           example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"],["/quoteManagement/v5/quote"]]
         previousDeclarationJsonPaths:
           description: |
@@ -2837,8 +2837,8 @@ components:
             type: array
             items:
               anyOf:
-               - type: string
-               - type: integer
+                - type: string
+                - type: integer
           example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"],["/quoteManagement/v5/quote"]]
         previousValueHash:
           type: string
@@ -2863,8 +2863,8 @@ components:
             type: array
             items:
               anyOf:
-               - type: string
-               - type: integer
+                - type: string
+                - type: integer
           example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"],["/quoteManagement/v5/quote"]]
         previousDeclarationJsonPaths:
           description: |
@@ -2875,8 +2875,8 @@ components:
             type: array
             items:
               anyOf:
-               - type: string
-               - type: integer
+                - type: string
+                - type: integer
           example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"],["/quoteManagement/v5/quote"]]
         previousKey:
           type: string

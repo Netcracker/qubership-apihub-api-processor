@@ -6356,7 +6356,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              examples: { }
+              examples: {}
         "404":
           description: Not found
           content:
@@ -8577,21 +8577,21 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/User"
-              examples: { }
+              examples: {}
         "401":
           description: Unauthorized
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              examples: { }
+              examples: {}
         "403":
           description: Forbidden
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              examples: { }
+              examples: {}
         "404":
           description: Not found
           content:
@@ -9670,7 +9670,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              examples: { }
+              examples: {}
         "500":
           description: Internal Server Error
           content:
@@ -9801,7 +9801,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              examples: { }
+              examples: {}
         "500":
           description: Internal Server Error
           content:
@@ -12263,7 +12263,7 @@ paths:
                               description: Namespace of Agent's publication.
                               type: string
                               example: cloudQSS-release2
-              examples: { }
+              examples: {}
         "301":
           description: Moved Permanently
           headers:
@@ -12290,14 +12290,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              examples: { }
+              examples: {}
         "403":
           description: Forbidden
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              examples: { }
+              examples: {}
         "404":
           description: Not found
           content:
@@ -12350,7 +12350,7 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/PackageVersionRevision"
-              examples: { }
+              examples: {}
         "301":
           description: Moved Permanently
           headers:
@@ -12377,7 +12377,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              examples: { }
+              examples: {}
         "404":
           description: Not found
           content:
@@ -12766,7 +12766,7 @@ paths:
       description: Allows to send any request to any address.
       operationId: getAgentsIdNamespacesIdServicesProxy
       security:
-        - { }
+        - {}
       tags:
         - TryIt
       parameters:
