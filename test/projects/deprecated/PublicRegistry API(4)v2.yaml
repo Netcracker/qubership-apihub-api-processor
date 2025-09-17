@@ -67,7 +67,7 @@ paths:
       deprecated: true
       description: |
         Starts the SAML authentication process in APIHUB.
-        
+
         In case of successful authentication, the request will be redirected to the **redirectUri** and
         the response will contain cookie with access token for future API calls.
         All subsequent APIHUB calls must use this token in a **BearerAuth** authentication.
@@ -191,9 +191,9 @@ paths:
           in: query
           description: |
             Filter the packages by kind.
-            
+
             The list of values is acceptable. In this case, the following pattern will be used: ```?kind=group,package,dashboard```.
-            
+
             If not transmitted, the default value will be used.
           schema:
             type: array
@@ -210,7 +210,7 @@ paths:
           in: query
           description: |
             Show all the descendants to the parent workspace or group.
-            
+
             * If ```true```, return the list of all child groups/packages/dashboards to the parentId (take into account all other filter parameters).
             * If the parentId is not transmitted???
             * If the parent is transmitted, but kind not - and parentId = package???
@@ -2840,8 +2840,8 @@ components:
             type: array
             items:
               anyOf:
-               - type: string
-               - type: integer
+                - type: string
+                - type: integer
           example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"],["/quoteManagement/v5/quote"]]
         currentValueHash:
           type: string
@@ -2861,8 +2861,8 @@ components:
             type: array
             items:
               anyOf:
-               - type: string
-               - type: integer
+                - type: string
+                - type: integer
           example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"],["/quoteManagement/v5/quote"]]
         previousValueHash:
           type: string
@@ -2882,8 +2882,8 @@ components:
             type: array
             items:
               anyOf:
-               - type: string
-               - type: integer
+                - type: string
+                - type: integer
           example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"],["/quoteManagement/v5/quote"]]
         previousDeclarationJsonPaths:
           description: |
@@ -2894,8 +2894,8 @@ components:
             type: array
             items:
               anyOf:
-               - type: string
-               - type: integer
+                - type: string
+                - type: integer
           example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"],["/quoteManagement/v5/quote"]]
         previousValueHash:
           type: string
@@ -2920,8 +2920,8 @@ components:
             type: array
             items:
               anyOf:
-               - type: string
-               - type: integer
+                - type: string
+                - type: integer
           example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"],["/quoteManagement/v5/quote"]]
         previousDeclarationJsonPaths:
           description: |
@@ -2932,8 +2932,8 @@ components:
             type: array
             items:
               anyOf:
-               - type: string
-               - type: integer
+                - type: string
+                - type: integer
           example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"],["/quoteManagement/v5/quote"]]
         previousKey:
           type: string
