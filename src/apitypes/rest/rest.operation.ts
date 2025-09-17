@@ -32,8 +32,10 @@ import {
 import {
   buildSearchScope,
   capitalize,
+  copySymbolIfDefined,
   getKeyValue,
   getSplittedVersionKey,
+  getSymbolValueIfDefined,
   isDeprecatedOperationItem,
   isObject,
   isOperationDeprecated,
@@ -247,12 +249,12 @@ export const calculateSpecRefs = (
   })
 
   if (operations?.length) {
-    resolveComponentsPathItemOperationSpec(resultSpec, normalizedSpec, operations)
+    reduceComponentPathItemsToOperations(resultSpec, normalizedSpec, operations)
   }
 }
 
-export function resolveComponentsPathItemOperationSpec(
-  sourceDocument: RestOperationData,
+export function reduceComponentPathItemsToOperations(
+  resultSpec: RestOperationData,
   normalizedDocument: RestOperationData,
   operations: OperationId[],
 ): void {
@@ -263,8 +265,8 @@ export function resolveComponentsPathItemOperationSpec(
     if (!isNonNullObject(sourcePathItem)) {
       continue
     }
-    const refs: string[] = hasInlineRefsFlag(sourcePathItem) ? sourcePathItem[INLINE_REFS_FLAG] : []
-    if (refs.length === 0) {
+    const refs = getSymbolValueIfDefined(sourcePathItem, INLINE_REFS_FLAG) as string[] | undefined
+    if (!refs || refs?.length === 0) {
       continue
     }
     const { jsonPath } = parseRef(refs[0])
@@ -272,7 +274,7 @@ export function resolveComponentsPathItemOperationSpec(
       continue
     }
 
-    const valueByPath = getValueByPath(sourceDocument, jsonPath) as OpenAPIV3.PathItemObject
+    const valueByPath = getValueByPath(resultSpec, jsonPath) as OpenAPIV3.PathItemObject
 
     const operationIds: OpenAPIV3.HttpMethods[] = (Object.keys(valueByPath) as OpenAPIV3.HttpMethods[])
       .filter((httpMethod) => isValidHttpMethod(httpMethod))
@@ -284,7 +286,7 @@ export function resolveComponentsPathItemOperationSpec(
           sourcePathItem?.servers ||
           [],
         )
-        const operationId = getOperationId(basePath, httpMethod, path)
+        const operationId = calculateOperationId(basePath, httpMethod, path)
         return operations.includes(operationId)
       })
 
@@ -299,7 +301,7 @@ export function resolveComponentsPathItemOperationSpec(
           return pathItemObject
         }, {}),
       }
-      setValueByPath(sourceDocument, jsonPath, pathItemObject)
+      setValueByPath(resultSpec, jsonPath, pathItemObject)
     }
   }
 }
@@ -322,10 +324,6 @@ const isOperationPaths = (paths: JsonPath[]): boolean => {
   )
 }
 
-function hasInlineRefsFlag(obj: unknown): obj is { [INLINE_REFS_FLAG]: string[] } {
-  return typeof obj === 'object' && obj !== null && INLINE_REFS_FLAG in obj
-}
-
 // todo output of this method disrupts document normalization.
 //  origin symbols are not being transferred to the resulting spec.
 //  DO NOT pass output of this method to apiDiff
@@ -340,19 +338,18 @@ const createSingleOperationSpec = (
 ): TYPE.RestOperationData => {
   const pathData = document.paths[path] as OpenAPIV3.PathItemObject
 
-  const isContainsRef = !!pathData.$ref
-  const refFlag = hasInlineRefsFlag(pathData) ? pathData[INLINE_REFS_FLAG] : false
+  const isRefPathData = !!pathData.$ref
   return {
     openapi: openapi ?? '3.0.0',
     ...takeIfDefined({ servers }),
     ...takeIfDefined({ security }), // TODO: remove duplicates in security
     paths: {
-      [path]: isContainsRef
+      [path]: isRefPathData
         ? pathData
         : {
           ...extractCommonPathItemProperties(pathData),
           [method]: { ...pathData[method] },
-          ...(refFlag ? { [INLINE_REFS_FLAG]: refFlag } : {}),
+          ...copySymbolIfDefined(pathData, INLINE_REFS_FLAG),
         },
     },
     components: {
@@ -374,7 +371,7 @@ function isValidHttpMethod(method: string): method is OpenAPIV3.HttpMethods {
   return (Object.values(OpenAPIV3.HttpMethods) as string[]).includes(method)
 }
 
-export function getOperationId(
+export function calculateOperationId(
   basePath: string,
   key: string,
   path: string,

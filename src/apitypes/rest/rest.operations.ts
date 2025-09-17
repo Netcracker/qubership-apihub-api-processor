@@ -16,7 +16,7 @@
 
 import { OpenAPIV3 } from 'openapi-types'
 
-import { buildRestOperation, getOperationId } from './rest.operation'
+import { buildRestOperation, calculateOperationId } from './rest.operation'
 import { OperationIdNormalizer, OperationsBuilder } from '../../types'
 import {
   createBundlingErrorHandler,
@@ -77,7 +77,7 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
         const methodData = pathData[key as OpenAPIV3.HttpMethods]
         const basePath = getOperationBasePath(methodData?.servers || pathData?.servers || servers || [])
 
-        const operationId = getOperationId(basePath, key, path)
+        const operationId = calculateOperationId(basePath, key, path)
 
         if (ctx.operationResolver(operationId)) {
           ctx.notifications.push({

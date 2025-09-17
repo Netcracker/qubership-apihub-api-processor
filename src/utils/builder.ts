@@ -29,8 +29,6 @@ import {
 import { API_KIND } from '../consts'
 import { Diff, DiffType } from '@netcracker/qubership-apihub-api-diff'
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
-import { parseRef } from '@netcracker/qubership-apihub-api-unifier'
-import { OpenAPIV3 } from 'openapi-types'
 
 export type ObjPath = (string | number)[]
 

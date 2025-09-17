@@ -38,7 +38,7 @@ import { getOperationBasePath } from '../apitypes/rest/rest.utils'
 import { VersionRestDocument } from '../apitypes/rest/rest.types'
 import { FILE_FORMAT_JSON, INLINE_REFS_FLAG, NORMALIZE_OPTIONS } from '../consts'
 import { normalize } from '@netcracker/qubership-apihub-api-unifier'
-import { calculateSpecRefs, extractCommonPathItemProperties } from '../apitypes/rest/rest.operation'
+import { calculateSpecRefs, extractCommonPathItemProperties, calculateOperationId } from '../apitypes/rest/rest.operation'
 
 function getTransformedDocument(document: ResolvedGroupDocument, format: FileFormat, packages: ResolvedReferenceMap): VersionRestDocument {
   const versionDocument = toVersionDocument(document, format)
@@ -141,8 +141,7 @@ function transformDocumentData(versionDocument: VersionDocument): OpenAPIV3.Docu
         [],
       )
 
-      const operationPath = basePath + path
-      const operationId = slugify(`${removeFirstSlash(operationPath)}-${method}`)
+      const operationId = calculateOperationId(basePath, method, path)
 
       if (!versionDocument.operationIds.includes(operationId)) {
         continue
@@ -150,8 +149,8 @@ function transformDocumentData(versionDocument: VersionDocument): OpenAPIV3.Docu
 
       if (versionDocument.operationIds.includes(operationId)) {
         const pathData = sourceDocument.paths[path]!
-        const isContainsRef = !!pathData.$ref
-        resultDocument.paths[path] = isContainsRef
+        const isRefPathData = !!pathData.$ref
+        resultDocument.paths[path] = isRefPathData
             ? pathData
             : {
               ...resultDocument.paths[path],
