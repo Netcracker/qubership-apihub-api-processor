@@ -59,7 +59,7 @@ components:
         userId: '$response.body#/id'
       description: description
 security:
-  - oAuthSample: [ ]
+  - oAuthSample: []
 tags:
   - name: tag1
     description: desc1

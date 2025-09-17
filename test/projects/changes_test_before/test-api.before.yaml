@@ -516,4 +516,4 @@ components:
           schema:
             $ref: "#/components/responses/error_400/content/application~1json/schema"
 security:
-  - openId: [ ]
+  - openId: []

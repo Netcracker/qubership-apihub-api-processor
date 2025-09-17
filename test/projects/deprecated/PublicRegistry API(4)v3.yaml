@@ -72,7 +72,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/PackageCreate"
-            examples: { }
+            examples: {}
         required: true
       responses:
         "201":
@@ -89,7 +89,7 @@ paths:
                         type: array
                         items:
                           $ref: "#/components/schemas/PackageList"
-              examples: { }
+              examples: {}
         "400":
           description: Bad request
           content:
@@ -105,14 +105,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              examples: { }
+              examples: {}
         "403":
           description: Forbidden
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              examples: { }
+              examples: {}
         "500":
           description: Internal Server Error
           content:
@@ -239,7 +239,7 @@ paths:
                                   default: false
                                 summary:
                                   $ref: "#/components/schemas/ChangeSummary"
-              examples: { }
+              examples: {}
         "400":
           description: Bad request
           content:
@@ -255,7 +255,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              examples: { }
+              examples: {}
         "500":
           description: Internal Server Error
           content:

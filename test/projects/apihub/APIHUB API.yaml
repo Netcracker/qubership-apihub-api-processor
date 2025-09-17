@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: APIHUB BE API contract
   description: >
-    The API contract for APIHUB UI and APIDOC UI. 
+    The API contract for APIHUB UI and APIDOC UI.
 
     You can find more information about the project at [DOC
     page](url: https://qubership.org/APIHUB).

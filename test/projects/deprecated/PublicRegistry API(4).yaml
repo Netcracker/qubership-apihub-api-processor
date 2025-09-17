@@ -68,11 +68,11 @@ paths:
       description: |
         Starts the SAML authentication process in APIHUB.
         
-        In case of successful authentication, the request will be redirected to the **redirectUri** and 
+        In case of successful authentication, the request will be redirected to the **redirectUri** and
         the response will contain cookie with access token for future API calls.
         All subsequent APIHUB calls must use this token in a **BearerAuth** authentication.
       operationId: postAuthSAML
-      security: [ { } ]
+      security: [{}]
       parameters:
         - name: redirectUri
           in: query
@@ -122,7 +122,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/PackageCreate"
-            examples: { }
+            examples: {}
         required: true
       responses:
         "201":
@@ -139,7 +139,7 @@ paths:
                         type: array
                         items:
                           $ref: "#/components/schemas/PackageList"
-              examples: { }
+              examples: {}
         "400":
           description: Bad request
           content:
@@ -155,14 +155,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              examples: { }
+              examples: {}
         "403":
           description: Forbidden
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              examples: { }
+              examples: {}
         "500":
           description: Internal Server Error
           content:
@@ -292,7 +292,7 @@ paths:
                                   default: false
                                 summary:
                                   $ref: "#/components/schemas/ChangeSummary"
-              examples: { }
+              examples: {}
         "400":
           description: Bad request
           content:
@@ -308,7 +308,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              examples: { }
+              examples: {}
         "500":
           description: Internal Server Error
           content:
@@ -547,7 +547,7 @@ components:
           deprecatedInfo:
             description: |
               Additional information about single deprecated item:
-              * for REST API it is value of 'x-deprecated-meta' extension (value of extension must be string), which is defined for deprecated item. 
+              * for REST API it is value of 'x-deprecated-meta' extension (value of extension must be string), which is defined for deprecated item.
               * for GraphQL API it is value of 'reason' argument of @deprecated directive.
             type: string
           tolerantHash:
