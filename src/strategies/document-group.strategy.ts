@@ -25,20 +25,17 @@ import {
   VersionDocument,
 } from '../types'
 import { REST_API_TYPE } from '../apitypes'
-import {
-  EXPORT_FORMAT_TO_FILE_FORMAT,
-  fromBase64,
-  removeFirstSlash,
-  slugify,
-  takeIfDefined,
-  toVersionDocument,
-} from '../utils'
+import { EXPORT_FORMAT_TO_FILE_FORMAT, fromBase64, takeIfDefined, toVersionDocument } from '../utils'
 import { OpenAPIV3 } from 'openapi-types'
 import { getOperationBasePath } from '../apitypes/rest/rest.utils'
 import { VersionRestDocument } from '../apitypes/rest/rest.types'
 import { FILE_FORMAT_JSON, INLINE_REFS_FLAG, NORMALIZE_OPTIONS } from '../consts'
 import { normalize } from '@netcracker/qubership-apihub-api-unifier'
-import { calculateSpecRefs, extractCommonPathItemProperties, calculateOperationId } from '../apitypes/rest/rest.operation'
+import {
+  calculateOperationId,
+  calculateSpecRefs,
+  extractCommonPathItemProperties,
+} from '../apitypes/rest/rest.operation'
 
 function getTransformedDocument(document: ResolvedGroupDocument, format: FileFormat, packages: ResolvedReferenceMap): VersionRestDocument {
   const versionDocument = toVersionDocument(document, format)
