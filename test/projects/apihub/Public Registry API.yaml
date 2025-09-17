@@ -3095,7 +3095,7 @@ paths:
       summary: Publish package version via upload
       description: |
         Publish package version via upload. Possible options:
-        * **Client-side building** - client application marks, that the validation and build of the final specification will be outside the APIHUB backend. 
+        * **Client-side building** - client application marks, that the validation and build of the final specification will be outside the APIHUB backend.
         The final specifications will be stored using the POST /packages/{packageId}/publish/{publishId}/status API.
         The 202 response and the publish process Id will be returned in success.
         In case of the client session close, the build will be continued on the server-sde.
@@ -3126,9 +3126,9 @@ paths:
           in: query
           required: false
           description: "In case when resolved refs list contains multiple versions of the same package:
-            
+          
             - if resolveConflicts=false - status 400 (Bad request). Conflicts should be resolved manually.
-            
+          
             - if resolveConflicts=true - conflicts will be resolved automatically, some refs will be marked as excluded"
           schema:
             type: boolean
@@ -5507,7 +5507,7 @@ paths:
                   description: |
                     Name of the previous published version to compare with.
                     The mask <version>@<revision> may be used for search in a specific revision.
-                    
+                  
                     If the @revision is not provided, the latest version's revision will be used.
                   type: string
                   example: "2022.2@4"
@@ -5530,7 +5530,7 @@ paths:
                     description: |
                       Package version.
                       The mask <version>@<revision> will be used for return in a specific revision.
-                      
+                    
                       If the @<revision> was not transmitted in the request - it won't be returned in response. Consider the version as the latest one.
                     type: string
                     example: "2022.3@3"
@@ -5542,7 +5542,7 @@ paths:
                     description: |
                       Name of the previous published version.
                       The mask <version>@<revision> will be used for return a specific revision.
-                      
+                    
                       If the @<revision> was not transmitted in the request - it won't be returned in response. Consider the version as the latest one.
                     type: string
                     example: "2022.2@4"
@@ -5667,7 +5667,7 @@ paths:
                     description: |
                       Package version.
                       The mask <version>@<revision> will be used for return in a specific revision.
-                      
+                    
                       If the @<revision> was not transmitted in the request - it won't be returned in response. Consider the version as the latest one.
                     type: string
                     example: "2022.3@3"
@@ -8711,7 +8711,7 @@ paths:
             Flag, filtering the operations without tags at all.
 
             In response will be returned the list of operations, on what the tag is not filled in.
-            
+          
             This attribute has a higher priority than the **tag**. In case, then **emptyTag: true**, it will override the **tag** filter.
           schema:
             type: boolean
@@ -8891,7 +8891,7 @@ paths:
             Flag, filtering the operations without tags at all.
 
             In response will be returned the list of operations, on what the tag is not filled in.
-            
+          
             This attribute has a higher priority than the **tag**. In case, then **emptyTag: true**, it will override the **tag** filter.
           schema:
             type: boolean
@@ -10294,7 +10294,7 @@ paths:
               Flag, filtering the operations without tags at all.
 
               In response will be returned the list of operations, on what the tag is not filled in.
-              
+            
               This attribute has a higher priority than the **tag**. In case, then **emptyTag: true**, it will override the **tag** filter.
             schema:
               type: boolean
@@ -12621,7 +12621,7 @@ paths:
       summary: Create personal private package for the user
       description: |
         Any user is able to create one personal private workspace (*no permissions required*)
-        
+      
         PackageId for this workspace could be set via user creation endpoint (only for new users) or generated automatically when user first logs in to apihub
       operationId: postUsersIdAvailablePackagePromoteStatuses
       security:
@@ -12686,9 +12686,9 @@ paths:
       summary: Get list of available package publish statuses for the user.
       description: |
         By collection of packages, **get** the available statuses for publish into for the particular user.
-        
+      
         Statuses list depends on the current user access rights for the particular package.
-        
+      
         The response is a **mapped list** of statuses to the packageIds.
       operationId: getUsersIdAvailablePackagePromoteStatuses
       security:
@@ -14614,7 +14614,7 @@ components:
     BuildResultV2:
       description: |
         Result of build operation in ZIP archive.
-        * The archive contains folders with sources, builded JSON documents and JSON operation files. 
+        * The archive contains folders with sources, builded JSON documents and JSON operation files.
         * In addition, several config files are provided. he structure of these files is described below.
       title: BuildResult
       type: object
@@ -14653,7 +14653,7 @@ components:
               description: |
                 Type of the build process. Available options are:
 
-                **build** - Standard build process. 
+                **build** - Standard build process.
                 Consist of contract and operations build and validation, calculation of the changelog, creation of the final version of the published contracts.
 
                 **changelog** - Only the changelog calculation, no API contracts version will be created.
@@ -15099,7 +15099,7 @@ components:
     BuildResult:
       description: |
         Result of build operation in ZIP archive.
-        * The archive contains folders with sources, builded JSON documents and JSON operation files. 
+        * The archive contains folders with sources, builded JSON documents and JSON operation files.
         * In addition, several config files are provided. he structure of these files is described below.
       title: BuildResult
       type: object
@@ -15449,7 +15449,7 @@ components:
                       deprecatedInfo:
                         description: |
                           Additional information about deprecated operation:
-                          * for REST API it is value of 'x-deprecated-meta' extension (value of extension must be string), which is defined for deprecated operation. 
+                          * for REST API it is value of 'x-deprecated-meta' extension (value of extension must be string), which is defined for deprecated operation.
                           * for GraphQL API it is value of 'reason' argument of @deprecated directive, which is defined for deprecated operation.
                         type: string
                       deprecatedInPreviousVersions:
@@ -15516,8 +15516,8 @@ components:
             type: array
             items:
               anyOf:
-               - type: string
-               - type: integer
+                - type: string
+                - type: integer
           example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"],["/quoteManagement/v5/quote"]]
         currentValueHash:
           type: string
@@ -15537,8 +15537,8 @@ components:
             type: array
             items:
               anyOf:
-               - type: string
-               - type: integer
+                - type: string
+                - type: integer
           example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"],["/quoteManagement/v5/quote"]]
         previousValueHash:
           type: string
@@ -15558,8 +15558,8 @@ components:
             type: array
             items:
               anyOf:
-               - type: string
-               - type: integer
+                - type: string
+                - type: integer
           example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"],["/quoteManagement/v5/quote"]]
         previousDeclarationJsonPaths:
           description: |
@@ -15570,8 +15570,8 @@ components:
             type: array
             items:
               anyOf:
-               - type: string
-               - type: integer
+                - type: string
+                - type: integer
           example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"],["/quoteManagement/v5/quote"]]
         previousValueHash:
           type: string
@@ -15596,8 +15596,8 @@ components:
             type: array
             items:
               anyOf:
-               - type: string
-               - type: integer
+                - type: string
+                - type: integer
           example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"],["/quoteManagement/v5/quote"]]
         previousDeclarationJsonPaths:
           description: |
@@ -15608,8 +15608,8 @@ components:
             type: array
             items:
               anyOf:
-               - type: string
-               - type: integer
+                - type: string
+                - type: integer
           example: [["components/schemas/Cat/minProperties", "components/schemas/Dog/minProperties"],["/quoteManagement/v5/quote"]]
         previousKey:
           type: string
@@ -15620,7 +15620,7 @@ components:
     BuildConfig:
       type: object
       description: |
-        Configuration of the source files. 
+        Configuration of the source files.
         Content can not be empty, files or refs are **required**.
       required:
         - version
@@ -15638,8 +15638,8 @@ components:
           example: "2022.2"
           default: ""
         previousVersionPackageId:
-          description: | 
-            Required in case of snapshot when publishing version should be compared to different package. 
+          description: |
+            Required in case of snapshot when publishing version should be compared to different package.
             Do not set anything if the package sould be compared to itself. Value equals to packageId is forbidden.
           type: string
           example: "QS.CloudOSS.PL.MC"
@@ -15738,8 +15738,8 @@ components:
                 description: File name.
                 example: "qitmf-v5.11.json"
               publish:
-                description: | 
-                  Flag, publish the source file or not. 
+                description: |
+                  Flag, publish the source file or not.
                   Required for case with external refs when specification is separated into multiple files. 
                   After dereference in scope of build process the source files(parts) are no longer required. So it's possible to skip publish of such files.
                 type: boolean
