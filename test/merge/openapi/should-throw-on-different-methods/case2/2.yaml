@@ -17,4 +17,4 @@ components:
         responses:
           '200':
             description: OK
-            content: { }
+            content: {}
