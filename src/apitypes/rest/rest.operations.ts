@@ -16,14 +16,9 @@
 
 import { OpenAPIV3 } from 'openapi-types'
 
-import { buildRestOperation, calculateOperationId } from './rest.operation'
-import { OperationIdNormalizer, OperationsBuilder } from '../../types'
-import {
-  createBundlingErrorHandler,
-  IGNORE_PATH_PARAM_UNIFIED_PLACEHOLDER,
-  removeComponents,
-  slugify,
-} from '../../utils'
+import { buildRestOperation } from './rest.operation'
+import { OperationsBuilder } from '../../types'
+import { calculateOperationId, createBundlingErrorHandler, removeComponents } from '../../utils'
 import { getOperationBasePath } from './rest.utils'
 import type * as TYPE from './rest.types'
 import { HASH_FLAG, INLINE_REFS_FLAG, MESSAGE_SEVERITY, NORMALIZE_OPTIONS, ORIGINS_SYMBOL } from '../../consts'
@@ -109,9 +104,4 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
 
   }
   return operations
-}
-
-export const createNormalizedOperationId: OperationIdNormalizer = (operation) => {
-  const { metadata: { path, method } } = operation
-  return slugify(`${path}-${method}`, [], IGNORE_PATH_PARAM_UNIFIED_PLACEHOLDER)
 }

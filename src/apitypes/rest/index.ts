@@ -19,10 +19,10 @@ import { OpenAPIV3 } from 'openapi-types'
 import { buildRestDocument, createRestExportDocument, dumpRestDocument } from './rest.document'
 import { REST_API_TYPE, REST_DOCUMENT_TYPE } from './rest.consts'
 import { compareRestOperationsData } from './rest.changes'
-import { buildRestOperations, createNormalizedOperationId } from './rest.operations'
+import { buildRestOperations } from './rest.operations'
 import { parseRestFile } from './rest.parser'
-
 import { ApiBuilder } from '../../types'
+import { createNormalizedOperationId } from '../../utils'
 
 export * from './rest.consts'
 

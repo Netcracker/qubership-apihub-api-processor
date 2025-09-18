@@ -31,6 +31,7 @@ import {
 } from '../../types'
 import {
   buildSearchScope,
+  calculateOperationId,
   capitalize,
   copySymbolIfDefined,
   getKeyValue,
@@ -41,9 +42,7 @@ import {
   isValidHttpMethod,
   normalizePath,
   rawToApiKind,
-  removeFirstSlash,
   setValueByPath,
-  slugify,
   takeIf,
   takeIfDefined,
 } from '../../utils'
@@ -362,12 +361,3 @@ export const extractCommonPathItemProperties = (
   ...takeIfDefined({ servers: pathData?.servers }),
   ...takeIfDefined({ parameters: pathData?.parameters }),
 })
-
-export const calculateOperationId = (
-  basePath: string,
-  key: string,
-  path: string,
-): string => {
-  const operationPath = basePath + path
-  return slugify(`${removeFirstSlash(operationPath)}-${key}`)
-}
