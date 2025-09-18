@@ -227,13 +227,11 @@ export const calculateSpecRefs = (
       return
     }
     const componentName = matchResult.grepValues[grepKey].toString()
-    let component = getKeyValue(sourceDocument, ...matchResult.path) as Record<string, unknown>
+    const component = getKeyValue(sourceDocument, ...matchResult.path) as Record<string, unknown>
     if (!component) {
       return
     }
-    if (isObject(component)) {
-      component = { ...component }
-    }
+
     if (models && !models[componentName] && isComponentsSchemaRef(matchResult.path)) {
       let componentHash = componentsHashMap?.get(componentName)
       if (componentHash) {
@@ -253,7 +251,7 @@ export const calculateSpecRefs = (
   }
 }
 
-export function reduceComponentPathItemsToOperations(
+function reduceComponentPathItemsToOperations(
   resultSpec: RestOperationData,
   normalizedDocument: RestOperationData,
   operations: OperationId[],
@@ -262,21 +260,14 @@ export function reduceComponentPathItemsToOperations(
 
   for (const path of Object.keys(paths)) {
     const sourcePathItem = paths[path] as OpenAPIV3.PathItemObject
-    if (!isNonNullObject(sourcePathItem)) {
-      continue
-    }
-    const refs = getSymbolValueIfDefined(sourcePathItem, INLINE_REFS_FLAG) as string[] | undefined
-    if (!refs || refs?.length === 0) {
-      continue
-    }
-    const { jsonPath } = parseRef(refs[0])
-    if (!jsonPath) {
+    const pathItemComponentJsonPath = getPathItemComponentJsonPath(sourcePathItem)
+    if (!pathItemComponentJsonPath) {
       continue
     }
 
-    const valueByPath = getValueByPath(resultSpec, jsonPath) as OpenAPIV3.PathItemObject
+    const pathItemComponent = getValueByPath(resultSpec, pathItemComponentJsonPath) as OpenAPIV3.PathItemObject
 
-    const operationIds: OpenAPIV3.HttpMethods[] = (Object.keys(valueByPath) as OpenAPIV3.HttpMethods[])
+    const operationIds: OpenAPIV3.HttpMethods[] = (Object.keys(pathItemComponent) as OpenAPIV3.HttpMethods[])
       .filter((httpMethod) => isValidHttpMethod(httpMethod))
       .filter(httpMethod => {
         const methodData = sourcePathItem[httpMethod as OpenAPIV3.HttpMethods]
@@ -292,22 +283,27 @@ export function reduceComponentPathItemsToOperations(
 
     if (operationIds?.length) {
       const pathItemObject = {
-        ...extractCommonPathItemProperties(valueByPath),
+        ...extractCommonPathItemProperties(pathItemComponent),
         ...operationIds.reduce<OpenAPIV3.PathItemObject>((pathItemObject: OpenAPIV3.PathItemObject, operationId: OpenAPIV3.HttpMethods) => {
-          const operationData = valueByPath[operationId]
+          const operationData = pathItemComponent[operationId]
           if (operationData) {
             pathItemObject[operationId] = { ...operationData }
           }
           return pathItemObject
         }, {}),
       }
-      setValueByPath(resultSpec, jsonPath, pathItemObject)
+      setValueByPath(resultSpec, pathItemComponentJsonPath, pathItemObject)
     }
   }
 }
 
-function isNonNullObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
+const getPathItemComponentJsonPath = (sourcePathItem: OpenAPIV3.PathItemObject): JsonPath | undefined=> {
+  const refs = getSymbolValueIfDefined(sourcePathItem, INLINE_REFS_FLAG) as string[] | undefined
+  if (!refs || refs.length === 0) {
+    return undefined
+  }
+
+  return parseRef(refs[0])?.jsonPath
 }
 
 export const isComponentsSchemaRef = (path: JsonPath): boolean => {
