@@ -37,8 +37,8 @@ import {
   getSplittedVersionKey,
   getSymbolValueIfDefined,
   isDeprecatedOperationItem,
-  isObject,
   isOperationDeprecated,
+  isValidHttpMethod,
   normalizePath,
   rawToApiKind,
   removeFirstSlash,
@@ -297,7 +297,7 @@ function reduceComponentPathItemsToOperations(
   }
 }
 
-const getPathItemComponentJsonPath = (sourcePathItem: OpenAPIV3.PathItemObject): JsonPath | undefined=> {
+const getPathItemComponentJsonPath = (sourcePathItem: OpenAPIV3.PathItemObject): JsonPath | undefined => {
   const refs = getSymbolValueIfDefined(sourcePathItem, INLINE_REFS_FLAG) as string[] | undefined
   if (!refs || refs.length === 0) {
     return undefined
@@ -363,15 +363,11 @@ export const extractCommonPathItemProperties = (
   ...takeIfDefined({ parameters: pathData?.parameters }),
 })
 
-function isValidHttpMethod(method: string): method is OpenAPIV3.HttpMethods {
-  return (Object.values(OpenAPIV3.HttpMethods) as string[]).includes(method)
-}
-
-export function calculateOperationId(
+export const calculateOperationId = (
   basePath: string,
   key: string,
   path: string,
-): string {
+): string => {
   const operationPath = basePath + path
   return slugify(`${removeFirstSlash(operationPath)}-${key}`)
 }

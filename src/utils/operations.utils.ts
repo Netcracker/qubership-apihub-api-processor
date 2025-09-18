@@ -16,7 +16,7 @@
 
 import { ApiOperation, BuildResult } from '../types'
 import { GraphApiComponents, GraphApiDirectiveDefinition } from '@netcracker/qubership-apihub-graphapi'
-import type { OpenAPIV3 } from 'openapi-types'
+import { OpenAPIV3 } from 'openapi-types'
 import { isObject } from './objects'
 import { slugify } from './document'
 import { removeFirstSlash } from './builder'
@@ -81,4 +81,10 @@ function isGraphApiComponents(components: OpenAPIV3.ComponentsObject | GraphApiC
 export function isOperationRemove(operationDiff: Diff): boolean {
   // length is 2 because json path has view like ['paths', '/test/element']
   return operationDiff.action === DiffAction.remove && !!matchPaths(operationDiff.beforeDeclarationPaths, [[OPEN_API_PROPERTY_PATHS, PREDICATE_ANY_VALUE]])
+}
+
+const HTTP_METHODS_SET = new Set(Object.values(OpenAPIV3.HttpMethods) as string[])
+
+export const isValidHttpMethod = (method: string): method is OpenAPIV3.HttpMethods => {
+  return HTTP_METHODS_SET.has(method)
 }

@@ -25,7 +25,7 @@ import {
   VersionDocument,
 } from '../types'
 import { REST_API_TYPE } from '../apitypes'
-import { EXPORT_FORMAT_TO_FILE_FORMAT, fromBase64, takeIfDefined, toVersionDocument } from '../utils'
+import { EXPORT_FORMAT_TO_FILE_FORMAT, fromBase64, isValidHttpMethod, takeIfDefined, toVersionDocument } from '../utils'
 import { OpenAPIV3 } from 'openapi-types'
 import { getOperationBasePath } from '../apitypes/rest/rest.utils'
 import { VersionRestDocument } from '../apitypes/rest/rest.types'
@@ -148,12 +148,12 @@ function transformDocumentData(versionDocument: VersionDocument): OpenAPIV3.Docu
         const pathData = sourceDocument.paths[path]!
         const isRefPathData = !!pathData.$ref
         resultDocument.paths[path] = isRefPathData
-            ? pathData
-            : {
-              ...resultDocument.paths[path],
-              ...commonPathItemProperties,
-              [httpMethod]: { ...pathData[httpMethod] },
-            }
+          ? pathData
+          : {
+            ...resultDocument.paths[path],
+            ...commonPathItemProperties,
+            [httpMethod]: { ...pathData[httpMethod] },
+          }
 
         resultDocument.components = {
           ...takeIfDefined({ securitySchemes: sourceComponents?.securitySchemes }),
@@ -174,10 +174,6 @@ function normalizeOpenApi(document: OpenAPIV3.Document, source?: OpenAPIV3.Docum
       ...(source ? { source } : {}),
     },
   ) as OpenAPIV3.Document
-}
-
-function isValidHttpMethod(method: string): method is OpenAPIV3.HttpMethods {
-  return (Object.values(OpenAPIV3.HttpMethods) as string[]).includes(method)
 }
 
 function isNonNullObject(value: unknown): value is Record<string, unknown> {
