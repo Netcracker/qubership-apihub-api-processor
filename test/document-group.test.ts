@@ -15,7 +15,7 @@
  */
 
 import { Editor, loadFileAsString, LocalRegistry, VERSIONS_PATH } from './helpers'
-import { BUILD_TYPE, PACKAGE, PackageNotifications, REST_API_TYPE } from '../src'
+import { BUILD_TYPE, BuildConfigAggregator, BuildResult, PACKAGE, PackageNotifications, REST_API_TYPE } from '../src'
 import { load } from 'js-yaml'
 
 const GROUP_NAME = 'manualGroup'
@@ -76,15 +76,12 @@ describe('Document Group test', () => {
     })
 
     test('should have components schema object which is referenced', async () => {
-      const pkg = LocalRegistry.openPackage(`document-group/${BASE_OPERATION_PATH}/referenced-json-schema-object`, groupToOnePathOperationIdsMap)
-      const editor = await Editor.openProject(pkg.packageId, pkg)
-      await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+      const result = await runWithPackage(
+        `document-group/${BASE_OPERATION_PATH}/referenced-json-schema-object`,
+        groupToOnePathOperationIdsMap,
+        { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS },
+      )
 
-      const result = await editor.run({
-        packageId: pkg.packageId,
-        groupName: GROUP_NAME,
-        buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
-      })
       for (const document of Array.from(result.documents.values())) {
         expect(document.data).toHaveProperty(['components', 'schemas', 'MySchema'])
       }
@@ -148,15 +145,11 @@ describe('Document Group test', () => {
     })
 
     test('should have save pathItems in components', async () => {
-      const pkg = LocalRegistry.openPackage(`document-group/${PATH_ITEMS_OPERATION_PATH}/multiple-pathitems-operations`, groupToOperationIdsMap)
-      const editor = await Editor.openProject(pkg.packageId, pkg)
-      await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
-
-      const result = await editor.run({
-        packageId: pkg.packageId,
-        groupName: GROUP_NAME,
-        buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
-      })
+      const result = await runWithPackage(
+        `document-group/${PATH_ITEMS_OPERATION_PATH}/multiple-pathitems-operations`,
+        groupToOperationIdsMap,
+        { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS },
+      )
 
       for (const document of Array.from(result.documents.values())) {
         expect(Object.keys(document.data.components.pathItems).length).toEqual(document.operationIds.length)
@@ -184,16 +177,14 @@ describe('Document Group test', () => {
 
     describe('Chain pathItems Refs', () => {
       const COMPONENTS_ITEM_1_PATH = ['components', 'pathItems', 'componentsPathItem1']
-      test('should have documents with keep pathItems in components', async () => {
-        const pkg = LocalRegistry.openPackage(`document-group/${PATH_ITEMS_OPERATION_PATH}/define-pathitems-via-reference-object-chain`, groupToOnePathOperationIdsMap)
-        const editor = await Editor.openProject(pkg.packageId, pkg)
-        await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
 
-        const result = await editor.run({
-          packageId: pkg.packageId,
-          groupName: GROUP_NAME,
-          buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
-        })
+      test('should have documents with keep pathItems in components', async () => {
+        const result = await runWithPackage(
+          `document-group/${PATH_ITEMS_OPERATION_PATH}/define-pathitems-via-reference-object-chain`,
+          groupToOnePathOperationIdsMap,
+          { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS },
+        )
+
         for (const document of Array.from(result.documents.values())) {
           expect(document.data).toHaveProperty([...COMPONENTS_ITEM_1_PATH, 'post'])
           expect(document.data).toHaveProperty([...COMPONENTS_ITEM_1_PATH, 'get'])
@@ -201,15 +192,12 @@ describe('Document Group test', () => {
       })
 
       test('should have documents stripped of operations other than from provided group', async () => {
-        const pkg = LocalRegistry.openPackage(`document-group/${PATH_ITEMS_OPERATION_PATH}/define-pathitems-via-reference-object-chain`, groupWithOneOperationIdsMap)
-        const editor = await Editor.openProject(pkg.packageId, pkg)
-        await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+        const result = await runWithPackage(
+          `document-group/${PATH_ITEMS_OPERATION_PATH}/define-pathitems-via-reference-object-chain`,
+          groupWithOneOperationIdsMap,
+          { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS },
+        )
 
-        const result = await editor.run({
-          packageId: pkg.packageId,
-          groupName: GROUP_NAME,
-          buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
-        })
         for (const document of Array.from(result.documents.values())) {
           expect(document.data).toHaveProperty([...COMPONENTS_ITEM_1_PATH, 'post'])
           expect(document.data).not.toHaveProperty([...COMPONENTS_ITEM_1_PATH, 'get'])
@@ -220,15 +208,12 @@ describe('Document Group test', () => {
 
   function runCommonTests(folder: DOCUMENT_GROUP_PATHS): void {
     test('should have keep a multiple operations in one path', async () => {
-      const pkg = LocalRegistry.openPackage(`document-group/${folder}/multiple-operations-in-one-path`, groupToOnePathOperationIdsMap)
-      const editor = await Editor.openProject(pkg.packageId, pkg)
-      await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+      const result = await runWithPackage(
+        `document-group/${folder}/multiple-operations-in-one-path`,
+        groupToOnePathOperationIdsMap,
+        { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS },
+      )
 
-      const result = await editor.run({
-        packageId: pkg.packageId,
-        groupName: GROUP_NAME,
-        buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
-      })
       for (const document of Array.from(result.documents.values())) {
         folder === PATH_ITEMS_OPERATION_PATH
           ? expect(Object.keys(document.data.components.pathItems['pathItem1']).length).toEqual(document.operationIds.length)
@@ -237,30 +222,23 @@ describe('Document Group test', () => {
     })
 
     test('should define operations with servers prefix', async () => {
-      const pkg = LocalRegistry.openPackage(`document-group/${folder}/define-operations-with-servers-prefix`, groupToOneServerPrefixPathOperationIdsMap)
-      const editor = await Editor.openProject(pkg.packageId, pkg)
-      await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+      const result = await runWithPackage(
+        `document-group/${folder}/define-operations-with-servers-prefix`,
+        groupToOneServerPrefixPathOperationIdsMap,
+        { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS },
+      )
 
-      const result = await editor.run({
-        packageId: pkg.packageId,
-        groupName: GROUP_NAME,
-        buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
-      })
       for (const document of Array.from(result.documents.values())) {
         expect(Object.keys(document.data.paths).length).toEqual(document.operationIds.length)
       }
     })
 
     test('should delete pathItems object which is not referenced', async () => {
-      const pkg = LocalRegistry.openPackage(`document-group/${folder}/not-referenced-object`, groupToOperationIdsMap)
-      const editor = await Editor.openProject(pkg.packageId, pkg)
-      await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
-
-      const result = await editor.run({
-        packageId: pkg.packageId,
-        groupName: GROUP_NAME,
-        buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
-      })
+      const result = await runWithPackage(
+        `document-group/${folder}/not-referenced-object`,
+        groupToOperationIdsMap,
+        { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS },
+      )
 
       for (const document of Array.from(result.documents.values())) {
         folder === PATH_ITEMS_OPERATION_PATH
@@ -270,30 +248,23 @@ describe('Document Group test', () => {
     })
 
     test('should have documents stripped of operations other than from provided group', async () => {
-      const pkg = LocalRegistry.openPackage(`document-group/${folder}/stripped-of-operations`, groupToOperationIdsMap)
-      const editor = await Editor.openProject(pkg.packageId, pkg)
-      await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+      const result = await runWithPackage(
+        `document-group/${folder}/stripped-of-operations`,
+        groupToOperationIdsMap,
+        { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS },
+      )
 
-      const result = await editor.run({
-        packageId: pkg.packageId,
-        groupName: GROUP_NAME,
-        buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
-      })
       for (const document of Array.from(result.documents.values())) {
         expect(Object.keys(document.data.paths).length).toEqual(document.operationIds.length)
       }
     })
 
     test('should not hang up when processing for response which points to itself', async () => {
-      const pkg = LocalRegistry.openPackage(`document-group/${folder}/not-hang-up-when-processing-for-response-which-points-to-itself`, groupToOnePathOperationIdsMap)
-      const editor = await Editor.openProject(pkg.packageId, pkg)
-      await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
-
-      const result = await editor.run({
-        packageId: pkg.packageId,
-        groupName: GROUP_NAME,
-        buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
-      })
+      const result = await runWithPackage(
+        `document-group/${folder}/not-hang-up-when-processing-for-response-which-points-to-itself`,
+        groupToOnePathOperationIdsMap,
+        { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS },
+      )
 
       expect(result.documents.size).toEqual(0)
     })
@@ -341,5 +312,23 @@ describe('Document Group test', () => {
     )
 
     expect(result.merged?.data).toEqual(expectedResult)
+  }
+
+  async function runWithPackage(
+    packageId: string,
+    groupOperationIds: Record<string, string[]>,
+    options: Partial<BuildConfigAggregator> = {},
+  ): Promise<BuildResult> {
+    const pkg = LocalRegistry.openPackage(packageId, groupOperationIds)
+    const editor = await Editor.openProject(pkg.packageId, pkg)
+    await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+
+    return editor.run({
+      ...{
+        packageId: pkg.packageId,
+        groupName: GROUP_NAME,
+      },
+      ...options,
+    })
   }
 })

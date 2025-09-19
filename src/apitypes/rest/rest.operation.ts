@@ -33,7 +33,7 @@ import {
   buildSearchScope,
   calculateOperationId,
   capitalize,
-  copySymbolIfDefined,
+  extractSymbolProperty,
   getKeyValue,
   getSplittedVersionKey,
   getSymbolValueIfDefined,
@@ -344,7 +344,7 @@ const createSingleOperationSpec = (
         : {
           ...extractCommonPathItemProperties(pathData),
           [method]: { ...pathData[method] },
-          ...copySymbolIfDefined(pathData, INLINE_REFS_FLAG),
+          ...extractSymbolProperty(pathData, INLINE_REFS_FLAG),
         },
     },
     components: {

@@ -88,7 +88,7 @@ export const isValidHttpMethod = (method: string): method is OpenAPIV3.HttpMetho
   return HTTP_METHODS_SET.has(method)
 }
 
-export const createNormalizedOperationId: OperationIdNormalizer = (operation) => {
+export const calculateNormalizedOperationId: OperationIdNormalizer = (operation) => {
   const { metadata: { path, method } } = operation
   return slugify(`${path}-${method}`, [], IGNORE_PATH_PARAM_UNIFIED_PLACEHOLDER)
 }

@@ -22,7 +22,7 @@ import { compareRestOperationsData } from './rest.changes'
 import { buildRestOperations } from './rest.operations'
 import { parseRestFile } from './rest.parser'
 import { ApiBuilder } from '../../types'
-import { createNormalizedOperationId } from '../../utils'
+import { calculateNormalizedOperationId } from '../../utils'
 
 export * from './rest.consts'
 
@@ -34,6 +34,6 @@ export const restApiBuilder: ApiBuilder<OpenAPIV3.Document> = {
   buildOperations: buildRestOperations,
   dumpDocument: dumpRestDocument,
   compareOperationsData: compareRestOperationsData,
-  createNormalizedOperationId: createNormalizedOperationId,
+  createNormalizedOperationId: calculateNormalizedOperationId,
   createExportDocument: createRestExportDocument,
 }

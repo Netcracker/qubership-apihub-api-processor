@@ -75,7 +75,7 @@ export const getSymbolValueIfDefined = <T extends object>(
   return symbol in symbolObj ? symbolObj[symbol] : undefined
 }
 
-export const copySymbolIfDefined = <T extends object>(
+export const extractSymbolProperty = <T extends object>(
   obj: T,
   symbol: symbol,
 ): { [key: symbol]: unknown } => {
