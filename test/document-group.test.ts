@@ -76,10 +76,9 @@ describe('Document Group test', () => {
     })
 
     test('should have components schema object which is referenced', async () => {
-      const result = await runWithPackage(
+      const { result } = await runPublishPackage(
         `document-group/${BASE_OPERATION_PATH}/referenced-json-schema-object`,
         groupToOnePathOperationIdsMap,
-        { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS },
       )
 
       for (const document of Array.from(result.documents.values())) {
@@ -145,10 +144,9 @@ describe('Document Group test', () => {
     })
 
     test('should have save pathItems in components', async () => {
-      const result = await runWithPackage(
+      const { result } = await runPublishPackage(
         `document-group/${PATH_ITEMS_OPERATION_PATH}/multiple-pathitems-operations`,
         groupToOperationIdsMap,
-        { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS },
       )
 
       for (const document of Array.from(result.documents.values())) {
@@ -157,15 +155,9 @@ describe('Document Group test', () => {
     })
 
     test('second level object are the same when overriding for pathitems response', async () => {
-      const pkg = LocalRegistry.openPackage(`document-group/${PATH_ITEMS_OPERATION_PATH}/second-level-object-are-the-same-when-overriding-for-response`, groupToOnePathOperationIdsMap)
-      const editor = await Editor.openProject(pkg.packageId, pkg)
-      await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
-
-      const result = await editor.run({
-        packageId: pkg.packageId,
-        groupName: GROUP_NAME,
-        buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
-      })
+      const { pkg, result } = await runPublishPackage(
+        `document-group/${PATH_ITEMS_OPERATION_PATH}/second-level-object-are-the-same-when-overriding-for-response`, groupToOnePathOperationIdsMap,
+      )
 
       const expectedResult = load(
         (await loadFileAsString(pkg.projectsDir, pkg.packageId, EXPECTED_RESULT_FILE))!,
@@ -179,10 +171,9 @@ describe('Document Group test', () => {
       const COMPONENTS_ITEM_1_PATH = ['components', 'pathItems', 'componentsPathItem1']
 
       test('should have documents with keep pathItems in components', async () => {
-        const result = await runWithPackage(
+        const { result } = await runPublishPackage(
           `document-group/${PATH_ITEMS_OPERATION_PATH}/define-pathitems-via-reference-object-chain`,
           groupToOnePathOperationIdsMap,
-          { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS },
         )
 
         for (const document of Array.from(result.documents.values())) {
@@ -192,10 +183,9 @@ describe('Document Group test', () => {
       })
 
       test('should have documents stripped of operations other than from provided group', async () => {
-        const result = await runWithPackage(
+        const { result } = await runPublishPackage(
           `document-group/${PATH_ITEMS_OPERATION_PATH}/define-pathitems-via-reference-object-chain`,
           groupWithOneOperationIdsMap,
-          { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS },
         )
 
         for (const document of Array.from(result.documents.values())) {
@@ -208,10 +198,9 @@ describe('Document Group test', () => {
 
   function runCommonTests(folder: DOCUMENT_GROUP_PATHS): void {
     test('should have keep a multiple operations in one path', async () => {
-      const result = await runWithPackage(
+      const { result } = await runPublishPackage(
         `document-group/${folder}/multiple-operations-in-one-path`,
         groupToOnePathOperationIdsMap,
-        { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS },
       )
 
       for (const document of Array.from(result.documents.values())) {
@@ -222,10 +211,9 @@ describe('Document Group test', () => {
     })
 
     test('should define operations with servers prefix', async () => {
-      const result = await runWithPackage(
+      const { result } = await runPublishPackage(
         `document-group/${folder}/define-operations-with-servers-prefix`,
         groupToOneServerPrefixPathOperationIdsMap,
-        { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS },
       )
 
       for (const document of Array.from(result.documents.values())) {
@@ -234,10 +222,9 @@ describe('Document Group test', () => {
     })
 
     test('should delete pathItems object which is not referenced', async () => {
-      const result = await runWithPackage(
+      const { result } = await runPublishPackage(
         `document-group/${folder}/not-referenced-object`,
         groupToOperationIdsMap,
-        { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS },
       )
 
       for (const document of Array.from(result.documents.values())) {
@@ -248,10 +235,9 @@ describe('Document Group test', () => {
     })
 
     test('should have documents stripped of operations other than from provided group', async () => {
-      const result = await runWithPackage(
+      const { result } = await runPublishPackage(
         `document-group/${folder}/stripped-of-operations`,
         groupToOperationIdsMap,
-        { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS },
       )
 
       for (const document of Array.from(result.documents.values())) {
@@ -260,10 +246,9 @@ describe('Document Group test', () => {
     })
 
     test('should not hang up when processing for response which points to itself', async () => {
-      const result = await runWithPackage(
+      const { result } = await runPublishPackage(
         `document-group/${folder}/not-hang-up-when-processing-for-response-which-points-to-itself`,
         groupToOnePathOperationIdsMap,
-        { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS },
       )
 
       expect(result.documents.size).toEqual(0)
@@ -295,17 +280,11 @@ describe('Document Group test', () => {
   }
 
   async function runMergeOperationsCase(caseName: string): Promise<void> {
-    const pkg = LocalRegistry.openPackage(`merge-operations/${caseName}`, groupToOperationIdsMap)
-    const editor = await Editor.openProject(pkg.packageId, pkg)
-
-    await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
-
-    const result = await editor.run({
-      packageId: pkg.packageId,
-      buildType: BUILD_TYPE.MERGED_SPECIFICATION,
-      groupName: GROUP_NAME,
-      apiType: REST_API_TYPE,
-    })
+    const { pkg, result } = await runPublishPackage(
+      `merge-operations/${caseName}`,
+      groupToOperationIdsMap,
+      { buildType: BUILD_TYPE.MERGED_SPECIFICATION, apiType: REST_API_TYPE },
+    )
 
     const expectedResult = load(
       (await loadFileAsString(pkg.projectsDir, pkg.packageId, EXPECTED_RESULT_FILE))!,
@@ -314,21 +293,22 @@ describe('Document Group test', () => {
     expect(result.merged?.data).toEqual(expectedResult)
   }
 
-  async function runWithPackage(
+  async function runPublishPackage(
     packageId: string,
     groupOperationIds: Record<string, string[]>,
-    options: Partial<BuildConfigAggregator> = {},
-  ): Promise<BuildResult> {
+    options: Partial<BuildConfigAggregator> = { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS },
+  ): Promise<{ pkg: LocalRegistry; result: BuildResult }> {
     const pkg = LocalRegistry.openPackage(packageId, groupOperationIds)
     const editor = await Editor.openProject(pkg.packageId, pkg)
     await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
 
-    return editor.run({
+    const result = await editor.run({
       ...{
         packageId: pkg.packageId,
         groupName: GROUP_NAME,
       },
       ...options,
     })
+    return { pkg, result }
   }
 })
