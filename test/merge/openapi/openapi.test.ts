@@ -258,16 +258,16 @@ describe('Merge openapi schemas', () => {
   })
 
   test('Should throw on different methods content', async () => {
-    // 1: [[../should-throw-on-different-methods/case1/1.yaml]]
-    // 2: [[../should-throw-on-different-methods/case1/2.yaml]]
-    const testId = 'should-throw-on-different-methods/case1'
+    // 1: [[../should-throw-on-different-methods/should-throw-on-different-methods-in-path/1.yaml]]
+    // 2: [[../should-throw-on-different-methods/should-throw-on-different-methods-in-path/2.yaml]]
+    const testId = 'should-throw-on-different-methods/should-throw-on-different-methods-in-path'
     await expect(getTestData(testId)).rejects.toThrowError(/paths.\/path1/)
   })
 
   test('Should throw on different pathItems methods content', async () => {
-    // 1: [[../should-throw-on-different-methods/case2/1.yaml]]
-    // 2: [[../should-throw-on-different-methods/case2/2.yaml]]
-    const testId = 'should-throw-on-different-methods/case2'
+    // 1: [[../should-throw-on-different-methods/should-throw-on-different-methods-in-pathItem-component/1.yaml]]
+    // 2: [[../should-throw-on-different-methods/should-throw-on-different-methods-in-pathItem-component/2.yaml]]
+    const testId = 'should-throw-on-different-methods/should-throw-on-different-methods-in-pathItem-component'
     await expect(getTestData(testId)).rejects.toThrowError(/components.pathItems.path1/)
   })
 
