@@ -55,8 +55,7 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
     debugCtx,
   )
 
-  const { paths } = effectiveDocument
-  const { servers } = document.data
+  const { paths, servers } = effectiveDocument
 
   const operations: TYPE.VersionRestOperation[] = []
   if (!paths) { return [] }
