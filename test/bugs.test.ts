@@ -343,13 +343,13 @@ describe('Operation Bugs', () => {
     expect(editor.builder.operationList.every(operation => operation.apiKind === API_KIND.NO_BWC)).toBeTruthy()
   })
 
-  test('should correct calculate operationId with empty servers', async () => {
+  test('should correctly calculate operationId for servers with incorrect URL', async () => {
     const editor = await Editor.openProject('bugs', bugsPackage)
 
     const result = await editor.run({
       version: 'v1',
       files: [
-        { fileId: 'should-correct-calculate-operation-id-with-empty-servers.yaml', publish: true },
+        { fileId: 'should-correctly-calculate-operation-id-for-servers-with-incorrect-url.yaml', publish: true },
       ],
     })
 
