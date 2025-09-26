@@ -342,4 +342,18 @@ describe('Operation Bugs', () => {
 
     expect(editor.builder.operationList.every(operation => operation.apiKind === API_KIND.NO_BWC)).toBeTruthy()
   })
+
+  test('should correct calculate operationId with empty servers', async () => {
+    const editor = await Editor.openProject('bugs', bugsPackage)
+
+    const result = await editor.run({
+      version: 'v1',
+      files: [
+        { fileId: 'should-correct-calculate-operation-id-with-empty-servers.yaml', publish: true },
+      ],
+    })
+
+    const operationKeys = Array.from(result.operations.keys())
+    expect(operationKeys[0]).toEqual('paths1-get')
+  })
 })
