@@ -43,7 +43,7 @@ Supports OpenAPI and GraphQL specifications processing.
 - ~~AsyncApi 3.x~~ (roadmap)
 
 ## Other libraries
-There are some libraries that can merge schemas combined with allOf. One of the most popular is [mokkabonna/json-schema-merge-allof](https://www.npmjs.com/package/json-schema-merge-allof), but it has some limitatons: Does not support circular $refs and no Typescript syntax out of the box.
+There are some libraries that can merge schemas combined with allOf. One of the most popular is [mokkabonna/json-schema-merge-allof](https://npmjs.com/package/json-schema-merge-allof), but it has some limitatons: Does not support circular $refs and no Typescript syntax out of the box.
 
 ## License
 
