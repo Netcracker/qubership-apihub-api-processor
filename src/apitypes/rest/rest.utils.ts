@@ -16,10 +16,19 @@
 
 import { OpenAPIV3 } from 'openapi-types'
 import { CustomTags } from './rest.types'
-import { API_AUDIENCE_EXTERNAL, API_AUDIENCE_INTERNAL, API_AUDIENCE_UNKNOWN, ApiAudience } from '../../types'
+import {
+  API_AUDIENCE_EXTERNAL,
+  API_AUDIENCE_INTERNAL,
+  API_AUDIENCE_UNKNOWN,
+  ApiAudience,
+  WithAggregatedDiffs,
+  WithDiffMetaRecord,
+} from '../../types'
 import { isObject } from '@netcracker/qubership-apihub-json-crawl'
 import { CUSTOM_PARAMETER_API_AUDIENCE, FILE_FORMAT_JSON, FILE_FORMAT_YAML } from '../../consts'
 import YAML from 'js-yaml'
+import { Diff, DIFF_META_KEY, DIFFS_AGGREGATED_META_KEY } from '@netcracker/qubership-apihub-api-diff'
+import { isPathParamRenameDiff } from '../../utils'
 
 export const getOperationBasePath = (servers?: OpenAPIV3.ServerObject[]): string => {
   if (!Array.isArray(servers) || !servers.length) { return '' }
@@ -81,4 +90,29 @@ export const dump = (value: unknown, format: typeof FILE_FORMAT_YAML | typeof FI
     return [[JSON.stringify(value, undefined, 2)], { type: 'application/json' }]
   }
   throw new Error(`Unsupported format: ${format}`)
+}
+
+export const extractPathParamRenameDiff = (doc: OpenAPIV3.Document, path: string): Diff[] => {
+  const diff = (doc.paths as WithDiffMetaRecord<OpenAPIV3.PathsObject>)[DIFF_META_KEY]?.[path]
+  return diff && isPathParamRenameDiff(diff) ? [diff] : []
+}
+
+export const extractRootServersDiffs = (doc: OpenAPIV3.Document): Diff[] => {
+  const addOrRemoveServersDiff = (doc as WithDiffMetaRecord<OpenAPIV3.Document>)[DIFF_META_KEY]?.servers
+  const serversInternalDiffs = (doc.servers as WithAggregatedDiffs<OpenAPIV3.ServerObject[]> | undefined)?.[DIFFS_AGGREGATED_META_KEY] ?? []
+  return [
+    ...(addOrRemoveServersDiff ? [addOrRemoveServersDiff] : []),
+    ...serversInternalDiffs,
+  ]
+}
+
+export const extractRootSecurityDiffs = (doc: OpenAPIV3.Document): Diff[] => {
+  const addOrRemoveSecurityDiff = (doc as WithDiffMetaRecord<OpenAPIV3.Document>)[DIFF_META_KEY]?.security
+  const securityInternalDiffs = (doc.security as WithAggregatedDiffs<OpenAPIV3.SecurityRequirementObject[]> | undefined)?.[DIFFS_AGGREGATED_META_KEY] ?? []
+  const componentsSecuritySchemesDiffs = (doc.components?.securitySchemes as WithAggregatedDiffs<Record<string, OpenAPIV3.SecuritySchemeObject>>)[DIFFS_AGGREGATED_META_KEY] ?? []
+  return [
+    ...(addOrRemoveSecurityDiff ? [addOrRemoveSecurityDiff] : []),
+    ...securityInternalDiffs,
+    ...componentsSecuritySchemesDiffs,
+  ]
 }

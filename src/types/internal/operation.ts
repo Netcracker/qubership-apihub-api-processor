@@ -21,7 +21,7 @@ export type SearchScopes<T extends string = string> = Record<T, Set<string>>
 
 export interface ApiOperation<T = any, M = any> {
   operationId: string
-  dataHash: string
+  documentId: string
   apiType: OperationsApiType
   apiKind: ApiKind
   deprecated: boolean

@@ -17,8 +17,15 @@
 import { OpenAPIV3 } from 'openapi-types'
 
 import { buildRestOperation } from './rest.operation'
-import { OperationsBuilder } from '../../types'
-import { calculateOperationId, createBundlingErrorHandler, removeComponents } from '../../utils'
+import { OperationIdNormalizer, OperationsBuilder } from '../../types'
+import {
+  calculateOperationId,
+  createBundlingErrorHandler,
+  IGNORE_PATH_PARAM_UNIFIED_PLACEHOLDER,
+  removeComponents,
+  removeFirstSlash,
+  slugify,
+} from '../../utils'
 import { getOperationBasePath } from './rest.utils'
 import type * as TYPE from './rest.types'
 import { HASH_FLAG, INLINE_REFS_FLAG, MESSAGE_SEVERITY, NORMALIZE_OPTIONS, ORIGINS_SYMBOL } from '../../consts'
@@ -71,7 +78,6 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
       await asyncFunction(() => {
         const methodData = pathData[key as OpenAPIV3.HttpMethods]
         const basePath = getOperationBasePath(methodData?.servers || pathData?.servers || servers || [])
-
         const operationId = calculateOperationId(basePath, key, path)
 
         if (ctx.operationResolver(operationId)) {

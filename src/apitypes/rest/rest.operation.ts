@@ -140,7 +140,7 @@ export const buildRestOperation = (
 
   const models: Record<string, string> = {}
   const apiKind = effectiveOperationObject[REST_KIND_KEY] || document.apiKind || API_KIND.BWC
-  const [specWithSingleOperation, dataHash] = syncDebugPerformance('[ModelsAndOperationHashing]', () => {
+  const [specWithSingleOperation] = syncDebugPerformance('[ModelsAndOperationHashing]', () => {
     const specWithSingleOperation = createSingleOperationSpec(
       document.data,
       path,
@@ -151,8 +151,7 @@ export const buildRestOperation = (
       components?.securitySchemes,
     )
     calculateSpecRefs(document.data, refsOnlySingleOperationSpec, specWithSingleOperation, [operationId], models, componentsHashMap)
-    const dataHash = calculateObjectHash(specWithSingleOperation)
-    return [specWithSingleOperation, dataHash]
+    return [specWithSingleOperation]
   }, debugCtx)
 
   const deprecatedOperationItem = deprecatedItems.find(isDeprecatedOperationItem)
@@ -163,7 +162,7 @@ export const buildRestOperation = (
 
   return {
     operationId,
-    dataHash,
+    documentId: document.slug,
     apiType: REST_API_TYPE,
     apiKind: rawToApiKind(apiKind),
     deprecated: !!effectiveOperationObject.deprecated,
@@ -230,7 +229,6 @@ export const calculateSpecRefs = (
     if (!component) {
       return
     }
-
     if (models && !models[componentName] && isComponentsSchemaRef(matchResult.path)) {
       let componentHash = componentsHashMap?.get(componentName)
       if (componentHash) {
@@ -241,7 +239,6 @@ export const calculateSpecRefs = (
         models[componentName] = componentHash
       }
     }
-
     setValueByPath(resultSpec, matchResult.path, component)
   })
 

@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import { ResolvedVersionDocument, ZippableDocument } from '../../types'
 
 export const GRAPHQL_API_TYPE = 'graphql' as const
 
@@ -43,3 +44,7 @@ export const GRAPHQL_TYPE = {
   'mutations': 'mutation',
   'subscriptions': 'subscription',
 } as const
+
+export function isGraphqlDocument(document: ZippableDocument | ResolvedVersionDocument): boolean {
+  return Object.values(GRAPHQL_DOCUMENT_TYPE).some(type => document.type === type)
+}

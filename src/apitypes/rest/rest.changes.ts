@@ -14,84 +14,198 @@
  * limitations under the License.
  */
 
-import { RestOperationData, VersionRestOperation } from './rest.types'
-import { areDeprecatedOriginsNotEmpty, isOperationRemove, removeComponents } from '../../utils'
+import { RestOperationData } from './rest.types'
 import {
+  areDeprecatedOriginsNotEmpty,
+  IGNORE_PATH_PARAM_UNIFIED_PLACEHOLDER,
+  isEmpty,
+  isOperationRemove,
+  normalizePath,
+  removeFirstSlash,
+  slugify,
+  trimSlashes,
+} from '../../utils'
+import {
+  aggregateDiffsWithRollup,
   apiDiff,
   breaking,
-  COMPARE_MODE_OPERATION,
   Diff,
+  DIFF_META_KEY,
   DiffAction,
+  DIFFS_AGGREGATED_META_KEY,
   risky,
 } from '@netcracker/qubership-apihub-api-diff'
 import { MESSAGE_SEVERITY, NORMALIZE_OPTIONS, ORIGINS_SYMBOL } from '../../consts'
 import {
   BREAKING_CHANGE_TYPE,
   CompareOperationsPairContext,
+  OperationChanges,
+  ResolvedVersionDocument,
   RISKY_CHANGE_TYPE,
+  WithAggregatedDiffs,
+  WithDiffMetaRecord,
 } from '../../types'
 import { isObject } from '@netcracker/qubership-apihub-json-crawl'
 import { areDeclarationPathsEqual } from '../../utils/path'
-import { JSON_SCHEMA_PROPERTY_DEPRECATED, pathItemToFullPath, resolveOrigins } from '@netcracker/qubership-apihub-api-unifier'
+import {
+  JSON_SCHEMA_PROPERTY_DEPRECATED,
+  pathItemToFullPath,
+  resolveOrigins,
+} from '@netcracker/qubership-apihub-api-unifier'
 import { findRequiredRemovedProperties } from './rest.required'
 import { calculateObjectHash } from '../../utils/hashes'
 import { REST_API_TYPE } from './rest.consts'
+import { OpenAPIV3 } from 'openapi-types'
+import {
+  extractPathParamRenameDiff,
+  extractRootSecurityDiffs,
+  extractRootServersDiffs,
+  getOperationBasePath,
+} from './rest.utils'
+import { createOperationChange, getOperationTags, OperationsMap } from '../../components'
 
-export const compareRestOperationsData = async (current: VersionRestOperation | undefined, previous: VersionRestOperation | undefined, ctx: CompareOperationsPairContext): Promise<Diff[]> => {
+export const compareDocuments = async (
+  operationsMap: OperationsMap,
+  prevDoc: ResolvedVersionDocument | undefined,
+  currDoc: ResolvedVersionDocument | undefined,
+  ctx: CompareOperationsPairContext,
+): Promise<{
+  operationChanges: OperationChanges[]
+  tags: Set<string>
+}> => {
+  const {
+    apiType,
+    rawDocumentResolver,
+    previousVersion,
+    currentVersion,
+    previousPackageId,
+    currentPackageId,
+    currentGroup,
+    previousGroup,
+  } = ctx
+  const prevFile = prevDoc && await rawDocumentResolver(previousVersion, previousPackageId, prevDoc.slug)
+  const currFile = currDoc && await rawDocumentResolver(currentVersion, currentPackageId, currDoc.slug)
+  let prevDocData = prevFile && JSON.parse(await prevFile.text())
+  let currDocData = currFile && JSON.parse(await currFile.text())
 
-  let previousOperation = removeComponents(previous?.data)
-  let currentOperation = removeComponents(current?.data)
-  if (!previousOperation && currentOperation) {
-    previousOperation = getCopyWithEmptyPath(currentOperation as RestOperationData)
+  if (prevDocData && previousGroup) {
+    prevDocData = createCopyWithCurrentGroupOperationsOnly(prevDocData, previousGroup)
   }
 
-  if (previousOperation && !currentOperation) {
-    currentOperation = getCopyWithEmptyPath(previousOperation as RestOperationData)
+  if (currDocData && currentGroup) {
+    currDocData = createCopyWithCurrentGroupOperationsOnly(currDocData, currentGroup)
   }
 
-  const diffResult = apiDiff(
-    previousOperation,
-    currentOperation,
+  if (!prevDocData && currDocData) {
+    prevDocData = createCopyWithEmptyPathItems(currDocData)
+  }
+  if (prevDocData && !currDocData) {
+    currDocData = createCopyWithEmptyPathItems(prevDocData)
+  }
+
+  const { merged, diffs } = apiDiff(
+    prevDocData,
+    currDocData,
     {
       ...NORMALIZE_OPTIONS,
+      metaKey: DIFF_META_KEY,
       originsFlag: ORIGINS_SYMBOL,
-      mode: COMPARE_MODE_OPERATION,
       normalizedResult: true,
-      beforeSource: previous?.data,
-      afterSource: current?.data,
     },
-  )
-  const olnyBreaking = diffResult.diffs.filter((diff) => diff.type === breaking)
-  if (olnyBreaking.length > 0 && previous?.operationId) {
-    await reclassifyBreakingChanges(previous.operationId, diffResult.merged, olnyBreaking, ctx)
+  ) as { merged: OpenAPIV3.Document; diffs: Diff[] }
+
+  if (isEmpty(diffs)) {
+    return { operationChanges: [], tags: new Set() }
   }
-  return diffResult.diffs
+
+  aggregateDiffsWithRollup(merged, DIFF_META_KEY, DIFFS_AGGREGATED_META_KEY)
+
+  const tags = new Set<string>()
+  const operationChanges: OperationChanges[] = []
+
+  for (const path of Object.keys(merged.paths)) {
+    const pathData = merged.paths[path]
+    if (typeof pathData !== 'object' || !pathData) { continue }
+
+    for (const key of Object.keys(pathData)) {
+      const inferredMethod = key as OpenAPIV3.HttpMethods
+
+      // check if field is a valid openapi http method defined in OpenAPIV3.HttpMethods
+      if (!Object.values(OpenAPIV3.HttpMethods).includes(inferredMethod)) {
+        continue
+      }
+
+      const methodData = pathData[inferredMethod]
+      // todo if there were actually servers here, we wouldn't have handle it, add a test
+      const previousBasePath = getOperationBasePath(methodData?.servers || pathData?.servers || prevDocData.servers || [])
+      const currentBasePath = getOperationBasePath(methodData?.servers || pathData?.servers || currDocData.servers || [])
+      const prevNormalizedOperationId = slugify(`${normalizePath(previousBasePath + path)}-${inferredMethod}`, [], IGNORE_PATH_PARAM_UNIFIED_PLACEHOLDER)
+      const currNormalizedOperationId = slugify(`${normalizePath(currentBasePath + path)}-${inferredMethod}`, [], IGNORE_PATH_PARAM_UNIFIED_PLACEHOLDER)
+
+      const { current, previous } = operationsMap[prevNormalizedOperationId] ?? operationsMap[currNormalizedOperationId] ?? {}
+      if (!current && !previous) {
+        const missingOperations = prevNormalizedOperationId === currNormalizedOperationId ? `the ${prevNormalizedOperationId} operation` : `the ${prevNormalizedOperationId} and ${currNormalizedOperationId} operations`
+        throw new Error(`Can't find ${missingOperations} from documents pair ${prevDoc?.fileId} and ${currDoc?.fileId}`)
+      }
+      const operationPotentiallyChanged = Boolean(current && previous)
+      const operationAddedOrRemoved = !operationPotentiallyChanged
+
+      let operationDiffs: Diff[] = []
+      if (operationPotentiallyChanged) {
+        operationDiffs = [
+          ...(methodData as WithAggregatedDiffs<OpenAPIV3.OperationObject>)[DIFFS_AGGREGATED_META_KEY]??[],
+          ...extractRootServersDiffs(merged),
+          ...extractRootSecurityDiffs(merged),
+          ...extractPathParamRenameDiff(merged, path),
+          // parameters, servers, summary, description and extensionKeys are moved from path to method in pathItemsUnification during normalization in apiDiff, so no need to aggregate them here
+        ]
+      }
+      if (operationAddedOrRemoved) {
+        const operationAddedOrRemovedDiffFromSpecificPath = (merged.paths[path] as WithDiffMetaRecord<OpenAPIV3.PathsObject>)[DIFF_META_KEY]?.[inferredMethod]
+        const operationAddedOrRemovedDiffFromPaths = (merged.paths as WithDiffMetaRecord<OpenAPIV3.PathsObject>)[DIFF_META_KEY]?.[path]
+        const operationAddedOrRemovedDiff = operationAddedOrRemovedDiffFromSpecificPath ?? operationAddedOrRemovedDiffFromPaths
+        operationDiffs = operationAddedOrRemovedDiff ? [operationAddedOrRemovedDiff] : []
+      }
+
+      if (isEmpty(operationDiffs)) {
+        continue
+      }
+
+      await reclassifyBreakingChanges(previous?.operationId, merged, operationDiffs, ctx)
+
+      operationChanges.push(createOperationChange(apiType, operationDiffs, previous, current, currentGroup, previousGroup))
+      getOperationTags(current ?? previous).forEach(tag => tags.add(tag))
+    }
+  }
+
+  return { operationChanges, tags }
 }
 
 async function reclassifyBreakingChanges(
-  operationId: string,
+  previousOperationId: string | undefined,
   mergedJso: unknown,
   diffs: Diff[],
   ctx: CompareOperationsPairContext,
 ): Promise<void> {
-  if (!ctx.previousVersion || !ctx.previousPackageId) {
+  if (!previousOperationId || !ctx.previousVersion || !ctx.previousPackageId) {
     return
   }
-  const previosVersionDeprecations = await ctx.versionDeprecatedResolver(REST_API_TYPE, ctx.previousVersion, ctx.previousPackageId, [operationId])
-  if (!previosVersionDeprecations) {
-    return
-  }
-  previosVersionDeprecations.operations[0]
 
-  const previousOperation = previosVersionDeprecations.operations[0]
+  const onlyBreaking = diffs.filter((diff) => diff.type === breaking)
+  if (isEmpty(onlyBreaking)) {
+    return
+  }
+
+  const previousVersionDeprecations = await ctx.versionDeprecatedResolver(REST_API_TYPE, ctx.previousVersion, ctx.previousPackageId, [previousOperationId])
+  if (!previousVersionDeprecations) {
+    return
+  }
+
+  const [previousOperation] = previousVersionDeprecations.operations
 
   if (!previousOperation?.deprecatedItems) { return }
 
-  for (const diff of diffs) {
-    if (diff.type !== breaking) {
-      continue
-    }
-
+  for (const diff of onlyBreaking) {
     const deprecatedInVersionsCount = previousOperation?.deprecatedInPreviousVersions?.length ?? 0
     if (isOperationRemove(diff) && deprecatedInVersionsCount > 1) {
       diff.type = risky
@@ -141,22 +255,48 @@ async function reclassifyBreakingChanges(
     }
   }
   // mark removed required status of the property as risky
-  if (diffs.length) {
-    const requiredProperties = findRequiredRemovedProperties(mergedJso, diffs)
+  const requiredProperties = findRequiredRemovedProperties(mergedJso, onlyBreaking)
 
-    requiredProperties?.forEach(prop => {
-      if (prop.propDiff.type === RISKY_CHANGE_TYPE && prop.requiredDiff?.type === BREAKING_CHANGE_TYPE) {
-        prop.requiredDiff.type = risky
-      }
-    })
+  requiredProperties?.forEach(prop => {
+    if (prop.propDiff.type === RISKY_CHANGE_TYPE && prop.requiredDiff?.type === BREAKING_CHANGE_TYPE) {
+      prop.requiredDiff.type = risky
+    }
+  })
+}
+
+export function createCopyWithEmptyPathItems(template: RestOperationData): RestOperationData {
+  const { paths, ...rest } = template
+
+  return {
+    paths: {
+      ...Object.fromEntries(
+        Object.keys(paths).map(key => [key, {}]),
+      ),
+    },
+    ...rest,
   }
 }
 
-function getCopyWithEmptyPath(template: RestOperationData): RestOperationData {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function createCopyWithCurrentGroupOperationsOnly(template: RestOperationData, group: string): RestOperationData {
   const { paths, ...rest } = template
+  const groupWithoutEdgeSlashes = trimSlashes(group)
+
+  if (trimSlashes(getOperationBasePath(template.servers)) === groupWithoutEdgeSlashes) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { servers, ...rest } = template
+    return { ...rest }
+  }
+
   return {
-    paths: {},
+    paths: {
+      ...Object.fromEntries(
+        Object.entries(paths)
+          .filter(([key]) => removeFirstSlash(key).startsWith(`${groupWithoutEdgeSlashes}/`)) // note that 'api/v10' is a substring of 'api/v1000'
+          // remove prefix group for correct path mapping in apiDiff
+          // todo support the most common case when a group is in servers instead of hardcoded in path, add a test
+          .map(([key, value]) => [removeFirstSlash(key).substring(groupWithoutEdgeSlashes.length), value]),
+      ),
+    },
     ...rest,
   }
 }
