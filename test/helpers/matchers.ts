@@ -62,6 +62,16 @@ export function apihubOperationChangesMatcher(
   ])
 }
 
+export function noChangesMatcher(
+  apiType: OperationsApiType = REST_API_TYPE,
+): ApihubChangesSummaryMatcher {
+  return operationTypeMatcher({
+    apiType: apiType,
+    changesSummary: EMPTY_CHANGE_SUMMARY,
+    numberOfImpactedOperations: EMPTY_CHANGE_SUMMARY,
+  })
+}
+
 export function changesSummaryMatcher(
   expected: Partial<ChangeSummary>,
   apiType: OperationsApiType = REST_API_TYPE,
