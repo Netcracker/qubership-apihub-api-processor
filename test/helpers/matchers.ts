@@ -31,7 +31,7 @@ import {
 } from '../../src'
 import { JsonPath } from 'json-crawl'
 import { ActionType } from '@netcracker/qubership-apihub-api-diff'
-import { ArrayContaining, ObjectContaining, RecursiveMatcher } from '../../.jest/jasmin'
+import { ArrayContaining, ExpectedRecursive, ObjectContaining, RecursiveMatcher } from '../../.jest/jasmin'
 
 export type ApihubComparisonMatcher = ObjectContaining<VersionsComparison> & VersionsComparison
 export type ApihubOperationChangesMatcher = ObjectContaining<OperationChanges> & OperationChanges
@@ -114,7 +114,7 @@ export function operationTypeMatcher(
 }
 
 export function operationChangesMatcher(
-  expected: Array<RecursiveMatcher<OperationChanges>>,
+  expected: Array<ExpectedRecursive<OperationChanges>>,
 ): ApihubOperationChangesMatcher {
   return expect.objectContaining({
       comparisons: expect.arrayContaining([
