@@ -60,6 +60,7 @@ import { REST_API_TYPE } from './rest.consts'
 import { OpenAPIV3 } from 'openapi-types'
 import {
   extractOperationSecurityDiffs,
+  extractOpenapiVersionDiff,
   extractPathParamRenameDiff,
   extractRootSecurityDiffs,
   extractRootServersDiffs,
@@ -174,6 +175,7 @@ export const compareDocuments = async (
         const relevantSecuritySchemesNames = shouldTakeRootSecurityDiffs ? extractSecuritySchemesNames(merged.security ?? []) : extractSecuritySchemesNames(methodData?.security ?? [])
         operationDiffs = [
           ...(methodData as WithAggregatedDiffs<OpenAPIV3.OperationObject>)[DIFFS_AGGREGATED_META_KEY] ?? [],
+          ...extractOpenapiVersionDiff(merged),
           ...extractRootServersDiffs(merged),
           ...shouldTakeRootSecurityDiffs ? extractRootSecurityDiffs(merged) : [],
           ...extractSecuritySchemesDiffs(merged.components, relevantSecuritySchemesNames),
