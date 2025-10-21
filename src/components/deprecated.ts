@@ -20,8 +20,8 @@ import { executeInBatches, isDeprecatedOperationItem, isString, keyBy } from '..
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import { areDeclarationPathsEqual } from '../utils/path'
 import {
-  DeferredHash,
   grepValue,
+  Hash,
   Jso,
   matchPaths,
   OPEN_API_PROPERTY_COMPONENTS,
@@ -132,8 +132,8 @@ export const matchSharedComponent = (jsonPath: JsonPath): MatchResult | undefine
 
 export function calculateTolerantHash(value: Jso, notifications: NotificationMessage[]): string | undefined {
   try {
-    const tolerantHash = Object.keys(value).length > 0
-      ? HASH_FLAG in value ? value[HASH_FLAG] as DeferredHash | undefined : undefined
+    const tolerantHash: Hash | undefined = Object.keys(value).length > 0
+      ? HASH_FLAG in value ? value[HASH_FLAG] as Hash | undefined : undefined
       : undefined
 
     if (!tolerantHash) {
@@ -143,7 +143,7 @@ export function calculateTolerantHash(value: Jso, notifications: NotificationMes
       })
       return undefined
     }
-    return tolerantHash()
+    return tolerantHash
   } catch (error) {
     notifications.push({
       severity: MESSAGE_SEVERITY.Error,

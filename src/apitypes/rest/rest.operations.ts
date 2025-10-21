@@ -36,7 +36,7 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
       {
         ...NORMALIZE_OPTIONS,
         originsFlag: ORIGINS_SYMBOL,
-        hashFlag: HASH_FLAG,
+        semanticHashProperty: HASH_FLAG,
         source: document.data,
         onRefResolveError: (message: string, _path: PropertyKey[], _ref: string, errorType: RefErrorType) =>
           bundlingErrorHandler([{ message, errorType }]),
