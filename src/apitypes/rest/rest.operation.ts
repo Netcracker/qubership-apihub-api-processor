@@ -357,9 +357,9 @@ export const createSingleOperationSpec = (
           ...extractSymbolProperty(pathData, INLINE_REFS_FLAG),
         },
     },
-    components: {
-      ...takeIfDefined({ securitySchemes: effectiveSecuritySchemes }),
-    },
+    ...takeIfDefined({
+      components: effectiveSecuritySchemes ? { securitySchemes: effectiveSecuritySchemes } : undefined,
+    }),
   }
 }
 
