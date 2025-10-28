@@ -15,7 +15,7 @@
  */
 
 import { BuilderContext, DeprecateItem, NotificationMessage, OperationsApiType, ResolvedOperation } from '../types'
-import { DEFAULT_BATCH_SIZE, HASH_FLAG, MESSAGE_SEVERITY } from '../consts'
+import { DEFAULT_BATCH_SIZE, SEMANTIC_HASH_PROPERTY, MESSAGE_SEVERITY } from '../consts'
 import { executeInBatches, isDeprecatedOperationItem, isString, keyBy } from '../utils'
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import { areDeclarationPathsEqual } from '../utils/path'
@@ -133,7 +133,7 @@ export const matchSharedComponent = (jsonPath: JsonPath): MatchResult | undefine
 export function calculateTolerantHash(value: Jso, notifications: NotificationMessage[]): string | undefined {
   try {
     const tolerantHash: Hash | undefined = Object.keys(value).length > 0
-      ? HASH_FLAG in value ? value[HASH_FLAG] as Hash | undefined : undefined
+      ? SEMANTIC_HASH_PROPERTY in value ? value[SEMANTIC_HASH_PROPERTY] as Hash | undefined : undefined
       : undefined
 
     if (!tolerantHash) {
