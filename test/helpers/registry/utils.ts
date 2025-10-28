@@ -141,8 +141,8 @@ export function getOperationsFileContent(
 
     result.operations.push({
       operationId: operation.operationId,
+      documentId: operation.documentId,
       title: operation.title,
-      dataHash: updateHash ? objectHash(operation.data!) : operation.dataHash,
       deprecated: operation.deprecated,
       apiKind: operation.apiKind,
       apiType: operation.apiType,

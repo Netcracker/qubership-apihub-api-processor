@@ -101,6 +101,7 @@ describe('Operation Bugs', () => {
       packageId: 'config_bug',
       version: '3.0',
       previousVersion: '1.0',
+      refs: [],
       files: [{
         fileId: 'petstore(publish_2).yaml',
         publish: true,

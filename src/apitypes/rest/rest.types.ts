@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import type { OpenAPIV3 } from 'openapi-types'
+import { OpenAPIV3 } from 'openapi-types'
 
 import type { ApiOperation, NotificationMessage, VersionDocument } from '../../types'
 import { REST_DOCUMENT_TYPE, REST_KIND_KEY, REST_SCOPES } from './rest.consts'

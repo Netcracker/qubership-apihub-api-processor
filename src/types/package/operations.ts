@@ -23,9 +23,9 @@ export type PackageOperations = {
 
 export interface PackageOperation {
   operationId: OperationId
+  documentId: string
   title: string
   apiType: OperationsApiType
-  dataHash: string
   deprecated: boolean
   apiKind: ApiKind
   metadata: RestMetadata | GraphQLMetaData

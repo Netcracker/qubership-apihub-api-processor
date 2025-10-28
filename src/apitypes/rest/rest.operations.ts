@@ -18,13 +18,17 @@ import { OpenAPIV3 } from 'openapi-types'
 
 import { buildRestOperation } from './rest.operation'
 import { OperationsBuilder } from '../../types'
-import { calculateOperationId, createBundlingErrorHandler, removeComponents } from '../../utils'
-import { getOperationBasePath } from './rest.utils'
+import {
+  calculateOperationId,
+  createBundlingErrorHandler,
+  removeComponents,
+} from '../../utils'
 import type * as TYPE from './rest.types'
 import { HASH_FLAG, INLINE_REFS_FLAG, MESSAGE_SEVERITY, NORMALIZE_OPTIONS, ORIGINS_SYMBOL } from '../../consts'
 import { asyncFunction } from '../../utils/async'
 import { logLongBuild, syncDebugPerformance } from '../../utils/logs'
 import { normalize, RefErrorType } from '@netcracker/qubership-apihub-api-unifier'
+import { extractOperationBasePath } from '@netcracker/qubership-apihub-api-diff'
 
 export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async (document, ctx, debugCtx) => {
   const documentWithoutComponents = removeComponents(document.data)
@@ -70,8 +74,7 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
 
       await asyncFunction(() => {
         const methodData = pathData[key as OpenAPIV3.HttpMethods]
-        const basePath = getOperationBasePath(methodData?.servers || pathData?.servers || servers || [])
-
+        const basePath = extractOperationBasePath(methodData?.servers || pathData?.servers || servers || [])
         const operationId = calculateOperationId(basePath, key, path)
 
         if (ctx.operationResolver(operationId)) {

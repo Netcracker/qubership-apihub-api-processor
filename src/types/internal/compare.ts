@@ -18,17 +18,25 @@ import { Diff, DiffType } from '@netcracker/qubership-apihub-api-diff'
 import {
   ApiKind,
   BuildConfig,
-  ChangeSummary, DiffTypeDto,
+  ChangeSummary,
+  DiffTypeDto,
   ImpactedOperationSummary,
   OperationType,
   PackageId,
   VersionComparisonResolver,
   VersionDeprecatedResolver,
+  VersionDocumentsResolver,
   VersionId,
   VersionOperationsResolver,
 } from '../external'
 import { ChangeMessage, NotificationMessage } from '../package'
-import { _VersionReferencesResolver, _VersionResolver, ApiBuilder, BuilderType } from './apiBuilder'
+import {
+  _RawDocumentResolver,
+  _VersionReferencesResolver,
+  _VersionResolver,
+  ApiBuilder,
+  BuilderType,
+} from './apiBuilder'
 
 export type ChangeKind = keyof ChangeSummary
 
@@ -53,8 +61,6 @@ export interface OperationChanges<T extends DiffType | DiffTypeDto = DiffType> {
   apiType: BuilderType
   apiKind?: ApiKind
   previousApiKind?: ApiKind
-  dataHash?: string
-  previousDataHash?: string
   changeSummary: ChangeSummary<T>
   impactedSummary: ImpactedOperationSummary
   // @deprecated. OOM problem
@@ -64,7 +70,7 @@ export interface OperationChanges<T extends DiffType | DiffTypeDto = DiffType> {
   }
   previousMetadata?: OperationChangesMetadata & {
     [key: string]: unknown
-  } 
+  }
 }
 
 export interface OperationChangesDto extends Omit<OperationChanges<DiffTypeDto>, 'diffs' | 'impactedSummary' | 'mergedJso'> {
@@ -98,4 +104,6 @@ export interface CompareContext {
   versionReferencesResolver: _VersionReferencesResolver
   versionComparisonResolver: VersionComparisonResolver
   versionDeprecatedResolver: VersionDeprecatedResolver
+  versionDocumentsResolver: VersionDocumentsResolver
+  rawDocumentResolver: _RawDocumentResolver
 }

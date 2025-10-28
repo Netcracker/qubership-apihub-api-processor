@@ -33,7 +33,7 @@
   "dependencies": {
     "@netcracker/qubership-apihub-api-diff": "feature-hash",
     "@netcracker/qubership-apihub-api-unifier": "feature-hash",
-    "@netcracker/qubership-apihub-graphapi": "1.0.8",
+    "@netcracker/qubership-apihub-graphapi": "feature-performance-optimization",
     "@netcracker/qubership-apihub-json-crawl": "1.0.4",
     "adm-zip": "0.5.10",
     "ajv": "^8.12.0",
