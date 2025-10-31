@@ -17,6 +17,8 @@
 import { API_AUDIENCE_INTERNAL, API_KIND } from '../src'
 import { Editor, LocalRegistry } from './helpers'
 
+import { describe, test, expect } from '@jest/globals'
+
 const bugsPackage = LocalRegistry.openPackage('bugs')
 const swaggerPackage = LocalRegistry.openPackage('basic_swagger')
 const migrationBug = LocalRegistry.openPackage('migration_bug')
@@ -356,5 +358,43 @@ describe('Operation Bugs', () => {
 
     const operationKeys = Array.from(result.operations.keys())
     expect(operationKeys[0]).toEqual('paths1-get')
+  })
+
+  test('Should throw error if path parameter name is empty', async () => {
+    const pkg = LocalRegistry.openPackage('empty-path-parameter')
+
+    await expect(pkg.publish(pkg.packageId, {
+      packageId: pkg.packageId,
+      version: 'v1',
+      files: [
+        { fileId: 'spec.json' },
+      ],
+    })).rejects.toThrow('Invalid path \'/res/data/{}\': path parameter name could not be empty')
+  })
+
+  test('Should throw error if duplicated operation is found', async () => {
+    const pkg = LocalRegistry.openPackage('duplicated-operation')
+
+    await expect(pkg.publish(pkg.packageId, {
+      packageId: pkg.packageId,
+      version: 'v1',
+      files: [
+        { fileId: 'spec1.json' },
+        { fileId: 'spec2.json' },
+      ],
+    })).rejects.toThrow('Duplicated operation with operationId \'res-data-post\' found')
+  })
+
+  //TODO: need to decide how to handle this case, this affects how operationIds are calculated
+  test.skip('Should build operations if there is a path parameter path collision', async () => {
+    const pkg = LocalRegistry.openPackage('path-parameter-path-collision')
+
+    const result = await pkg.publish(pkg.packageId, {
+      packageId: pkg.packageId,
+      version: 'v1',
+      files: [
+        { fileId: 'spec.json' },
+      ],
+    })
   })
 })

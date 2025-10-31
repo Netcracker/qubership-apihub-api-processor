@@ -24,7 +24,7 @@ import {
   removeComponents,
 } from '../../utils'
 import type * as TYPE from './rest.types'
-import { SEMANTIC_HASH_PROPERTY, INLINE_REFS_FLAG, MESSAGE_SEVERITY, NORMALIZE_OPTIONS, ORIGINS_SYMBOL } from '../../consts'
+import { SEMANTIC_HASH_PROPERTY, INLINE_REFS_FLAG, NORMALIZE_OPTIONS, ORIGINS_SYMBOL } from '../../consts'
 import { asyncFunction } from '../../utils/async'
 import { logLongBuild, syncDebugPerformance } from '../../utils/logs'
 import { normalize, RefErrorType } from '@netcracker/qubership-apihub-api-unifier'
@@ -66,6 +66,11 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
 
   const componentsHashMap = new Map<string, string>()
   for (const path of Object.keys(paths)) {
+    // Validate path parameters: empty parameter names are not allowed
+    if (path.includes('{}')) {
+      throw new Error(`Invalid path '${path}': path parameter name could not be empty`)
+    }
+
     const pathData = paths[path]
     if (typeof pathData !== 'object' || !pathData) { continue }
 
@@ -77,12 +82,6 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
         const basePath = extractOperationBasePath(methodData?.servers || pathData?.servers || servers || [])
         const operationId = calculateOperationId(basePath, key, path)
 
-        if (ctx.operationResolver(operationId)) {
-          ctx.notifications.push({
-            severity: MESSAGE_SEVERITY.Warning,
-            message: `Duplicated operation with operationId = ${operationId} found`,
-          })
-        }
         syncDebugPerformance('[Operation]', (innerDebugCtx) =>
           logLongBuild(() => {
             const operation = buildRestOperation(
