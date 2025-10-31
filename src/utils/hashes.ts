@@ -16,6 +16,7 @@
 
 import objectHash, { NotUndefined } from 'object-hash'
 
+//TODO: replace with direct access to property and fail fast
 export function calculateObjectHash(value: NotUndefined): string {
   // object hash works only with object keys available in Object.keys() method
   return objectHash(value, { algorithm: 'md5' })

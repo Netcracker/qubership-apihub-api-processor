@@ -130,6 +130,7 @@ export const matchSharedComponent = (jsonPath: JsonPath): MatchResult | undefine
   return { componentType, componentName }
 }
 
+//TODO: replace with direct access to property and fail fast
 export function calculateTolerantHash(value: Jso, notifications: NotificationMessage[]): string | undefined {
   try {
     const tolerantHash: Hash | undefined = Object.keys(value).length > 0
