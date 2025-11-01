@@ -1,0 +1,35 @@
+openapi: "3.0.0"
+info:
+  title: Product API
+  version: 1.0.0
+paths:
+  /api/products:
+    get:
+      operationId: getProducts
+      summary: Get products
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Person'
+components:
+  schemas:
+    Person:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Person's full name
+        email:
+          type: string
+          format: email
+          description: Person's email address
+        address:
+          type: string
+          description: Person's home address
+      required:
+        - name
+        - email
+

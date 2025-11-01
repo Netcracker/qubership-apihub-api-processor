@@ -1,0 +1,19 @@
+{
+  "packageId": "rest-build-models-different",
+  "apiType": "rest",
+  "version": "v1",
+  "files": [
+    {
+      "fileId": "spec1.yaml",
+      "publish": true,
+      "labels": [],
+      "commitId": "commit1"
+    },
+    {
+      "fileId": "spec2.yaml",
+      "publish": true,
+      "labels": [],
+      "commitId": "commit2"
+    }
+  ]
+}

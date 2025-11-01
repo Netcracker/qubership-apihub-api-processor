@@ -1,0 +1,31 @@
+openapi: "3.0.0"
+info:
+  title: User API
+  version: 1.0.0
+paths:
+  /api/users:
+    get:
+      operationId: getUsers
+      summary: Get users
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Person'
+components:
+  schemas:
+    Person:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Person's name
+        age:
+          type: integer
+          description: Person's age
+      required:
+        - name
+        - age
+
