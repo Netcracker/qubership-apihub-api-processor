@@ -18,7 +18,7 @@ import type { VersionGraphQLOperation } from './graphql.types'
 import { removeComponents, slugify } from '../../utils'
 import type { OperationsBuilder } from '../../types'
 import { GRAPHQL_TYPE, GRAPHQL_TYPE_KEYS } from './graphql.consts'
-import { INLINE_REFS_FLAG, NORMALIZE_OPTIONS, ORIGINS_SYMBOL } from '../../consts'
+import { HASH_PROPERTY, INLINE_REFS_FLAG, NORMALIZE_OPTIONS, ORIGINS_SYMBOL } from '../../consts'
 import { GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
 import { buildGraphQLOperation } from './graphql.operation'
 import { asyncFunction } from '../../utils/async'
@@ -35,6 +35,9 @@ export const buildGraphQLOperations: OperationsBuilder<GraphApiSchema> = async (
       documentWithoutComponents,
       {
         ...NORMALIZE_OPTIONS,
+        hashProperty: HASH_PROPERTY,
+        // we do not have reclassification of changes to risky in GraphQL yet, so we do not need semantic hash
+        // semanticHashProperty: SEMANTIC_HASH_PROPERTY,
         originsFlag: ORIGINS_SYMBOL,
         source: document.data,
       },

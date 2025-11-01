@@ -64,8 +64,7 @@ import {
   resolveOrigins,
 } from '@netcracker/qubership-apihub-api-unifier'
 import { extractOperationBasePath } from '@netcracker/qubership-apihub-api-diff'
-import { calculateObjectHash } from '../../utils/hashes'
-import { calculateTolerantHash } from '../../components/deprecated'
+import { calculateObjectHash, getSemanticHash, getHash } from '../../utils/hashes'
 import { getValueByPath } from '../../utils/path'
 
 export const buildRestOperation = (
@@ -124,8 +123,8 @@ export const buildRestOperation = (
       const isOperation = isOperationPaths(declarationJsonPaths)
       const [version] = getSplittedVersionKey(config.version)
 
-      const tolerantHash = isOperation ? undefined : calculateTolerantHash(value, notifications)
-      const hash = isOperation ? undefined : calculateObjectHash(value)
+      const tolerantHash = isOperation ? undefined : getSemanticHash(value)
+      const hash = isOperation ? undefined : getHash(value)
 
       deprecatedItems.push({
         declarationJsonPaths,
@@ -235,6 +234,7 @@ export const calculateSpecRefs = (
       if (componentHash) {
         models[componentName] = componentHash
       } else {
+        //TODO: replace with getHash after per-document processing is implemented
         componentHash = calculateObjectHash(component)
         componentsHashMap?.set(componentName, componentHash)
         models[componentName] = componentHash

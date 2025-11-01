@@ -129,27 +129,3 @@ export const matchSharedComponent = (jsonPath: JsonPath): MatchResult | undefine
   }
   return { componentType, componentName }
 }
-
-//TODO: replace with direct access to property and fail fast
-export function calculateTolerantHash(value: Jso, notifications: NotificationMessage[]): string | undefined {
-  try {
-    const tolerantHash: Hash | undefined = Object.keys(value).length > 0
-      ? SEMANTIC_HASH_PROPERTY in value ? value[SEMANTIC_HASH_PROPERTY] as Hash | undefined : undefined
-      : undefined
-
-    if (!tolerantHash) {
-      notifications.push({
-        severity: MESSAGE_SEVERITY.Error,
-        message: '[Deprecated items] Tolerant hash is not defined',
-      })
-      return undefined
-    }
-    return tolerantHash
-  } catch (error) {
-    notifications.push({
-      severity: MESSAGE_SEVERITY.Error,
-      message: '[Deprecated items] Something wrong with tolerant hash',
-    })
-    return undefined
-  }
-}

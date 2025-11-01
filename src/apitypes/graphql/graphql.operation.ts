@@ -31,7 +31,7 @@ import { GraphQLSchemaType, VersionGraphQLDocument, VersionGraphQLOperation } fr
 import { GRAPHQL_API_TYPE, GRAPHQL_TYPE } from './graphql.consts'
 import { GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
 import { toTitleCase } from '../../utils/strings'
-import { calculateObjectHash } from '../../utils/hashes'
+import { getHash } from '../../utils/hashes'
 import {
   calculateDeprecatedItems,
   GRAPH_API_PROPERTY_COMPONENTS,
@@ -73,7 +73,7 @@ export const buildGraphQLOperation = (
       const isOperation = isOperationPaths(declarationJsonPaths)
       const [version] = getSplittedVersionKey(config.version)
 
-      const hash = isOperation ? undefined : calculateObjectHash(value)
+      const hash = isOperation ? undefined : getHash(value)
       result.push({
         declarationJsonPaths,
         ...takeIfDefined({ description }),

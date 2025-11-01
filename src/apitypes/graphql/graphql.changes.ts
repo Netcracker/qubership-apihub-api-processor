@@ -16,7 +16,7 @@
 
 import { isEmpty, slugify, takeIf } from '../../utils'
 import { aggregateDiffsWithRollup, apiDiff, Diff, DIFF_META_KEY, DIFFS_AGGREGATED_META_KEY } from '@netcracker/qubership-apihub-api-diff'
-import { NORMALIZE_OPTIONS, ORIGINS_SYMBOL } from '../../consts'
+import { HASH_PROPERTY, NORMALIZE_OPTIONS, ORIGINS_SYMBOL } from '../../consts'
 import { GraphApiOperation, GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
 import { buildSchema } from 'graphql/utilities'
 import { buildGraphQLDocument } from './graphql.document'
@@ -70,6 +70,7 @@ export const compareDocuments = async (
     currDocData,
     {
       ...NORMALIZE_OPTIONS,
+      hashProperty: HASH_PROPERTY,
       metaKey: DIFF_META_KEY,
       originsFlag: ORIGINS_SYMBOL,
       normalizedResult: true,

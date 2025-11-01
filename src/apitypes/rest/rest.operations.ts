@@ -24,7 +24,7 @@ import {
   removeComponents,
 } from '../../utils'
 import type * as TYPE from './rest.types'
-import { SEMANTIC_HASH_PROPERTY, INLINE_REFS_FLAG, NORMALIZE_OPTIONS, ORIGINS_SYMBOL } from '../../consts'
+import { SEMANTIC_HASH_PROPERTY, INLINE_REFS_FLAG, NORMALIZE_OPTIONS, ORIGINS_SYMBOL, HASH_PROPERTY } from '../../consts'
 import { asyncFunction } from '../../utils/async'
 import { logLongBuild, syncDebugPerformance } from '../../utils/logs'
 import { normalize, RefErrorType } from '@netcracker/qubership-apihub-api-unifier'
@@ -40,6 +40,7 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
       {
         ...NORMALIZE_OPTIONS,
         originsFlag: ORIGINS_SYMBOL,
+        hashProperty: HASH_PROPERTY,
         semanticHashProperty: SEMANTIC_HASH_PROPERTY,
         source: document.data,
         onRefResolveError: (message: string, _path: PropertyKey[], _ref: string, errorType: RefErrorType) =>

@@ -37,7 +37,7 @@ import {
   DIFFS_AGGREGATED_META_KEY,
   risky,
 } from '@netcracker/qubership-apihub-api-diff'
-import { MESSAGE_SEVERITY, NORMALIZE_OPTIONS, ORIGINS_SYMBOL } from '../../consts'
+import { HASH_PROPERTY, MESSAGE_SEVERITY, NORMALIZE_OPTIONS, ORIGINS_SYMBOL } from '../../consts'
 import {
   BREAKING_CHANGE_TYPE,
   CompareOperationsPairContext,
@@ -55,7 +55,7 @@ import {
   resolveOrigins,
 } from '@netcracker/qubership-apihub-api-unifier'
 import { findRequiredRemovedProperties } from './rest.required'
-import { calculateObjectHash } from '../../utils/hashes'
+import { getHash } from '../../utils/hashes'
 import { REST_API_TYPE } from './rest.consts'
 import { OpenAPIV3 } from 'openapi-types'
 import {
@@ -124,6 +124,7 @@ export const compareDocuments = async (
     currDocData,
     {
       ...NORMALIZE_OPTIONS,
+      hashProperty: HASH_PROPERTY,
       metaKey: DIFF_META_KEY,
       originsFlag: ORIGINS_SYMBOL,
       normalizedResult: true,
@@ -249,7 +250,7 @@ async function reclassifyBreakingChanges(
       continue
     }
 
-    const beforeHash = calculateObjectHash(diff.beforeNormalizedValue)
+    const beforeHash = getHash(diff.beforeNormalizedValue)
 
     const deprecatedItems = previousOperation?.deprecatedItems ?? []
     let deprecatedItem

@@ -15,7 +15,7 @@
  */
 
 import { Diff, DiffAction, DiffType, risky } from '@netcracker/qubership-apihub-api-diff'
-import { calculateObjectHash } from './hashes'
+import { getHash } from './hashes'
 import { ArrayType, isEmpty } from './arrays'
 import {
   ChangeMessage,
@@ -64,7 +64,7 @@ export function toChangeMessage(diff: ArrayType<Diff[]>, logError: (message: str
         ...commonChangeProps,
         action,
         currentDeclarationJsonPaths: afterDeclarationPaths,
-        currentValueHash: afterNormalizedValue !== undefined ? calculateObjectHash(afterNormalizedValue) : '',
+        currentValueHash: afterNormalizedValue !== undefined ? getHash(afterNormalizedValue) : '',
       }
     }
     case DiffAction.remove: {
@@ -82,7 +82,7 @@ export function toChangeMessage(diff: ArrayType<Diff[]>, logError: (message: str
         ...commonChangeProps,
         action,
         previousDeclarationJsonPaths: beforeDeclarationPaths,
-        previousValueHash: beforeNormalizedValue !== undefined ? calculateObjectHash(beforeNormalizedValue) : '',
+        previousValueHash: beforeNormalizedValue !== undefined ? getHash(beforeNormalizedValue) : '',
       }
     }
     case DiffAction.replace: {
@@ -103,8 +103,8 @@ export function toChangeMessage(diff: ArrayType<Diff[]>, logError: (message: str
         action,
         currentDeclarationJsonPaths: afterDeclarationPaths,
         previousDeclarationJsonPaths: beforeDeclarationPaths,
-        currentValueHash: afterNormalizedValue !== undefined ? calculateObjectHash(afterNormalizedValue) : '',
-        previousValueHash: beforeNormalizedValue !== undefined ? calculateObjectHash(beforeNormalizedValue) : '',
+        currentValueHash: afterNormalizedValue !== undefined ? getHash(afterNormalizedValue) : '',
+        previousValueHash: beforeNormalizedValue !== undefined ? getHash(beforeNormalizedValue) : '',
       }
     }
     case DiffAction.rename: {
