@@ -145,6 +145,8 @@ export const ORIGINS_SYMBOL = Symbol('origins')
 export const HASH_PROPERTY = Symbol('hash')
 export const SEMANTIC_HASH_PROPERTY = Symbol('semantic-hash')
 export const INLINE_REFS_FLAG = Symbol('inline-refs')
+export const AFTER_VALUE_NORMALIZED_PROPERTY = Symbol('after-value-normalized')
+export const BEFORE_VALUE_NORMALIZED_PROPERTY = Symbol('before-value-normalized')
 
 export const NORMALIZE_OPTIONS: NormalizeOptions = {
   validate: true,
