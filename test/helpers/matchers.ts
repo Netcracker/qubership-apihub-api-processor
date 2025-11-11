@@ -211,7 +211,7 @@ export function securitySchemesFromRequirementsMatcher(
 
   return {
     asymmetricMatch: (actual: SecuritySchemesObject): boolean => {
-      if (!actual || typeof actual !== 'object') {
+      if (!actual) {
         return false
       }
 
