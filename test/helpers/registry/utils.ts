@@ -20,7 +20,10 @@ import {
   ApiOperation,
   BuildConfig,
   BuilderContext,
+  ComparisonInternalDocumentMetadata,
+  ComparisonInternalDocument,
   FILE_FORMAT_JSON,
+  InternalDocumentMetadata,
   NotificationMessage,
   PackageDocuments,
   PackageOperations,
@@ -29,7 +32,6 @@ import {
   VersionsComparisonDto,
 } from '../../../src'
 import { PACKAGE } from '../../../src/consts'
-import objectHash from 'object-hash'
 import { toPackageDocument } from '../../../src/utils'
 
 export async function saveComparisonsArray(
@@ -42,6 +44,37 @@ export async function saveComparisonsArray(
   )
 }
 
+export async function saveVersionInternalDocuments(
+  documents: Map<string, VersionDocument>,
+  basePath: string,
+): Promise<void> {
+  await fs.mkdir(`${basePath}/${PACKAGE.VERSION_INTERNAL_DOCUMENTS_DIR_NAME}`)
+  for (const document of documents.values()) {
+    const {publish, internalDocumentId, internalDocument } = document
+    if (!publish || !internalDocumentId || !internalDocument) { continue }
+    await fs.writeFile(
+      `${basePath}/${PACKAGE.VERSION_INTERNAL_DOCUMENTS_DIR_NAME}/${internalDocumentId}.${FILE_FORMAT_JSON}`,
+      internalDocument,
+    )
+  }
+}
+
+export async function saveComparisonInternalDocuments(
+  comparisons: ComparisonInternalDocument[],
+  basePath: string,
+): Promise<void> {
+  if (!comparisons.length) {
+    return
+  }
+  await fs.mkdir(`${basePath}/${PACKAGE.COMPARISON_INTERNAL_DOCUMENTS_DIR_NAME}`)
+  for (const document of comparisons) {
+    await fs.writeFile(
+      `${basePath}/${PACKAGE.COMPARISON_INTERNAL_DOCUMENTS_DIR_NAME}/${document.id}.${FILE_FORMAT_JSON}`,
+      document.value,
+    )
+  }
+}
+
 export async function saveEachComparison(
   comparisons: VersionsComparisonDto[],
   basePath: string,
@@ -49,7 +82,7 @@ export async function saveEachComparison(
   await fs.mkdir(`${basePath}/${PACKAGE.COMPARISONS_DIR_NAME}`)
   for (const comparison of comparisons.values()) {
     comparison.comparisonFileId && await fs.writeFile(
-      `${basePath}/${PACKAGE.COMPARISONS_DIR_NAME}/${comparison.comparisonFileId}.json`,
+      `${basePath}/${PACKAGE.COMPARISONS_DIR_NAME}/${comparison.comparisonFileId}.${FILE_FORMAT_JSON}`,
       JSON.stringify({ operations: comparison.data }, undefined, 2),
     )
   }
@@ -109,6 +142,55 @@ export async function saveDocumentsArray(
   )
 }
 
+export async function saveVersionInternalDocumentsArray(
+  documents: Map<string, VersionDocument>,
+  basePath: string,
+): Promise<void> {
+  const result: { documents: InternalDocumentMetadata[] } = { documents: [] }
+
+  for (const document of documents.values()) {
+    const {publish, internalDocumentId} = document
+    if (!publish || !internalDocumentId) { continue }
+
+    result.documents.push({
+      id: internalDocumentId,
+      filename: `${internalDocumentId}.${FILE_FORMAT_JSON}`,
+    })
+  }
+  if (!result.documents.length) {
+    return
+  }
+  await fs.writeFile(
+    `${basePath}/${PACKAGE.VERSION_INTERNAL_FILE_NAME}`,
+    JSON.stringify(result, undefined, 2),
+  )
+}
+
+export async function saveComparisonInternalDocumentsArray(
+  comparisons: ComparisonInternalDocument[],
+  basePath: string,
+): Promise<void> {
+  if (!comparisons.length) {
+    return
+  }
+  const result: { documents: ComparisonInternalDocumentMetadata[] } = { documents: [] }
+  for (const document of comparisons) {
+    const { comparisonFileId, id } = document
+    result.documents.push({
+      id,
+      filename: `${id}.${FILE_FORMAT_JSON}`,
+      comparisonFileId,
+    })
+  }
+  if (!result.documents.length) {
+    return
+  }
+  await fs.writeFile(
+    `${basePath}/${PACKAGE.COMPARISON_INTERNAL_FILE_NAME}`,
+    JSON.stringify(result, undefined, 2),
+  )
+}
+
 export function getDocumentsFileContent(
   documentsMap: Map<string, VersionDocument>,
 ): string {
@@ -154,6 +236,7 @@ export function getOperationsFileContent(
       models: operation.models,
       tags: operation.tags,
       apiAudience: operation.apiAudience,
+      versionInternalDocumentId: operation.versionInternalDocumentId,
     })
   }
 

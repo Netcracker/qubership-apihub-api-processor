@@ -60,6 +60,8 @@ export interface VersionDocument<T = any> extends ZippableDocument<T> {
   publish?: boolean
   source?: Blob
   apiKind?: string
+  internalDocumentId?: string
+  internalDocument?: string
 }
 
 export type FileFormat = KeyOfConstType<typeof FILE_FORMAT>
