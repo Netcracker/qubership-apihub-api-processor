@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
+import { LocalRegistry, notificationMatcher, notificationsMatcher } from './helpers'
 import { describe, expect, test } from '@jest/globals'
 import { calculateRestOperationId, calculateNormalizedRestOperationId } from '../src/utils/operations.utils'
+import { MESSAGE_SEVERITY } from '../src'
 
 describe('Operation ID collisions', () => {
   describe('operationID and normalizedOperationId calculation', () => {
@@ -103,5 +105,129 @@ describe('Operation ID collisions', () => {
         expect(actualNormalizedOperationId).toBe(data.normalizedOperationId)
       })
     })
+  })
+
+  test('Should report error notification if path parameter name is empty', async () => {
+    const pkg = LocalRegistry.openPackage('operationId-collisions/empty-path-parameter-name')
+
+    const result = await pkg.publish(pkg.packageId, {
+      packageId: pkg.packageId,
+      version: 'v1',
+      files: [
+        { fileId: 'spec.json' },
+      ],
+    })
+
+    expect(result).toEqual(notificationsMatcher([
+      notificationMatcher(MESSAGE_SEVERITY.Error, 'Invalid path \'/res/data/{}\': path parameter name could not be empty'),
+    ]))
+  })
+
+  test('Should report warning notification if there is a double slash in the path', async () => {
+    const pkg = LocalRegistry.openPackage('operationId-collisions/double-slash-in-path')
+
+    const result = await pkg.publish(pkg.packageId, {
+      packageId: pkg.packageId,
+      version: 'v1',
+      files: [
+        { fileId: 'spec.json' },
+      ],
+    })
+    expect(result).toEqual(notificationsMatcher([
+      notificationMatcher(MESSAGE_SEVERITY.Warning, 'Path \'/res//data\' contains double slash sequence'),
+    ]))
+    expect(result.operations.size).toBe(1)
+  })
+
+  test('Should throw error if duplicated operation is found in different documents', async () => {
+    const pkg = LocalRegistry.openPackage('operationId-collisions/same-path-different-documents')
+
+    await expect(pkg.publish(pkg.packageId, {
+      packageId: pkg.packageId,
+      version: 'v1',
+      files: [
+        { fileId: 'spec1.json' },
+        { fileId: 'spec2.json' },
+      ],
+    })).rejects.toThrow('Duplicated operationId \'res-data-post\' found in different documents: \'spec1\' and \'spec2\'')
+  })
+
+  test('Should throw error if duplicated operation is found within document', async () => {
+    const pkg = LocalRegistry.openPackage('operationId-collisions/same-operationId-same-document')
+
+    await expect(pkg.publish(pkg.packageId, {
+      packageId: pkg.packageId,
+      version: 'v1',
+      files: [
+        { fileId: 'spec.json' },
+      ],
+    })).rejects.toThrow('Duplicated operationIds found:\n- operationId "api-v1-resource-get": found 2 operations: GET /api/v1/resource, GET /api-v1-resource')
+  })
+
+  test('Should throw error for duplication within document even if second document has same operationId', async () => {
+    const pkg = LocalRegistry.openPackage('operationId-collisions/same-operationId-same-and-other-document')
+
+    await expect(pkg.publish(pkg.packageId, {
+      packageId: pkg.packageId,
+      version: 'v1',
+      files: [
+        { fileId: 'spec1.json' },
+        { fileId: 'spec2.json' },
+      ],
+    })).rejects.toThrow('Duplicated operationIds found:\n- operationId "api-v1-resource-get": found 2 operations: GET /api/v1/resource, GET /api-v1-resource')
+  })
+
+  test('Should detect all duplicate operationIds within document', async () => {
+    const pkg = LocalRegistry.openPackage('operationId-collisions/several-duplicate-operationId-same-document')
+
+    await expect(pkg.publish(pkg.packageId, {
+      packageId: pkg.packageId,
+      version: 'v1',
+      files: [
+        { fileId: 'spec.json' },
+      ],
+    })).rejects.toThrow('Duplicated operationIds found:\n- operationId "api-v1-resource-get": found 2 operations: GET /api/v1/resource, GET /api-v1-resource\n- operationId "api-v1-user-post": found 2 operations: POST /api/v1/user, POST /api-v1-user')
+  })
+
+  test('Should detect three or more operations with same operationId', async () => {
+    const pkg = LocalRegistry.openPackage('operationId-collisions/same-operationId-many-operations-same-document')
+
+    await expect(pkg.publish(pkg.packageId, {
+      packageId: pkg.packageId,
+      version: 'v1',
+      files: [
+        { fileId: 'spec.json' },
+      ],
+    })).rejects.toThrow(
+      'Duplicated operationIds found:\n- operationId "api-v1-resource-get": found 3 operations: GET /api/v1/resource, GET /api-v1-resource, GET /api/v1-resource',
+    )
+  })
+
+  test('Should build specification containing wildcard and param paths', async () => {
+    const pkg = LocalRegistry.openPackage('operationId-collisions/path-wildcards')
+
+    const result = await pkg.publish(pkg.packageId, {
+      packageId: pkg.packageId,
+      version: 'v1',
+      files: [
+        { fileId: 'spec.json', publish: true },
+      ],
+    })
+
+    expect(result.operations.size).toEqual(5)
+  })
+
+  test('Should build operations if there is a path parameter path collision', async () => {
+    const pkg = LocalRegistry.openPackage('operationId-collisions/path-parameter-path-collision')
+
+    const result = await pkg.publish(pkg.packageId, {
+      packageId: pkg.packageId,
+      version: 'v1',
+      files: [
+        { fileId: 'spec.json' },
+      ],
+    })
+
+    expect(result.operations.size).toEqual(2)
   })
 })
