@@ -19,7 +19,7 @@ import { OpenAPIV3 } from 'openapi-types'
 import { buildRestOperation } from './rest.operation'
 import { OperationsBuilder } from '../../types'
 import {
-  calculateOperationId,
+  calculateRestOperationId,
   createBundlingErrorHandler,
   removeComponents,
 } from '../../utils'
@@ -85,7 +85,7 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
       await asyncFunction(() => {
         const methodData = pathData[key as OpenAPIV3.HttpMethods]
         const basePath = extractOperationBasePath(methodData?.servers || pathData?.servers || servers || [])
-        const operationId = calculateOperationId(basePath, key, path)
+        const operationId = calculateRestOperationId(basePath, path, key)
 
         const trackedOperations = operationIdMap.get(operationId) ?? []
         trackedOperations.push({ path, method: key })

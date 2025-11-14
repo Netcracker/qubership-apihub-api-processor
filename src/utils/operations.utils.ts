@@ -18,8 +18,8 @@ import { ApiOperation, BuildResult, OperationIdNormalizer } from '../types'
 import { GraphApiComponents, GraphApiDirectiveDefinition } from '@netcracker/qubership-apihub-graphapi'
 import { OpenAPIV3 } from 'openapi-types'
 import { isObject } from './objects'
-import { IGNORE_PATH_PARAM_UNIFIED_PLACEHOLDER, slugify } from './document'
-import { removeFirstSlash } from './builder'
+import { slugify } from './document'
+import { normalizePath, removeFirstSlash } from './builder'
 import { Diff, DiffAction } from '@netcracker/qubership-apihub-api-diff'
 import { matchPaths, OPEN_API_PROPERTY_PATHS, PREDICATE_ANY_VALUE } from '@netcracker/qubership-apihub-api-unifier'
 import { DirectiveLocation } from 'graphql/language'
@@ -92,16 +92,47 @@ export const isValidHttpMethod = (method: string): method is OpenAPIV3.HttpMetho
   return HTTP_METHODS_SET.has(method)
 }
 
-export const calculateNormalizedOperationId: OperationIdNormalizer = (operation) => {
-  const { metadata: { path, method } } = operation
-  return slugify(`${path}-${method}`, [], IGNORE_PATH_PARAM_UNIFIED_PLACEHOLDER)
+/**
+ * Encoder for operation IDs that provides following guarantees:
+ * - safe for use as a URL parameter
+ * - safe for use as a filename
+ * It is also somewhat human-readable, but not as much as slugs.
+ * 
+ * Note that we had significant number of operationIds collisions when using slugs,
+ * hence we intentionally replaced slugs with this encoder which is
+ * less human-readable, but provides better uniqueness guarantees.
+ *
+ * @param operationId
+ * @returns
+ */
+export const encodeOperationId = (operationId: string): string => {
+  return encodeURIComponent(operationId.replace(/\//g, '-'))
+    .replace(/\*/g, '%2A')
 }
 
-export const calculateOperationId = (
+/**
+ * Calculates a normalized operation ID for an operation.
+ * Normalized operation ID has path parameters encoded as the same symbol.
+ *
+ * @param basePath - The base path from servers configuration
+ * @param path - The operation path
+ * @param method - The HTTP method
+ * @returns The normalized operation ID
+ */
+export const calculateNormalizedRestOperationId = (basePath: string, path: string, method: string): string => {
+  return encodeOperationId(`${removeFirstSlash(normalizePath(basePath + path))}-${method}`)
+}
+
+export const calculateRestOperationId = (
   basePath: string,
-  key: string,
   path: string,
+  key: string,
 ): string => {
   const operationPath = basePath + path
-  return slugify(`${removeFirstSlash(operationPath)}-${key}`)
+  return encodeOperationId(`${removeFirstSlash(operationPath)}-${key}`)
+}
+
+export const restOperationIdNormalizer: OperationIdNormalizer = (operation) => {
+  const { metadata: { path, method } } = operation
+  return calculateNormalizedRestOperationId('', path, method)
 }
