@@ -76,12 +76,15 @@ export function toPackageDocument(document: VersionDocument): PackageDocument {
 export function setDocument(buildResult: BuildResult, document: VersionDocument, operations: ApiOperation[] = []): void {
   buildResult.documents.set(document.fileId, document)
   for (const operation of operations) {
-    if (buildResult.operations.has(operation.operationId)) {
-      const existingOperation = buildResult.operations.get(operation.operationId)!
-      throw new Error(
-        `Duplicated operationId '${operation.operationId}' found in different documents: ` +
-        `'${existingOperation.documentId}' and '${operation.documentId}'`,
-      )
+    const existingOperation = buildResult.operations.get(operation.operationId)
+    if (existingOperation) {
+      buildResult.notifications.push({
+        severity: MESSAGE_SEVERITY.Error,
+        message: `Duplicated operationId '${operation.operationId}' found in different documents: ` +
+          `'${existingOperation.documentId}' and '${operation.documentId}'`,
+        operationId: operation.operationId,
+        fileId: operation.documentId,
+      })
     }
     buildResult.operations.set(operation.operationId, operation)
   }
