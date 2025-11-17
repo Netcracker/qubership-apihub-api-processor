@@ -276,8 +276,8 @@ describe('Prefix Groups test', () => {
     //check operation ids
     expect(result).toEqual(operationChangesMatcher([
       expect.objectContaining({
-        operationId: 'api-v2-users-%7Bid%7D-posts-get',
-        previousOperationId: 'api-v1-users-%7BuserId%7D-posts-get',
+        operationId: 'api-v2-users-_id_-posts-get',
+        previousOperationId: 'api-v1-users-_userId_-posts-get',
       }),
     ]))
   })

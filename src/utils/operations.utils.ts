@@ -18,7 +18,7 @@ import { ApiOperation, BuildResult, OperationIdNormalizer } from '../types'
 import { GraphApiComponents, GraphApiDirectiveDefinition } from '@netcracker/qubership-apihub-graphapi'
 import { OpenAPIV3 } from 'openapi-types'
 import { isObject } from './objects'
-import { slugify } from './document'
+import { SLUG_OPTIONS_NORMALIZED_OPERATION_ID, SLUG_OPTIONS_OPERATION_ID, slugify } from './slugify'
 import { normalizePath, removeFirstSlash } from './builder'
 import { Diff, DiffAction } from '@netcracker/qubership-apihub-api-diff'
 import { matchPaths, OPEN_API_PROPERTY_PATHS, PREDICATE_ANY_VALUE } from '@netcracker/qubership-apihub-api-unifier'
@@ -27,10 +27,6 @@ import { HTTP_METHODS_SET } from '../consts'
 
 export function getOperationsList(buildResult: BuildResult): ApiOperation[] {
   return [...buildResult.operations.values()]
-}
-
-export function convertToSlug(text: string): string {
-  return slugify(removeFirstSlash(text))
 }
 
 // The function to remove components is used in several APIHUB libraries.
@@ -93,26 +89,8 @@ export const isValidHttpMethod = (method: string): method is OpenAPIV3.HttpMetho
 }
 
 /**
- * Encoder for operation IDs that provides following guarantees:
- * - safe for use as a URL parameter
- * - safe for use as a filename
- * It is also somewhat human-readable, but not as much as slugs.
- * 
- * Note that we had significant number of operationIds collisions when using slugs,
- * hence we intentionally replaced slugs with this encoder which is
- * less human-readable, but provides better uniqueness guarantees.
- *
- * @param operationId
- * @returns
- */
-export const encodeOperationId = (operationId: string): string => {
-  return encodeURIComponent(operationId.replace(/\//g, '-'))
-    .replace(/\*/g, '%2A')
-}
-
-/**
  * Calculates a normalized operation ID for an operation.
- * Normalized operation ID has path parameters encoded as the same symbol.
+ * Normalized operation ID has path parameters encoded as *.
  *
  * @param basePath - The base path from servers configuration
  * @param path - The operation path
@@ -120,16 +98,27 @@ export const encodeOperationId = (operationId: string): string => {
  * @returns The normalized operation ID
  */
 export const calculateNormalizedRestOperationId = (basePath: string, path: string, method: string): string => {
-  return encodeOperationId(`${removeFirstSlash(normalizePath(basePath + path))}-${method}`)
+  const pathSlug = slugify(removeFirstSlash(normalizePath(basePath + path)), SLUG_OPTIONS_NORMALIZED_OPERATION_ID)
+  return `${pathSlug}-${method.toLowerCase()}`  // method is added after slugify to avoid several consecutive hyphens collapsing into one
 }
 
+/**
+ * Calculates a rest operation ID for an operation.
+ * Operation Id is supposed to be safe to use in a URL without encoding
+ * and safe for use as a filename
+ *
+ * @param basePath - The base path from servers configuration
+ * @param path - The operation path
+ * @param method - The HTTP method
+ * @returns The rest operation ID
+ */
 export const calculateRestOperationId = (
   basePath: string,
   path: string,
-  key: string,
+  method: string,
 ): string => {
-  const operationPath = basePath + path
-  return encodeOperationId(`${removeFirstSlash(operationPath)}-${key}`)
+  const pathSlug = slugify(removeFirstSlash(basePath + path), SLUG_OPTIONS_OPERATION_ID)
+  return `${pathSlug}-${method.toLowerCase()}`  // method is added after slugify to avoid several consecutive hyphens collapsing into one
 }
 
 export const restOperationIdNormalizer: OperationIdNormalizer = (operation) => {

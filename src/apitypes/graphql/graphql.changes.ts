@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { isEmpty, slugify, takeIf } from '../../utils'
+import { isEmpty, SLUG_OPTIONS_OPERATION_ID, slugify, takeIf } from '../../utils'
 import { aggregateDiffsWithRollup, apiDiff, Diff, DIFF_META_KEY, DIFFS_AGGREGATED_META_KEY } from '@netcracker/qubership-apihub-api-diff'
 import {
   AFTER_VALUE_NORMALIZED_PROPERTY,
@@ -99,7 +99,7 @@ export const compareDocuments = async (
     if (!operationsByType) { continue }
 
     for (const operationKey of Object.keys(operationsByType)) {
-      const operationId = slugify(`${GRAPHQL_TYPE[type]}-${operationKey}`)
+      const operationId = slugify(`${GRAPHQL_TYPE[type]}-${operationKey}`, SLUG_OPTIONS_OPERATION_ID)
       const methodData = operationsByType[operationKey]
 
       const { current, previous } = operationsMap[operationId] ?? {}

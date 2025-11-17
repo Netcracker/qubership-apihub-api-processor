@@ -29,7 +29,7 @@ describe('Custom tag test', () => {
     const secondOperationWithCustomTag = result.operations.get('api-v1-integrations-gitlab-apikey-put')
     expect(JSON.stringify(secondOperationWithCustomTag!.metadata.customTags['x-operation-meta']))
       .toBe(JSON.stringify({ 'message': 'Custom tag can contain objects too' }))
-    const thirdOperationWithCustomTag = result.operations.get('api-v1-integrations-%7BintegrationType%7D-repositories-get')
+    const thirdOperationWithCustomTag = result.operations.get('api-v1-integrations-_integrationType_-repositories-get')
     expect(JSON.stringify(thirdOperationWithCustomTag!.metadata.customTags['x-operation-meta']))
       .toBe(JSON.stringify(['There can be arrays passed too']))
   })

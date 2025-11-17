@@ -15,7 +15,7 @@
  */
 
 import type { VersionGraphQLOperation } from './graphql.types'
-import { removeComponents, slugify } from '../../utils'
+import { removeComponents, SLUG_OPTIONS_OPERATION_ID, slugify } from '../../utils'
 import type { OperationsBuilder } from '../../types'
 import { GRAPHQL_TYPE, GRAPHQL_TYPE_KEYS } from './graphql.consts'
 import { INLINE_REFS_FLAG, NORMALIZE_OPTIONS, ORIGINS_SYMBOL } from '../../consts'
@@ -65,7 +65,7 @@ export const buildGraphQLOperations: OperationsBuilder<GraphApiSchema> = async (
 
     for (const operationKey of Object.keys(operationsByType)) {
       await asyncFunction(async () => {
-        const operationId = slugify(`${GRAPHQL_TYPE[type]}-${operationKey}`)
+        const operationId = slugify(`${GRAPHQL_TYPE[type]}-${operationKey}`, SLUG_OPTIONS_OPERATION_ID)
 
         syncDebugPerformance('[Operation]', (innerDebugCtx) =>
           logLongBuild(() => {
@@ -82,7 +82,7 @@ export const buildGraphQLOperations: OperationsBuilder<GraphApiSchema> = async (
             )
             operations.push(operation)
           }, `${ctx.config.packageId}/${ctx.config.version} ${operationId}`,
-        ),debugCtx, [operationId])
+          ), debugCtx, [operationId])
       })
     }
   }

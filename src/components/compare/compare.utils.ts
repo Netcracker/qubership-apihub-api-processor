@@ -34,9 +34,11 @@ import { EMPTY_CHANGE_SUMMARY } from '../../consts'
 import {
   calculateChangeSummary,
   calculateImpactedSummary,
-  convertToSlug,
   difference,
   intersection,
+  removeFirstSlash,
+  SLUG_OPTIONS_OPERATION_ID,
+  slugify,
   takeIfDefined,
 } from '../../utils'
 import { Diff } from '@netcracker/qubership-apihub-api-diff'
@@ -290,5 +292,5 @@ export function createOperationChange(
 }
 
 export const removeGroupPrefixFromOperationId = (operationId: string, groupPrefix: string): string => {
-  return takeSubstringIf(!!groupPrefix, operationId, convertToSlug(groupPrefix).length + '-'.length)
+  return takeSubstringIf(!!groupPrefix, operationId, slugify(removeFirstSlash(groupPrefix), SLUG_OPTIONS_OPERATION_ID).length)
 }
