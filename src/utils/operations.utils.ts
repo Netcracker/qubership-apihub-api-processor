@@ -121,6 +121,13 @@ export const calculateRestOperationId = (
   return `${pathSlug}-${method.toLowerCase()}`  // method is added after slugify to avoid several consecutive hyphens collapsing into one
 }
 
+export const calculateGraphqlOperationId = (
+  operationType: string,
+  operationName: string,
+): string => {
+  return slugify(`${operationType}-${operationName}`, SLUG_OPTIONS_OPERATION_ID)
+}
+
 export const restOperationIdNormalizer: OperationIdNormalizer = (operation) => {
   const { metadata: { path, method } } = operation
   return calculateNormalizedRestOperationId('', path, method)
