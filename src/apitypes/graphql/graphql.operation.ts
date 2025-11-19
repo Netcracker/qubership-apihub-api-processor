@@ -123,7 +123,7 @@ const isOperationPaths = (paths: JsonPath[]): boolean => {
 // todo output of this method disrupts document normalization.
 //  origin symbols are not being transferred to the resulting spec.
 //  DO NOT pass output of this method to apiDiff
-const cropToSingleOperation = (
+export const cropToSingleOperation = (
   specification: GraphApiSchema,
   type: GraphQLSchemaType,
   method: string,
