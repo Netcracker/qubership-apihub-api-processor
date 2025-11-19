@@ -50,7 +50,7 @@ export async function saveVersionInternalDocuments(
 ): Promise<void> {
   await fs.mkdir(`${basePath}/${PACKAGE.VERSION_INTERNAL_DOCUMENTS_DIR_NAME}`)
   for (const document of documents.values()) {
-    const {publish, internalDocumentId, internalDocument } = document
+    const { publish, internalDocumentId, internalDocument } = document
     if (!publish || !internalDocumentId || !internalDocument) { continue }
     await fs.writeFile(
       `${basePath}/${PACKAGE.VERSION_INTERNAL_DOCUMENTS_DIR_NAME}/${internalDocumentId}.${FILE_FORMAT_JSON}`,
@@ -114,6 +114,7 @@ export async function saveEachOperation(
 ): Promise<void> {
   await fs.mkdir(`${basePath}/${PACKAGE.OPERATIONS_DIR_NAME}`)
   for (const operation of operations.values()) {
+    if (!operation.data) { continue }
     await fs.writeFile(
       `${basePath}/${PACKAGE.OPERATIONS_DIR_NAME}/${operation.operationId}.json`,
       JSON.stringify(operation.data, undefined, 2),
@@ -149,7 +150,7 @@ export async function saveVersionInternalDocumentsArray(
   const result: { documents: InternalDocumentMetadata[] } = { documents: [] }
 
   for (const document of documents.values()) {
-    const {publish, internalDocumentId} = document
+    const { publish, internalDocumentId } = document
     if (!publish || !internalDocumentId) { continue }
 
     result.documents.push({

@@ -59,9 +59,7 @@ export const buildGraphQLOperation = (
   config: BuildConfig,
   debugCtx?: DebugPerformanceContext,
 ): VersionGraphQLOperation => {
-  const singleOperationSpec: GraphApiSchema = cropToSingleOperation(document.data, type, method)
   const singleOperationEffectiveSpec: GraphApiSchema = cropToSingleOperation(effectiveDocument, type, method)
-  const singleOperationRefsOnlySpec: GraphApiSchema = cropToSingleOperation(refsOnlyDocument, type, method)
 
   const deprecatedItems: DeprecateItem[] = syncDebugPerformance('[DeprecatedItems]', () => {
     const foundedDeprecatedItems = calculateDeprecatedItems(singleOperationEffectiveSpec, ORIGINS_SYMBOL)
@@ -88,9 +86,6 @@ export const buildGraphQLOperation = (
 
   const apiKind = document.apiKind || API_KIND.BWC
 
-  syncDebugPerformance('[ModelsAndOperationHashing]', () => {
-    calculateSpecRefs(document.data, singleOperationRefsOnlySpec, singleOperationSpec)
-  }, debugCtx)
 
   return {
     operationId,
@@ -104,7 +99,7 @@ export const buildGraphQLOperation = (
       method: method,
     },
     tags: [type],
-    data: singleOperationSpec,
+    data: undefined,  // we do not want to save single-operation specs for GraphQL for performance reasons
     searchScopes: {},
     deprecatedItems,
     models: {},

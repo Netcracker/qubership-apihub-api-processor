@@ -91,6 +91,7 @@ export const createVersionPackage = async (
   createOperationsFile(zip, buildResultDto.operations)
   const operationsDir = zip.folder(PACKAGE.OPERATIONS_DIR_NAME)!
   for (const { data, operationId } of buildResultDto.operations.values()) {
+    if (!data) { continue }
     createOperationDataFile(operationsDir, operationId, data)
   }
 
@@ -143,7 +144,7 @@ const createVersionInternalDocumentsFile = (zip: ZipTool, documents: VersionDocu
   const result: { documents: InternalDocumentMetadata[] } = { documents: [] }
 
   for (const document of documents.values()) {
-    const {publish, internalDocumentId} = document
+    const { publish, internalDocumentId } = document
     if (!publish || !internalDocumentId) { continue }
     result.documents.push({
       id: internalDocumentId,
@@ -155,7 +156,7 @@ const createVersionInternalDocumentsFile = (zip: ZipTool, documents: VersionDocu
 }
 
 const createComparisonInternalDocumentDataFiles = async (zip: ZipTool, comparisonDocument: ComparisonInternalDocument[]): Promise<void> => {
-  if(!comparisonDocument.length){
+  if (!comparisonDocument.length) {
     return
   }
   const comparisonsDir = zip.folder(PACKAGE.COMPARISON_INTERNAL_DOCUMENTS_DIR_NAME)
@@ -207,7 +208,7 @@ const writeDocumentsToZip = async (zip: ZipTool, documents: ZippableDocument[], 
 
 const writeInternalDocumentsToZip = async (zip: ZipTool, documents: VersionDocument[]): Promise<void> => {
   for (const document of documents) {
-    const {publish, internalDocument, internalDocumentId} = document
+    const { publish, internalDocument, internalDocumentId } = document
     if (!publish || !internalDocument || !internalDocumentId) { continue }
     await zip.file(`${internalDocumentId}.${FILE_FORMAT_JSON}`, internalDocument)
   }
