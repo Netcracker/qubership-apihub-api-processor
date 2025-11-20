@@ -31,7 +31,7 @@ import {
 } from '../../types'
 import {
   buildSearchScope,
-  calculateOperationId,
+  calculateRestOperationId,
   capitalize,
   extractSymbolProperty,
   getKeyValue,
@@ -276,7 +276,7 @@ function reduceComponentPathItemsToOperations(
           sourcePathItem?.servers ||
           [],
         )
-        const operationId = calculateOperationId(basePath, httpMethod, path)
+        const operationId = calculateRestOperationId(basePath, path, httpMethod)
         return operations.includes(operationId)
       })
 

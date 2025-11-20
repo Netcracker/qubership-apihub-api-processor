@@ -17,13 +17,11 @@
 import { RestOperationData } from './rest.types'
 import {
   areDeprecatedOriginsNotEmpty,
-  IGNORE_PATH_PARAM_UNIFIED_PLACEHOLDER,
+  calculateNormalizedRestOperationId,
   isEmpty,
   isOperationRemove,
   isValidHttpMethod,
-  normalizePath,
   removeFirstSlash,
-  slugify,
   trimSlashes,
 } from '../../utils'
 import {
@@ -75,18 +73,6 @@ import {
   validateGroupPrefix,
 } from './rest.utils'
 import { createOperationChange, getOperationTags, OperationsMap } from '../../components'
-
-/**
- * Calculates a normalized operation ID for an operation.
- *
- * @param basePath - The base path from servers configuration
- * @param path - The operation path
- * @param method - The HTTP method
- * @returns The normalized operation ID
- */
-function calculateNormalizedOperationId(basePath: string, path: string, method: string): string {
-  return slugify(`${normalizePath(basePath + path)}-${method}`, [], IGNORE_PATH_PARAM_UNIFIED_PLACEHOLDER)
-}
 
 export const compareDocuments = async (
   operationsMap: OperationsMap,
@@ -165,8 +151,8 @@ export const compareDocuments = async (
       // todo if there were actually servers here, we wouldn't have handle it, add a test
       const previousBasePath = extractOperationBasePath(methodData?.servers || pathData?.servers || prevDocData.servers || [])
       const currentBasePath = extractOperationBasePath(methodData?.servers || pathData?.servers || currDocData.servers || [])
-      const prevNormalizedOperationId = calculateNormalizedOperationId(previousBasePath, path, inferredMethod)
-      const currNormalizedOperationId = calculateNormalizedOperationId(currentBasePath, path, inferredMethod)
+      const prevNormalizedOperationId = calculateNormalizedRestOperationId(previousBasePath, path, inferredMethod)
+      const currNormalizedOperationId = calculateNormalizedRestOperationId(currentBasePath, path, inferredMethod)
 
       const { current, previous } = operationsMap[prevNormalizedOperationId] ?? operationsMap[currNormalizedOperationId] ?? {}
       if (!current && !previous) {
