@@ -79,8 +79,8 @@ export interface OperationChangesDto extends Omit<OperationChanges<DiffTypeDto>,
 }
 
 export type ComparisonDocument = {
-  id: string
-  value: string
+  comparisonDocumentId: string
+  serializedComparisonDocument: string
 }
 
 export type ComparisonInternalDocument = ComparisonDocument & {
@@ -105,7 +105,11 @@ export interface VersionsComparisonDto extends Omit<VersionsComparison<DiffTypeD
   data?: OperationChangesDto[]
 }
 
-export type InternalDocumentMetadata = { id: string; filename: string }
+export type InternalDocumentMetadata = {
+  id: string
+  filename: string
+}
+
 export type ComparisonInternalDocumentMetadata = InternalDocumentMetadata & { comparisonFileId: string }
 
 export interface CompareContext {
