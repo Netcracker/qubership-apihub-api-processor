@@ -29,6 +29,7 @@ import {
 import { API_KIND } from '../consts'
 import { Diff, DiffType } from '@netcracker/qubership-apihub-api-diff'
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
+import { OperationPair } from '../components'
 
 export type ObjPath = (string | number)[]
 
@@ -40,6 +41,10 @@ export const assert = (value: any, message: string): void => {
 
 export const removeFirstSlash = (input: string): string => {
   return input.startsWith('/') ? input.substring(1) : input
+}
+
+export function trimSlashes(input: string): string {
+  return input.replace(/^\/+|\/+$/g, '')
 }
 
 export type NormalizedPath = string
@@ -175,12 +180,12 @@ export const rawToApiKind = (apiKindLike: string): ApiKind => {
 }
 
 export const calculateApiAudienceTransitions = (
-  currentOperation: ResolvedOperation | undefined,
-  previousOperation: ResolvedOperation | undefined,
+  operationPair: OperationPair,
   apiAudienceTransitions: ApiAudienceTransition[],
 ): void => {
-  const currentAudience = currentOperation?.apiAudience
-  const previousAudience = previousOperation?.apiAudience
+  const { previous, current } = operationPair
+  const previousAudience = previous?.apiAudience
+  const currentAudience = current?.apiAudience
   if (!currentAudience || !previousAudience) {
     return
   }

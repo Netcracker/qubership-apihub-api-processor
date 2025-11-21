@@ -93,6 +93,8 @@ export const EXPORT_BUILD_TYPES = [
   BUILD_TYPE.EXPORT_REST_OPERATIONS_GROUP,
 ]
 
+export type ExportBuildType = typeof EXPORT_BUILD_TYPES[number]
+
 export const VERSION_STATUS = {
   RELEASE: 'release',
   DRAFT: 'draft',
@@ -142,6 +144,8 @@ export const SYNTHETIC_TITLE_FLAG = Symbol('synthetic-title')
 export const ORIGINS_SYMBOL = Symbol('origins')
 export const HASH_FLAG = Symbol('hash')
 export const INLINE_REFS_FLAG = Symbol('inline-refs')
+export const AFTER_VALUE_NORMALIZED_PROPERTY = Symbol('after-value-normalized')
+export const BEFORE_VALUE_NORMALIZED_PROPERTY = Symbol('before-value-normalized')
 
 export const NORMALIZE_OPTIONS: NormalizeOptions = {
   validate: true,
