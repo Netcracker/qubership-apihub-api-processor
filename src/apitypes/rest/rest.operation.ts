@@ -82,7 +82,7 @@ export const buildRestOperation = (
   debugCtx?: DebugPerformanceContext,
 ): TYPE.VersionRestOperation => {
 
-  const { servers, security, components, openapi } = document.data
+  const { servers, security, components, openapi, info } = document.data
   const effectiveOperationObject = effectiveDocument.paths[path]![method]! as OpenAPIV3.OperationObject<TYPE.OperationExtension>
   const effectiveSingleOperationSpec = createSingleOperationSpec(effectiveDocument, path, method, openapi)
   const refsOnlySingleOperationSpec = createSingleOperationSpec(refsOnlyDocument, path, method, openapi)
@@ -149,6 +149,7 @@ export const buildRestOperation = (
       servers,
       security,
       components?.securitySchemes,
+      info,
     )
     calculateSpecRefs(document.data, refsOnlySingleOperationSpec, specWithSingleOperation, [operationId], models, componentsHashMap)
     const dataHash = calculateObjectHash(specWithSingleOperation)
@@ -330,12 +331,14 @@ const createSingleOperationSpec = (
   servers?: OpenAPIV3.ServerObject[],
   security?: OpenAPIV3.SecurityRequirementObject[],
   securitySchemes?: { [p: string]: OpenAPIV3.ReferenceObject | OpenAPIV3.SecuritySchemeObject },
+  info?: OpenAPIV3.InfoObject,
 ): TYPE.RestOperationData => {
   const pathData = document.paths[path] as OpenAPIV3.PathItemObject
 
   const isRefPathData = !!pathData.$ref
   return {
     openapi: openapi ?? '3.0.0',
+    ...takeIfDefined({ info }),
     ...takeIfDefined({ servers }),
     ...takeIfDefined({ security }), // TODO: remove duplicates in security
     paths: {
