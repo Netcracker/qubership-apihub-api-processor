@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import createSlug, { CharMap } from 'slug'
 import {
   _ParsedFileResolver,
   ApiOperation,
@@ -32,7 +31,6 @@ import {
 import { bundle, Resolver } from 'api-ref-bundler'
 import { FILE_FORMAT_HTML, FILE_FORMAT_JSON, FILE_FORMAT_YAML, MESSAGE_SEVERITY } from '../consts'
 import { isNotEmpty } from './arrays'
-import { PATH_PARAM_UNIFIED_PLACEHOLDER } from './builder'
 import { RefErrorType, RefErrorTypes } from '@netcracker/qubership-apihub-api-unifier'
 
 export const EXPORT_FORMAT_TO_FILE_FORMAT = new Map<ExportFormat, typeof FILE_FORMAT_YAML | typeof FILE_FORMAT_JSON>([
@@ -76,22 +74,19 @@ export function toPackageDocument(document: VersionDocument): PackageDocument {
 export function setDocument(buildResult: BuildResult, document: VersionDocument, operations: ApiOperation[] = []): void {
   buildResult.documents.set(document.fileId, document)
   for (const operation of operations) {
-    if (buildResult.operations.has(operation.operationId)) {
-      const existingOperation = buildResult.operations.get(operation.operationId)!
-      throw new Error(
-        `Duplicated operationId '${operation.operationId}' found in different documents: ` +
-        `'${existingOperation.documentId}' and '${operation.documentId}'`,
-      )
+    const existingOperation = buildResult.operations.get(operation.operationId)
+    if (existingOperation) {
+      buildResult.notifications.push({
+        severity: MESSAGE_SEVERITY.Error,
+        message: `Duplicated operationId '${operation.operationId}' found in different documents: ` +
+          `'${existingOperation.documentId}' and '${operation.documentId}'`,
+        operationId: operation.operationId,
+        fileId: operation.documentId,
+      })
     }
     buildResult.operations.set(operation.operationId, operation)
   }
 }
-
-createSlug.extend({ '/': '-' })
-createSlug.extend({ '_': '_' })
-createSlug.extend({ '.': '-' })
-createSlug.extend({ '(': '-' })
-createSlug.extend({ ')': '-' })
 
 export const findSharedPath = (fileIds: string[]): string => {
   if (!fileIds.length) { return '' }
@@ -102,20 +97,6 @@ export const findSharedPath = (fileIds: string[]): string => {
   let i = 0
   while (i < first.length - 1 && first[i] === last[i]) { i++ }
   return first.slice(0, i).join('/') + (i ? '/' : '')
-}
-
-export const IGNORE_PATH_PARAM_UNIFIED_PLACEHOLDER: CharMap = { [PATH_PARAM_UNIFIED_PLACEHOLDER]: PATH_PARAM_UNIFIED_PLACEHOLDER }
-
-export const slugify = (text: string, slugs: string[] = [], charMapEntry?: CharMap): string => {
-  if (!text) {
-    return ''
-  }
-
-  const slug = createSlug(text, { charmap: { ...createSlug.charmap, ...charMapEntry } })
-  let suffix: string = ''
-  // add suffix if not unique
-  while (slugs.includes(slug + suffix)) { suffix = String(+suffix + 1) }
-  return slug + suffix
 }
 
 export const getFileExtension = (fileId: string): string => {
