@@ -23,7 +23,7 @@ import {
   numberOfImpactedOperationsMatcher,
 } from './helpers'
 import { describe, expect, test } from '@jest/globals'
-import { calculateRestOperationId, calculateNormalizedRestOperationId } from '../src/utils/operations.utils'
+import { calculateRestOperationId, calculateNormalizedRestOperationId, _calculateRestOperationIdV1 } from '../src/utils/operations.utils'
 import { BUILD_TYPE, MESSAGE_SEVERITY, VERSION_STATUS } from '../src'
 
 describe('Operation ID collisions', () => {
@@ -36,6 +36,7 @@ describe('Operation ID collisions', () => {
         method: 'post',
         operationId: 'v1-res-data-__-post',
         normalizedOperationId: 'v1-res-data-*-post',
+        operationIdV1: 'v1-res-data-post',
       },
       {
         name: 'double slash in path',
@@ -44,6 +45,7 @@ describe('Operation ID collisions', () => {
         method: 'get',
         operationId: 'v1-path-v1-path-get',
         normalizedOperationId: 'v1-path-v1-path-get',
+        operationIdV1: 'v1-path-v1-path-get',
       },
       {
         name: 'wildcard path with **',
@@ -52,6 +54,7 @@ describe('Operation ID collisions', () => {
         method: 'get',
         operationId: 'v1-path-..-get',
         normalizedOperationId: 'v1-path-**-get',
+        operationIdV1: 'v1-path-get',
       },
       {
         name: 'wildcard and path parameter combination',
@@ -60,6 +63,7 @@ describe('Operation ID collisions', () => {
         method: 'put',
         operationId: 'v1-path-.-_.id_-put',
         normalizedOperationId: 'v1-path-*-*-put',
+        operationIdV1: 'v1-path-id-put',
       },
       {
         name: 'standard path parameter',
@@ -68,6 +72,7 @@ describe('Operation ID collisions', () => {
         method: 'delete',
         operationId: 'v1-path-_id_-delete',
         normalizedOperationId: 'v1-path-*-delete',
+        operationIdV1: 'v1-path-id-delete',
       },
       {
         name: 'path parameter with trailing slash',
@@ -76,6 +81,7 @@ describe('Operation ID collisions', () => {
         method: 'patch',
         operationId: 'v1-path-_id_--patch',
         normalizedOperationId: 'v1-path-*--patch',
+        operationIdV1: 'v1-path-id-patch',
       },
       {
         name: 'path parameter named entities',
@@ -84,6 +90,7 @@ describe('Operation ID collisions', () => {
         method: 'get',
         operationId: 'v1-api-provider-_entities_-get',
         normalizedOperationId: 'v1-api-provider-*-get',
+        operationIdV1: 'v1-api-provider-entities-get',
       },
       {
         name: 'static path named entities',
@@ -92,6 +99,7 @@ describe('Operation ID collisions', () => {
         method: 'get',
         operationId: 'v1-api-provider-entities-get',
         normalizedOperationId: 'v1-api-provider-entities-get',
+        operationIdV1: 'v1-api-provider-entities-get',
       },
       {
         name: 'operation id is case sensitive',
@@ -100,6 +108,7 @@ describe('Operation ID collisions', () => {
         method: 'get',
         operationId: 'v1-getProvider-get',
         normalizedOperationId: 'v1-getProvider-get',
+        operationIdV1: 'v1-getprovider-get',
       },
     ]
 
@@ -107,9 +116,11 @@ describe('Operation ID collisions', () => {
       test(`${data.name}`, () => {
         const actualOperationId = calculateRestOperationId(data.basePath, data.path, data.method)
         const actualNormalizedOperationId = calculateNormalizedRestOperationId(data.basePath, data.path, data.method)
+        const actualOperationIdV1 = _calculateRestOperationIdV1(data.basePath, data.method, data.path)
 
         expect(actualOperationId).toBe(data.operationId)
         expect(actualNormalizedOperationId).toBe(data.normalizedOperationId)
+        expect(actualOperationIdV1).toBe(data.operationIdV1)
       })
     })
   })

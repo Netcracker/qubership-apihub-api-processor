@@ -18,7 +18,7 @@ import { ApiOperation, BuildResult, OperationIdNormalizer } from '../types'
 import { GraphApiComponents, GraphApiDirectiveDefinition } from '@netcracker/qubership-apihub-graphapi'
 import { OpenAPIV3 } from 'openapi-types'
 import { isObject } from './objects'
-import { SLUG_OPTIONS_NORMALIZED_OPERATION_ID, SLUG_OPTIONS_OPERATION_ID, slugify } from './slugify'
+import { SLUG_OPTIONS_DOCUMENT_ID, SLUG_OPTIONS_NORMALIZED_OPERATION_ID, SLUG_OPTIONS_OPERATION_ID, slugify } from './slugify'
 import { normalizePath, removeFirstSlash } from './builder'
 import { Diff, DiffAction } from '@netcracker/qubership-apihub-api-diff'
 import { matchPaths, OPEN_API_PROPERTY_PATHS, PREDICATE_ANY_VALUE } from '@netcracker/qubership-apihub-api-unifier'
@@ -102,6 +102,25 @@ export const calculateNormalizedRestOperationId = (basePath: string, path: strin
   return `${pathSlug}-${method.toLowerCase()}`  // method is added after slugify to avoid several consecutive hyphens collapsing into one
 }
 
+// We keep this function to be able to do data migration for operation groups
+export const _calculateRestOperationIdV1 = (
+  basePath: string,
+  key: string,
+  path: string,
+): string => {
+  const operationPath = basePath + path
+  return slugify(`${removeFirstSlash(operationPath)}-${key}`, SLUG_OPTIONS_DOCUMENT_ID) //Document options here are intentional to keep the same format as the old operation ID
+}
+
+const _calculateRestOperationIdV2 = (
+  basePath: string,
+  path: string,
+  method: string,
+): string => {
+  const pathSlug = slugify(removeFirstSlash(basePath + path), SLUG_OPTIONS_OPERATION_ID)
+  return `${pathSlug}-${method.toLowerCase()}`  // method is added after slugify to avoid several consecutive hyphens collapsing into one
+}
+
 /**
  * Calculates a rest operation ID for an operation.
  * Operation Id is supposed to be safe to use in a URL without encoding
@@ -117,8 +136,7 @@ export const calculateRestOperationId = (
   path: string,
   method: string,
 ): string => {
-  const pathSlug = slugify(removeFirstSlash(basePath + path), SLUG_OPTIONS_OPERATION_ID)
-  return `${pathSlug}-${method.toLowerCase()}`  // method is added after slugify to avoid several consecutive hyphens collapsing into one
+  return _calculateRestOperationIdV2(basePath, path, method)
 }
 
 export const calculateGraphqlOperationId = (

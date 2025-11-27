@@ -32,6 +32,7 @@ import {
 import {
   buildSearchScope,
   calculateRestOperationId,
+  _calculateRestOperationIdV1,
   capitalize,
   extractSymbolProperty,
   getKeyValue,
@@ -163,6 +164,8 @@ export const buildRestOperation = (
 
   const apiAudience = resolveApiAudience(document.metadata?.info)
 
+  const operationIdV1 = _calculateRestOperationIdV1(basePath, method, path)
+
   return {
     operationId,
     documentId: document.slug,
@@ -175,6 +178,7 @@ export const buildRestOperation = (
       path: normalizePath(basePath + path),
       originalPath: basePath + path,
       method,
+      operationIdV1,
     },
     tags: Array.isArray(tags) ? tags : [tags],
     data: specWithSingleOperation,
