@@ -58,7 +58,7 @@ export const parseRestFile = async (fileId: string, source: Blob): Promise<TextF
     }
   } else if (([REST_FILE_FORMAT.YAML, REST_FILE_FORMAT.YML] as string[]).includes(extension) || !extension) {
     if (/\s*?'?"?openapi'?"?\s*?:\s*?\|?\s*'?"?3\.[01]\..+?'?"?/g.test(sourceString)) {
-      const data = YAML.load(sourceString) as OpenAPIV3.Document
+      const data = YAML.load(sourceString, { schema: YAML.JSON_SCHEMA }) as OpenAPIV3.Document
 
       const type = data.openapi.startsWith('3.0') ? REST_DOCUMENT_TYPE.OAS3 : REST_DOCUMENT_TYPE.OAS31
 
@@ -68,7 +68,7 @@ export const parseRestFile = async (fileId: string, source: Blob): Promise<TextF
       return { fileId, type, format: REST_FILE_FORMAT.YAML, data, source, errors, kind: FILE_KIND.TEXT }
     }
     if (/\s*?'?"?swagger'?"?\s*?:\s*?\|?\s*'?"?2\..+?'?"?/g.test(sourceString)) {
-      const data = YAML.load(sourceString) as OpenAPIV2.Document
+      const data = YAML.load(sourceString, { schema: YAML.JSON_SCHEMA }) as OpenAPIV2.Document
 
       // validate swagger file
       const errors = validateDocument(swagger, data)
