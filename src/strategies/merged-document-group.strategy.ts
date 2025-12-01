@@ -112,7 +112,7 @@ function parseTemplateDocument(rawTemplateDocument: string): unknown | undefined
   }
 
   if (isYaml(rawTemplateDocument)) {
-    return YAML.load(rawTemplateDocument)
+    return YAML.load(rawTemplateDocument, { schema: YAML.JSON_SCHEMA })
   }
 
   throw new Error('Template is not a valid JSON or YAML document')

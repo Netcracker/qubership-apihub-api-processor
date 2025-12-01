@@ -47,7 +47,7 @@ export function isJson(value: string): boolean {
 
 export function isYaml(value: string): boolean {
   try {
-    YAML.load(value)
+    YAML.load(value, { schema: YAML.JSON_SCHEMA })
   } catch (e) {
     return false
   }

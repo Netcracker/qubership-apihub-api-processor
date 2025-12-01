@@ -110,7 +110,7 @@ export class Editor {
 
   async updateYamlFile(fileId: string, modifier: (obj: any) => any): Promise<void> {
     return this.updateTextFile(fileId, (data: string) => {
-      const parsedData = YAML.load(data)
+      const parsedData = YAML.load(data, { schema: YAML.JSON_SCHEMA })
       return YAML.dump(modifier(parsedData))
     })
   }

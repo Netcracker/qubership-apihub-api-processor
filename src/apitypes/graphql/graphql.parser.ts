@@ -52,7 +52,7 @@ export const parseGraphQLFile = async (fileId: string, source: Blob): Promise<Te
         fileId,
         type: GRAPHQL_DOCUMENT_TYPE.GRAPHAPI,
         format: GRAPHQL_FILE_FORMAT.YAML,
-        data: YAML.load(sourceString) as object,
+        data: YAML.load(sourceString, { schema: YAML.JSON_SCHEMA }) as object,
         source,
         kind: FILE_KIND.TEXT,
       }
@@ -62,7 +62,7 @@ export const parseGraphQLFile = async (fileId: string, source: Blob): Promise<Te
         fileId,
         type: GRAPHQL_DOCUMENT_TYPE.INTROSPECTION,
         format: GRAPHQL_FILE_FORMAT.YAML,
-        data: YAML.load(sourceString) as object,
+        data: YAML.load(sourceString, { schema: YAML.JSON_SCHEMA }) as object,
         source,
         kind: FILE_KIND.TEXT,
       }

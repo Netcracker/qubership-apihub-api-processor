@@ -38,7 +38,7 @@ export const parseUnknownFile = async (fileId: string, source: Blob): Promise<Te
       fileId,
       type: DOCUMENT_TYPE.UNKNOWN,
       format: FILE_FORMAT.YAML,
-      data: YAML.load(sourceString),
+      data: YAML.load(sourceString, { schema: YAML.JSON_SCHEMA }),
       source,
       kind: FILE_KIND.TEXT,
     }
