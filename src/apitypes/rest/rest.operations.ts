@@ -136,7 +136,11 @@ function validatePath(path: string, fileId: string): NotificationMessage[] {
   }
 
   if (path.includes('//')) {
-    throw new Error(`Path '${path}' contains double slash sequence`)
+    notifications.push({
+      severity: MESSAGE_SEVERITY.Warning,
+      message: `Path '${path}' contains double slash sequence`,
+      fileId: fileId,
+    })
   }
 
   return notifications

@@ -8,6 +8,13 @@
     { "url": "/" }
   ],
   "paths": {
+    "/path/v1//path": {
+      "get": {
+        "responses": {
+          "200": { "description": "ok" }
+        }
+      }
+    },
     "/path/v1/path/**": {
       "get": {
         "responses": {

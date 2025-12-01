@@ -143,16 +143,20 @@ describe('Operation ID collisions', () => {
       ]))
     })
 
-    test('Should throw error if there is a double slash in the path', async () => {
+    test('Should report warning notification if there is a double slash in the path', async () => {
       const pkg = LocalRegistry.openPackage('operationId-collisions/double-slash-in-path')
 
-      await expect(pkg.publish(pkg.packageId, {
+      const result = await pkg.publish(pkg.packageId, {
         packageId: pkg.packageId,
         version: 'v1',
         files: [
           { fileId: 'spec.json' },
         ],
-      })).rejects.toThrow('Path \'/res//data\' contains double slash sequence')
+      })
+      expect(result).toEqual(notificationsMatcher([
+        notificationMatcher(MESSAGE_SEVERITY.Warning, 'Path \'/res//data\' contains double slash sequence'),
+      ]))
+      expect(result.operations.size).toBe(1)
     })
 
     test('Should build specification containing wildcard and param paths', async () => {
@@ -166,7 +170,7 @@ describe('Operation ID collisions', () => {
         ],
       })
 
-      expect(result.operations.size).toEqual(4)
+      expect(result.operations.size).toEqual(5)
     })
 
     test('Should build operations if there is a path parameter path collision', async () => {
