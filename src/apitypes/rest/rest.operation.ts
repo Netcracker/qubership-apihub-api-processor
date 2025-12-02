@@ -25,12 +25,14 @@ import {
   CrawlRule,
   DeprecateItem,
   NotificationMessage,
+  ObjectHashCache,
   OperationCrawlState,
   OperationId,
   SearchScopes,
 } from '../../types'
 import {
   buildSearchScope,
+  calculateOperationHash,
   calculateOperationId,
   capitalize,
   extractSymbolProperty,
@@ -79,6 +81,7 @@ export const buildRestOperation = (
   basePath: string,
   notifications: NotificationMessage[],
   config: BuildConfig,
+  objectHashCache: ObjectHashCache,
   componentsHashMap: Map<string, string>,
   debugCtx?: DebugPerformanceContext,
 ): TYPE.VersionRestOperation => {
@@ -125,7 +128,6 @@ export const buildRestOperation = (
       const [version] = getSplittedVersionKey(config.version)
 
       const tolerantHash = isOperation ? undefined : calculateTolerantHash(value, notifications)
-      const hash = isOperation ? undefined : calculateObjectHash(value)
 
       deprecatedItems.push({
         declarationJsonPaths,
@@ -133,7 +135,7 @@ export const buildRestOperation = (
         ...takeIfDefined({ deprecatedInfo: deprecatedReason }),
         ...takeIf({ [isOperationDeprecated]: true }, isOperation),
         deprecatedInPreviousVersions: config.status === VERSION_STATUS.RELEASE ? [version] : [],
-        ...takeIfDefined({ hash: hash }),
+        ...takeIfDefined({ hash: calculateOperationHash(isOperation, value, objectHashCache) }),
         ...takeIfDefined({ tolerantHash: tolerantHash }),
       })
     }

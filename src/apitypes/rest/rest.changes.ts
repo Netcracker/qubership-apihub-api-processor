@@ -30,11 +30,11 @@ import {
   aggregateDiffsWithRollup,
   apiDiff,
   breaking,
-  extractOperationBasePath,
   Diff,
   DIFF_META_KEY,
   DiffAction,
   DIFFS_AGGREGATED_META_KEY,
+  extractOperationBasePath,
   risky,
 } from '@netcracker/qubership-apihub-api-diff'
 import {
@@ -61,12 +61,12 @@ import {
   resolveOrigins,
 } from '@netcracker/qubership-apihub-api-unifier'
 import { findRequiredRemovedProperties } from './rest.required'
-import { calculateObjectHash } from '../../utils/hashes'
+import { getHashWithCache } from '../../utils/hashes'
 import { REST_API_TYPE } from './rest.consts'
 import { OpenAPIV3 } from 'openapi-types'
 import {
-  extractOperationSecurityDiffs,
   extractOpenapiVersionDiff,
+  extractOperationSecurityDiffs,
   extractPathParamRenameDiff,
   extractRootSecurityDiffs,
   extractRootServersDiffs,
@@ -266,7 +266,7 @@ async function reclassifyBreakingChanges(
       continue
     }
 
-    const beforeHash = calculateObjectHash(beforeValueNormalized)
+    const beforeHash = getHashWithCache(beforeValueNormalized, ctx.objectHashCache)
 
     const deprecatedItems = previousOperation?.deprecatedItems ?? []
     let deprecatedItem

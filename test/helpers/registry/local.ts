@@ -59,7 +59,7 @@ import {
   VersionDocument,
   VersionDocuments,
   VersionId,
-  VersionsComparison,
+  VersionsComparison, VersionsComparisonDto,
   ZippableDocument,
 } from '../../../src'
 import {
@@ -477,7 +477,7 @@ export class LocalRegistry implements IRegistry {
         message: message,
       })
     }
-    const comparisonsDto = comparisons.map(comparison => toVersionsComparisonDto(comparison, logError))
+    const comparisonsDto: VersionsComparisonDto[] = comparisons.map(comparison => toVersionsComparisonDto(comparison, builderContext.objectHashCache, logError))
     await saveComparisonsArray(comparisonsDto, basePath)
     await saveEachComparison(comparisonsDto, basePath)
     await saveNotifications(notifications, basePath)

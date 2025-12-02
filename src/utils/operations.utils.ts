@@ -14,7 +14,12 @@
  * limitations under the License.
  */
 
-import { ApiOperation, BuildResult, OperationIdNormalizer } from '../types'
+import {
+  ApiOperation,
+  BuildResult,
+  ObjectHashCache,
+  OperationIdNormalizer,
+} from '../types'
 import { GraphApiComponents, GraphApiDirectiveDefinition } from '@netcracker/qubership-apihub-graphapi'
 import { OpenAPIV3 } from 'openapi-types'
 import { isObject } from './objects'
@@ -24,6 +29,8 @@ import { Diff, DiffAction } from '@netcracker/qubership-apihub-api-diff'
 import { matchPaths, OPEN_API_PROPERTY_PATHS, PREDICATE_ANY_VALUE } from '@netcracker/qubership-apihub-api-unifier'
 import { DirectiveLocation } from 'graphql/language'
 import { HTTP_METHODS_SET } from '../consts'
+import { getHashWithCache } from './hashes'
+import { NotUndefined } from 'object-hash'
 
 export function getOperationsList(buildResult: BuildResult): ApiOperation[] {
   return [...buildResult.operations.values()]
@@ -104,4 +111,15 @@ export const calculateOperationId = (
 ): string => {
   const operationPath = basePath + path
   return slugify(`${removeFirstSlash(operationPath)}-${key}`)
+}
+
+export const calculateOperationHash = (
+  isOperation: boolean,
+  value: NotUndefined,
+  objectHashCache: ObjectHashCache,
+): string | undefined => {
+  if (isOperation) {
+    return undefined
+  }
+  return getHashWithCache(value, objectHashCache)
 }

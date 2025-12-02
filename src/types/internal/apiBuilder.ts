@@ -54,6 +54,7 @@ export type BuilderType =
   | typeof TEXT_API_TYPE
   | typeof UNKNOWN_API_TYPE
 
+export type ObjectHashCache = WeakMap<object, string>
 export interface BuilderContext<T = any> {
   apiBuilders: ApiBuilder<T>[]
   operationResolver: _OperationResolver
@@ -71,6 +72,7 @@ export interface BuilderContext<T = any> {
   groupExportTemplateResolver?: GroupExportTemplateResolver
   rawDocumentResolver: _RawDocumentResolver
   versionLabels?: Array<string>
+  objectHashCache: ObjectHashCache
 }
 
 export type GroupExportTemplateResolver = (
@@ -100,6 +102,7 @@ export interface CompareOperationsPairContext {
   previousGroup?: string
   currentGroupSlug: string
   previousGroupSlug: string
+  objectHashCache: ObjectHashCache
 }
 
 export type NormalizedOperationId = string

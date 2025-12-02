@@ -15,8 +15,30 @@
  */
 
 import objectHash, { NotUndefined } from 'object-hash'
+import { ObjectHashCache } from '../types'
+import { isObject } from './objects'
 
 export function calculateObjectHash(value: NotUndefined): string {
   // object hash works only with object keys available in Object.keys() method
   return objectHash(value, { algorithm: 'md5' })
+}
+
+export function getHashWithCache(
+  value: unknown,
+  objectHashCache?: ObjectHashCache,
+): string {
+  if (value === undefined) return ''
+
+  if (!isObject(value) || !objectHashCache) {
+    return calculateObjectHash(value)
+  }
+
+  const cached = objectHashCache.get(value)
+  if (cached) {
+    return cached
+  }
+
+  const hash = calculateObjectHash(value)
+  objectHashCache.set(value, hash)
+  return hash
 }

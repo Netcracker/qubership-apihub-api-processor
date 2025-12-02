@@ -26,7 +26,7 @@ import { logLongBuild, syncDebugPerformance } from '../../utils/logs'
 import { normalize } from '@netcracker/qubership-apihub-api-unifier'
 
 export const buildGraphQLOperations: OperationsBuilder<GraphApiSchema> = async (document, ctx, debugCtx) => {
-  const { notifications } = ctx
+  const { notifications, objectHashCache, config } = ctx
 
   const documentWithoutComponents = removeComponents(document.data) as GraphApiSchema
 
@@ -77,11 +77,12 @@ export const buildGraphQLOperations: OperationsBuilder<GraphApiSchema> = async (
               effectiveDocument,
               refsOnlyDocument,
               notifications,
-              ctx.config,
+              config,
+              objectHashCache,
               innerDebugCtx,
             )
             operations.push(operation)
-          }, `${ctx.config.packageId}/${ctx.config.version} ${operationId}`,
+          }, `${config.packageId}/${config.version} ${operationId}`,
         ),debugCtx, [operationId])
       })
     }

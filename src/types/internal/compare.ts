@@ -35,7 +35,7 @@ import {
   _VersionReferencesResolver,
   _VersionResolver,
   ApiBuilder,
-  BuilderType,
+  BuilderType, ObjectHashCache,
 } from './apiBuilder'
 
 export type ChangeKind = keyof ChangeSummary
@@ -106,4 +106,5 @@ export interface CompareContext {
   versionDeprecatedResolver: VersionDeprecatedResolver
   versionDocumentsResolver: VersionDocumentsResolver
   rawDocumentResolver: _RawDocumentResolver
+  objectHashCache: ObjectHashCache
 }

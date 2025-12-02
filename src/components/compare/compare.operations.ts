@@ -110,6 +110,7 @@ async function compareCurrentApiType(
     versionOperationsResolver,
     rawDocumentResolver,
     config: { currentGroup = '', previousGroup = '' },
+    objectHashCache,
   } = ctx
   const apiBuilder = ctx.apiBuilders.find((builder) => apiType === builder.apiType)
   if (!apiBuilder) { return null }
@@ -140,6 +141,7 @@ async function compareCurrentApiType(
     currentGroup: currentGroup,
     previousGroupSlug: previousGroupSlug,
     currentGroupSlug: currentGroupSlug,
+    objectHashCache: ctx.objectHashCache,
   }
 
   const operationsMap = createPairOperationsMap(previousGroupSlug, currentGroupSlug, prevOperationsWithPrefix, currOperationsWithPrefix, apiBuilder)
@@ -157,7 +159,7 @@ async function compareCurrentApiType(
   // because diffs coming from the same apiDiff call are already deduplicated in comparePairedDocs
   // This is performance optimization for common case when there is only one document pair
   const uniqueDiffs = uniqueDiffsForDocPairs.length === 1 ? Array.from(uniqueDiffsForDocPairs[0])
-    : removeObjectDuplicates(uniqueDiffsForDocPairs.flatMap(set => Array.from(set)), calculateDiffId)
+    : removeObjectDuplicates(uniqueDiffsForDocPairs.flatMap(set => Array.from(set)), calculateDiffId, objectHashCache)
   const changesSummary = calculateChangeSummary(uniqueDiffs)
   const numberOfImpactedOperations = calculateTotalImpactedSummary(
     uniqueOperationChanges.map(({ impactedSummary }) => impactedSummary),
