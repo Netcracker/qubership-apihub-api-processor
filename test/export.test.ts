@@ -380,7 +380,7 @@ describe('Export test', () => {
     expect(result).toEqual(exportDocumentsMatcher([
       exportDocumentMatcher('GROUP_WITH_OPERATIONS_FROM_TWO_DOCUMENTS.json'),
     ]))
-    const expectedResult = JSON.stringify(YAML.load((await loadFileAsString(pkg.projectsDir, pkg.packageId, EXPECTED_RESULT_FILE))!), undefined, 2)
+    const expectedResult = JSON.stringify(YAML.load((await loadFileAsString(pkg.projectsDir, pkg.packageId, EXPECTED_RESULT_FILE))!, { schema: YAML.JSON_SCHEMA }), undefined, 2)
     expect(await result.exportDocuments[0].data.text()).toEqual(expectedResult)
   })
 

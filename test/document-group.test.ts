@@ -16,7 +16,7 @@
 
 import { Editor, loadFileAsString, LocalRegistry, VERSIONS_PATH } from './helpers'
 import { BUILD_TYPE, BuildConfigAggregator, BuildResult, PACKAGE, PackageNotifications, REST_API_TYPE } from '../src'
-import { load } from 'js-yaml'
+import { load, JSON_SCHEMA } from 'js-yaml'
 
 const GROUP_NAME = 'manualGroup'
 const groupToOperationIdsMap = {
@@ -161,6 +161,7 @@ describe('Document Group test', () => {
 
       const expectedResult = load(
         (await loadFileAsString(pkg.projectsDir, pkg.packageId, EXPECTED_RESULT_FILE))!,
+        { schema: JSON_SCHEMA },
       )
       for (const document of Array.from(result.documents.values())) {
         expect(document.data).toEqual(expectedResult)
