@@ -23,7 +23,6 @@ import {
   DEPRECATED_CHANGE_TYPE,
   ImpactedOperationSummary,
   NON_BREAKING_CHANGE_TYPE,
-  ObjectHashCache,
   UNCLASSIFIED_CHANGE_TYPE,
 } from '../types'
 import { API_KIND } from '../consts'
@@ -91,13 +90,12 @@ export const jsonPathToString = (path: ObjPath): string => {
 
 export const removeObjectDuplicates = (
   originalArray: any[],
-  by: string | ((item: any, objectHashCache?: ObjectHashCache) => any),
-  objectHashCache?: ObjectHashCache,
+  by: string | ((item: any) => any),
 ): any[] => {
   const unique = new Map()
 
   for (const item of originalArray) {
-    const value = typeof by === 'function' ? by(item, objectHashCache) : item[by]
+    const value = typeof by === 'function' ? by(item) : item[by]
     if (!value || unique.has(value)) {
       continue
     }

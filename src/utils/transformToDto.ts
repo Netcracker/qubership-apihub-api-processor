@@ -15,7 +15,7 @@
  */
 
 import { Diff, DiffAction, DiffType, risky } from '@netcracker/qubership-apihub-api-diff'
-import { getHashWithCache } from './hashes'
+import { calculateHash } from './hashes'
 import { ArrayType, isEmpty } from './arrays'
 import { AFTER_VALUE_NORMALIZED_PROPERTY, BEFORE_VALUE_NORMALIZED_PROPERTY } from '../consts'
 import {
@@ -66,7 +66,7 @@ export function toChangeMessage(diff: ArrayType<Diff[]>, objectHashCache: Object
         ...commonChangeProps,
         action,
         currentDeclarationJsonPaths: afterDeclarationPaths,
-        currentValueHash: getHashWithCache(afterValueNormalized, objectHashCache),
+        currentValueHash: calculateHash(afterValueNormalized, objectHashCache),
       }
     }
     case DiffAction.remove: {
@@ -84,7 +84,7 @@ export function toChangeMessage(diff: ArrayType<Diff[]>, objectHashCache: Object
         ...commonChangeProps,
         action,
         previousDeclarationJsonPaths: beforeDeclarationPaths,
-        previousValueHash: getHashWithCache(beforeValueNormalized, objectHashCache),
+        previousValueHash: calculateHash(beforeValueNormalized, objectHashCache),
       }
     }
     case DiffAction.replace: {
@@ -105,8 +105,8 @@ export function toChangeMessage(diff: ArrayType<Diff[]>, objectHashCache: Object
         action,
         currentDeclarationJsonPaths: afterDeclarationPaths,
         previousDeclarationJsonPaths: beforeDeclarationPaths,
-        currentValueHash: getHashWithCache(afterValueNormalized, objectHashCache),
-        previousValueHash: getHashWithCache(beforeValueNormalized, objectHashCache),
+        currentValueHash: calculateHash(afterValueNormalized, objectHashCache),
+        previousValueHash: calculateHash(beforeValueNormalized, objectHashCache),
       }
     }
     case DiffAction.rename: {

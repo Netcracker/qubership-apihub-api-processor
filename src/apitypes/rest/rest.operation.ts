@@ -66,7 +66,7 @@ import {
   resolveOrigins,
 } from '@netcracker/qubership-apihub-api-unifier'
 import { extractOperationBasePath } from '@netcracker/qubership-apihub-api-diff'
-import { calculateObjectHash } from '../../utils/hashes'
+import { calculateHash } from '../../utils/hashes'
 import { calculateTolerantHash } from '../../components/deprecated'
 import { getValueByPath } from '../../utils/path'
 
@@ -239,7 +239,7 @@ export const calculateSpecRefs = (
       if (componentHash) {
         models[componentName] = componentHash
       } else {
-        componentHash = calculateObjectHash(component)
+        componentHash = calculateHash(component)
         componentsHashMap?.set(componentName, componentHash)
         models[componentName] = componentHash
       }

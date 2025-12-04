@@ -141,7 +141,7 @@ async function compareCurrentApiType(
     currentGroup: currentGroup,
     previousGroupSlug: previousGroupSlug,
     currentGroupSlug: currentGroupSlug,
-    objectHashCache: ctx.objectHashCache,
+    objectHashCache: objectHashCache,
   }
 
   const operationsMap = createPairOperationsMap(previousGroupSlug, currentGroupSlug, prevOperationsWithPrefix, currOperationsWithPrefix, apiBuilder)
@@ -153,14 +153,13 @@ async function compareCurrentApiType(
     : removeObjectDuplicates(
       operationChanges,
       (item) => `${item.apiType}:${item.operationId ?? ''}:${item.previousOperationId ?? ''}`,
-      objectHashCache,
     )
 
   // We only need to additionally deduplicate diffs if there are multiple document pairs
   // because diffs coming from the same apiDiff call are already deduplicated in comparePairedDocs
   // This is performance optimization for common case when there is only one document pair
   const uniqueDiffs = uniqueDiffsForDocPairs.length === 1 ? Array.from(uniqueDiffsForDocPairs[0])
-    : removeObjectDuplicates(uniqueDiffsForDocPairs.flatMap(set => Array.from(set)), calculateDiffId, objectHashCache)
+    : removeObjectDuplicates(uniqueDiffsForDocPairs.flatMap(set => Array.from(set)), calculateDiffId)
   const changesSummary = calculateChangeSummary(uniqueDiffs)
   const numberOfImpactedOperations = calculateTotalImpactedSummary(
     uniqueOperationChanges.map(({ impactedSummary }) => impactedSummary),

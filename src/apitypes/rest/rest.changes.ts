@@ -61,7 +61,7 @@ import {
   resolveOrigins,
 } from '@netcracker/qubership-apihub-api-unifier'
 import { findRequiredRemovedProperties } from './rest.required'
-import { getHashWithCache } from '../../utils/hashes'
+import { calculateHash } from '../../utils/hashes'
 import { REST_API_TYPE } from './rest.consts'
 import { OpenAPIV3 } from 'openapi-types'
 import {
@@ -168,7 +168,10 @@ export const compareDocuments = async (
       const prevNormalizedOperationId = calculateNormalizedOperationId(previousBasePath, path, inferredMethod)
       const currNormalizedOperationId = calculateNormalizedOperationId(currentBasePath, path, inferredMethod)
 
-      const { current, previous } = operationsMap[prevNormalizedOperationId] ?? operationsMap[currNormalizedOperationId] ?? {}
+      const {
+        current,
+        previous,
+      } = operationsMap[prevNormalizedOperationId] ?? operationsMap[currNormalizedOperationId] ?? {}
       if (!current && !previous) {
         const missingOperations = prevNormalizedOperationId === currNormalizedOperationId ? `the ${prevNormalizedOperationId} operation` : `the ${prevNormalizedOperationId} and ${currNormalizedOperationId} operations`
         throw new Error(`Can't find ${missingOperations} from documents pair ${prevDoc?.fileId} and ${currDoc?.fileId}`)
@@ -266,7 +269,7 @@ async function reclassifyBreakingChanges(
       continue
     }
 
-    const beforeHash = getHashWithCache(beforeValueNormalized, ctx.objectHashCache)
+    const beforeHash = calculateHash(beforeValueNormalized, ctx.objectHashCache)
 
     const deprecatedItems = previousOperation?.deprecatedItems ?? []
     let deprecatedItem

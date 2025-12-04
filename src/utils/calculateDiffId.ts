@@ -15,11 +15,11 @@
  */
 
 import { Diff } from '@netcracker/qubership-apihub-api-diff'
-import { getHashWithCache } from './hashes'
-import { ChangeMessage, ObjectHashCache } from '../types'
+import { calculateHash } from './hashes'
+import { ChangeMessage } from '../types'
 import { AFTER_VALUE_NORMALIZED_PROPERTY, BEFORE_VALUE_NORMALIZED_PROPERTY } from '../consts'
 
-export function calculateDiffId(diff: Diff, objectHashCache?: ObjectHashCache): string {
+export function calculateDiffId(diff: Diff): string {
   const {
     scope,
     action,
@@ -38,8 +38,8 @@ export function calculateDiffId(diff: Diff, objectHashCache?: ObjectHashCache): 
     action,
     previousDeclarationJsonPaths,
     currentDeclarationJsonPaths,
-    previousValueHash: getHashWithCache(beforeValueNormalized, objectHashCache),
-    currentValueHash: getHashWithCache(afterValueNormalized, objectHashCache),
+    previousValueHash: calculateHash(beforeValueNormalized),
+    currentValueHash: calculateHash(afterValueNormalized),
     previousKey,
     currentKey,
     severity,
