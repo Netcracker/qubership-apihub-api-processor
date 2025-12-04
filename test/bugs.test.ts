@@ -363,8 +363,7 @@ describe('Operation Bugs', () => {
       files: [{fileId: 'date-time-field-parsing-error.yaml', publish: true}],
     })
     const data = result.operations.get('test-post')?.data
-    const fieldTimeExample= data.paths['/test'].post.responses['200'].content['application/json'].schema.properties.testConnectionDate.example
-    expect(fieldTimeExample).toEqual('2022-03-10T16:15:50Z')
+    expect(data).toHaveProperty(['paths', '/test', 'post', 'responses', '200', 'content', 'application/json', 'schema', 'properties', 'testConnectionDate', 'example'], '2022-03-10T16:15:50Z')
   })
 
 })
