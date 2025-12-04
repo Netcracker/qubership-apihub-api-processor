@@ -25,7 +25,6 @@ import {
   CrawlRule,
   DeprecateItem,
   NotificationMessage,
-  ObjectHashCache,
   OperationCrawlState,
   OperationId,
   SearchScopes,
@@ -66,7 +65,7 @@ import {
   resolveOrigins,
 } from '@netcracker/qubership-apihub-api-unifier'
 import { extractOperationBasePath } from '@netcracker/qubership-apihub-api-diff'
-import { calculateHash } from '../../utils/hashes'
+import { calculateHash, ObjectHashCache } from '../../utils/hashes'
 import { calculateTolerantHash } from '../../components/deprecated'
 import { getValueByPath } from '../../utils/path'
 
@@ -82,7 +81,7 @@ export const buildRestOperation = (
   notifications: NotificationMessage[],
   config: BuildConfig,
   objectHashCache: ObjectHashCache,
-  componentsHashMap: Map<string, string>,
+  componentsHashMap: ObjectHashCache,
   debugCtx?: DebugPerformanceContext,
 ): TYPE.VersionRestOperation => {
 
@@ -197,7 +196,7 @@ export const calculateSpecRefs = (
   resultSpec: TYPE.RestOperationData,
   operations: OperationId[],
   models?: Record<string, string>,
-  componentsHashMap?: Map<string, string>,
+  componentsHashMap?: ObjectHashCache,
 ): void => {
   const handledObjects = new Set<unknown>()
   const inlineRefs = new Set<string>()
@@ -235,14 +234,7 @@ export const calculateSpecRefs = (
       return
     }
     if (models && !models[componentName] && isComponentsSchemaRef(matchResult.path)) {
-      let componentHash = componentsHashMap?.get(componentName)
-      if (componentHash) {
-        models[componentName] = componentHash
-      } else {
-        componentHash = calculateHash(component)
-        componentsHashMap?.set(componentName, componentHash)
-        models[componentName] = componentHash
-      }
+      models[componentName] = calculateHash(component, componentsHashMap)
     }
     setValueByPath(resultSpec, matchResult.path, component)
   })

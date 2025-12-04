@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { API_AUDIENCE_EXTERNAL, BuildConfig, DeprecateItem, NotificationMessage, ObjectHashCache } from '../../types'
+import { API_AUDIENCE_EXTERNAL, BuildConfig, DeprecateItem, NotificationMessage } from '../../types'
 import {
   calculateOperationHash,
   getKeyValue,
@@ -45,6 +45,7 @@ import {
 } from '@netcracker/qubership-apihub-api-unifier'
 import { JsonPath, syncCrawl } from '@netcracker/qubership-apihub-json-crawl'
 import { DebugPerformanceContext, syncDebugPerformance } from '../../utils/logs'
+import { ObjectHashCache } from '../../utils/hashes'
 
 export const buildGraphQLOperation = (
   operationId: string,

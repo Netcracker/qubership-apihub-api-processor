@@ -45,6 +45,7 @@ import { ResolvedPackage } from '../external/package'
 import { FILE_FORMAT_JSON, FILE_FORMAT_YAML } from '../../consts'
 import { OpenApiExtensionKey } from '@netcracker/qubership-apihub-api-unifier'
 import { OperationsMap } from '../../components'
+import { ObjectHashCache } from '../../utils/hashes'
 
 export type BuilderType =
   | typeof REST_API_TYPE
@@ -52,7 +53,6 @@ export type BuilderType =
   | typeof TEXT_API_TYPE
   | typeof UNKNOWN_API_TYPE
 
-export type ObjectHashCache = WeakMap<object, string>
 export interface BuilderContext<T = any> {
   apiBuilders: ApiBuilder<T>[]
   operationResolver: _OperationResolver

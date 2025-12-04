@@ -15,8 +15,9 @@
  */
 
 import objectHash, { NotUndefined } from 'object-hash'
-import { ObjectHashCache } from '../types'
 import { isObject } from './objects'
+
+export type ObjectHashCache = WeakMap<object, string>
 
 export const calculateObjectHash = (value: NotUndefined): string => {
   // object hash works only with object keys available in Object.keys() method
@@ -29,13 +30,13 @@ export const calculateHash = (
 ): string => {
   if (value === undefined) return ''
 
-  if (!isObject(value) || !objectHashCache) {
+  if (!objectHashCache || !isObject(value)) {
     return calculateObjectHash(value)
   }
 
-  const cached = objectHashCache.get(value)
-  if (cached) {
-    return cached
+  const cachedHash = objectHashCache.get(value)
+  if (cachedHash) {
+    return cachedHash
   }
 
   const hash = calculateObjectHash(value)

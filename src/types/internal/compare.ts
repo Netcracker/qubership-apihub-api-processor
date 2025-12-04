@@ -35,8 +35,9 @@ import {
   _VersionReferencesResolver,
   _VersionResolver,
   ApiBuilder,
-  BuilderType, ObjectHashCache,
+  BuilderType,
 } from './apiBuilder'
+import { ObjectHashCache } from '../../utils/hashes'
 
 export type ChangeKind = keyof ChangeSummary
 

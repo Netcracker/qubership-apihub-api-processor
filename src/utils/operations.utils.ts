@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { ApiOperation, BuildResult, ObjectHashCache, OperationIdNormalizer } from '../types'
+import { ApiOperation, BuildResult, OperationIdNormalizer } from '../types'
 import { GraphApiComponents, GraphApiDirectiveDefinition } from '@netcracker/qubership-apihub-graphapi'
 import { OpenAPIV3 } from 'openapi-types'
 import { isObject } from './objects'
@@ -24,7 +24,7 @@ import { Diff, DiffAction } from '@netcracker/qubership-apihub-api-diff'
 import { matchPaths, OPEN_API_PROPERTY_PATHS, PREDICATE_ANY_VALUE } from '@netcracker/qubership-apihub-api-unifier'
 import { DirectiveLocation } from 'graphql/language'
 import { HTTP_METHODS_SET } from '../consts'
-import { calculateHash } from './hashes'
+import { calculateHash, ObjectHashCache } from './hashes'
 import { NotUndefined } from 'object-hash'
 
 export function getOperationsList(buildResult: BuildResult): ApiOperation[] {

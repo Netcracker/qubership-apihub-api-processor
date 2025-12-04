@@ -15,14 +15,13 @@
  */
 
 import { Diff, DiffAction, DiffType, risky } from '@netcracker/qubership-apihub-api-diff'
-import { calculateHash } from './hashes'
+import { calculateHash, ObjectHashCache } from './hashes'
 import { ArrayType, isEmpty } from './arrays'
 import { AFTER_VALUE_NORMALIZED_PROPERTY, BEFORE_VALUE_NORMALIZED_PROPERTY } from '../consts'
 import {
   ChangeMessage,
   ChangeSummary,
   DiffTypeDto,
-  ObjectHashCache,
   OperationChanges,
   OperationChangesDto,
   OperationType,
