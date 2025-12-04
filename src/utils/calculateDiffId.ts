@@ -15,7 +15,7 @@
  */
 
 import { Diff } from '@netcracker/qubership-apihub-api-diff'
-import { calculateObjectHash } from './hashes'
+import { calculateHash } from './hashes'
 import { ChangeMessage } from '../types'
 import { AFTER_VALUE_NORMALIZED_PROPERTY, BEFORE_VALUE_NORMALIZED_PROPERTY } from '../consts'
 
@@ -38,8 +38,8 @@ export function calculateDiffId(diff: Diff): string {
     action,
     previousDeclarationJsonPaths,
     currentDeclarationJsonPaths,
-    previousValueHash: beforeValueNormalized !== undefined ? calculateObjectHash(beforeValueNormalized) : '',
-    currentValueHash: afterValueNormalized !== undefined ? calculateObjectHash(afterValueNormalized) : '',
+    previousValueHash: calculateHash(beforeValueNormalized),
+    currentValueHash: calculateHash(afterValueNormalized),
     previousKey,
     currentKey,
     severity,

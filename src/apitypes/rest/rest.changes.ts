@@ -64,12 +64,12 @@ import {
   resolveOrigins,
 } from '@netcracker/qubership-apihub-api-unifier'
 import { findRequiredRemovedProperties } from './rest.required'
-import { calculateObjectHash } from '../../utils/hashes'
+import { calculateHash } from '../../utils/hashes'
 import { REST_API_TYPE } from './rest.consts'
 import { OpenAPIV3 } from 'openapi-types'
 import {
-  extractOperationSecurityDiffs,
   extractOpenapiVersionDiff,
+  extractOperationSecurityDiffs,
   extractPathParamRenameDiff,
   extractRootSecurityDiffs,
   extractRootServersDiffs,
@@ -284,7 +284,7 @@ async function reclassifyBreakingChanges(
       continue
     }
 
-    const beforeHash = calculateObjectHash(beforeValueNormalized)
+    const beforeHash = calculateHash(beforeValueNormalized, ctx.objectHashCache)
 
     const deprecatedItems = previousOperation?.deprecatedItems ?? []
     let deprecatedItem

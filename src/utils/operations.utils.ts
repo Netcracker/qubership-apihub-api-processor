@@ -30,6 +30,8 @@ import {
 } from '@netcracker/qubership-apihub-api-unifier'
 import { DirectiveLocation } from 'graphql/language'
 import { HTTP_METHODS_SET } from '../consts'
+import { calculateHash, ObjectHashCache } from './hashes'
+import { NotUndefined } from 'object-hash'
 
 export function getOperationsList(buildResult: BuildResult): ApiOperation[] {
   return [...buildResult.operations.values()]
@@ -118,4 +120,15 @@ export const createSerializedInternalDocument = (document: VersionDocument, effe
     return
   }
   versionInternalDocument.serializedVersionDocument = serializeDocument(denormalize(effectiveDocument, options) as ApiDocument)
+}
+
+export const calculateOperationHash = (
+  isOperation: boolean,
+  value: NotUndefined,
+  objectHashCache: ObjectHashCache,
+): string | undefined => {
+  if (isOperation) {
+    return undefined
+  }
+  return calculateHash(value, objectHashCache)
 }
