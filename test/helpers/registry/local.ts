@@ -22,7 +22,7 @@ import {
   BuilderContext,
   BuilderResolvers,
   BuildResult,
-  ChangeSummary,
+  ChangeSummary, ComparisonInternalDocument,
   EMPTY_CHANGE_SUMMARY,
   FILE_FORMAT,
   graphqlApiBuilder,
@@ -59,11 +59,11 @@ import {
   VersionDocument,
   VersionDocuments,
   VersionId,
-  VersionsComparison,
+  VersionsComparison, VersionsComparisonDto,
   ZippableDocument,
 } from '../../../src'
 import {
-  getOperationsFileContent,
+  getOperationsFileContent, saveComparisonInternalDocuments, saveComparisonInternalDocumentsArray,
   saveComparisonsArray,
   saveDocumentsArray,
   saveEachComparison,
@@ -71,7 +71,7 @@ import {
   saveEachOperation,
   saveInfo,
   saveNotifications,
-  saveOperationsArray,
+  saveOperationsArray, saveVersionInternalDocuments, saveVersionInternalDocumentsArray,
 } from './utils'
 import {
   getCompositeKey,
@@ -89,7 +89,7 @@ import { ResolvedPackage } from '../../../src/types/external/package'
 import { version as apiProcessorVersion } from '../../../package.json'
 
 const VERSIONS_PATH = 'test/versions'
-const DEFAULT_PROJECTS_PATH = 'test/projects'
+export const DEFAULT_PROJECTS_PATH = 'test/projects'
 
 export interface PackageVersionCache {
   config: BuildConfig
@@ -466,6 +466,7 @@ export class LocalRegistry implements IRegistry {
     await saveInfo(config, basePath)
 
     await saveDocumentsArray(documents, basePath)
+    await saveVersionInternalDocumentsArray(documents, basePath)
     await saveEachDocument(documents, basePath, builderContext)
 
     await saveOperationsArray(operations, basePath)
@@ -477,10 +478,16 @@ export class LocalRegistry implements IRegistry {
         message: message,
       })
     }
-    const comparisonsDto = comparisons.map(comparison => toVersionsComparisonDto(comparison, logError))
+    const comparisonsDto: VersionsComparisonDto[] = comparisons.map(comparison => toVersionsComparisonDto(comparison, logError))
+    const comparisonInternalDocuments: ComparisonInternalDocument[] = comparisons.map(comparison => comparison.comparisonInternalDocuments).flat()
+
     await saveComparisonsArray(comparisonsDto, basePath)
     await saveEachComparison(comparisonsDto, basePath)
     await saveNotifications(notifications, basePath)
+    await saveVersionInternalDocuments(documents, basePath)
+
+    await saveComparisonInternalDocumentsArray(comparisonInternalDocuments, basePath)
+    await saveComparisonInternalDocuments(comparisonInternalDocuments, basePath)
   }
 
   async updateOperationsHash(packageId: string, publishParams?: Partial<BuildConfig>): Promise<void> {
