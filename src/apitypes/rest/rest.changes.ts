@@ -142,7 +142,8 @@ export const compareDocuments: DocumentsCompare = async (
       ...NORMALIZE_OPTIONS,
       metaKey: DIFF_META_KEY,
       originsFlag: ORIGINS_SYMBOL,
-      normalizedResult: true,
+      // expected performance degradation, we need not normalized doc for comparisonDocument
+      normalizedResult: false,
       afterValueNormalizedProperty: AFTER_VALUE_NORMALIZED_PROPERTY,
       beforeValueNormalizedProperty: BEFORE_VALUE_NORMALIZED_PROPERTY,
     },
