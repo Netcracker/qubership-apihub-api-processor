@@ -31,6 +31,7 @@ import {
 } from '../../types'
 import {
   buildSearchScope,
+  calculateOperationHash,
   calculateOperationId,
   capitalize,
   extractSymbolProperty,
@@ -64,7 +65,7 @@ import {
   resolveOrigins,
 } from '@netcracker/qubership-apihub-api-unifier'
 import { extractOperationBasePath } from '@netcracker/qubership-apihub-api-diff'
-import { calculateObjectHash } from '../../utils/hashes'
+import { calculateHash, ObjectHashCache } from '../../utils/hashes'
 import { calculateTolerantHash } from '../../components/deprecated'
 import { getValueByPath } from '../../utils/path'
 
@@ -79,7 +80,8 @@ export const buildRestOperation = (
   basePath: string,
   notifications: NotificationMessage[],
   config: BuildConfig,
-  componentsHashMap: Map<string, string>,
+  objectHashCache: ObjectHashCache,
+  componentsHashMap: ObjectHashCache,
   debugCtx?: DebugPerformanceContext,
 ): TYPE.VersionRestOperation => {
   const { apiKind: documentApiKind, data: documentData, slug: documentSlug, versionInternalDocument } = document
@@ -125,7 +127,6 @@ export const buildRestOperation = (
       const [version] = getSplittedVersionKey(config.version)
 
       const tolerantHash = isOperation ? undefined : calculateTolerantHash(value, notifications)
-      const hash = isOperation ? undefined : calculateObjectHash(value)
 
       deprecatedItems.push({
         declarationJsonPaths,
@@ -133,7 +134,7 @@ export const buildRestOperation = (
         ...takeIfDefined({ deprecatedInfo: deprecatedReason }),
         ...takeIf({ [isOperationDeprecated]: true }, isOperation),
         deprecatedInPreviousVersions: config.status === VERSION_STATUS.RELEASE ? [version] : [],
-        ...takeIfDefined({ hash: hash }),
+        ...takeIfDefined({ hash: calculateOperationHash(isOperation, value, objectHashCache) }),
         ...takeIfDefined({ tolerantHash: tolerantHash }),
       })
     }
@@ -196,7 +197,7 @@ export const calculateSpecRefs = (
   resultSpec: TYPE.RestOperationData,
   operations: OperationId[],
   models?: Record<string, string>,
-  componentsHashMap?: Map<string, string>,
+  componentsHashMap?: ObjectHashCache,
 ): void => {
   const handledObjects = new Set<unknown>()
   const inlineRefs = new Set<string>()
@@ -234,14 +235,7 @@ export const calculateSpecRefs = (
       return
     }
     if (models && !models[componentName] && isComponentsSchemaRef(matchResult.path)) {
-      let componentHash = componentsHashMap?.get(componentName)
-      if (componentHash) {
-        models[componentName] = componentHash
-      } else {
-        componentHash = calculateObjectHash(component)
-        componentsHashMap?.set(componentName, componentHash)
-        models[componentName] = componentHash
-      }
+      models[componentName] = calculateHash(component, componentsHashMap)
     }
     setValueByPath(resultSpec, matchResult.path, component)
   })

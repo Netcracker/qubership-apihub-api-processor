@@ -117,6 +117,7 @@ async function compareCurrentApiType(
     versionOperationsResolver,
     rawDocumentResolver,
     config: { currentGroup = '', previousGroup = '' },
+    objectHashCache,
   } = ctx
   const apiBuilder = ctx.apiBuilders.find((builder) => apiType === builder.apiType)
   if (!apiBuilder) { return null }
@@ -147,6 +148,7 @@ async function compareCurrentApiType(
     currentGroup: currentGroup,
     previousGroupSlug: previousGroupSlug,
     currentGroupSlug: currentGroupSlug,
+    objectHashCache: objectHashCache,
   }
 
   const operationsMap = createPairOperationsMap(previousGroupSlug, currentGroupSlug, prevOperationsWithPrefix, currOperationsWithPrefix, apiBuilder)
@@ -155,10 +157,10 @@ async function compareCurrentApiType(
   const [operationChanges, uniqueDiffsForDocPairs, tags, comparisonDocuments] = await comparePairedDocs(operationsMap, pairedDocs, apiBuilder, pairContext)
   // Duplicates could happen in rare case when document for added/deleted operation was mapped to several documents in other version
   const uniqueOperationChanges = pairedDocs.length === 1 ? operationChanges
-  : removeObjectDuplicates(
-    operationChanges,
-    (item) => `${item.apiType}:${item.operationId ?? ''}:${item.previousOperationId ?? ''}`,
-  )
+    : removeObjectDuplicates(
+      operationChanges,
+      (item) => `${item.apiType}:${item.operationId ?? ''}:${item.previousOperationId ?? ''}`,
+    )
 
   // We only need to additionally deduplicate diffs if there are multiple document pairs
   // because diffs coming from the same apiDiff call are already deduplicated in comparePairedDocs

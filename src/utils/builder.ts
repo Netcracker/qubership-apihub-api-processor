@@ -23,7 +23,6 @@ import {
   DEPRECATED_CHANGE_TYPE,
   ImpactedOperationSummary,
   NON_BREAKING_CHANGE_TYPE,
-  ResolvedOperation,
   UNCLASSIFIED_CHANGE_TYPE,
 } from '../types'
 import { API_KIND } from '../consts'
@@ -89,7 +88,10 @@ export const jsonPathToString = (path: ObjPath): string => {
     .join('/')
 }
 
-export const removeObjectDuplicates = (originalArray: any[], by: string | ((item: any) => any)): any[] => {
+export const removeObjectDuplicates = (
+  originalArray: any[],
+  by: string | ((item: any) => any),
+): any[] => {
   const unique = new Map()
 
   for (const item of originalArray) {

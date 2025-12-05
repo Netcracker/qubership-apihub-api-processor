@@ -39,6 +39,8 @@ type DuplicateEntry = { operationId: string; operations: OperationInfo[] }
 export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async (document, ctx, debugCtx) => {
   const documentWithoutComponents = removeComponents(document.data)
   const bundlingErrorHandler = createBundlingErrorHandler(ctx, document.fileId)
+
+  const { notifications, objectHashCache, config } = ctx
   const { effectiveDocument, refsOnlyDocument } = syncDebugPerformance('[NormalizeDocument]', () => {
     const effectiveDocument = normalize(
       documentWithoutComponents,
@@ -67,7 +69,7 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
   const operations: TYPE.VersionRestOperation[] = []
   if (!paths) { return [] }
 
-  const componentsHashMap = new Map<string, string>()
+  const componentsHashMap = new WeakMap<object, string>()
   const operationIdMap = new Map<string, OperationInfo[]>()
 
   for (const path of Object.keys(paths)) {
@@ -101,14 +103,15 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
               effectiveDocument,
               refsOnlyDocument,
               basePath,
-              ctx.notifications,
-              ctx.config,
+              notifications,
+              config,
+              objectHashCache,
               componentsHashMap,
               innerDebugCtx,
             )
             operations.push(operation)
           },
-            `${ctx.config.packageId}/${ctx.config.version} ${operationId}`,
+            `${config.packageId}/${config.version} ${operationId}`,
           ), debugCtx, [operationId])
       })
     }
