@@ -448,4 +448,14 @@ describe('Operation Bugs', () => {
       ],
     })
   })
+  
+  test('should date time field parsing without error', async () => {
+    const editor = await Editor.openProject('bugs', bugsPackage)
+    const result = await editor.run({
+      files: [{fileId: 'date-time-field-parsing-error.yaml', publish: true}],
+    })
+    const data = result.operations.get('test-post')?.data
+    expect(data).toHaveProperty(['paths', '/test', 'post', 'responses', '200', 'content', 'application/json', 'schema', 'properties', 'testConnectionDate', 'example'], '2022-03-10T16:15:50Z')
+  })
+
 })
