@@ -68,8 +68,8 @@ import { calculateObjectHash } from '../../utils/hashes'
 import { REST_API_TYPE } from './rest.consts'
 import { OpenAPIV3 } from 'openapi-types'
 import {
-  extractOperationSecurityDiffs,
   extractOpenapiVersionDiff,
+  extractOperationSecurityDiffs,
   extractPathParamRenameDiff,
   extractRootSecurityDiffs,
   extractRootServersDiffs,
@@ -84,6 +84,7 @@ import {
   getOperationTags,
   OperationsMap,
 } from '../../components'
+import { checkNoApiBackwardCompatibility } from '../../components/compare/bwc.validation'
 
 /**
  * Calculates a normalized operation ID for an operation.
@@ -146,6 +147,7 @@ export const compareDocuments: DocumentsCompare = async (
       normalizedResult: false,
       afterValueNormalizedProperty: AFTER_VALUE_NORMALIZED_PROPERTY,
       beforeValueNormalizedProperty: BEFORE_VALUE_NORMALIZED_PROPERTY,
+      isNoApiBackwardCompatibility: checkNoApiBackwardCompatibility(operationsMap),
     },
   ) as { merged: OpenAPIV3.Document; diffs: Diff[] }
 

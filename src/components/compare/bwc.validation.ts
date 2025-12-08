@@ -17,6 +17,8 @@
 import { BREAKING_CHANGE_TYPE, ResolvedOperation, RISKY_CHANGE_TYPE } from '../../types'
 import { API_KIND } from '../../consts'
 import { Diff } from '@netcracker/qubership-apihub-api-diff'
+import { OperationsMap } from './compare.utils'
+import { NoBackwardCompatibility } from '@netcracker/qubership-apihub-api-diff/dist/types'
 
 export function reclassifyNoBwcBreakingChanges(
   operationDiffs: Diff[],
@@ -31,4 +33,32 @@ export function reclassifyNoBwcBreakingChanges(
     })
   }
   return operationDiffs
+}
+
+export const checkNoApiBackwardCompatibility = (operationsMap: OperationsMap): NoBackwardCompatibility => {
+  const noBwcEntries: Array<[string, string, string]> = []
+
+  const addIfNoBwc = (resolvedOperation?: ResolvedOperation): void => {
+    if (!resolvedOperation) {
+      return
+    }
+    if (resolvedOperation.apiKind === API_KIND.NO_BWC) {
+      const { metadata } = resolvedOperation
+      const { path, method } = metadata
+      if (path && method) {
+        noBwcEntries.push(['paths', path, method])
+      }
+    }
+  }
+
+  for (const { previous, current } of Object.values(operationsMap)) {
+    addIfNoBwc(previous)
+    addIfNoBwc(current)
+  }
+
+  return (path: PropertyKey[]): boolean => {
+    return noBwcEntries.some(entry =>
+      entry.every((el, idx) => path[idx] === el),
+    )
+  }
 }
