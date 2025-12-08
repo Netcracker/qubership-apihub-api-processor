@@ -42,25 +42,25 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
 
   const { notifications, objectHashCache, config } = ctx
   const { effectiveDocument, refsOnlyDocument } = syncDebugPerformance('[NormalizeDocument]', () => {
-    const effectiveDocument = normalize(
-      documentWithoutComponents,
-      {
-        ...REST_EFFECTIVE_NORMALIZE_OPTIONS,
-        source: document.data,
-        onRefResolveError: (message: string, _path: PropertyKey[], _ref: string, errorType: RefErrorType) =>
-          bundlingErrorHandler([{ message, errorType }]),
-      },
-    ) as OpenAPIV3.Document
-    const refsOnlyDocument = normalize(
-      documentWithoutComponents,
-      {
-        mergeAllOf: false,
-        inlineRefsFlag: INLINE_REFS_FLAG,
-        source: document.data,
-      },
-    ) as OpenAPIV3.Document
-    return { effectiveDocument, refsOnlyDocument }
-  },
+      const effectiveDocument = normalize(
+        documentWithoutComponents,
+        {
+          ...REST_EFFECTIVE_NORMALIZE_OPTIONS,
+          source: document.data,
+          onRefResolveError: (message: string, _path: PropertyKey[], _ref: string, errorType: RefErrorType) =>
+            bundlingErrorHandler([{ message, errorType }]),
+        },
+      ) as OpenAPIV3.Document
+      const refsOnlyDocument = normalize(
+        documentWithoutComponents,
+        {
+          mergeAllOf: false,
+          inlineRefsFlag: INLINE_REFS_FLAG,
+          source: document.data,
+        },
+      ) as OpenAPIV3.Document
+      return { effectiveDocument, refsOnlyDocument }
+    },
     debugCtx,
   )
 

@@ -32,23 +32,23 @@ export const buildGraphQLOperations: OperationsBuilder<GraphApiSchema> = async (
   const documentWithoutComponents = removeComponents(document.data) as GraphApiSchema
 
   const { effectiveDocument, refsOnlyDocument } = syncDebugPerformance('[NormalizeDocument]', () => {
-    const effectiveDocument = normalize(
-      documentWithoutComponents,
-      {
-        ...GRAPHQL_EFFECTIVE_NORMALIZE_OPTIONS,
-        source: document.data,
-      },
-    ) as GraphApiSchema
-    const refsOnlyDocument = normalize(
-      documentWithoutComponents,
-      {
-        mergeAllOf: false,
-        inlineRefsFlag: INLINE_REFS_FLAG,
-        source: document.data,
-      },
-    ) as GraphApiSchema
-    return { effectiveDocument, refsOnlyDocument }
-  },
+      const effectiveDocument = normalize(
+        documentWithoutComponents,
+        {
+          ...GRAPHQL_EFFECTIVE_NORMALIZE_OPTIONS,
+          source: document.data,
+        },
+      ) as GraphApiSchema
+      const refsOnlyDocument = normalize(
+        documentWithoutComponents,
+        {
+          mergeAllOf: false,
+          inlineRefsFlag: INLINE_REFS_FLAG,
+          source: document.data,
+        },
+      ) as GraphApiSchema
+      return { effectiveDocument, refsOnlyDocument }
+    },
     debugCtx,
   )
 
@@ -81,8 +81,8 @@ export const buildGraphQLOperations: OperationsBuilder<GraphApiSchema> = async (
               innerDebugCtx,
             )
             operations.push(operation)
-          }, `${config.packageId}/${config.version} ${operationId}`,
-        ),debugCtx, [operationId])
+            }, `${config.packageId}/${config.version} ${operationId}`,
+          ), debugCtx, [operationId])
       })
     }
   }
