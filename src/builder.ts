@@ -103,7 +103,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
   config: BuildConfig
   builderRunOptions = DEFAULT_RUN_OPTIONS
 
-  normalizedObjectsHashCache = new WeakMap<object, string>()
+  normalizedSpecFragmentsHashCache = new WeakMap<object, string>()
 
   readonly parsedFiles: Map<string, SourceFile> = new Map()
 
@@ -208,7 +208,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       versionDocumentsResolver: this.versionDocumentsResolver.bind(this),
       groupExportTemplateResolver: this.params.resolvers.groupExportTemplateResolver,
       versionLabels: this.config.metadata?.versionLabels as Array<string>,
-      normalizedObjectsHashCache: this.normalizedObjectsHashCache,
+      normalizedSpecFragmentsHashCache: this.normalizedSpecFragmentsHashCache,
     }
   }
 
@@ -225,7 +225,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       versionDeprecatedResolver: this.versionDeprecatedResolver.bind(this),
       versionDocumentsResolver: this.versionDocumentsResolver.bind(this),
       rawDocumentResolver: this.rawDocumentResolver.bind(this),
-      objectHashCache: this.normalizedObjectsHashCache,
+      normalizedSpecFragmentsHashCache: this.normalizedSpecFragmentsHashCache,
     }
   }
 

@@ -40,7 +40,7 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
   const documentWithoutComponents = removeComponents(document.data)
   const bundlingErrorHandler = createBundlingErrorHandler(ctx, document.fileId)
 
-  const { notifications, normalizedObjectsHashCache, config } = ctx
+  const { notifications, normalizedSpecFragmentsHashCache, config } = ctx
   const { effectiveDocument, refsOnlyDocument } = syncDebugPerformance('[NormalizeDocument]', () => {
       const effectiveDocument = normalize(
         documentWithoutComponents,
@@ -69,7 +69,7 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
   const operations: TYPE.VersionRestOperation[] = []
   if (!paths) { return [] }
 
-  const componentsHashMap = new Map<string, string>()
+  const originalSpecComponentsHashCache = new Map<string, string>()
   const operationIdMap = new Map<string, OperationInfo[]>()
 
   for (const path of Object.keys(paths)) {
@@ -105,8 +105,8 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
               basePath,
               notifications,
               config,
-              normalizedObjectsHashCache,
-              componentsHashMap,
+              normalizedSpecFragmentsHashCache,
+              originalSpecComponentsHashCache,
               innerDebugCtx,
             )
             operations.push(operation)
@@ -115,7 +115,6 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
           ), debugCtx, [operationId])
       })
     }
-
   }
 
   const duplicates = findDuplicates(operationIdMap)

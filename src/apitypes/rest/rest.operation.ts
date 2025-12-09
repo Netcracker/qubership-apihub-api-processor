@@ -79,8 +79,8 @@ export const buildRestOperation = (
   basePath: string,
   notifications: NotificationMessage[],
   config: BuildConfig,
-  normalizedObjectsHashCache: ObjectHashCache,
-  componentsHashMap: Map<string, string>,
+  normalizedSpecFragmentsHashCache: ObjectHashCache,
+  originalSpecComponentsHashCache: Map<string, string>,
   debugCtx?: DebugPerformanceContext,
 ): TYPE.VersionRestOperation => {
   const { apiKind: documentApiKind, data: documentData, slug: documentSlug, versionInternalDocument } = document
@@ -125,7 +125,7 @@ export const buildRestOperation = (
       const isOperation = isOperationPaths(declarationJsonPaths)
       const [version] = getSplittedVersionKey(config.version)
 
-      const hash = isOperation ? undefined : calculateHash(value, normalizedObjectsHashCache)
+      const hash = isOperation ? undefined : calculateHash(value, normalizedSpecFragmentsHashCache)
       const tolerantHash = isOperation ? undefined : calculateTolerantHash(value, notifications)
 
       deprecatedItems.push({
@@ -154,7 +154,7 @@ export const buildRestOperation = (
       operationSecurity,
       components?.securitySchemes,
     )
-    calculateSpecRefs(documentData, refsOnlySingleOperationSpec, specWithSingleOperation, [operationId], models, componentsHashMap)
+    calculateSpecRefs(documentData, refsOnlySingleOperationSpec, specWithSingleOperation, [operationId], models, originalSpecComponentsHashCache)
     return [specWithSingleOperation]
   }, debugCtx)
 
@@ -197,7 +197,7 @@ export const calculateSpecRefs = (
   resultSpec: TYPE.RestOperationData,
   operations: OperationId[],
   models?: Record<string, string>,
-  componentsHashMap?: Map<string, string>,
+  originalSpecComponentsHashCache?: Map<string, string>,
 ): void => {
   const handledObjects = new Set<unknown>()
   const inlineRefs = new Set<string>()
@@ -235,12 +235,12 @@ export const calculateSpecRefs = (
       return
     }
     if (models && !models[componentName] && isComponentsSchemaRef(matchResult.path)) {
-      let componentHash = componentsHashMap?.get(componentName)
+      let componentHash = originalSpecComponentsHashCache?.get(componentName)
       if (componentHash) {
         models[componentName] = componentHash
       } else {
         componentHash = calculateHash(component)
-        componentsHashMap?.set(componentName, componentHash)
+        originalSpecComponentsHashCache?.set(componentName, componentHash)
         models[componentName] = componentHash
       }
     }

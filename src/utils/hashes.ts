@@ -19,7 +19,7 @@ import { isObject } from './objects'
 
 export type ObjectHashCache = WeakMap<object, string>
 
-export const calculateMd5Hash = (value: NotUndefined): string => {
+export const _calculateMd5Hash = (value: NotUndefined): string => {
   // object hash works only with object keys available in Object.keys() method
   return objectHash(value, { algorithm: 'md5' })
 }
@@ -32,7 +32,7 @@ export const calculateHash = <T>(
   if (value === undefined) return ''
 
   if (!objectHashCache || !isObject(value)) {
-    return calculateMd5Hash(value)
+    return _calculateMd5Hash(value)
   }
 
   const cachedHash = objectHashCache.get(value)
@@ -40,7 +40,7 @@ export const calculateHash = <T>(
     return cachedHash
   }
 
-  const hash = calculateMd5Hash(value)
+  const hash = _calculateMd5Hash(value)
   objectHashCache.set(value, hash)
   return hash
 }

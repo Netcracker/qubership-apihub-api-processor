@@ -38,6 +38,8 @@ export function calculateDiffId(diff: Diff): string {
     action,
     previousDeclarationJsonPaths,
     currentDeclarationJsonPaths,
+    // This calculateDiffId is used when deduplicating differences from different documents, therefore,
+    // caching the hash by instances will not work here, so we simply calculate the hash without using the cache.
     previousValueHash: calculateHash(beforeValueNormalized),
     currentValueHash: calculateHash(afterValueNormalized),
     previousKey,

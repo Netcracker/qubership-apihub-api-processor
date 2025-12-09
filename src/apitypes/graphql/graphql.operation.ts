@@ -56,7 +56,7 @@ export const buildGraphQLOperation = (
   refsOnlyDocument: GraphApiSchema,
   notifications: NotificationMessage[],
   config: BuildConfig,
-  normalizedObjectsHashCache: ObjectHashCache,
+  normalizedSpecFragmentsHashCache: ObjectHashCache,
   debugCtx?: DebugPerformanceContext,
 ): VersionGraphQLOperation => {
   const { apiKind: documentApiKind, slug: documentSlug, versionInternalDocument } = document
@@ -71,7 +71,7 @@ export const buildGraphQLOperation = (
 
       const isOperation = isOperationPaths(declarationJsonPaths)
       const [version] = getSplittedVersionKey(config.version)
-      const hash = isOperation ? undefined : calculateHash(value, normalizedObjectsHashCache)
+      const hash = isOperation ? undefined : calculateHash(value, normalizedSpecFragmentsHashCache)
 
       result.push({
         declarationJsonPaths,

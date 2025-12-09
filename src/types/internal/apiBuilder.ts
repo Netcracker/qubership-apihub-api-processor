@@ -70,7 +70,7 @@ export interface BuilderContext<T = any> {
   groupExportTemplateResolver?: GroupExportTemplateResolver
   rawDocumentResolver: _RawDocumentResolver
   versionLabels?: Array<string>
-  normalizedObjectsHashCache: ObjectHashCache
+  normalizedSpecFragmentsHashCache: ObjectHashCache
 }
 
 export type GroupExportTemplateResolver = (

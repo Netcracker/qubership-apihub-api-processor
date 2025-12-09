@@ -10,7 +10,7 @@ describe('Hash cache tests', () => {
   describe('Hash deprecated tests', () => {
     test('should publish OAS with deprecated items uses object hash cache', async () => {
       const getHashWithCacheSpy = jest.spyOn(hashes, 'calculateHash')
-      const calculateObjectHashSpy = jest.spyOn(hashes, 'calculateMd5Hash')
+      const calculateObjectHashSpy = jest.spyOn(hashes, '_calculateMd5Hash')
       const portal = new LocalRegistry('deprecated')
 
       await portal.publish('deprecated', {
@@ -24,7 +24,7 @@ describe('Hash cache tests', () => {
     })
 
     test('should publish graphql with deprecated items uses object hash cache', async () => {
-      const calculateObjectHashSpy = jest.spyOn(hashes, 'calculateMd5Hash')
+      const calculateObjectHashSpy = jest.spyOn(hashes, '_calculateMd5Hash')
       const getHashWithCacheSpy = jest.spyOn(hashes, 'calculateHash')
       const portal = new LocalRegistry('graphql')
 
@@ -49,7 +49,7 @@ describe('Hash cache tests', () => {
       const spec = { info: { title: 'cached spec' } }
       cache.set(spec, 'cached-hash')
 
-      const calculateSpy = jest.spyOn(hashes, 'calculateMd5Hash')
+      const calculateSpy = jest.spyOn(hashes, '_calculateMd5Hash')
 
       const hash = hashes.calculateHash(spec, cache)
 
@@ -60,7 +60,7 @@ describe('Hash cache tests', () => {
     test('returns cached hash for same object reference', () => {
       const cache: ObjectHashCache = new WeakMap()
       const spec = { paths: { '/users': { get: { summary: 'list users' } } } }
-      const calculateSpy = jest.spyOn(hashes, 'calculateMd5Hash')
+      const calculateSpy = jest.spyOn(hashes, '_calculateMd5Hash')
 
       const firstHash = hashes.calculateHash(spec, cache)
       const secondHash = hashes.calculateHash(spec, cache)

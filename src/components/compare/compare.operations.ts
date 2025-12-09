@@ -117,7 +117,7 @@ async function compareCurrentApiType(
     versionOperationsResolver,
     rawDocumentResolver,
     config: { currentGroup = '', previousGroup = '' },
-    objectHashCache,
+    normalizedSpecFragmentsHashCache,
   } = ctx
   const apiBuilder = ctx.apiBuilders.find((builder) => apiType === builder.apiType)
   if (!apiBuilder) { return null }
@@ -148,7 +148,7 @@ async function compareCurrentApiType(
     currentGroup: currentGroup,
     previousGroupSlug: previousGroupSlug,
     currentGroupSlug: currentGroupSlug,
-    objectHashCache: objectHashCache,
+    objectHashCache: normalizedSpecFragmentsHashCache,
   }
 
   const operationsMap = createPairOperationsMap(previousGroupSlug, currentGroupSlug, prevOperationsWithPrefix, currOperationsWithPrefix, apiBuilder)
