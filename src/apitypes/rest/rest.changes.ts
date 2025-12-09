@@ -284,7 +284,7 @@ async function reclassifyBreakingChanges(
       continue
     }
 
-    const beforeHash = calculateHash(beforeValueNormalized, ctx.objectHashCache)
+    const beforeHash = calculateHash(beforeValueNormalized, ctx.normalizedSpecFragmentsHashCache)
 
     const deprecatedItems = previousOperation?.deprecatedItems ?? []
     let deprecatedItem

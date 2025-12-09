@@ -30,7 +30,11 @@ import {
   VersionsComparisonDto,
 } from '../types'
 
-export function toChangeMessage(diff: ArrayType<Diff[]>, objectHashCache: ObjectHashCache, logError: (message: string) => void): ChangeMessage<DiffTypeDto> {
+export function toChangeMessage(
+  diff: ArrayType<Diff[]>,
+  normalizedSpecFragmentsHashCache: ObjectHashCache,
+  logError: (message: string) => void,
+): ChangeMessage<DiffTypeDto> {
   const newDiff: ArrayType<Diff<DiffTypeDto>[]> = {
     ...diff,
     type: replaceStringDiffType(diff.type, { origin: risky, override: SEMI_BREAKING_CHANGE_TYPE }) as DiffTypeDto,
@@ -65,7 +69,7 @@ export function toChangeMessage(diff: ArrayType<Diff[]>, objectHashCache: Object
         ...commonChangeProps,
         action,
         currentDeclarationJsonPaths: afterDeclarationPaths,
-        currentValueHash: calculateHash(afterValueNormalized, objectHashCache),
+        currentValueHash: calculateHash(afterValueNormalized, normalizedSpecFragmentsHashCache),
       }
     }
     case DiffAction.remove: {
@@ -83,7 +87,7 @@ export function toChangeMessage(diff: ArrayType<Diff[]>, objectHashCache: Object
         ...commonChangeProps,
         action,
         previousDeclarationJsonPaths: beforeDeclarationPaths,
-        previousValueHash: calculateHash(beforeValueNormalized, objectHashCache),
+        previousValueHash: calculateHash(beforeValueNormalized, normalizedSpecFragmentsHashCache),
       }
     }
     case DiffAction.replace: {
@@ -104,8 +108,8 @@ export function toChangeMessage(diff: ArrayType<Diff[]>, objectHashCache: Object
         action,
         currentDeclarationJsonPaths: afterDeclarationPaths,
         previousDeclarationJsonPaths: beforeDeclarationPaths,
-        currentValueHash: calculateHash(afterValueNormalized, objectHashCache),
-        previousValueHash: calculateHash(beforeValueNormalized, objectHashCache),
+        currentValueHash: calculateHash(afterValueNormalized, normalizedSpecFragmentsHashCache),
+        previousValueHash: calculateHash(beforeValueNormalized, normalizedSpecFragmentsHashCache),
       }
     }
     case DiffAction.rename: {
@@ -138,14 +142,14 @@ export function toOperationChangesDto({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   impactedSummary,
   ...rest
-}: OperationChanges, objectHashCache: ObjectHashCache, logError: (message: string) => void): OperationChangesDto {
+}: OperationChanges, normalizedSpecFragmentsHashCache: ObjectHashCache, logError: (message: string) => void): OperationChangesDto {
   return {
     ...rest,
     changeSummary: replacePropertyInChangesSummary<DiffType, DiffTypeDto>(rest.changeSummary, {
       origin: risky,
       override: SEMI_BREAKING_CHANGE_TYPE,
     }),
-    changes: diffs?.map(diff => toChangeMessage(diff, objectHashCache, logError)),
+    changes: diffs?.map(diff => toChangeMessage(diff, normalizedSpecFragmentsHashCache, logError)),
   }
 }
 
@@ -154,14 +158,14 @@ export function toVersionsComparisonDto({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   comparisonInternalDocuments,
   ...rest
-}: VersionsComparison, objectHashCache: ObjectHashCache, logError: (message: string) => void): VersionsComparisonDto {
+}: VersionsComparison, normalizedSpecFragmentsHashCache: ObjectHashCache, logError: (message: string) => void): VersionsComparisonDto {
   return {
     ...rest,
     operationTypes: convertDtoFieldOperationTypes<DiffType, DiffTypeDto>(rest.operationTypes, {
       origin: risky,
       override: SEMI_BREAKING_CHANGE_TYPE,
     }),
-    data: data?.map(data => toOperationChangesDto(data, objectHashCache, logError)),
+    data: data?.map(data => toOperationChangesDto(data, normalizedSpecFragmentsHashCache, logError)),
   }
 }
 

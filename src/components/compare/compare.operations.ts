@@ -148,7 +148,7 @@ async function compareCurrentApiType(
     currentGroup: currentGroup,
     previousGroupSlug: previousGroupSlug,
     currentGroupSlug: currentGroupSlug,
-    objectHashCache: normalizedSpecFragmentsHashCache,
+    normalizedSpecFragmentsHashCache: normalizedSpecFragmentsHashCache,
   }
 
   const operationsMap = createPairOperationsMap(previousGroupSlug, currentGroupSlug, prevOperationsWithPrefix, currOperationsWithPrefix, apiBuilder)

@@ -100,7 +100,7 @@ export interface CompareOperationsPairContext {
   previousGroup?: string
   currentGroupSlug: string
   previousGroupSlug: string
-  objectHashCache: ObjectHashCache
+  normalizedSpecFragmentsHashCache: ObjectHashCache
 }
 
 export type NormalizedOperationId = string

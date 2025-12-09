@@ -30,8 +30,6 @@ import {
 } from '@netcracker/qubership-apihub-api-unifier'
 import { DirectiveLocation } from 'graphql/language'
 import { HTTP_METHODS_SET } from '../consts'
-import { calculateHash, ObjectHashCache } from './hashes'
-import { NotUndefined } from 'object-hash'
 
 export function getOperationsList(buildResult: BuildResult): ApiOperation[] {
   return [...buildResult.operations.values()]
