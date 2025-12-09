@@ -43,7 +43,7 @@ describe('Hash cache tests', () => {
     })
   })
 
-  describe('Unit tests', () => {
+  describe('Normalized specification fragments hash cash tests', () => {
     test('uses existing cache entry without recalculating hash', () => {
       const cache: ObjectHashCache = new WeakMap()
       const spec = { info: { title: 'cached spec' } }

@@ -24,10 +24,9 @@ export const _calculateMd5Hash = (value: NotUndefined): string => {
   return objectHash(value, { algorithm: 'md5' })
 }
 
-type HashCache = Map<NotUndefined, string> | WeakMap<object, string>
-export const calculateHash = <T>(
-  value: T,
-  objectHashCache?: HashCache,
+export const calculateHash = (
+  value: unknown,
+  objectHashCache?: ObjectHashCache,
 ): string => {
   if (value === undefined) return ''
 
