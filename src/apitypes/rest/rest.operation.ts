@@ -31,7 +31,6 @@ import {
 } from '../../types'
 import {
   buildSearchScope,
-  calculateOperationHash,
   calculateOperationId,
   capitalize,
   extractSymbolProperty,
@@ -80,8 +79,8 @@ export const buildRestOperation = (
   basePath: string,
   notifications: NotificationMessage[],
   config: BuildConfig,
-  objectHashCache: ObjectHashCache,
-  componentsHashMap: ObjectHashCache,
+  normalizedObjectsHashCache: ObjectHashCache,
+  componentsHashMap: Map<string, string>,
   debugCtx?: DebugPerformanceContext,
 ): TYPE.VersionRestOperation => {
   const { apiKind: documentApiKind, data: documentData, slug: documentSlug, versionInternalDocument } = document
@@ -126,6 +125,7 @@ export const buildRestOperation = (
       const isOperation = isOperationPaths(declarationJsonPaths)
       const [version] = getSplittedVersionKey(config.version)
 
+      const hash = isOperation ? undefined : calculateHash(value, normalizedObjectsHashCache)
       const tolerantHash = isOperation ? undefined : calculateTolerantHash(value, notifications)
 
       deprecatedItems.push({
@@ -134,7 +134,7 @@ export const buildRestOperation = (
         ...takeIfDefined({ deprecatedInfo: deprecatedReason }),
         ...takeIf({ [isOperationDeprecated]: true }, isOperation),
         deprecatedInPreviousVersions: config.status === VERSION_STATUS.RELEASE ? [version] : [],
-        ...takeIfDefined({ hash: calculateOperationHash(isOperation, value, objectHashCache) }),
+        ...takeIfDefined({ hash: hash }),
         ...takeIfDefined({ tolerantHash: tolerantHash }),
       })
     }
@@ -197,7 +197,7 @@ export const calculateSpecRefs = (
   resultSpec: TYPE.RestOperationData,
   operations: OperationId[],
   models?: Record<string, string>,
-  componentsHashMap?: ObjectHashCache,
+  componentsHashMap?: Map<string, string>,
 ): void => {
   const handledObjects = new Set<unknown>()
   const inlineRefs = new Set<string>()
@@ -235,7 +235,14 @@ export const calculateSpecRefs = (
       return
     }
     if (models && !models[componentName] && isComponentsSchemaRef(matchResult.path)) {
-      models[componentName] = calculateHash(component, componentsHashMap)
+      let componentHash = componentsHashMap?.get(componentName)
+      if (componentHash) {
+        models[componentName] = componentHash
+      } else {
+        componentHash = calculateHash(component)
+        componentsHashMap?.set(componentName, componentHash)
+        models[componentName] = componentHash
+      }
     }
     setValueByPath(resultSpec, matchResult.path, component)
   })

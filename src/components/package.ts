@@ -63,7 +63,7 @@ export const createVersionPackage = async (
   }
   const buildResultDto: BuildResultDto = {
     ...buildResult,
-    comparisons: buildResult.comparisons.map(comparison => toVersionsComparisonDto(comparison, ctx.objectHashCache, logError)),
+    comparisons: buildResult.comparisons.map(comparison => toVersionsComparisonDto(comparison, ctx.normalizedObjectsHashCache, logError)),
   }
   const comparisonInternalDocuments: ComparisonInternalDocument[] = buildResult.comparisons.map(comparison => comparison.comparisonInternalDocuments).flat()
 

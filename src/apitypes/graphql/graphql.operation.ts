@@ -16,7 +16,6 @@
 
 import { API_AUDIENCE_EXTERNAL, BuildConfig, DeprecateItem, NotificationMessage } from '../../types'
 import {
-  calculateOperationHash,
   getKeyValue,
   getSplittedVersionKey,
   isOperationDeprecated,
@@ -45,7 +44,7 @@ import {
 } from '@netcracker/qubership-apihub-api-unifier'
 import { JsonPath, syncCrawl } from '@netcracker/qubership-apihub-json-crawl'
 import { DebugPerformanceContext, syncDebugPerformance } from '../../utils/logs'
-import { ObjectHashCache } from '../../utils/hashes'
+import { calculateHash, ObjectHashCache } from '../../utils/hashes'
 
 export const buildGraphQLOperation = (
   operationId: string,
@@ -57,7 +56,7 @@ export const buildGraphQLOperation = (
   refsOnlyDocument: GraphApiSchema,
   notifications: NotificationMessage[],
   config: BuildConfig,
-  objectHashCache: ObjectHashCache,
+  normalizedObjectsHashCache: ObjectHashCache,
   debugCtx?: DebugPerformanceContext,
 ): VersionGraphQLOperation => {
   const { apiKind: documentApiKind, slug: documentSlug, versionInternalDocument } = document
@@ -72,6 +71,7 @@ export const buildGraphQLOperation = (
 
       const isOperation = isOperationPaths(declarationJsonPaths)
       const [version] = getSplittedVersionKey(config.version)
+      const hash = isOperation ? undefined : calculateHash(value, normalizedObjectsHashCache)
 
       result.push({
         declarationJsonPaths,
@@ -79,7 +79,7 @@ export const buildGraphQLOperation = (
         ...takeIfDefined({ deprecatedInfo: deprecatedReason }),
         ...takeIf({ [isOperationDeprecated]: true }, isOperation),
         deprecatedInPreviousVersions: config.status === VERSION_STATUS.RELEASE ? [version] : [],
-        ...takeIfDefined({ hash: calculateOperationHash(isOperation, value, objectHashCache) }),
+        ...takeIfDefined({ hash: hash }),
       })
     }
     return result

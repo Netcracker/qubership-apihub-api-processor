@@ -40,7 +40,7 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
   const documentWithoutComponents = removeComponents(document.data)
   const bundlingErrorHandler = createBundlingErrorHandler(ctx, document.fileId)
 
-  const { notifications, objectHashCache, config } = ctx
+  const { notifications, normalizedObjectsHashCache, config } = ctx
   const { effectiveDocument, refsOnlyDocument } = syncDebugPerformance('[NormalizeDocument]', () => {
       const effectiveDocument = normalize(
         documentWithoutComponents,
@@ -69,7 +69,7 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
   const operations: TYPE.VersionRestOperation[] = []
   if (!paths) { return [] }
 
-  const componentsHashMap = new WeakMap<object, string>()
+  const componentsHashMap = new Map<string, string>()
   const operationIdMap = new Map<string, OperationInfo[]>()
 
   for (const path of Object.keys(paths)) {
@@ -105,7 +105,7 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
               basePath,
               notifications,
               config,
-              objectHashCache,
+              normalizedObjectsHashCache,
               componentsHashMap,
               innerDebugCtx,
             )

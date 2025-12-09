@@ -27,7 +27,7 @@ import { normalize } from '@netcracker/qubership-apihub-api-unifier'
 import { GRAPHQL_EFFECTIVE_NORMALIZE_OPTIONS } from '../graphql'
 
 export const buildGraphQLOperations: OperationsBuilder<GraphApiSchema> = async (document, ctx, debugCtx) => {
-  const { notifications, objectHashCache, config } = ctx
+  const { notifications, normalizedObjectsHashCache, config } = ctx
 
   const documentWithoutComponents = removeComponents(document.data) as GraphApiSchema
 
@@ -77,7 +77,7 @@ export const buildGraphQLOperations: OperationsBuilder<GraphApiSchema> = async (
               refsOnlyDocument,
               notifications,
               config,
-              objectHashCache,
+              normalizedObjectsHashCache,
               innerDebugCtx,
             )
             operations.push(operation)

@@ -88,10 +88,7 @@ export const jsonPathToString = (path: ObjPath): string => {
     .join('/')
 }
 
-export const removeObjectDuplicates = (
-  originalArray: any[],
-  by: string | ((item: any) => any),
-): any[] => {
+export const removeObjectDuplicates = (originalArray: any[], by: string | ((item: any) => any)): any[] => {
   const unique = new Map()
 
   for (const item of originalArray) {

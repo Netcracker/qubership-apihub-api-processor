@@ -54,7 +54,7 @@ export function toChangeMessage(diff: ArrayType<Diff[]>, objectHashCache: Object
       const {
         afterDeclarationPaths,
       } = newDiff
-      const afterValueNormalized  = (newDiff as Record<symbol, unknown>)[AFTER_VALUE_NORMALIZED_PROPERTY]
+      const afterValueNormalized = (newDiff as Record<symbol, unknown>)[AFTER_VALUE_NORMALIZED_PROPERTY]
       if (afterValueNormalized === undefined) {
         logError('Add diff has undefined afterValueNormalized')
       }

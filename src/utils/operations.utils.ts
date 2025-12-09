@@ -121,14 +121,3 @@ export const createSerializedInternalDocument = (document: VersionDocument, effe
   }
   versionInternalDocument.serializedVersionDocument = serializeDocument(denormalize(effectiveDocument, options) as ApiDocument)
 }
-
-export const calculateOperationHash = (
-  isOperation: boolean,
-  value: NotUndefined,
-  objectHashCache: ObjectHashCache,
-): string | undefined => {
-  if (isOperation) {
-    return undefined
-  }
-  return calculateHash(value, objectHashCache)
-}
