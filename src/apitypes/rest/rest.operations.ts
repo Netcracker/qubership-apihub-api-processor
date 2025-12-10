@@ -39,26 +39,28 @@ type DuplicateEntry = { operationId: string; operations: OperationInfo[] }
 export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async (document, ctx, debugCtx) => {
   const documentWithoutComponents = removeComponents(document.data)
   const bundlingErrorHandler = createBundlingErrorHandler(ctx, document.fileId)
+
+  const { notifications, normalizedSpecFragmentsHashCache, config } = ctx
   const { effectiveDocument, refsOnlyDocument } = syncDebugPerformance('[NormalizeDocument]', () => {
-    const effectiveDocument = normalize(
-      documentWithoutComponents,
-      {
-        ...REST_EFFECTIVE_NORMALIZE_OPTIONS,
-        source: document.data,
-        onRefResolveError: (message: string, _path: PropertyKey[], _ref: string, errorType: RefErrorType) =>
-          bundlingErrorHandler([{ message, errorType }]),
-      },
-    ) as OpenAPIV3.Document
-    const refsOnlyDocument = normalize(
-      documentWithoutComponents,
-      {
-        mergeAllOf: false,
-        inlineRefsFlag: INLINE_REFS_FLAG,
-        source: document.data,
-      },
-    ) as OpenAPIV3.Document
-    return { effectiveDocument, refsOnlyDocument }
-  },
+      const effectiveDocument = normalize(
+        documentWithoutComponents,
+        {
+          ...REST_EFFECTIVE_NORMALIZE_OPTIONS,
+          source: document.data,
+          onRefResolveError: (message: string, _path: PropertyKey[], _ref: string, errorType: RefErrorType) =>
+            bundlingErrorHandler([{ message, errorType }]),
+        },
+      ) as OpenAPIV3.Document
+      const refsOnlyDocument = normalize(
+        documentWithoutComponents,
+        {
+          mergeAllOf: false,
+          inlineRefsFlag: INLINE_REFS_FLAG,
+          source: document.data,
+        },
+      ) as OpenAPIV3.Document
+      return { effectiveDocument, refsOnlyDocument }
+    },
     debugCtx,
   )
 
@@ -67,7 +69,7 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
   const operations: TYPE.VersionRestOperation[] = []
   if (!paths) { return [] }
 
-  const componentsHashMap = new Map<string, string>()
+  const originalSpecComponentsHashCache = new Map<string, string>()
   const operationIdMap = new Map<string, OperationInfo[]>()
 
   for (const path of Object.keys(paths)) {
@@ -101,18 +103,18 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
               effectiveDocument,
               refsOnlyDocument,
               basePath,
-              ctx.notifications,
-              ctx.config,
-              componentsHashMap,
+              notifications,
+              config,
+              normalizedSpecFragmentsHashCache,
+              originalSpecComponentsHashCache,
               innerDebugCtx,
             )
             operations.push(operation)
           },
-            `${ctx.config.packageId}/${ctx.config.version} ${operationId}`,
+            `${config.packageId}/${config.version} ${operationId}`,
           ), debugCtx, [operationId])
       })
     }
-
   }
 
   const duplicates = findDuplicates(operationIdMap)

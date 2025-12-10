@@ -478,7 +478,7 @@ export class LocalRegistry implements IRegistry {
         message: message,
       })
     }
-    const comparisonsDto: VersionsComparisonDto[] = comparisons.map(comparison => toVersionsComparisonDto(comparison, logError))
+    const comparisonsDto: VersionsComparisonDto[] = comparisons.map(comparison => toVersionsComparisonDto(comparison, builderContext.normalizedSpecFragmentsHashCache, logError))
     const comparisonInternalDocuments: ComparisonInternalDocument[] = comparisons.map(comparison => comparison.comparisonInternalDocuments).flat()
 
     await saveComparisonsArray(comparisonsDto, basePath)

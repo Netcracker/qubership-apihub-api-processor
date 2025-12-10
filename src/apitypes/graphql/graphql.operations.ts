@@ -27,28 +27,28 @@ import { normalize } from '@netcracker/qubership-apihub-api-unifier'
 import { GRAPHQL_EFFECTIVE_NORMALIZE_OPTIONS } from '../graphql'
 
 export const buildGraphQLOperations: OperationsBuilder<GraphApiSchema> = async (document, ctx, debugCtx) => {
-  const { notifications } = ctx
+  const { notifications, normalizedSpecFragmentsHashCache, config } = ctx
 
   const documentWithoutComponents = removeComponents(document.data) as GraphApiSchema
 
   const { effectiveDocument, refsOnlyDocument } = syncDebugPerformance('[NormalizeDocument]', () => {
-    const effectiveDocument = normalize(
-      documentWithoutComponents,
-      {
-        ...GRAPHQL_EFFECTIVE_NORMALIZE_OPTIONS,
-        source: document.data,
-      },
-    ) as GraphApiSchema
-    const refsOnlyDocument = normalize(
-      documentWithoutComponents,
-      {
-        mergeAllOf: false,
-        inlineRefsFlag: INLINE_REFS_FLAG,
-        source: document.data,
-      },
-    ) as GraphApiSchema
-    return { effectiveDocument, refsOnlyDocument }
-  },
+      const effectiveDocument = normalize(
+        documentWithoutComponents,
+        {
+          ...GRAPHQL_EFFECTIVE_NORMALIZE_OPTIONS,
+          source: document.data,
+        },
+      ) as GraphApiSchema
+      const refsOnlyDocument = normalize(
+        documentWithoutComponents,
+        {
+          mergeAllOf: false,
+          inlineRefsFlag: INLINE_REFS_FLAG,
+          source: document.data,
+        },
+      ) as GraphApiSchema
+      return { effectiveDocument, refsOnlyDocument }
+    },
     debugCtx,
   )
 
@@ -76,11 +76,12 @@ export const buildGraphQLOperations: OperationsBuilder<GraphApiSchema> = async (
               effectiveDocument,
               refsOnlyDocument,
               notifications,
-              ctx.config,
+              config,
+              normalizedSpecFragmentsHashCache,
               innerDebugCtx,
             )
             operations.push(operation)
-          }, `${ctx.config.packageId}/${ctx.config.version} ${operationId}`,
+            }, `${config.packageId}/${config.version} ${operationId}`,
           ), debugCtx, [operationId])
       })
     }

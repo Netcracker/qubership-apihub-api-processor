@@ -64,7 +64,7 @@ import {
   resolveOrigins,
 } from '@netcracker/qubership-apihub-api-unifier'
 import { extractOperationBasePath } from '@netcracker/qubership-apihub-api-diff'
-import { calculateObjectHash } from '../../utils/hashes'
+import { calculateHash, ObjectHashCache } from '../../utils/hashes'
 import { calculateTolerantHash } from '../../components/deprecated'
 import { getValueByPath } from '../../utils/path'
 
@@ -79,7 +79,8 @@ export const buildRestOperation = (
   basePath: string,
   notifications: NotificationMessage[],
   config: BuildConfig,
-  componentsHashMap: Map<string, string>,
+  normalizedSpecFragmentsHashCache: ObjectHashCache,
+  originalSpecComponentsHashCache: Map<string, string>,
   debugCtx?: DebugPerformanceContext,
 ): TYPE.VersionRestOperation => {
   const { apiKind: documentApiKind, data: documentData, slug: documentSlug, versionInternalDocument } = document
@@ -124,8 +125,8 @@ export const buildRestOperation = (
       const isOperation = isOperationPaths(declarationJsonPaths)
       const [version] = getSplittedVersionKey(config.version)
 
+      const hash = isOperation ? undefined : calculateHash(value, normalizedSpecFragmentsHashCache)
       const tolerantHash = isOperation ? undefined : calculateTolerantHash(value, notifications)
-      const hash = isOperation ? undefined : calculateObjectHash(value)
 
       deprecatedItems.push({
         declarationJsonPaths,
@@ -153,7 +154,7 @@ export const buildRestOperation = (
       operationSecurity,
       components?.securitySchemes,
     )
-    calculateSpecRefs(documentData, refsOnlySingleOperationSpec, specWithSingleOperation, [operationId], models, componentsHashMap)
+    calculateSpecRefs(documentData, refsOnlySingleOperationSpec, specWithSingleOperation, [operationId], models, originalSpecComponentsHashCache)
     return [specWithSingleOperation]
   }, debugCtx)
 
@@ -196,7 +197,7 @@ export const calculateSpecRefs = (
   resultSpec: TYPE.RestOperationData,
   operations: OperationId[],
   models?: Record<string, string>,
-  componentsHashMap?: Map<string, string>,
+  originalSpecComponentsHashCache?: Map<string, string>,
 ): void => {
   const handledObjects = new Set<unknown>()
   const inlineRefs = new Set<string>()
@@ -234,12 +235,12 @@ export const calculateSpecRefs = (
       return
     }
     if (models && !models[componentName] && isComponentsSchemaRef(matchResult.path)) {
-      let componentHash = componentsHashMap?.get(componentName)
+      let componentHash = originalSpecComponentsHashCache?.get(componentName)
       if (componentHash) {
         models[componentName] = componentHash
       } else {
-        componentHash = calculateObjectHash(component)
-        componentsHashMap?.set(componentName, componentHash)
+        componentHash = calculateHash(component)
+        originalSpecComponentsHashCache?.set(componentName, componentHash)
         models[componentName] = componentHash
       }
     }
