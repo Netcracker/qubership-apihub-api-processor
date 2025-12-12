@@ -57,7 +57,7 @@ export function hidePathParamNames(path: string): string {
 }
 
 const PATH_PARAMETER_REGEXP = /\{.*?\}/g
-export const PATH_PARAM_UNIFIED_PLACEHOLDER = '*'
+const PATH_PARAM_UNIFIED_PLACEHOLDER = '*'
 
 export const filesDiff = (files1: { fileId: string }[], files2: { fileId: string }[]): { fileId: string }[] => {
   return files1.filter((f1) => !files2.find((f2) => f1.fileId === f2.fileId))

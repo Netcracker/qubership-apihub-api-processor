@@ -38,9 +38,11 @@ import {
   calculateApiAudienceTransitions,
   calculateChangeSummary,
   calculateDiffId,
-  convertToSlug,
   getSplittedVersionKey,
+  removeFirstSlash,
   removeObjectDuplicates,
+  SLUG_OPTIONS_OPERATION_ID,
+  slugify,
 } from '../../utils'
 import { asyncDebugPerformance, DebugPerformanceContext, syncDebugPerformance } from '../../utils/logs'
 import { validateApiProcessorVersion } from '../../validators'
@@ -128,11 +130,11 @@ async function compareCurrentApiType(
   const { operations: prevOperations = [] } = prev && await versionOperationsResolver(apiType, prevVersion, prevPackageId, undefined, false) || {}
   const { operations: currOperations = [] } = curr && await versionOperationsResolver(apiType, currVersion, currPackageId, undefined, false) || {}
 
-  const previousGroupSlug = convertToSlug(previousGroup)
-  const currentGroupSlug = convertToSlug(currentGroup)
+  const previousGroupSlug = slugify(removeFirstSlash(previousGroup), SLUG_OPTIONS_OPERATION_ID)
+  const currentGroupSlug = slugify(removeFirstSlash(currentGroup), SLUG_OPTIONS_OPERATION_ID)
 
-  const prevOperationsWithPrefix = previousGroupSlug ? prevOperations.filter(operation => operation.operationId.startsWith(`${previousGroupSlug}-`)) : prevOperations
-  const currOperationsWithPrefix = currentGroupSlug ? currOperations.filter(operation => operation.operationId.startsWith(`${currentGroupSlug}-`)) : currOperations
+  const prevOperationsWithPrefix = previousGroupSlug ? prevOperations.filter(operation => operation.operationId.startsWith(`${previousGroupSlug}`)) : prevOperations
+  const currOperationsWithPrefix = currentGroupSlug ? currOperations.filter(operation => operation.operationId.startsWith(`${currentGroupSlug}`)) : currOperations
 
   const pairContext: CompareOperationsPairContext = {
     apiType: apiType,

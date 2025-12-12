@@ -17,16 +17,16 @@
 import { OpenAPIV3 } from 'openapi-types'
 
 import { buildRestOperation } from './rest.operation'
-import { OperationsBuilder } from '../../types'
+import { NotificationMessage, OperationsBuilder } from '../../types'
 import {
-  calculateOperationId,
+  calculateRestOperationId,
   createBundlingErrorHandler,
   createSerializedInternalDocument,
   isNotEmpty,
   removeComponents,
 } from '../../utils'
 import type * as TYPE from './rest.types'
-import { INLINE_REFS_FLAG } from '../../consts'
+import { INLINE_REFS_FLAG, MESSAGE_SEVERITY } from '../../consts'
 import { asyncFunction } from '../../utils/async'
 import { logLongBuild, syncDebugPerformance } from '../../utils/logs'
 import { normalize, RefErrorType } from '@netcracker/qubership-apihub-api-unifier'
@@ -73,9 +73,9 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
   const operationIdMap = new Map<string, OperationInfo[]>()
 
   for (const path of Object.keys(paths)) {
-    // Validate path parameters: empty parameter names are not allowed
-    if (path.includes('{}')) {
-      throw new Error(`Invalid path '${path}': path parameter name could not be empty`)
+    const pathNotifications = validatePath(path, document.fileId)
+    if (pathNotifications.length) {
+      ctx.notifications.push(...pathNotifications)
     }
 
     const pathData = paths[path]
@@ -87,7 +87,7 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
       await asyncFunction(() => {
         const methodData = pathData[key as OpenAPIV3.HttpMethods]
         const basePath = extractOperationBasePath(methodData?.servers || pathData?.servers || servers || [])
-        const operationId = calculateOperationId(basePath, key, path)
+        const operationId = calculateRestOperationId(basePath, path, key)
 
         const trackedOperations = operationIdMap.get(operationId) ?? []
         trackedOperations.push({ path, method: key })
@@ -119,7 +119,7 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
 
   const duplicates = findDuplicates(operationIdMap)
   if (isNotEmpty(duplicates)) {
-    throw createDuplicatesError(document.fileId, duplicates)
+    throw createDuplicatesError(duplicates)
   }
 
   if (operations.length) {
@@ -129,20 +129,42 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
   return operations
 }
 
+function validatePath(path: string, fileId: string): NotificationMessage[] {
+  const notifications: NotificationMessage[] = []
+
+  if (path.includes('{}')) {
+    notifications.push({
+      severity: MESSAGE_SEVERITY.Error,
+      message: `Invalid path '${path}': path parameter name could not be empty`,
+      fileId: fileId,
+    })
+  }
+
+  if (path.includes('//')) {
+    notifications.push({
+      severity: MESSAGE_SEVERITY.Warning,
+      message: `Path '${path}' contains double slash sequence`,
+      fileId: fileId,
+    })
+  }
+
+  return notifications
+}
+
 function findDuplicates(operationIdMap: Map<string, OperationInfo[]>): DuplicateEntry[] {
   return Array.from(operationIdMap.entries())
     .filter(([, operations]) => operations.length > 1)
     .map(([operationId, operations]) => ({ operationId, operations }))
 }
 
-function createDuplicatesError(fileId: string, duplicates: DuplicateEntry[]): Error {
+function createDuplicatesError(duplicates: DuplicateEntry[]): Error {
   const duplicatesList = duplicates
     .map(({ operationId, operations }) => {
       const operationsList = operations
         .map((operation: OperationInfo) => `${operation.method.toUpperCase()} ${operation.path}`)
         .join(', ')
-      return `- operationId '${operationId}': Found ${operations.length} operations: ${operationsList}`
+      return `- operationId "${operationId}": found ${operations.length} operations: ${operationsList}`
     })
     .join('\n')
-  return new Error(`Duplicated operationIds found within document '${fileId}':\n${duplicatesList}`)
+  return new Error(`Duplicated operationIds found:\n${duplicatesList}`)
 }
