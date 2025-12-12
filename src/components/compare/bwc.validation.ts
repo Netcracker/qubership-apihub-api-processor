@@ -47,7 +47,7 @@ const isValidPathLength = (path: JsonPath | undefined): boolean => {
   return pathLength >= 1 && pathLength <= 3
 }
 
-export const checkNoApiBackwardCompatibility = (
+export const checkNoBackwardCompatibility = (
   path?: JsonPath,
   beforeJson?: unknown,
   afterJson?: unknown,
