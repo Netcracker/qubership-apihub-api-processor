@@ -14,21 +14,72 @@
  * limitations under the License.
  */
 
-import { BREAKING_CHANGE_TYPE, ResolvedOperation, RISKY_CHANGE_TYPE } from '../../types'
 import { API_KIND } from '../../consts'
-import { Diff } from '@netcracker/qubership-apihub-api-diff'
+import { isObject, isValidHttpMethod } from '../../utils'
+import { REST_KIND_KEY } from '../../apitypes'
+import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
+import { ApiCompatibilityKind, BwcState } from '@netcracker/qubership-apihub-api-diff'
 
-export function reclassifyNoBwcBreakingChanges(
-  operationDiffs: Diff[],
-  previous?: ResolvedOperation,
-  current?: ResolvedOperation,
-): Diff[] {
-  if (current?.apiKind === API_KIND.NO_BWC || previous?.apiKind === API_KIND.NO_BWC) {
-    return operationDiffs?.map((diff) => {
-      return diff.type === BREAKING_CHANGE_TYPE
-        ? { ...diff, type: RISKY_CHANGE_TYPE }
-        : diff
-    })
+const getKind = (obj: unknown): string | undefined => {
+  if (!isObject(obj)) return undefined
+  const value = (obj as Record<string, unknown>)[REST_KIND_KEY]
+  return typeof value === 'string' ? value.toLowerCase() : undefined
+}
+
+const hasNoBWC = (obj: unknown): boolean => {
+  return getKind(obj) === API_KIND.NO_BWC
+}
+
+const hasNoBWCInMethods = (obj: unknown): boolean => {
+  if (!isObject(obj)) return false
+
+  if (hasNoBWC(obj)) return true
+
+  return Object.entries(obj).some(([key, value]) =>
+    isValidHttpMethod(key) &&
+    isObject(value) &&
+    hasNoBWC(value),
+  )
+}
+
+const isValidPathLength = (path: JsonPath | undefined): boolean => {
+  const pathLength = path?.length ?? 0
+  return pathLength >= 1 && pathLength <= 3
+}
+
+export const checkNoBackwardCompatibility = (
+  path?: JsonPath,
+  beforeJson?: unknown,
+  afterJson?: unknown,
+): BwcState | undefined => {
+  if (!isValidPathLength(path)) {
+    return undefined
   }
-  return operationDiffs
+
+  const beforeExists = isObject(beforeJson)
+  const afterExists = isObject(afterJson)
+
+  if (!beforeExists && !afterExists) {
+    return undefined
+  }
+
+  if (beforeExists && afterExists) {
+    return hasNoBWC(beforeJson) || hasNoBWC(afterJson)
+      ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
+      : undefined
+  }
+
+  if (beforeExists && !afterExists) {
+    return hasNoBWCInMethods(beforeJson)
+      ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
+      : undefined
+  }
+
+  if (afterExists && !beforeExists) {
+    return hasNoBWCInMethods(afterJson)
+      ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
+      : undefined
+  }
+
+  return undefined
 }
