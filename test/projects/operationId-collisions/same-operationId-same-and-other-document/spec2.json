@@ -8,7 +8,7 @@
   "paths": {
     "/api/v1/resource": {
       "get": {
-        "summary": "Get resource without trailing slash",
+        "summary": "Get resource",
         "operationId": "getResource1",
         "responses": {
           "200": {
@@ -24,9 +24,9 @@
         }
       }
     },
-    "/api/v1/resource/": {
+    "/api-v1-resource": {
       "get": {
-        "summary": "Get resource with trailing slash",
+        "summary": "Get resource duplicate",
         "operationId": "getResource2",
         "responses": {
           "200": {

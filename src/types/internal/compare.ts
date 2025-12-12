@@ -37,6 +37,7 @@ import {
   ApiBuilder,
   BuilderType,
 } from './apiBuilder'
+import { ObjectHashCache } from '../../utils/hashes'
 
 export type ChangeKind = keyof ChangeSummary
 
@@ -71,10 +72,20 @@ export interface OperationChanges<T extends DiffType | DiffTypeDto = DiffType> {
   previousMetadata?: OperationChangesMetadata & {
     [key: string]: unknown
   }
+  comparisonInternalDocumentId?: string
 }
 
 export interface OperationChangesDto extends Omit<OperationChanges<DiffTypeDto>, 'diffs' | 'impactedSummary' | 'mergedJso'> {
   changes?: ChangeMessage<DiffTypeDto>[]
+}
+
+export type ComparisonDocument = {
+  comparisonDocumentId: string
+  serializedComparisonDocument: string
+}
+
+export type ComparisonInternalDocument = ComparisonDocument & {
+  comparisonFileId: string
 }
 
 export interface VersionsComparison<T extends DiffType | DiffTypeDto = DiffType> {
@@ -88,11 +99,19 @@ export interface VersionsComparison<T extends DiffType | DiffTypeDto = DiffType>
   fromCache: boolean
   operationTypes: OperationType<T>[]
   data?: OperationChanges[]
+  comparisonInternalDocuments: ComparisonInternalDocument[]
 }
 
-export interface VersionsComparisonDto extends Omit<VersionsComparison<DiffTypeDto>, 'data'> {
+export interface VersionsComparisonDto extends Omit<VersionsComparison<DiffTypeDto>, 'data' | 'comparisonInternalDocuments'> {
   data?: OperationChangesDto[]
 }
+
+export type InternalDocumentMetadata = {
+  id: string
+  filename: string
+}
+
+export type ComparisonInternalDocumentMetadata = InternalDocumentMetadata & { comparisonFileId: string }
 
 export interface CompareContext {
   apiBuilders: ApiBuilder[]
@@ -106,4 +125,5 @@ export interface CompareContext {
   versionDeprecatedResolver: VersionDeprecatedResolver
   versionDocumentsResolver: VersionDocumentsResolver
   rawDocumentResolver: _RawDocumentResolver
+  normalizedSpecFragmentsHashCache: ObjectHashCache
 }

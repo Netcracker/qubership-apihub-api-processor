@@ -30,6 +30,7 @@ export interface RestOperationMeta {
   method: OpenAPIV3.HttpMethods           // `get` | `post` | ...
   tags?: string[]                         // operations tags
   customTags?: CustomTags
+  operationIdV1: string                    // operation ID (legacy V1 format)
 }
 
 export interface RestDocumentInfo {

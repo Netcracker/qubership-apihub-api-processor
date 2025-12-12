@@ -17,19 +17,21 @@
 import { OpenAPIV3 } from 'openapi-types'
 
 import { buildRestOperation } from './rest.operation'
-import { OperationsBuilder } from '../../types'
+import { NotificationMessage, OperationsBuilder } from '../../types'
 import {
-  calculateOperationId,
+  calculateRestOperationId,
   createBundlingErrorHandler,
+  createSerializedInternalDocument,
+  isNotEmpty,
   removeComponents,
 } from '../../utils'
-import { isNotEmpty } from '../../utils'
 import type * as TYPE from './rest.types'
-import { HASH_FLAG, INLINE_REFS_FLAG, NORMALIZE_OPTIONS, ORIGINS_SYMBOL } from '../../consts'
+import { INLINE_REFS_FLAG, MESSAGE_SEVERITY } from '../../consts'
 import { asyncFunction } from '../../utils/async'
 import { logLongBuild, syncDebugPerformance } from '../../utils/logs'
 import { normalize, RefErrorType } from '@netcracker/qubership-apihub-api-unifier'
 import { extractOperationBasePath } from '@netcracker/qubership-apihub-api-diff'
+import { REST_EFFECTIVE_NORMALIZE_OPTIONS } from './rest.consts'
 
 type OperationInfo = { path: string; method: string }
 type DuplicateEntry = { operationId: string; operations: OperationInfo[] }
@@ -38,28 +40,27 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
   const documentWithoutComponents = removeComponents(document.data)
   const bundlingErrorHandler = createBundlingErrorHandler(ctx, document.fileId)
 
+  const { notifications, normalizedSpecFragmentsHashCache, config } = ctx
   const { effectiveDocument, refsOnlyDocument } = syncDebugPerformance('[NormalizeDocument]', () => {
-    const effectiveDocument = normalize(
-      documentWithoutComponents,
-      {
-        ...NORMALIZE_OPTIONS,
-        originsFlag: ORIGINS_SYMBOL,
-        hashFlag: HASH_FLAG,
-        source: document.data,
-        onRefResolveError: (message: string, _path: PropertyKey[], _ref: string, errorType: RefErrorType) =>
-          bundlingErrorHandler([{ message, errorType }]),
-      },
-    ) as OpenAPIV3.Document
-    const refsOnlyDocument = normalize(
-      documentWithoutComponents,
-      {
-        mergeAllOf: false,
-        inlineRefsFlag: INLINE_REFS_FLAG,
-        source: document.data,
-      },
-    ) as OpenAPIV3.Document
-    return { effectiveDocument, refsOnlyDocument }
-  },
+      const effectiveDocument = normalize(
+        documentWithoutComponents,
+        {
+          ...REST_EFFECTIVE_NORMALIZE_OPTIONS,
+          source: document.data,
+          onRefResolveError: (message: string, _path: PropertyKey[], _ref: string, errorType: RefErrorType) =>
+            bundlingErrorHandler([{ message, errorType }]),
+        },
+      ) as OpenAPIV3.Document
+      const refsOnlyDocument = normalize(
+        documentWithoutComponents,
+        {
+          mergeAllOf: false,
+          inlineRefsFlag: INLINE_REFS_FLAG,
+          source: document.data,
+        },
+      ) as OpenAPIV3.Document
+      return { effectiveDocument, refsOnlyDocument }
+    },
     debugCtx,
   )
 
@@ -68,12 +69,13 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
   const operations: TYPE.VersionRestOperation[] = []
   if (!paths) { return [] }
 
-  const componentsHashMap = new Map<string, string>()
+  const originalSpecComponentsHashCache = new Map<string, string>()
   const operationIdMap = new Map<string, OperationInfo[]>()
 
   for (const path of Object.keys(paths)) {
-    if (path.includes('{}')) {
-      throw new Error(`Invalid path '${path}': path parameter name could not be empty`)
+    const pathNotifications = validatePath(path, document.fileId)
+    if (pathNotifications.length) {
+      ctx.notifications.push(...pathNotifications)
     }
 
     const pathData = paths[path]
@@ -85,7 +87,7 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
       await asyncFunction(() => {
         const methodData = pathData[key as OpenAPIV3.HttpMethods]
         const basePath = extractOperationBasePath(methodData?.servers || pathData?.servers || servers || [])
-        const operationId = calculateOperationId(basePath, key, path)
+        const operationId = calculateRestOperationId(basePath, path, key)
 
         const trackedOperations = operationIdMap.get(operationId) ?? []
         trackedOperations.push({ path, method: key })
@@ -101,26 +103,52 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
               effectiveDocument,
               refsOnlyDocument,
               basePath,
-              ctx.notifications,
-              ctx.config,
-              componentsHashMap,
+              notifications,
+              config,
+              normalizedSpecFragmentsHashCache,
+              originalSpecComponentsHashCache,
               innerDebugCtx,
             )
             operations.push(operation)
           },
-            `${ctx.config.packageId}/${ctx.config.version} ${operationId}`,
+            `${config.packageId}/${config.version} ${operationId}`,
           ), debugCtx, [operationId])
       })
     }
-
   }
 
   const duplicates = findDuplicates(operationIdMap)
   if (isNotEmpty(duplicates)) {
-    throw createDuplicatesError(document.fileId, duplicates)
+    throw createDuplicatesError(duplicates)
+  }
+
+  if (operations.length) {
+    createSerializedInternalDocument(document, effectiveDocument, REST_EFFECTIVE_NORMALIZE_OPTIONS)
   }
 
   return operations
+}
+
+function validatePath(path: string, fileId: string): NotificationMessage[] {
+  const notifications: NotificationMessage[] = []
+
+  if (path.includes('{}')) {
+    notifications.push({
+      severity: MESSAGE_SEVERITY.Error,
+      message: `Invalid path '${path}': path parameter name could not be empty`,
+      fileId: fileId,
+    })
+  }
+
+  if (path.includes('//')) {
+    notifications.push({
+      severity: MESSAGE_SEVERITY.Warning,
+      message: `Path '${path}' contains double slash sequence`,
+      fileId: fileId,
+    })
+  }
+
+  return notifications
 }
 
 function findDuplicates(operationIdMap: Map<string, OperationInfo[]>): DuplicateEntry[] {
@@ -129,14 +157,14 @@ function findDuplicates(operationIdMap: Map<string, OperationInfo[]>): Duplicate
     .map(([operationId, operations]) => ({ operationId, operations }))
 }
 
-function createDuplicatesError(fileId: string, duplicates: DuplicateEntry[]): Error {
+function createDuplicatesError(duplicates: DuplicateEntry[]): Error {
   const duplicatesList = duplicates
     .map(({ operationId, operations }) => {
       const operationsList = operations
         .map((operation: OperationInfo) => `${operation.method.toUpperCase()} ${operation.path}`)
         .join(', ')
-      return `- operationId '${operationId}': Found ${operations.length} operations: ${operationsList}`
+      return `- operationId "${operationId}": found ${operations.length} operations: ${operationsList}`
     })
     .join('\n')
-  return new Error(`Duplicated operationIds found within document '${fileId}':\n${duplicatesList}`)
+  return new Error(`Duplicated operationIds found:\n${duplicatesList}`)
 }
