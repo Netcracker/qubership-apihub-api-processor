@@ -21,15 +21,17 @@ import { NotificationMessage, OperationsBuilder } from '../../types'
 import {
   calculateRestOperationId,
   createBundlingErrorHandler,
+  createSerializedInternalDocument,
+  isNotEmpty,
   removeComponents,
 } from '../../utils'
-import { isNotEmpty } from '../../utils'
 import type * as TYPE from './rest.types'
-import { HASH_FLAG, INLINE_REFS_FLAG, MESSAGE_SEVERITY, NORMALIZE_OPTIONS, ORIGINS_SYMBOL } from '../../consts'
+import { INLINE_REFS_FLAG, MESSAGE_SEVERITY } from '../../consts'
 import { asyncFunction } from '../../utils/async'
 import { logLongBuild, syncDebugPerformance } from '../../utils/logs'
 import { normalize, RefErrorType } from '@netcracker/qubership-apihub-api-unifier'
 import { extractOperationBasePath } from '@netcracker/qubership-apihub-api-diff'
+import { REST_EFFECTIVE_NORMALIZE_OPTIONS } from './rest.consts'
 
 type OperationInfo = { path: string; method: string }
 type DuplicateEntry = { operationId: string; operations: OperationInfo[] }
@@ -38,28 +40,27 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
   const documentWithoutComponents = removeComponents(document.data)
   const bundlingErrorHandler = createBundlingErrorHandler(ctx, document.fileId)
 
+  const { notifications, normalizedSpecFragmentsHashCache, config } = ctx
   const { effectiveDocument, refsOnlyDocument } = syncDebugPerformance('[NormalizeDocument]', () => {
-    const effectiveDocument = normalize(
-      documentWithoutComponents,
-      {
-        ...NORMALIZE_OPTIONS,
-        originsFlag: ORIGINS_SYMBOL,
-        hashFlag: HASH_FLAG,
-        source: document.data,
-        onRefResolveError: (message: string, _path: PropertyKey[], _ref: string, errorType: RefErrorType) =>
-          bundlingErrorHandler([{ message, errorType }]),
-      },
-    ) as OpenAPIV3.Document
-    const refsOnlyDocument = normalize(
-      documentWithoutComponents,
-      {
-        mergeAllOf: false,
-        inlineRefsFlag: INLINE_REFS_FLAG,
-        source: document.data,
-      },
-    ) as OpenAPIV3.Document
-    return { effectiveDocument, refsOnlyDocument }
-  },
+      const effectiveDocument = normalize(
+        documentWithoutComponents,
+        {
+          ...REST_EFFECTIVE_NORMALIZE_OPTIONS,
+          source: document.data,
+          onRefResolveError: (message: string, _path: PropertyKey[], _ref: string, errorType: RefErrorType) =>
+            bundlingErrorHandler([{ message, errorType }]),
+        },
+      ) as OpenAPIV3.Document
+      const refsOnlyDocument = normalize(
+        documentWithoutComponents,
+        {
+          mergeAllOf: false,
+          inlineRefsFlag: INLINE_REFS_FLAG,
+          source: document.data,
+        },
+      ) as OpenAPIV3.Document
+      return { effectiveDocument, refsOnlyDocument }
+    },
     debugCtx,
   )
 
@@ -68,7 +69,7 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
   const operations: TYPE.VersionRestOperation[] = []
   if (!paths) { return [] }
 
-  const componentsHashMap = new Map<string, string>()
+  const originalSpecComponentsHashCache = new Map<string, string>()
   const operationIdMap = new Map<string, OperationInfo[]>()
 
   for (const path of Object.keys(paths)) {
@@ -102,23 +103,27 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
               effectiveDocument,
               refsOnlyDocument,
               basePath,
-              ctx.notifications,
-              ctx.config,
-              componentsHashMap,
+              notifications,
+              config,
+              normalizedSpecFragmentsHashCache,
+              originalSpecComponentsHashCache,
               innerDebugCtx,
             )
             operations.push(operation)
           },
-            `${ctx.config.packageId}/${ctx.config.version} ${operationId}`,
+            `${config.packageId}/${config.version} ${operationId}`,
           ), debugCtx, [operationId])
       })
     }
-
   }
 
   const duplicates = findDuplicates(operationIdMap)
   if (isNotEmpty(duplicates)) {
     throw createDuplicatesError(duplicates)
+  }
+
+  if (operations.length) {
+    createSerializedInternalDocument(document, effectiveDocument, REST_EFFECTIVE_NORMALIZE_OPTIONS)
   }
 
   return operations

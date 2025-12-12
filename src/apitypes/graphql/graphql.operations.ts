@@ -15,43 +15,42 @@
  */
 
 import type { VersionGraphQLOperation } from './graphql.types'
-import { calculateGraphqlOperationId, removeComponents } from '../../utils'
+import { calculateGraphqlOperationId, createSerializedInternalDocument, removeComponents } from '../../utils'
 import type { OperationsBuilder } from '../../types'
 import { GRAPHQL_TYPE, GRAPHQL_TYPE_KEYS } from './graphql.consts'
-import { INLINE_REFS_FLAG, NORMALIZE_OPTIONS, ORIGINS_SYMBOL } from '../../consts'
+import { INLINE_REFS_FLAG } from '../../consts'
 import { GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
 import { buildGraphQLOperation } from './graphql.operation'
 import { asyncFunction } from '../../utils/async'
 import { logLongBuild, syncDebugPerformance } from '../../utils/logs'
 import { normalize } from '@netcracker/qubership-apihub-api-unifier'
+import { GRAPHQL_EFFECTIVE_NORMALIZE_OPTIONS } from '../graphql'
 
 export const buildGraphQLOperations: OperationsBuilder<GraphApiSchema> = async (document, ctx, debugCtx) => {
-  const { notifications } = ctx
+  const { notifications, normalizedSpecFragmentsHashCache, config } = ctx
 
   const documentWithoutComponents = removeComponents(document.data) as GraphApiSchema
 
   const { effectiveDocument, refsOnlyDocument } = syncDebugPerformance('[NormalizeDocument]', () => {
-    const effectiveDocument = normalize(
-      documentWithoutComponents,
-      {
-        ...NORMALIZE_OPTIONS,
-        originsFlag: ORIGINS_SYMBOL,
-        source: document.data,
-      },
-    ) as GraphApiSchema
-    const refsOnlyDocument = normalize(
-      documentWithoutComponents,
-      {
-        mergeAllOf: false,
-        inlineRefsFlag: INLINE_REFS_FLAG,
-        source: document.data,
-      },
-    ) as GraphApiSchema
-    return { effectiveDocument, refsOnlyDocument }
-  },
+      const effectiveDocument = normalize(
+        documentWithoutComponents,
+        {
+          ...GRAPHQL_EFFECTIVE_NORMALIZE_OPTIONS,
+          source: document.data,
+        },
+      ) as GraphApiSchema
+      const refsOnlyDocument = normalize(
+        documentWithoutComponents,
+        {
+          mergeAllOf: false,
+          inlineRefsFlag: INLINE_REFS_FLAG,
+          source: document.data,
+        },
+      ) as GraphApiSchema
+      return { effectiveDocument, refsOnlyDocument }
+    },
     debugCtx,
   )
-
 
   const { queries, mutations, subscriptions } = documentWithoutComponents
   const operations: VersionGraphQLOperation[] = []
@@ -77,14 +76,20 @@ export const buildGraphQLOperations: OperationsBuilder<GraphApiSchema> = async (
               effectiveDocument,
               refsOnlyDocument,
               notifications,
-              ctx.config,
+              config,
+              normalizedSpecFragmentsHashCache,
               innerDebugCtx,
             )
             operations.push(operation)
-          }, `${ctx.config.packageId}/${ctx.config.version} ${operationId}`,
+            }, `${config.packageId}/${config.version} ${operationId}`,
           ), debugCtx, [operationId])
       })
     }
   }
+
+  if (operations.length) {
+    createSerializedInternalDocument(document, effectiveDocument, GRAPHQL_EFFECTIVE_NORMALIZE_OPTIONS)
+  }
+
   return operations
 }

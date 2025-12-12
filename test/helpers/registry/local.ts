@@ -22,7 +22,7 @@ import {
   BuilderContext,
   BuilderResolvers,
   BuildResult,
-  ChangeSummary,
+  ChangeSummary, ComparisonInternalDocument,
   EMPTY_CHANGE_SUMMARY,
   FILE_FORMAT,
   graphqlApiBuilder,
@@ -59,11 +59,11 @@ import {
   VersionDocument,
   VersionDocuments,
   VersionId,
-  VersionsComparison,
+  VersionsComparison, VersionsComparisonDto,
   ZippableDocument,
 } from '../../../src'
 import {
-  getOperationsFileContent,
+  getOperationsFileContent, saveComparisonInternalDocuments, saveComparisonInternalDocumentsArray,
   saveComparisonsArray,
   saveDocumentsArray,
   saveEachComparison,
@@ -71,7 +71,7 @@ import {
   saveEachOperation,
   saveInfo,
   saveNotifications,
-  saveOperationsArray,
+  saveOperationsArray, saveVersionInternalDocuments, saveVersionInternalDocumentsArray,
 } from './utils'
 import {
   getCompositeKey,
@@ -89,7 +89,7 @@ import { ResolvedPackage } from '../../../src/types/external/package'
 import { version as apiProcessorVersion } from '../../../package.json'
 
 const VERSIONS_PATH = 'test/versions'
-const DEFAULT_PROJECTS_PATH = 'test/projects'
+export const DEFAULT_PROJECTS_PATH = 'test/projects'
 
 export interface PackageVersionCache {
   config: BuildConfig
@@ -101,6 +101,7 @@ export interface PackageVersionCache {
 
 export class LocalRegistry implements IRegistry {
   versions = new Map<string, PackageVersionCache>()
+  private versionLoadingPromises = new Map<string, Promise<PackageVersionCache | undefined>>()
   apiBuilders = [restApiBuilder, graphqlApiBuilder, textApiBuilder, unknownApiBuilder]
 
   get versionResolvers(): Omit<BuilderResolvers, 'fileResolver'> {
@@ -465,6 +466,7 @@ export class LocalRegistry implements IRegistry {
     await saveInfo(config, basePath)
 
     await saveDocumentsArray(documents, basePath)
+    await saveVersionInternalDocumentsArray(documents, basePath)
     await saveEachDocument(documents, basePath, builderContext)
 
     await saveOperationsArray(operations, basePath)
@@ -476,10 +478,16 @@ export class LocalRegistry implements IRegistry {
         message: message,
       })
     }
-    const comparisonsDto = comparisons.map(comparison => toVersionsComparisonDto(comparison, logError))
+    const comparisonsDto: VersionsComparisonDto[] = comparisons.map(comparison => toVersionsComparisonDto(comparison, builderContext.normalizedSpecFragmentsHashCache, logError))
+    const comparisonInternalDocuments: ComparisonInternalDocument[] = comparisons.map(comparison => comparison.comparisonInternalDocuments).flat()
+
     await saveComparisonsArray(comparisonsDto, basePath)
     await saveEachComparison(comparisonsDto, basePath)
     await saveNotifications(notifications, basePath)
+    await saveVersionInternalDocuments(documents, basePath)
+
+    await saveComparisonInternalDocumentsArray(comparisonInternalDocuments, basePath)
+    await saveComparisonInternalDocuments(comparisonInternalDocuments, basePath)
   }
 
   async updateOperationsHash(packageId: string, publishParams?: Partial<BuildConfig>): Promise<void> {
@@ -504,10 +512,30 @@ export class LocalRegistry implements IRegistry {
 
   async getVersion(packageId: string, versionKey: string): Promise<PackageVersionCache | undefined> {
     const compositeKey = getCompositeKey(packageId, versionKey)
+
+    // Return cached version if available
     if (this.versions.has(compositeKey)) {
       return this.versions.get(compositeKey)
     }
 
+    // If already loading, wait for that promise to prevent race conditions
+    if (this.versionLoadingPromises.has(compositeKey)) {
+      return this.versionLoadingPromises.get(compositeKey)!
+    }
+
+    // Start loading
+    const loadingPromise = this.loadVersion(packageId, versionKey, compositeKey)
+    this.versionLoadingPromises.set(compositeKey, loadingPromise)
+
+    try {
+      const result = await loadingPromise
+      return result
+    } finally {
+      this.versionLoadingPromises.delete(compositeKey)
+    }
+  }
+
+  private async loadVersion(packageId: string, versionKey: string, compositeKey: string): Promise<PackageVersionCache | undefined> {
     const versionConfig = await loadConfig(
       VERSIONS_PATH,
       `${packageId}/${versionKey}`,

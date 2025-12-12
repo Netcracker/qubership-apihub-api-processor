@@ -14,14 +14,21 @@
  * limitations under the License.
  */
 
-import { ApiOperation, BuildResult, OperationIdNormalizer } from '../types'
+import { ApiDocument, ApiOperation, BuildResult, OperationIdNormalizer, VersionDocument } from '../types'
 import { GraphApiComponents, GraphApiDirectiveDefinition } from '@netcracker/qubership-apihub-graphapi'
 import { OpenAPIV3 } from 'openapi-types'
 import { isObject } from './objects'
+import { serializeDocument } from './document'
 import { SLUG_OPTIONS_DOCUMENT_ID, SLUG_OPTIONS_NORMALIZED_OPERATION_ID, SLUG_OPTIONS_OPERATION_ID, slugify } from './slugify'
 import { normalizePath, removeFirstSlash } from './builder'
 import { Diff, DiffAction } from '@netcracker/qubership-apihub-api-diff'
-import { matchPaths, OPEN_API_PROPERTY_PATHS, PREDICATE_ANY_VALUE } from '@netcracker/qubership-apihub-api-unifier'
+import {
+  denormalize,
+  matchPaths,
+  NormalizeOptions,
+  OPEN_API_PROPERTY_PATHS,
+  PREDICATE_ANY_VALUE,
+} from '@netcracker/qubership-apihub-api-unifier'
 import { DirectiveLocation } from 'graphql/language'
 import { HTTP_METHODS_SET } from '../consts'
 
@@ -149,4 +156,12 @@ export const calculateGraphqlOperationId = (
 export const restOperationIdNormalizer: OperationIdNormalizer = (operation) => {
   const { metadata: { path, method } } = operation
   return calculateNormalizedRestOperationId('', path, method)
+}
+
+export const createSerializedInternalDocument = (document: VersionDocument, effectiveDocument: ApiDocument, options: NormalizeOptions): void => {
+  const {versionInternalDocument} = document
+  if(!versionInternalDocument){
+    return
+  }
+  versionInternalDocument.serializedVersionDocument = serializeDocument(denormalize(effectiveDocument, options) as ApiDocument)
 }

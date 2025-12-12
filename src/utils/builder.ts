@@ -23,7 +23,6 @@ import {
   DEPRECATED_CHANGE_TYPE,
   ImpactedOperationSummary,
   NON_BREAKING_CHANGE_TYPE,
-  ResolvedOperation,
   UNCLASSIFIED_CHANGE_TYPE,
 } from '../types'
 import { API_KIND } from '../consts'
