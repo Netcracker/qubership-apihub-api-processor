@@ -14,51 +14,71 @@
  * limitations under the License.
  */
 
-import { BREAKING_CHANGE_TYPE, ResolvedOperation, RISKY_CHANGE_TYPE } from '../../types'
 import { API_KIND } from '../../consts'
-import { Diff } from '@netcracker/qubership-apihub-api-diff'
-import { OperationsMap } from './compare.utils'
-import { NoBackwardCompatibility } from '@netcracker/qubership-apihub-api-diff/dist/types'
+import { isObject, isValidHttpMethod } from '../../utils'
+import { REST_KIND_KEY } from '../../apitypes'
+import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
+import { ApiCompatibilityKind, BwcState } from '@netcracker/qubership-apihub-api-diff'
 
-export function reclassifyNoBwcBreakingChanges(
-  operationDiffs: Diff[],
-  previous?: ResolvedOperation,
-  current?: ResolvedOperation,
-): Diff[] {
-  if (current?.apiKind === API_KIND.NO_BWC || previous?.apiKind === API_KIND.NO_BWC) {
-    return operationDiffs?.map((diff) => {
-      return diff.type === BREAKING_CHANGE_TYPE
-        ? { ...diff, type: RISKY_CHANGE_TYPE }
-        : diff
-    })
+export const checkNoApiBackwardCompatibility = (
+  path?: JsonPath,
+  beforeJson?: unknown,
+  afterJson?: unknown,
+): BwcState | undefined => {
+
+  const getKind = (obj: unknown): string | undefined => {
+    if (!isObject(obj)) return undefined
+    const value = (obj as Record<string, unknown>)[REST_KIND_KEY]
+    return typeof value === 'string' ? value.toLowerCase() : undefined
   }
-  return operationDiffs
-}
 
-export const checkNoApiBackwardCompatibility = (operationsMap: OperationsMap): NoBackwardCompatibility => {
-  const noBwcEntries: Array<[string, string, string]> = []
+  const hasNoBWC = (obj: unknown): boolean => {
+    return getKind(obj) === API_KIND.NO_BWC
+  }
 
-  const addIfNoBwc = (resolvedOperation?: ResolvedOperation): void => {
-    if (!resolvedOperation) {
-      return
-    }
-    if (resolvedOperation.apiKind === API_KIND.NO_BWC) {
-      const { metadata } = resolvedOperation
-      const { path, method } = metadata
-      if (path && method) {
-        noBwcEntries.push(['paths', path, method])
+  const hasNoBWCInMethods = (obj: unknown): boolean => {
+    if (!isObject(obj)) return false
+
+    if (hasNoBWC(obj)) return true
+
+    for (const [key, value] of Object.entries(obj)) {
+      if (isValidHttpMethod(key) && isObject(value)) {
+        if (getKind(value) === API_KIND.NO_BWC) {
+          return true
+        }
       }
     }
+
+    return false
   }
 
-  for (const { previous, current } of Object.values(operationsMap)) {
-    addIfNoBwc(previous)
-    addIfNoBwc(current)
+  const pathLength = path?.length ?? 0
+  if (pathLength < 1 && pathLength > 3) {
+    return undefined
   }
 
-  return (path: PropertyKey[]): boolean => {
-    return noBwcEntries.some(entry =>
-      entry.every((el, idx) => path[idx] === el),
-    )
+  const beforeExists = isObject(beforeJson)
+  const afterExists = isObject(afterJson)
+
+  if (!beforeExists && !afterExists) return undefined
+
+  if (beforeExists && afterExists) {
+    return hasNoBWC(beforeJson) || hasNoBWC(afterJson)
+      ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
+      : undefined
   }
+
+  if (beforeExists && !afterExists) {
+    return hasNoBWCInMethods(beforeJson)
+      ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
+      : undefined
+  }
+
+  if (afterExists && !beforeExists) {
+    return hasNoBWCInMethods(afterJson)
+      ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
+      : undefined
+  }
+
+  return undefined
 }
