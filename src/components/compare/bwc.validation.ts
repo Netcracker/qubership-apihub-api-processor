@@ -20,47 +20,48 @@ import { REST_KIND_KEY } from '../../apitypes'
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import { ApiCompatibilityKind, BwcState } from '@netcracker/qubership-apihub-api-diff'
 
+const getKind = (obj: unknown): string | undefined => {
+  if (!isObject(obj)) return undefined
+  const value = (obj as Record<string, unknown>)[REST_KIND_KEY]
+  return typeof value === 'string' ? value.toLowerCase() : undefined
+}
+
+const hasNoBWC = (obj: unknown): boolean => {
+  return getKind(obj) === API_KIND.NO_BWC
+}
+
+const hasNoBWCInMethods = (obj: unknown): boolean => {
+  if (!isObject(obj)) return false
+
+  if (hasNoBWC(obj)) return true
+
+  return Object.entries(obj).some(([key, value]) =>
+    isValidHttpMethod(key) &&
+    isObject(value) &&
+    hasNoBWC(value),
+  )
+}
+
+const isValidPathLength = (path: JsonPath | undefined): boolean => {
+  const pathLength = path?.length ?? 0
+  return pathLength >= 1 && pathLength <= 3
+}
+
 export const checkNoApiBackwardCompatibility = (
   path?: JsonPath,
   beforeJson?: unknown,
   afterJson?: unknown,
 ): BwcState | undefined => {
-
-  const getKind = (obj: unknown): string | undefined => {
-    if (!isObject(obj)) return undefined
-    const value = (obj as Record<string, unknown>)[REST_KIND_KEY]
-    return typeof value === 'string' ? value.toLowerCase() : undefined
-  }
-
-  const hasNoBWC = (obj: unknown): boolean => {
-    return getKind(obj) === API_KIND.NO_BWC
-  }
-
-  const hasNoBWCInMethods = (obj: unknown): boolean => {
-    if (!isObject(obj)) return false
-
-    if (hasNoBWC(obj)) return true
-
-    for (const [key, value] of Object.entries(obj)) {
-      if (isValidHttpMethod(key) && isObject(value)) {
-        if (getKind(value) === API_KIND.NO_BWC) {
-          return true
-        }
-      }
-    }
-
-    return false
-  }
-
-  const pathLength = path?.length ?? 0
-  if (pathLength < 1 && pathLength > 3) {
+  if (!isValidPathLength(path)) {
     return undefined
   }
 
   const beforeExists = isObject(beforeJson)
   const afterExists = isObject(afterJson)
 
-  if (!beforeExists && !afterExists) return undefined
+  if (!beforeExists && !afterExists) {
+    return undefined
+  }
 
   if (beforeExists && afterExists) {
     return hasNoBWC(beforeJson) || hasNoBWC(afterJson)
