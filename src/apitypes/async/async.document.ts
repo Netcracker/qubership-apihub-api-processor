@@ -15,11 +15,7 @@
  */
 
 import { ASYNC_KIND_KEY } from './async.consts'
-import type { AsyncDocumentInfo, AsyncApiDocument } from './async.types'
-import {
-  DocumentBuilder,
-  DocumentDumper,
-} from '../../types'
+import { DocumentBuilder, DocumentDumper, VersionDocument } from '../../types'
 import { FILE_FORMAT } from '../../consts'
 import {
   createBundlingErrorHandler,
@@ -28,8 +24,9 @@ import {
   getDocumentTitle,
 } from '../../utils'
 import { dump } from '../../utils/apihubSpecificationExtensions'
+import { v3 as AsyncAPIV3 } from '@asyncapi/parser/cjs/spec-types'
 
-const asyncApiDocumentMeta = (data: AsyncApiDocument): AsyncDocumentInfo => {
+const asyncApiDocumentMeta = (data: AsyncAPIV3.AsyncAPIObject): AsyncAPIV3.InfoObject => {
   if (typeof data !== 'object' || !data) {
     return { title: '', description: '', version: '' }
   }
@@ -45,7 +42,7 @@ const asyncApiDocumentMeta = (data: AsyncApiDocument): AsyncDocumentInfo => {
   }
 }
 
-export const buildAsyncApiDocument: DocumentBuilder<AsyncApiDocument> = async (parsedFile, file, ctx) => {
+export const buildAsyncApiDocument: DocumentBuilder<AsyncAPIV3.AsyncAPIObject> = async (parsedFile, file, ctx): Promise<VersionDocument> => {
   const { fileId, slug = '', publish = true, apiKind, ...fileMetadata } = file
 
   const {
@@ -53,11 +50,11 @@ export const buildAsyncApiDocument: DocumentBuilder<AsyncApiDocument> = async (p
     dependencies,
   } = await getBundledFileDataWithDependencies(fileId, ctx.parsedFileResolver, createBundlingErrorHandler(ctx, fileId))
 
-  const bundledFileData = data as AsyncApiDocument
+  const bundledFileData = data as AsyncAPIV3.AsyncAPIObject
 
   const documentKind = bundledFileData?.info?.[ASYNC_KIND_KEY] || apiKind
 
-  const { description, title, version } = asyncApiDocumentMeta(bundledFileData)
+  const { description = '', title, version } = asyncApiDocumentMeta(bundledFileData)
   const metadata = {
     ...fileMetadata,
   }
@@ -83,7 +80,7 @@ export const buildAsyncApiDocument: DocumentBuilder<AsyncApiDocument> = async (p
   }
 }
 
-export const dumpAsyncApiDocument: DocumentDumper<AsyncApiDocument> = (document, format) => {
+export const dumpAsyncApiDocument: DocumentDumper<AsyncAPIV3.AsyncAPIObject> = (document, format) => {
   return new Blob(...dump(document.data, format ?? FILE_FORMAT.JSON))
 }
 
