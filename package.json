@@ -32,9 +32,9 @@
   },
   "dependencies": {
     "@netcracker/qubership-apihub-api-diff": "feature-performance-optimization-405-422",
-    "@netcracker/qubership-apihub-api-unifier": "feature-performance-optimization-405",
-    "@netcracker/qubership-apihub-graphapi": "feature-performance-optimization-405",
-    "@netcracker/qubership-apihub-json-crawl": "feature-performance-optimization-405",
+    "@netcracker/qubership-apihub-api-unifier": "dev",
+    "@netcracker/qubership-apihub-graphapi": "dev",
+    "@netcracker/qubership-apihub-json-crawl": "dev",
     "adm-zip": "0.5.10",
     "ajv": "^8.12.0",
     "ajv-formats": "^2.1.1",
