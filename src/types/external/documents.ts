@@ -41,15 +41,10 @@ export type ResolvedVersionDocuments = {
   packages: ResolvedReferenceMap
 }
 
-export type ResolvedVersionDocumentMetadata = {
-  labels?: Labels
-  info: Record<string, unknown>
-}
-
 export type ResolvedVersionDocument = ResolvedDocument & {
   packageRef?: string
-  metadata?: ResolvedVersionDocumentMetadata
-  apiKind?: ApiKind
+  metadata?: Record<string, unknown>
+  apiKind?: string
 }
 
 export type Labels = string[]

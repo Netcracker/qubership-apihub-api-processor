@@ -17,13 +17,13 @@
 import { API_KIND } from '../../consts'
 import { isObject, isValidHttpMethod } from '../../utils'
 import { REST_KIND_KEY } from '../../apitypes'
-import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
+import { isArray, JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import {
   ApiCompatibilityKind,
   ApiCompatibilityScope,
   ApiCompatibilityScopeFunction,
 } from '@netcracker/qubership-apihub-api-diff'
-import { ApiKind, ResolvedVersionDocumentMetadata } from '../../types'
+import { ApiKind } from '../../types'
 import { findApiKindLabel } from '../document'
 
 const getApiKind = (obj: unknown): string | undefined => {
@@ -60,8 +60,8 @@ const ROOT_PATH_LENGTH = 0
 const MAX_BWC_FLAG_PATH_LENGTH = 3
 
 export const checkApiKind = (
-  prevApiKind: ApiKind = API_KIND.BWC,
-  currApiKind: ApiKind = API_KIND.BWC,
+  prevApiKind: string = API_KIND.BWC,
+  currApiKind: string = API_KIND.BWC,
 ): ApiCompatibilityScopeFunction => {
   const defaultApiCompatibilityKind = (prevApiKind === API_KIND.NO_BWC || currApiKind === API_KIND.NO_BWC)
     ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
@@ -126,13 +126,16 @@ export const checkApiKind = (
   }
 }
 
-export const getApiKindFromMetadata = (metadata: ResolvedVersionDocumentMetadata | undefined): ApiKind => {
-  if(!metadata) {
+export const getApiKindFromMetadata = (metadata: Record<string, unknown> | undefined): ApiKind => {
+  if (!metadata) {
     return API_KIND.BWC
   }
-  const prevInfoApiKind: string | undefined = metadata?.info?.[REST_KIND_KEY] as string
-  const prevLabelsApiKind:string | undefined = metadata?.labels && findApiKindLabel(metadata?.labels)
+  const metadataInfo =  metadata?.info
+  const metadataLabels =  metadata?.labels
+  const prevInfoApiKind: string | undefined = isObject(metadataInfo) ? metadataInfo?.[REST_KIND_KEY] as string : undefined
+  const prevLabelsApiKind: string | undefined = isArray(metadataLabels) ? findApiKindLabel(metadataLabels) : undefined
   return (prevLabelsApiKind?.toLowerCase() === API_KIND.NO_BWC || prevInfoApiKind?.toLowerCase() === API_KIND.NO_BWC)
     ? API_KIND.NO_BWC
     : API_KIND.BWC
 }
+
