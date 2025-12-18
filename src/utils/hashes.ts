@@ -17,23 +17,29 @@
 import objectHash, { NotUndefined } from 'object-hash'
 import { isObject } from './objects'
 
-const objectHashCache = new WeakMap<object, string>()
+export type ObjectHashCache = WeakMap<object, string>
 
-export function calculateObjectHash(value: NotUndefined): string {
+export const _calculateMd5Hash = (value: NotUndefined): string => {
   // object hash works only with object keys available in Object.keys() method
+  return objectHash(value, { algorithm: 'md5' })
+}
 
-  // cache by reference for objects and functions
-  //TODO: think of proper way/place to implement caching
-  if (isObject(value)) {
-    const cached = objectHashCache.get(value as object)
-    if (cached !== undefined) {
-      return cached
-    }
+export const calculateHash = (
+  value: unknown,
+  objectHashCache?: ObjectHashCache,
+): string => {
+  if (value === undefined) return ''
 
-    const hash = objectHash(value, { algorithm: 'md5' })
-    objectHashCache.set(value as object, hash)
-    return hash
+  if (!objectHashCache || !isObject(value)) {
+    return _calculateMd5Hash(value)
   }
 
-  return objectHash(value, { algorithm: 'md5' })
+  const cachedHash = objectHashCache.get(value)
+  if (cachedHash) {
+    return cachedHash
+  }
+
+  const hash = _calculateMd5Hash(value)
+  objectHashCache.set(value, hash)
+  return hash
 }

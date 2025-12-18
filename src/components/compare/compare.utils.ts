@@ -19,8 +19,7 @@ import {
   ApiDocument,
   ChangeSummary,
   CompareOperationsPairContext,
-  ComparisonDocument,
-  ComparisonInternalDocument,
+  ComparisonDocument, ComparisonInternalDocument,
   DIFF_TYPES,
   ImpactedOperationSummary,
   NormalizedOperationId,
@@ -37,9 +36,11 @@ import { EMPTY_CHANGE_SUMMARY } from '../../consts'
 import {
   calculateChangeSummary,
   calculateImpactedSummary,
-  convertToSlug,
   difference,
   intersection,
+  removeFirstSlash,
+  SLUG_OPTIONS_OPERATION_ID,
+  slugify,
   serializeDocument,
   takeIfDefined,
 } from '../../utils'
@@ -295,6 +296,7 @@ export function createOperationChange(
   }
 }
 
+
 export function createComparisonDocument(comparisonDocumentId: string, apiDocument: ApiDocument): ComparisonDocument {
   return {
     comparisonDocumentId,
@@ -319,7 +321,7 @@ export const createComparisonInternalDocumentId = (
 }
 
 export const removeGroupPrefixFromOperationId = (operationId: string, groupPrefix: string): string => {
-  return takeSubstringIf(!!groupPrefix, operationId, convertToSlug(groupPrefix).length + '-'.length)
+  return takeSubstringIf(!!groupPrefix, operationId, slugify(removeFirstSlash(groupPrefix), SLUG_OPTIONS_OPERATION_ID).length)
 }
 
 export const createComparisonInternalDocuments = (comparisonDocuments: ComparisonDocument[], comparisonFileId: string): ComparisonInternalDocument[] => {

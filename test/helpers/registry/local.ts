@@ -22,8 +22,7 @@ import {
   BuilderContext,
   BuilderResolvers,
   BuildResult,
-  ChangeSummary,
-  ComparisonInternalDocument,
+  ChangeSummary, ComparisonInternalDocument,
   EMPTY_CHANGE_SUMMARY,
   FILE_FORMAT,
   graphqlApiBuilder,
@@ -60,14 +59,11 @@ import {
   VersionDocument,
   VersionDocuments,
   VersionId,
-  VersionsComparison,
-  VersionsComparisonDto,
+  VersionsComparison, VersionsComparisonDto,
   ZippableDocument,
 } from '../../../src'
 import {
-  getOperationsFileContent,
-  saveComparisonInternalDocuments,
-  saveComparisonInternalDocumentsArray,
+  getOperationsFileContent, saveComparisonInternalDocuments, saveComparisonInternalDocumentsArray,
   saveComparisonsArray,
   saveDocumentsArray,
   saveEachComparison,
@@ -75,9 +71,7 @@ import {
   saveEachOperation,
   saveInfo,
   saveNotifications,
-  saveOperationsArray,
-  saveVersionInternalDocuments,
-  saveVersionInternalDocumentsArray,
+  saveOperationsArray, saveVersionInternalDocuments, saveVersionInternalDocumentsArray,
 } from './utils'
 import {
   getCompositeKey,
@@ -485,7 +479,7 @@ export class LocalRegistry implements IRegistry {
         message: message,
       })
     }
-    const comparisonsDto: VersionsComparisonDto[] = comparisons.map(comparison => toVersionsComparisonDto(comparison, logError))
+    const comparisonsDto: VersionsComparisonDto[] = comparisons.map(comparison => toVersionsComparisonDto(comparison, builderContext.normalizedSpecFragmentsHashCache, logError))
     const comparisonInternalDocuments: ComparisonInternalDocument[] = comparisons.map(comparison => comparison.comparisonInternalDocuments).flat()
 
     await saveComparisonsArray(comparisonsDto, basePath)

@@ -74,7 +74,7 @@ describe('Operation Bugs', () => {
       ],
     })
 
-    const operationV1 = result.operations.get('v1-pet-findbystatus-get')
+    const operationV1 = result.operations.get('v1-pet-findByStatus-get')
     expect(operationV1?.title).toMatch(/(\s*)TEST(\s*)/g)
   })
 
