@@ -18,68 +18,121 @@ import { API_KIND } from '../../consts'
 import { isObject, isValidHttpMethod } from '../../utils'
 import { REST_KIND_KEY } from '../../apitypes'
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
-import { ApiCompatibilityKind, BwcState } from '@netcracker/qubership-apihub-api-diff'
+import {
+  ApiCompatibilityKind,
+  ApiCompatibilityScope,
+  ApiCompatibilityScopeFunction,
+} from '@netcracker/qubership-apihub-api-diff'
+import { ApiKind, ResolvedVersionDocumentMetadata } from '../../types'
+import { findApiKindLabel } from '../document'
 
-const getKind = (obj: unknown): string | undefined => {
+const getApiKind = (obj: unknown): string | undefined => {
   if (!isObject(obj)) return undefined
   const value = (obj as Record<string, unknown>)[REST_KIND_KEY]
   return typeof value === 'string' ? value.toLowerCase() : undefined
 }
 
 const hasNoBWC = (obj: unknown): boolean => {
-  return getKind(obj) === API_KIND.NO_BWC
+  return getApiKind(obj) === API_KIND.NO_BWC
 }
 
-const hasNoBWCInMethods = (obj: unknown): boolean => {
-  if (!isObject(obj)) return false
+// If a path object is removed/added, we must ensure every HTTP method under it
+// is explicitly marked NO_BWC before treating the change as risky.
+const checkAllMethodsHaveNoBWC = (obj: unknown): boolean => {
+  if (!isObject(obj)) {
+    return false
+  }
 
-  if (hasNoBWC(obj)) return true
+  if (hasNoBWC(obj)) {
+    return true
+  }
+  const entries = Object.entries(obj)
 
-  return Object.entries(obj).some(([key, value]) =>
+  return entries.length > 0 &&
+    entries.every(([key, value]) =>
     isValidHttpMethod(key) &&
     isObject(value) &&
     hasNoBWC(value),
   )
 }
 
-const isValidPathLength = (path: JsonPath | undefined): boolean => {
-  const pathLength = path?.length ?? 0
-  return pathLength >= 1 && pathLength <= 3
+const ROOT_PATH_LENGTH = 0
+const MAX_BWC_FLAG_PATH_LENGTH = 3
+
+export const checkApiKind = (
+  prevApiKind: ApiKind = API_KIND.BWC,
+  currApiKind: ApiKind = API_KIND.BWC,
+): ApiCompatibilityScopeFunction => {
+  const defaultApiCompatibilityKind = (prevApiKind === API_KIND.NO_BWC || currApiKind === API_KIND.NO_BWC)
+    ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
+    : undefined
+
+  return (
+    path?: JsonPath,
+    beforeJson?: unknown,
+    afterJson?: unknown,
+  ): ApiCompatibilityScope | undefined => {
+    const pathLength = path?.length ?? 0
+    /*
+     * Calculating Api Kind for the entire document as the default
+     * If there is a NO_BWC marker on:
+     * - Publish label
+     * - Document API info section
+     */
+    if (pathLength === ROOT_PATH_LENGTH) {
+      return defaultApiCompatibilityKind
+    }
+    /*
+    * The remaining NO_BWC markers can only be on operations.
+    * Operation entry (paths/<path>/<method>), which is at most three segments deep
+    * Anything deeper cannot legally carry BWC metadata, so we skip validation there.
+     */
+    const isFirstPathSegmentPaths = path?.[0] === 'paths'
+    if (!isFirstPathSegmentPaths || pathLength > MAX_BWC_FLAG_PATH_LENGTH) {
+      return undefined
+    }
+
+    const beforeExists = isObject(beforeJson)
+    const afterExists = isObject(afterJson)
+
+    if (!beforeExists && !afterExists) {
+      return undefined
+    }
+
+    if (beforeExists && afterExists) {
+      return hasNoBWC(beforeJson) || hasNoBWC(afterJson)
+        ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
+        : undefined
+    }
+
+    // case remove: when a node disappears, api-diff emits REMOVE diffs for each
+    // operation. We only mark the deletion as NO_BWC if all removed methods were
+    // explicitly flagged NO_BWC, keeping deletions consistent with declared scope.
+    if (beforeExists && !afterExists) {
+      return checkAllMethodsHaveNoBWC(beforeJson)
+        ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
+        : undefined
+    }
+
+    // case add: additions are checked the same way. A new path or operation is
+    // considered NO_BWC only when every contained method declares NO_BWC.
+    if (afterExists && !beforeExists) {
+      return checkAllMethodsHaveNoBWC(afterJson)
+        ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
+        : undefined
+    }
+
+    return undefined
+  }
 }
 
-export const checkNoBackwardCompatibility = (
-  path?: JsonPath,
-  beforeJson?: unknown,
-  afterJson?: unknown,
-): BwcState | undefined => {
-  if (!isValidPathLength(path)) {
-    return undefined
+export const getApiKindFromMetadata = (metadata: ResolvedVersionDocumentMetadata | undefined): ApiKind => {
+  if(!metadata) {
+    return API_KIND.BWC
   }
-
-  const beforeExists = isObject(beforeJson)
-  const afterExists = isObject(afterJson)
-
-  if (!beforeExists && !afterExists) {
-    return undefined
-  }
-
-  if (beforeExists && afterExists) {
-    return hasNoBWC(beforeJson) || hasNoBWC(afterJson)
-      ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
-      : undefined
-  }
-
-  if (beforeExists && !afterExists) {
-    return hasNoBWCInMethods(beforeJson)
-      ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
-      : undefined
-  }
-
-  if (afterExists && !beforeExists) {
-    return hasNoBWCInMethods(afterJson)
-      ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
-      : undefined
-  }
-
-  return undefined
+  const prevInfoApiKind: string | undefined = metadata?.info?.[REST_KIND_KEY] as string
+  const prevLabelsApiKind:string | undefined = metadata?.labels && findApiKindLabel(metadata?.labels)
+  return (prevLabelsApiKind?.toLowerCase() === API_KIND.NO_BWC || prevInfoApiKind?.toLowerCase() === API_KIND.NO_BWC)
+    ? API_KIND.NO_BWC
+    : API_KIND.BWC
 }

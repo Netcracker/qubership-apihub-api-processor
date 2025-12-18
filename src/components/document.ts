@@ -60,7 +60,7 @@ export const buildDocument = async (parsedFile: SourceFile, file: BuildConfigFil
   }
 }
 
-const findApiKindLabel = (labels: unknown[]): string => {
+export const findApiKindLabel = (labels: unknown[]): string => {
   if (!Array.isArray(labels)) {
     return API_KIND.BWC
   }

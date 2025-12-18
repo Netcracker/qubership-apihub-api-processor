@@ -14,8 +14,17 @@
  * limitations under the License.
  */
 
-import { API_KIND, BREAKING_CHANGE_TYPE, BUILD_TYPE, RISKY_CHANGE_TYPE, VERSION_STATUS } from '../src'
-import { Editor, LocalRegistry } from './helpers'
+import {
+  API_KIND,
+  BREAKING_CHANGE_TYPE,
+  BUILD_TYPE,
+  BuildResult,
+  RISKY_CHANGE_TYPE,
+  UNCLASSIFIED_CHANGE_TYPE,
+  VERSION_STATUS,
+} from '../src'
+import { changesSummaryMatcher, Editor, LocalRegistry } from './helpers'
+import { takeIfDefined } from '../src/utils'
 
 let afterPackage: LocalRegistry
 const AFTER_PACKAGE_ID = 'api-kinds'
@@ -155,4 +164,78 @@ describe('Risky changes for no-bwc operations test', () => {
 
     expect(result.comparisons[0].operationTypes[0].changesSummary?.[BREAKING_CHANGE_TYPE]).toBe(2)
   })
+})
+
+describe('Check Api Compatibility Function tests', () => {
+  const PREV_VERSION = 'v1'
+  const CURR_VERSION = 'v2'
+  const API_KIND_NO_BWC_LABEL = 'apihub/x-api-kind: no-BWC'
+
+  describe('Publish ApiKind Labels tests', () => {
+    test('should apply api kind label from previous document', async () => {
+      const result = await runApiKindTest('api-kinds/no-api-kind-in-documents', [API_KIND_NO_BWC_LABEL])
+      expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
+    })
+
+    test('should apply api kind label from current document', async () => {
+      const result = await runApiKindTest('api-kinds/no-api-kind-in-documents', undefined, [API_KIND_NO_BWC_LABEL])
+      expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
+    })
+  })
+
+  describe('ApiKind info section tests', () => {
+    test('should apply api-kind label in previous document info section', async () => {
+      const result = await runApiKindTest('api-kinds/api-kind-info-label-in-prev-document')
+      expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
+    })
+
+    test('should apply api-kind label in current document info section', async () => {
+      const result = await runApiKindTest('api-kinds/api-kind-info-label-in-curr-document')
+      expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
+    })
+  })
+
+  describe('ApiKind operations section tests', () => {
+    test('should apply api-kind label in current document operation', async () => {
+      const result = await runApiKindTest('api-kinds/api-kind-operation-label-curr-document')
+      expect(result).toEqual(changesSummaryMatcher({
+        [RISKY_CHANGE_TYPE]: 1,
+        [UNCLASSIFIED_CHANGE_TYPE]: 1, // x-api-kind field in the operation also gives a diff
+      }))
+    })
+
+    test('should apply api-kind label in previous document operation', async () => {
+      const result = await runApiKindTest('api-kinds/api-kind-operation-label-prev-document')
+      expect(result).toEqual(changesSummaryMatcher({
+        [RISKY_CHANGE_TYPE]: 1,
+        [UNCLASSIFIED_CHANGE_TYPE]: 1, // x-api-kind field in the operation also gives a diff
+      }))
+    })
+  })
+
+  async function runApiKindTest(packageId: string, prevLabels?: string[], currLabels?: string[]): Promise<BuildResult> {
+    const portal = new LocalRegistry(packageId)
+
+    await portal.publish(packageId, {
+      packageId: packageId,
+      version: PREV_VERSION,
+      files: [{ fileId: '1.yaml', ...takeIfDefined({ labels: prevLabels }) }],
+    })
+
+    await portal.publish(packageId, {
+      packageId: packageId,
+      version: CURR_VERSION,
+      files: [{ fileId: '2.yaml', ...takeIfDefined({ labels: currLabels }) }],
+    })
+
+    const editor = new Editor(packageId, {
+      packageId: packageId,
+      version: CURR_VERSION,
+      status: VERSION_STATUS.RELEASE,
+      previousVersion: PREV_VERSION,
+      buildType: BUILD_TYPE.CHANGELOG,
+    }, {}, portal)
+
+    return editor.run()
+  }
 })

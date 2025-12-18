@@ -17,6 +17,7 @@
 import { FileId, OperationsApiType, PackageId, TemplatePath, VersionId } from './types'
 import { ResolvedReferenceMap } from './references'
 import { FileFormat } from '../internal'
+import { ApiKind } from './operations'
 
 export type ResolvedDocument = {
   fileId: string
@@ -40,8 +41,15 @@ export type ResolvedVersionDocuments = {
   packages: ResolvedReferenceMap
 }
 
+export type ResolvedVersionDocumentMetadata = {
+  labels?: Labels
+  info: Record<string, unknown>
+}
+
 export type ResolvedVersionDocument = ResolvedDocument & {
   packageRef?: string
+  metadata?: ResolvedVersionDocumentMetadata
+  apiKind?: ApiKind
 }
 
 export type Labels = string[]

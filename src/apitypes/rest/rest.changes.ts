@@ -84,7 +84,7 @@ import {
   getOperationTags,
   OperationsMap,
 } from '../../components'
-import { checkNoBackwardCompatibility } from '../../components/compare/bwc.validation'
+import { checkApiKind, getApiKindFromMetadata } from '../../components/compare/bwc.validation'
 
 /**
  * Calculates a normalized operation ID for an operation.
@@ -147,7 +147,10 @@ export const compareDocuments: DocumentsCompare = async (
       normalizedResult: false,
       afterValueNormalizedProperty: AFTER_VALUE_NORMALIZED_PROPERTY,
       beforeValueNormalizedProperty: BEFORE_VALUE_NORMALIZED_PROPERTY,
-      bwcScopeFunction: checkNoBackwardCompatibility,
+      apiCompatibilityScopeFunction: checkApiKind(
+        prevDoc?.apiKind || getApiKindFromMetadata(prevDoc?.metadata),
+        currDoc?.apiKind || getApiKindFromMetadata(currDoc?.metadata),
+      ),
     },
   ) as { merged: OpenAPIV3.Document; diffs: Diff[] }
 
