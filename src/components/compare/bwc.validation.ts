@@ -15,127 +15,196 @@
  */
 
 import { API_KIND } from '../../consts'
-import { isObject, isValidHttpMethod } from '../../utils'
-import { REST_KIND_KEY } from '../../apitypes'
-import { isArray, JsonPath } from '@netcracker/qubership-apihub-json-crawl'
+import { calculateNormalizedRestOperationId, isObject, isValidHttpMethod } from '../../utils'
+import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import {
   ApiCompatibilityKind,
   ApiCompatibilityScope,
   ApiCompatibilityScopeFunction,
+  extractOperationBasePath,
 } from '@netcracker/qubership-apihub-api-diff'
-import { ApiKind } from '../../types'
-import { findApiKindLabel } from '../document'
+import { OperationsMap } from './compare.utils'
+import { OpenAPIV3 } from 'openapi-types'
 
-const getApiKind = (obj: unknown): string | undefined => {
-  if (!isObject(obj)) return undefined
-  const value = (obj as Record<string, unknown>)[REST_KIND_KEY]
-  return typeof value === 'string' ? value.toLowerCase() : undefined
+const ROOT_PATH_LENGTH = 0
+const PATHS_ROOT_LENGTH = 1
+const PATH_ITEM_PATH_LENGTH = 2
+const OPERATION_PATH_LENGTH = 3
+
+const isNoBwc = (kind?: string): boolean =>
+  kind?.toLowerCase() === API_KIND.NO_BWC
+
+const getApiKindFromCache = (
+  obj: object,
+  hash: WeakMap<object, string>,
+  operationsMap: OperationsMap,
+): boolean => {
+  const operationId = hash.get(obj)
+  if (!operationId) {
+    return false
+  }
+  const { previous, current } = operationsMap[operationId]
+  const prevApiKind = previous?.apiKind === API_KIND.NO_BWC
+  const currApiKind = current?.apiKind === API_KIND.NO_BWC
+
+  return prevApiKind || currApiKind
 }
 
-const hasNoBWC = (obj: unknown): boolean => {
-  return getApiKind(obj) === API_KIND.NO_BWC
-}
+const allOperationsAreNoBwc = (
+  obj: unknown,
+  hash: WeakMap<object, string>,
+  operationsMap: OperationsMap,
+): boolean => {
+  if (!isObject(obj)) return false
 
-// If a path object is removed/added, we must ensure every HTTP method under it
-// is explicitly marked NO_BWC before treating the change as risky.
-const checkAllMethodsHaveNoBWC = (obj: unknown): boolean => {
-  if (!isObject(obj)) {
+  const entries = Object.entries(obj).filter(([key]) =>
+    isValidHttpMethod(key as OpenAPIV3.HttpMethods),
+  )
+
+  if (entries.length === 0) {
     return false
   }
 
-  if (hasNoBWC(obj)) {
-    return true
-  }
-  const entries = Object.entries(obj)
-
-  return entries.length > 0 &&
-    entries.every(([key, value]) =>
-    isValidHttpMethod(key) &&
-    isObject(value) &&
-    hasNoBWC(value),
-  )
+  return entries.every(([method, value]) => getApiKindFromCache(value as object, hash, operationsMap))
 }
-
-const ROOT_PATH_LENGTH = 0
-const MAX_BWC_FLAG_PATH_LENGTH = 3
 
 export const checkApiKind = (
   prevApiKind: string = API_KIND.BWC,
   currApiKind: string = API_KIND.BWC,
+  prevDocData: OpenAPIV3.Document,
+  currDocData: OpenAPIV3.Document,
+  operationsMap: OperationsMap,
 ): ApiCompatibilityScopeFunction => {
-  const defaultApiCompatibilityKind = (prevApiKind === API_KIND.NO_BWC || currApiKind === API_KIND.NO_BWC)
-    ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
-    : undefined
+
+  const defaultCompatibility =
+    isNoBwc(prevApiKind) || isNoBwc(currApiKind)
+      ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
+      : undefined
+
+  let prevOperationsIdHash = new WeakMap<object, string>()
+  let currOperationsIdHash = new WeakMap<object, string>()
 
   return (
     path?: JsonPath,
-    beforeJson?: unknown,
-    afterJson?: unknown,
+    prevJson?: unknown,
+    currJson?: unknown,
   ): ApiCompatibilityScope | undefined => {
     const pathLength = path?.length ?? 0
-    /*
-     * Calculating Api Kind for the entire document as the default
-     * If there is a NO_BWC marker on:
-     * - Publish label
-     * - Document API info section
-     */
+
+    // We are at the document root: apply only the global default compatibility.
     if (pathLength === ROOT_PATH_LENGTH) {
-      return defaultApiCompatibilityKind
-    }
-    /*
-    * The remaining NO_BWC markers can only be on operations.
-    * Operation entry (paths/<path>/<method>), which is at most three segments deep
-    * Anything deeper cannot legally carry BWC metadata, so we skip validation there.
-     */
-    const isFirstPathSegmentPaths = path?.[0] === 'paths'
-    if (!isFirstPathSegmentPaths || pathLength > MAX_BWC_FLAG_PATH_LENGTH) {
-      return undefined
+      return defaultCompatibility
     }
 
-    const beforeExists = isObject(beforeJson)
-    const afterExists = isObject(afterJson)
+    const beforeExists = isObject(prevJson)
+    const afterExists = isObject(currJson)
 
     if (!beforeExists && !afterExists) {
       return undefined
     }
 
-    if (beforeExists && afterExists) {
-      return hasNoBWC(beforeJson) || hasNoBWC(afterJson)
-        ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
-        : undefined
+    // We only process changes that are under the OpenAPI `paths` section.
+    const isFirstPathSegmentPaths = path?.[0] === 'paths'
+    if (!isFirstPathSegmentPaths) {
+      return undefined
     }
 
-    // case remove: when a node disappears, api-diff emits REMOVE diffs for each
-    // operation. We only mark the deletion as NO_BWC if all removed methods were
-    // explicitly flagged NO_BWC, keeping deletions consistent with declared scope.
-    if (beforeExists && !afterExists) {
-      return checkAllMethodsHaveNoBWC(beforeJson)
-        ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
-        : undefined
+    if (pathLength === PATHS_ROOT_LENGTH) {
+      prevOperationsIdHash = calculateOperationsIdHash(prevJson as OpenAPIV3.Document, prevDocData?.servers)
+      currOperationsIdHash = calculateOperationsIdHash(currJson as OpenAPIV3.Document, currDocData?.servers)
+      return undefined
     }
 
-    // case add: additions are checked the same way. A new path or operation is
-    // considered NO_BWC only when every contained method declares NO_BWC.
-    if (afterExists && !beforeExists) {
-      return checkAllMethodsHaveNoBWC(afterJson)
-        ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
-        : undefined
+    // Deleting or adding path items
+    if (pathLength === PATH_ITEM_PATH_LENGTH && beforeExists !== afterExists) {
+      /*
+       * case remove: when a node disappears, api-diff emits REMOVE diffs for each
+       * operation. We only mark the deletion as NO_BWC if all removed methods were
+       * explicitly flagged NO_BWC, keeping deletions consistent with declared scope.
+       */
+      if (beforeExists && !afterExists) {
+        return allOperationsAreNoBwc(prevJson, prevOperationsIdHash, operationsMap)
+          ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
+          : undefined
+      }
+      /*
+       * case add: additions are checked the same way. A new path or operation is
+       * considered NO_BWC only when every contained method declares NO_BWC.
+       */
+      if (afterExists && !beforeExists) {
+        return allOperationsAreNoBwc(currJson, currOperationsIdHash, operationsMap)
+          ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
+          : undefined
+      }
+
+      return undefined
     }
 
-    return undefined
+    /*
+    * The remaining NO_BWC markers can only be on operations.
+    * Operation entry (paths/<path>/<method>), which is at most three segments deep
+    * Anything deeper cannot legally carry BWC metadata, so we skip validation there.
+     */
+    if (pathLength !== OPERATION_PATH_LENGTH) {
+      return undefined
+    }
+
+    const prevOperationId =
+      beforeExists ? prevOperationsIdHash.get(prevJson) : undefined
+    const currOperationId =
+      afterExists ? currOperationsIdHash.get(currJson) : undefined
+
+    const prevApiKind =
+      prevOperationId
+        ? operationsMap[prevOperationId]?.previous?.apiKind
+        : undefined
+
+    const currApiKind =
+      currOperationId
+        ? operationsMap[currOperationId]?.current?.apiKind
+        : undefined
+
+    return isNoBwc(prevApiKind) || isNoBwc(currApiKind)
+      ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
+      : undefined
   }
 }
 
-export const getApiKindFromMetadata = (metadata: Record<string, unknown> | undefined): ApiKind => {
-  if (!metadata) {
-    return API_KIND.BWC
-  }
-  const metadataInfo =  metadata?.info
-  const metadataLabels =  metadata?.labels
-  const prevInfoApiKind: string | undefined = isObject(metadataInfo) ? metadataInfo?.[REST_KIND_KEY] as string : undefined
-  const prevLabelsApiKind: string | undefined = isArray(metadataLabels) ? findApiKindLabel(metadataLabels) : undefined
-  return (prevLabelsApiKind?.toLowerCase() === API_KIND.NO_BWC || prevInfoApiKind?.toLowerCase() === API_KIND.NO_BWC)
-    ? API_KIND.NO_BWC
-    : API_KIND.BWC
-}
+export function calculateOperationsIdHash(
+  data: OpenAPIV3.Document,
+  servers?: OpenAPIV3.ServerObject[],
+): WeakMap<object, string> {
 
+  const hash = new WeakMap<object, string>()
+
+  if (!isObject(data)) {
+    return hash
+  }
+
+  for (const path of Object.keys(data)) {
+    const pathItem = data[path] as OpenAPIV3.PathItemObject
+    if (!isObject(pathItem)) continue
+
+    for (const method of Object.keys(pathItem)) {
+      if (!isValidHttpMethod(method as OpenAPIV3.HttpMethods)) continue
+
+      const operation = pathItem[method as OpenAPIV3.HttpMethods]
+      if (!isObject(operation)) continue
+
+      const basePath = extractOperationBasePath(
+        operation.servers ?? pathItem.servers ?? servers,
+      )
+
+      hash.set(
+        operation,
+        calculateNormalizedRestOperationId(
+          basePath,
+          path,
+          method as OpenAPIV3.HttpMethods,
+        ),
+      )
+    }
+  }
+
+  return hash
+}

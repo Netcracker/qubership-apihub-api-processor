@@ -43,7 +43,6 @@ export type ResolvedVersionDocuments = {
 
 export type ResolvedVersionDocument = ResolvedDocument & {
   packageRef?: string
-  metadata?: Record<string, unknown>
   apiKind?: string
 }
 
