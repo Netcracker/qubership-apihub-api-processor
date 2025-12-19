@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { isEmpty, isObject, slugify } from '../../utils'
+import { isEmpty, isObject, SLUG_OPTIONS_OPERATION_ID, slugify } from '../../utils'
 import {
   aggregateDiffsWithRollup,
   apiDiff,
@@ -122,7 +122,7 @@ export const compareDocuments: DocumentsCompare = async (
         : operationKey
 
       // Use simple operation ID (no normalization needed for AsyncAPI)
-      const operationId = slugify(`${action}-${channel}`)
+      const operationId = slugify(`${action}-${channel}`, SLUG_OPTIONS_OPERATION_ID)
 
       const { current, previous } = operationsMap[operationId] ?? {}
       if (!current && !previous) {
