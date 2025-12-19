@@ -82,7 +82,7 @@ import {
   getOperationTags,
   OperationsMap,
 } from '../../components'
-import { checkApiKind } from '../../components/compare/bwc.validation'
+import { checkApiKind, getApiKindFromLabels } from '../../components/compare/bwc.validation'
 
 export const compareDocuments: DocumentsCompare = async (
   operationsMap: OperationsMap,
@@ -99,6 +99,8 @@ export const compareDocuments: DocumentsCompare = async (
     currentPackageId,
     currentGroup,
     previousGroup,
+    previousLabels,
+    currentLabels,
   } = ctx
   const comparisonInternalDocumentId = createComparisonInternalDocumentId(prevDoc, currDoc, previousVersion, currentVersion)
   const prevFile = prevDoc && await rawDocumentResolver(previousVersion, previousPackageId, prevDoc.slug)
@@ -133,7 +135,10 @@ export const compareDocuments: DocumentsCompare = async (
       normalizedResult: false,
       afterValueNormalizedProperty: AFTER_VALUE_NORMALIZED_PROPERTY,
       beforeValueNormalizedProperty: BEFORE_VALUE_NORMALIZED_PROPERTY,
-      apiCompatibilityScopeFunction: checkApiKind(prevDoc?.apiKind, currDoc?.apiKind, prevDocData, currDocData, operationsMap),
+      apiCompatibilityScopeFunction: checkApiKind(
+        getApiKindFromLabels(prevDocData?.info, prevDoc?.labels, previousLabels),
+        getApiKindFromLabels(currDocData?.info, currDoc?.labels, currentLabels),
+      ),
     },
   ) as { merged: OpenAPIV3.Document; diffs: Diff[] }
 

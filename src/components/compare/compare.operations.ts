@@ -18,7 +18,6 @@ import {
   CompareContext,
   CompareOperationsPairContext,
   ComparisonDocument,
-  ComparisonInternalDocument,
   OperationChanges,
   OperationsApiType,
   OperationType,
@@ -30,7 +29,8 @@ import {
   calculatePairedDocs,
   calculateTotalImpactedSummary,
   comparePairedDocs,
-  createComparisonFileId, createComparisonInternalDocuments,
+  createComparisonFileId,
+  createComparisonInternalDocuments,
   createPairOperationsMap,
   getUniqueApiTypesFromVersions,
 } from './compare.utils'
@@ -124,8 +124,16 @@ async function compareCurrentApiType(
   const apiBuilder = ctx.apiBuilders.find((builder) => apiType === builder.apiType)
   if (!apiBuilder) { return null }
 
-  const { version: prevVersion, packageId: prevPackageId } = prev ?? { version: '', packageId: '' }
-  const { version: currVersion, packageId: currPackageId } = curr ?? { version: '', packageId: '' }
+  const { version: prevVersion, packageId: prevPackageId, labels: prevLabels } = prev ?? {
+    version: '',
+    packageId: '',
+    labels: [],
+  }
+  const { version: currVersion, packageId: currPackageId, labels: currLabels } = curr ?? {
+    version: '',
+    packageId: '',
+    labels: [],
+  }
 
   const { operations: prevOperations = [] } = prev && await versionOperationsResolver(apiType, prevVersion, prevPackageId, undefined, false) || {}
   const { operations: currOperations = [] } = curr && await versionOperationsResolver(apiType, currVersion, currPackageId, undefined, false) || {}
@@ -151,6 +159,8 @@ async function compareCurrentApiType(
     previousGroupSlug: previousGroupSlug,
     currentGroupSlug: currentGroupSlug,
     normalizedSpecFragmentsHashCache: normalizedSpecFragmentsHashCache,
+    previousLabels: prevLabels,
+    currentLabels: currLabels,
   }
 
   const operationsMap = createPairOperationsMap(previousGroupSlug, currentGroupSlug, prevOperationsWithPrefix, currOperationsWithPrefix, apiBuilder)

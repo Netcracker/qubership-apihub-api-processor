@@ -20,7 +20,7 @@ import {
   BuildConfigRef,
   ExportFormat,
   FileId,
-  GroupDocumentsResolver,
+  GroupDocumentsResolver, Labels,
   OperationId,
   OperationsApiType,
   PackageId,
@@ -101,6 +101,8 @@ export interface CompareOperationsPairContext {
   currentGroupSlug: string
   previousGroupSlug: string
   normalizedSpecFragmentsHashCache: ObjectHashCache
+  previousLabels?: Labels
+  currentLabels?: Labels
 }
 
 export type NormalizedOperationId = string

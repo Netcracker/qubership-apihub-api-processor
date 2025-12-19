@@ -16,6 +16,7 @@
 
 import { OperationsApiType, PackageId, VersionId } from './types'
 import { ChangeSummary } from './comparison'
+import { Labels } from './documents'
 
 export type VersionResolver = (
   packageId: PackageId,
@@ -29,7 +30,7 @@ export type ResolvedVersion = {
   operationTypes?: OperationTypes[]
   version: string
   apiProcessorVersion: string
-
+  labels?: Labels
   // other params (not used in builder logic)
   [key: string]: unknown
   // changeSummary?: object
