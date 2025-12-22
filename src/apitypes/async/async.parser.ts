@@ -20,14 +20,14 @@ import type { Parser, ParseOutput, Diagnostic } from '@asyncapi/parser'
 import { ASYNC_DOCUMENT_TYPE, ASYNC_FILE_FORMAT } from './async.consts'
 import { FILE_KIND, TextFile } from '../../types'
 import { getFileExtension } from '../../utils'
-import { AsyncApiDocument } from './async.types'
+import { v3 as AsyncAPIV3 } from '@asyncapi/parser/cjs/spec-types'
 
 interface ValidationError {
   message: string
   path?: string
 }
 
-export const parseAsyncApiFile = async (fileId: string, source: Blob): Promise<TextFile<AsyncApiDocument, ValidationError> | undefined> => {
+export const parseAsyncApiFile = async (fileId: string, source: Blob): Promise<TextFile<AsyncAPIV3.AsyncAPIObject, ValidationError> | undefined> => {
   const sourceString = await source.text()
   const extension = getFileExtension(fileId)
 
@@ -37,7 +37,7 @@ export const parseAsyncApiFile = async (fileId: string, source: Blob): Promise<T
 
   if (extension === ASYNC_FILE_FORMAT.JSON || sourceString.trimStart().startsWith('{')) {
     if (isAsyncApi3Json) {
-      const data = JSON.parse(sourceString) as AsyncApiDocument
+      const data = JSON.parse(sourceString) as AsyncAPIV3.AsyncAPIObject
       const errors = await validateAsyncApiDocument(sourceString)
 
       return {
@@ -52,7 +52,7 @@ export const parseAsyncApiFile = async (fileId: string, source: Blob): Promise<T
     }
   } else if (([ASYNC_FILE_FORMAT.YAML, 'yml'] as string[]).includes(extension) || !extension) {
     if (isAsyncApi3Yaml) {
-      const data = YAML.load(sourceString) as AsyncApiDocument
+      const data = YAML.load(sourceString) as AsyncAPIV3.AsyncAPIObject
       const errors = await validateAsyncApiDocument(sourceString)
 
       return {

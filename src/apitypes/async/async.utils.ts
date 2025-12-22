@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-import { AsyncApiDocument } from './async.types'
+import { v3 as AsyncAPIV3 } from '@asyncapi/parser/cjs/spec-types'
+import { isObject } from '../../utils'
+import { AsyncOperationActionType } from './async.types'
 
 // Re-export shared utilities
 export { dump, getCustomTags, resolveApiAudience } from '../../utils/apihubSpecificationExtensions'
@@ -25,11 +27,12 @@ export { dump, getCustomTags, resolveApiAudience } from '../../utils/apihubSpeci
  * @param channel - Channel name
  * @returns Protocol string (e.g., 'kafka', 'amqp', 'mqtt') or 'unknown'
  */
-export function extractProtocol(document: AsyncApiDocument, channel: string): string {
+export function extractProtocol(document: AsyncAPIV3.AsyncAPIObject, channel: string): string {
   // Try to extract protocol from servers
-  if (document.servers && typeof document.servers === 'object') {
-    for (const server of Object.values(document.servers)) {
-      if (server && typeof server === 'object' && server.protocol) {
+  const { servers } = document
+  if (isObject(servers)) {
+    for (const server of Object.values(servers)) {
+      if (isServerObject(server)) {
         return String(server.protocol)
       }
     }
@@ -38,10 +41,10 @@ export function extractProtocol(document: AsyncApiDocument, channel: string): st
   // Try to extract protocol from channel bindings
   if (document.channels && document.channels[channel]) {
     const channelObj = document.channels[channel]
-    if (channelObj && typeof channelObj === 'object') {
+    if (isObject(channelObj)) {
       // Check for protocol in bindings
-      if (channelObj.bindings && typeof channelObj.bindings === 'object') {
-        const bindings = channelObj.bindings
+      const { bindings } = channelObj
+      if (isObject(bindings)) {
         // Common protocol bindings: kafka, amqp, mqtt, http, ws, etc.
         const knownProtocols = ['kafka', 'amqp', 'mqtt', 'http', 'ws', 'websockets', 'jms', 'nats', 'redis', 'sns', 'sqs']
         for (const protocol of knownProtocols) {
@@ -61,14 +64,18 @@ export function extractProtocol(document: AsyncApiDocument, channel: string): st
  * @param operationData - Operation object
  * @returns 'send' or 'receive'
  */
-export function determineOperationAction(operationData: any): 'send' | 'receive' {
+export function determineOperationAction(operationData: any): AsyncOperationActionType {
   if (operationData && typeof operationData === 'object') {
-    const action = operationData.action
+    const { action } = operationData
     if (action === 'send' || action === 'receive') {
       return action
     }
   }
   // Default to 'send' if not specified
   return 'send'
+}
+
+function isServerObject(server: AsyncAPIV3.ServerObject | AsyncAPIV3.ReferenceObject): server is AsyncAPIV3.ServerObject {
+  return server && typeof server === 'object' && 'protocol' in server
 }
 

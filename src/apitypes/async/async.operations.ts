@@ -16,18 +16,27 @@
 
 import { buildAsyncApiOperation } from './async.operation'
 import { OperationsBuilder } from '../../types'
-import { createBundlingErrorHandler, createSerializedInternalDocument, isNotEmpty, removeComponents, SLUG_OPTIONS_OPERATION_ID, slugify } from '../../utils'
+import {
+  createBundlingErrorHandler,
+  createSerializedInternalDocument,
+  isNotEmpty,
+  removeComponents,
+  SLUG_OPTIONS_OPERATION_ID,
+  slugify,
+} from '../../utils'
 import type * as TYPE from './async.types'
 import { INLINE_REFS_FLAG } from '../../consts'
 import { asyncFunction } from '../../utils/async'
 import { logLongBuild, syncDebugPerformance } from '../../utils/logs'
 import { normalize, RefErrorType } from '@netcracker/qubership-apihub-api-unifier'
 import { ASYNC_EFFECTIVE_NORMALIZE_OPTIONS } from './async.consts'
+import { v3 as AsyncAPIV3 } from '@asyncapi/parser/cjs/spec-types'
+import { AsyncOperationActionType } from './async.types'
 
 type OperationInfo = { channel: string; action: string }
 type DuplicateEntry = { operationId: string; operations: OperationInfo[] }
 
-export const buildAsyncApiOperations: OperationsBuilder<TYPE.AsyncApiDocument> = async (document, ctx, debugCtx) => {
+export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObject> = async (document, ctx, debugCtx) => {
   const documentWithoutComponents = removeComponents(document.data)
   const bundlingErrorHandler = createBundlingErrorHandler(ctx, document.fileId)
 
@@ -41,7 +50,7 @@ export const buildAsyncApiOperations: OperationsBuilder<TYPE.AsyncApiDocument> =
         onRefResolveError: (message: string, _path: PropertyKey[], _ref: string, errorType: RefErrorType) =>
           bundlingErrorHandler([{ message, errorType }]),
       },
-    ) as TYPE.AsyncApiDocument
+    ) as AsyncAPIV3.AsyncAPIObject
     const refsOnlyDocument = normalize(
       documentWithoutComponents,
       {
@@ -49,7 +58,7 @@ export const buildAsyncApiOperations: OperationsBuilder<TYPE.AsyncApiDocument> =
         inlineRefsFlag: INLINE_REFS_FLAG,
         source: document.data,
       },
-    ) as TYPE.AsyncApiDocument
+    ) as AsyncAPIV3.AsyncAPIObject
     return { effectiveDocument, refsOnlyDocument }
   },
     debugCtx,
@@ -72,7 +81,7 @@ export const buildAsyncApiOperations: OperationsBuilder<TYPE.AsyncApiDocument> =
 
     await asyncFunction(async () => {
       // Extract action and channel from operation
-      const action = (operationData as any).action as 'send' | 'receive'  //TODO: fix type
+      const action = (operationData as any).action as AsyncOperationActionType
       const channelRef = (operationData as any).channel
 
       if (!action || !channelRef) {

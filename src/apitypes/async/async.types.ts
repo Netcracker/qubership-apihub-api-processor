@@ -17,15 +17,16 @@
 import { ApiOperation, NotificationMessage, VersionDocument } from '../../types'
 import { ASYNC_DOCUMENT_TYPE, ASYNC_SCOPES } from './async.consts'
 import { CustomTags } from '../../utils/apihubSpecificationExtensions'
+import { v3 as AsyncAPIV3 } from '@asyncapi/parser/cjs/spec-types'
 
 export type AsyncScopeType = keyof typeof ASYNC_SCOPES
 export type AsyncDocumentType = (typeof ASYNC_DOCUMENT_TYPE)[keyof typeof ASYNC_DOCUMENT_TYPE]
-
+export type AsyncOperationActionType = 'send' | 'receive'
 /**
  * AsyncAPI 3.0 operation metadata
  */
 export interface AsyncOperationMeta {
-  action: 'send' | 'receive'        // Operation action //TODO add typing
+  action: AsyncOperationActionType  // Operation action
   channel: string                   // Channel name
   protocol: string                  // Protocol (e.g., 'kafka', 'amqp', 'mqtt')
   customTags: CustomTags            // Custom x-* extensions
@@ -40,38 +41,19 @@ export interface AsyncDocumentInfo {
   version: string
 }
 
-//TODO: fix type (better yet use AsyncApiDocument type from @asyncapi/parser)
-/**
- * AsyncAPI 3.0 document structure (plain JSON object)
- */
-export interface AsyncApiDocument {
-  asyncapi: string                  // Version (e.g., '3.0.0')
-  info: {
-    title: string
-    version: string
-    description?: string
-    [key: string]: any
-  }
-  channels?: Record<string, any>    // Channels definition
-  operations?: Record<string, any>  // Operations definition
-  components?: Record<string, any>  // Reusable components
-  servers?: Record<string, any>     // Server definitions
-  [key: string]: any
-}
-
 /**
  * AsyncAPI operation data (single operation spec)
  */
 export interface AsyncOperationData {
   asyncapi: string
-  info: AsyncApiDocument['info']
-  channels?: Record<string, any>
-  operations?: Record<string, any>
-  components?: Record<string, any>
-  servers?: Record<string, any>
+  info: AsyncAPIV3.InfoObject
+  channels?: AsyncAPIV3.ChannelsObject
+  operations?: AsyncAPIV3.OperationsObject
+  components?: AsyncAPIV3.ComponentsObject
+  servers?: AsyncAPIV3.ServersObject
 }
 
-export type VersionAsyncDocument = VersionDocument<AsyncApiDocument>
+export type VersionAsyncDocument = VersionDocument<AsyncAPIV3.AsyncAPIObject>
 export type VersionAsyncOperation = ApiOperation<AsyncOperationData, AsyncOperationMeta>
 
 export interface AsyncRefCache {

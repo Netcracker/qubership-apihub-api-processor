@@ -17,12 +17,7 @@
 import { JsonPath, syncCrawl } from '@netcracker/qubership-apihub-json-crawl'
 import { ASYNC_KIND_KEY } from './async.consts'
 import type * as TYPE from './async.types'
-import {
-  BuildConfig,
-  DeprecateItem,
-  NotificationMessage,
-  SearchScopes,
-} from '../../types'
+import { BuildConfig, DeprecateItem, NotificationMessage, SearchScopes } from '../../types'
 import {
   capitalize,
   getSplittedVersionKey,
@@ -32,7 +27,7 @@ import {
   takeIf,
   takeIfDefined,
 } from '../../utils'
-import { API_KIND, INLINE_REFS_FLAG, ORIGINS_SYMBOL, VERSION_STATUS } from '../../consts'
+import { API_KIND, ORIGINS_SYMBOL, VERSION_STATUS } from '../../consts'
 import { getCustomTags, resolveApiAudience } from '../../utils/apihubSpecificationExtensions'
 import { DebugPerformanceContext, syncDebugPerformance } from '../../utils/logs'
 import {
@@ -40,14 +35,13 @@ import {
   JSON_SCHEMA_PROPERTY_DEPRECATED,
   matchPaths,
   OPEN_API_PROPERTY_PATHS,
-  parseRef,
   pathItemToFullPath,
   PREDICATE_ANY_VALUE,
-  PREDICATE_UNCLOSED_END,
   resolveOrigins,
 } from '@netcracker/qubership-apihub-api-unifier'
 import { calculateHash, ObjectHashCache } from '../../utils/hashes'
 import { extractProtocol } from './async.utils'
+import { v3 as AsyncAPIV3 } from '@asyncapi/parser/cjs/spec-types'
 
 export const buildAsyncApiOperation = (
   operationId: string,
@@ -55,8 +49,8 @@ export const buildAsyncApiOperation = (
   action: 'send' | 'receive',
   channel: string,
   document: TYPE.VersionAsyncDocument,
-  effectiveDocument: TYPE.AsyncApiDocument,
-  refsOnlyDocument: TYPE.AsyncApiDocument,
+  effectiveDocument: AsyncAPIV3.AsyncAPIObject,
+  refsOnlyDocument: AsyncAPIV3.AsyncAPIObject,
   notifications: NotificationMessage[],
   config: BuildConfig,
   normalizedSpecFragmentsHashCache: ObjectHashCache,
@@ -65,10 +59,10 @@ export const buildAsyncApiOperation = (
 
   const { servers, components } = document.data
   const { versionInternalDocument } = document
-  const effectiveOperationObject = effectiveDocument.operations?.[operationKey] || {}
+  const effectiveOperationObject: AsyncAPIV3.OperationObject = effectiveDocument.operations?.[operationKey] as AsyncAPIV3.OperationObject || {}
   const effectiveSingleOperationSpec = createSingleOperationSpec(effectiveDocument, operationKey)
 
-  const tags = effectiveOperationObject.tags || []
+  const tags: string[] = effectiveOperationObject?.tags?.map(tag => (tag as AsyncAPIV3.TagObject)?.name) || []
 
   // Extract search scopes (similar to REST)
   const scopes: SearchScopes = {}
@@ -149,7 +143,8 @@ export const buildAsyncApiOperation = (
     documentId: document.slug,
     apiType: 'asyncapi',
     apiKind: rawToApiKind(apiKind),
-    deprecated: !!effectiveOperationObject.deprecated,
+    //todo check deprecated
+    deprecated: false,
     title: effectiveOperationObject.title || effectiveOperationObject.summary || operationKey.split('-').map(str => capitalize(str)).join(' '),
     metadata: {
       action,
@@ -157,7 +152,7 @@ export const buildAsyncApiOperation = (
       protocol,
       customTags,
     },
-    tags: Array.isArray(tags) ? tags : tags ? [tags] : [],
+    tags,
     data: specWithSingleOperation,
     searchScopes: scopes,
     deprecatedItems,
@@ -183,7 +178,7 @@ const isOperationPaths = (paths: JsonPath[]): boolean => {
  * Crops the document to contain only the specific operation
  */
 const createSingleOperationSpec = (
-  document: TYPE.AsyncApiDocument,
+  document: AsyncAPIV3.AsyncAPIObject,
   operationKey: string,
   servers?: Record<string, any>,
   components?: Record<string, any>,
