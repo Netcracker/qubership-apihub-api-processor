@@ -22,22 +22,49 @@ import {
   ApiCompatibilityScope,
   ApiCompatibilityScopeFunction,
 } from '@netcracker/qubership-apihub-api-diff'
-import { ApiKind, Labels } from '../../types'
+import { Labels } from '../../types'
 import { findApiKindLabel, getApiKind } from '../document'
 import { OpenAPIV3 } from 'openapi-types'
 
-const hasNoBWC = (obj: unknown): boolean => {
-  return getApiKind(obj) === API_KIND.NO_BWC
+export const getApiCompatibilityKind = (beforeJson: unknown, afterJson: unknown): ApiCompatibilityKind | undefined => {
+  const beforeApiKind = getApiKind(beforeJson)?.toLowerCase() ?? ''
+  const afterApiKind = getApiKind(afterJson)?.toLowerCase() ?? ''
+
+  if (beforeApiKind === API_KIND.NO_BWC || afterApiKind === API_KIND.NO_BWC) {
+    return ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
+  }
+
+  if (beforeApiKind === API_KIND.BWC || afterApiKind === API_KIND.BWC) {
+    return ApiCompatibilityKind.BACKWARD_COMPATIBLE
+  }
+
+  return undefined
+}
+
+export const getMethodsApiCompatibilityKind = (obj: unknown): ApiCompatibilityKind | undefined => {
+  if (checkAllMethodsHaveSameApiKind(obj, API_KIND.NO_BWC)) {
+    return ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
+  }
+
+  if (checkAllMethodsHaveSameApiKind(obj, API_KIND.BWC)) {
+    return ApiCompatibilityKind.BACKWARD_COMPATIBLE
+  }
+
+  return undefined
+}
+
+const hasApiKind = (obj: unknown, apiKind: string): boolean => {
+  return getApiKind(obj) === apiKind
 }
 
 // If a path object is removed/added, we must ensure every HTTP method under it
 // is explicitly marked NO_BWC before treating the change as risky.
-const checkAllMethodsHaveNoBWC = (obj: unknown): boolean => {
+const checkAllMethodsHaveSameApiKind = (obj: unknown, apiKind: string): boolean => {
   if (!isObject(obj)) {
     return false
   }
 
-  if (hasNoBWC(obj)) {
+  if (hasApiKind(obj, apiKind)) {
     return true
   }
   const entries = Object.entries(obj)
@@ -46,7 +73,7 @@ const checkAllMethodsHaveNoBWC = (obj: unknown): boolean => {
     entries.every(([key, value]) =>
       isValidHttpMethod(key) &&
       isObject(value) &&
-      hasNoBWC(value),
+      hasApiKind(value, apiKind),
     )
 }
 
@@ -95,40 +122,36 @@ export const checkApiKind = (
     }
 
     if (beforeExists && afterExists) {
-      return hasNoBWC(beforeJson) || hasNoBWC(afterJson)
-        ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
-        : undefined
+      return getApiCompatibilityKind(beforeJson, afterJson)
     }
 
     // case remove: when a node disappears, api-diff emits REMOVE diffs for each
     // operation. We only mark the deletion as NO_BWC if all removed methods were
     // explicitly flagged NO_BWC, keeping deletions consistent with declared scope.
     if (beforeExists && !afterExists) {
-      return checkAllMethodsHaveNoBWC(beforeJson)
-        ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
-        : undefined
+      return getMethodsApiCompatibilityKind(beforeJson)
     }
 
     // case add: additions are checked the same way. A new path or operation is
     // considered NO_BWC only when every contained method declares NO_BWC.
     if (afterExists && !beforeExists) {
-      return checkAllMethodsHaveNoBWC(afterJson)
-        ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
-        : undefined
+      return getMethodsApiCompatibilityKind(afterJson)
     }
 
     return undefined
   }
 }
 
-export const calculateApiKind = (info?: OpenAPIV3.InfoObject, fileLabels?: Labels, versionLabels?: Labels): ApiKind => {
+export const getApiKindFormLabels = (
+  info?: OpenAPIV3.InfoObject,
+  fileLabels?: Labels,
+  versionLabels?: Labels,
+): string | undefined => {
   const infoApiKind = getApiKind(info)
-  if (infoApiKind && infoApiKind?.toLowerCase() === API_KIND.NO_BWC) {
-    return API_KIND.NO_BWC
+  if (infoApiKind) {
+    return infoApiKind.toLowerCase()
   }
-  const apiKind = findApiKindLabel(fileLabels, versionLabels)
 
-  return apiKind?.toLowerCase() === API_KIND.NO_BWC
-    ? API_KIND.NO_BWC
-    : API_KIND.BWC
+  const apiKind = findApiKindLabel(fileLabels, versionLabels)
+  return apiKind?.toLowerCase()
 }

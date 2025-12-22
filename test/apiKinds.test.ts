@@ -201,51 +201,21 @@ describe('Check Api Compatibility Function tests', () => {
     })
   })
 
-  describe('Publish ApiKind version Labels and file Labels priority tests', () => {
-    test('should prioritize version label no-BWC over file label BWC in previous version', async () => {
-      const result = await runApiKindTest(
-        'api-kinds/no-api-kind-in-documents', [API_KIND_BWC_LABEL], [], [API_KIND_NO_BWC_LABEL],
-      )
-      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }))
-    })
-
-    test('should prioritize version label no-BWC over file label BWC in current version', async () => {
-      const result = await runApiKindTest(
-        'api-kinds/no-api-kind-in-documents', [], [API_KIND_BWC_LABEL], [], [API_KIND_NO_BWC_LABEL],
-      )
-      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }))
-    })
-
-    test('should prioritize file label no-BWC over version label BWC in previous version', async () => {
-      const result = await runApiKindTest(
-        'api-kinds/no-api-kind-in-documents', [API_KIND_NO_BWC_LABEL], [], [API_KIND_BWC_LABEL],
-      )
-      expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
-    })
-
-    test('should prioritize file label no-BWC over version label BWC in current version', async () => {
-      const result = await runApiKindTest(
-        'api-kinds/no-api-kind-in-documents', [], [API_KIND_NO_BWC_LABEL], [], [API_KIND_BWC_LABEL],
-      )
-      expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
-    })
-  })
-
   describe('ApiKind info section tests', () => {
     test('should apply api-kind label in previous document info section', async () => {
-      const result = await runApiKindTest('api-kinds/api-kind-info-label-in-prev-document')
+      const result = await runApiKindTest('api-kinds/no-bwc-api-kind-info-label-in-prev-document')
       expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
     })
 
     test('should apply api-kind label in current document info section', async () => {
-      const result = await runApiKindTest('api-kinds/api-kind-info-label-in-curr-document')
+      const result = await runApiKindTest('api-kinds/no-bwc-api-kind-info-label-in-curr-document')
       expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
     })
   })
 
   describe('ApiKind operations section tests', () => {
     test('should apply api-kind label in current document operation', async () => {
-      const result = await runApiKindTest('api-kinds/api-kind-operation-label-curr-document')
+      const result = await runApiKindTest('api-kinds/no-bwc-api-kind-operation-label-curr-document')
       expect(result).toEqual(changesSummaryMatcher({
         [RISKY_CHANGE_TYPE]: 1,
         [UNCLASSIFIED_CHANGE_TYPE]: 1, // x-api-kind field in the operation also gives a diff
@@ -253,7 +223,101 @@ describe('Check Api Compatibility Function tests', () => {
     })
 
     test('should apply api-kind label in previous document operation', async () => {
-      const result = await runApiKindTest('api-kinds/api-kind-operation-label-prev-document')
+      const result = await runApiKindTest('api-kinds/no-bwc-api-kind-operation-label-prev-document')
+      expect(result).toEqual(changesSummaryMatcher({
+        [RISKY_CHANGE_TYPE]: 1,
+        [UNCLASSIFIED_CHANGE_TYPE]: 1, // x-api-kind field in the operation also gives a diff
+      }))
+    })
+  })
+
+  describe('Publish ApiKind Priority tests', () => {
+    test('should prioritize version label no-BWC api kind over file label BWC in previous version', async () => {
+      const result = await runApiKindTest(
+        'api-kinds/no-api-kind-in-documents', [API_KIND_BWC_LABEL], [], [API_KIND_NO_BWC_LABEL],
+      )
+      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }))
+    })
+
+    test('should prioritize version label no-BWC api kind over file label BWC in current version', async () => {
+      const result = await runApiKindTest(
+        'api-kinds/no-api-kind-in-documents', [], [API_KIND_BWC_LABEL], [], [API_KIND_NO_BWC_LABEL],
+      )
+      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }))
+    })
+
+    test('should prioritize file label no-BWC api kind over version label BWC in previous version', async () => {
+      const result = await runApiKindTest(
+        'api-kinds/no-api-kind-in-documents', [API_KIND_NO_BWC_LABEL], [], [API_KIND_BWC_LABEL],
+      )
+      expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
+    })
+
+    test('should prioritize file label no-BWC api kind over version label BWC in current version', async () => {
+      const result = await runApiKindTest(
+        'api-kinds/no-api-kind-in-documents', [], [API_KIND_NO_BWC_LABEL], [], [API_KIND_BWC_LABEL],
+      )
+      expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
+    })
+
+    test('should prioritize info label no-BWC api kind over version label BWC in previous version', async () => {
+      const result = await runApiKindTest(
+        'api-kinds/no-bwc-api-kind-info-label-in-prev-document', [API_KIND_BWC_LABEL], [], [API_KIND_BWC_LABEL],
+      )
+      expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
+    })
+
+    test('should prioritize info label no-BWC api kind over version label BWC in current version', async () => {
+      const result = await runApiKindTest(
+        'api-kinds/no-bwc-api-kind-info-label-in-curr-document', [], [API_KIND_BWC_LABEL], [], [API_KIND_BWC_LABEL],
+      )
+      expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
+    })
+
+    test('should prioritize previous info label as BWC when info api-kind overrides no-BWC publish labels', async () => {
+      const result = await runApiKindTest(
+        'api-kinds/bwc-api-kind-info-label-in-prev-document', [API_KIND_NO_BWC_LABEL], [], [API_KIND_NO_BWC_LABEL],
+      )
+      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }))
+    })
+
+    test('should prioritize current info label as BWC when info api kind overrides no-BWC publish labels', async () => {
+      const result = await runApiKindTest(
+        'api-kinds/bwc-api-kind-info-label-in-curr-document', [], [API_KIND_NO_BWC_LABEL], [], [API_KIND_NO_BWC_LABEL],
+      )
+      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }))
+    })
+
+    test('should prioritize previous operation-level BWC api kind over current no-BWC publish labels', async () => {
+      const result = await runApiKindTest(
+        'api-kinds/bwc-api-kind-operation-label-prev-document', [], [API_KIND_NO_BWC_LABEL], [], [API_KIND_NO_BWC_LABEL],
+      )
+      expect(result).toEqual(changesSummaryMatcher({
+        [BREAKING_CHANGE_TYPE]: 1,
+        [UNCLASSIFIED_CHANGE_TYPE]: 1, // x-api-kind field in the operation also gives a diff
+      }))
+    })
+
+    test('should prioritize current operation-level BWC api kind over current no-BWC publish labels', async () => {
+      const result = await runApiKindTest(
+        'api-kinds/bwc-api-kind-operation-label-curr-document', [], [API_KIND_NO_BWC_LABEL], [], [API_KIND_NO_BWC_LABEL],
+      )
+      expect(result).toEqual(changesSummaryMatcher({
+        [BREAKING_CHANGE_TYPE]: 1,
+        [UNCLASSIFIED_CHANGE_TYPE]: 1, // x-api-kind field in the operation also gives a diff
+      }))
+    })
+
+    test('should prioritize current operation-level no-BWC api kind over current BWC info label', async () => {
+      const result = await runApiKindTest('api-kinds/double-api-kind-info-label-in-curr-document')
+      expect(result).toEqual(changesSummaryMatcher({
+        [RISKY_CHANGE_TYPE]: 1,
+        [UNCLASSIFIED_CHANGE_TYPE]: 1, // x-api-kind field in the operation also gives a diff
+      }))
+    })
+
+    test('should prioritize current operation-level no-BWC api kind over previous BWC info label', async () => {
+      const result = await runApiKindTest('api-kinds/double-api-kind-info-label-in-prev-document')
       expect(result).toEqual(changesSummaryMatcher({
         [RISKY_CHANGE_TYPE]: 1,
         [UNCLASSIFIED_CHANGE_TYPE]: 1, // x-api-kind field in the operation also gives a diff
