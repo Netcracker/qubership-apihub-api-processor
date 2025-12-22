@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-import { BuildConfigFile, BuilderContext, SourceFile, FILE_KIND, TextFile, VersionDocument } from '../types'
+import { BuildConfigFile, BuilderContext, FILE_KIND, SourceFile, TextFile, VersionDocument } from '../types'
 import { API_KIND, API_KIND_LABEL, DOCUMENT_TYPE, FILE_FORMAT_UNKNOWN } from '../consts'
-import { createVersionInternalDocument, getDocumentTitle, getFileExtension, rawToApiKind } from '../utils'
-import { buildBinaryDocument, unknownApiBuilder } from '../apitypes'
+import { createVersionInternalDocument, getDocumentTitle, getFileExtension, isObject, rawToApiKind } from '../utils'
+import { buildBinaryDocument, REST_KIND_KEY, unknownApiBuilder } from '../apitypes'
 
 export const buildErrorDocument = (file: BuildConfigFile, parsedFile?: TextFile): VersionDocument => {
   const { fileId, slug = '', publish = true, ...metadata } = file
@@ -77,4 +77,12 @@ export const findApiKindLabel = (fileLabels: unknown, versionLabels: unknown): s
     }
   }
   return API_KIND.BWC
+}
+
+export const getApiKind = (obj: unknown, defaultApiKind?: string): string | undefined => {
+  if (!isObject(obj)) {
+    return defaultApiKind
+  }
+  const apiKind = obj?.[REST_KIND_KEY]
+  return typeof apiKind === 'string' ? apiKind?.toLowerCase() : defaultApiKind
 }

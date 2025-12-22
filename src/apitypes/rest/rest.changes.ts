@@ -136,8 +136,8 @@ export const compareDocuments: DocumentsCompare = async (
       afterValueNormalizedProperty: AFTER_VALUE_NORMALIZED_PROPERTY,
       beforeValueNormalizedProperty: BEFORE_VALUE_NORMALIZED_PROPERTY,
       apiCompatibilityScopeFunction: checkApiKind(
-        getApiKindFromLabels(prevDocData?.info, prevDoc?.labels, previousVersionLabels),
-        getApiKindFromLabels(currDocData?.info, currDoc?.labels, currentVersionLabels),
+        prevDoc?.apiKind ?? getApiKindFromLabels(prevDocData?.info, prevDoc?.labels, previousVersionLabels),
+        currDoc?.apiKind ?? getApiKindFromLabels(currDocData?.info, currDoc?.labels, currentVersionLabels),
       ),
     },
   ) as { merged: OpenAPIV3.Document; diffs: Diff[] }

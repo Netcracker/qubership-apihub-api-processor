@@ -16,7 +16,6 @@
 
 import { API_KIND } from '../../consts'
 import { isObject, isValidHttpMethod } from '../../utils'
-import { REST_KIND_KEY } from '../../apitypes'
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import {
   ApiCompatibilityKind,
@@ -24,14 +23,8 @@ import {
   ApiCompatibilityScopeFunction,
 } from '@netcracker/qubership-apihub-api-diff'
 import { ApiKind, Labels } from '../../types'
-import { findApiKindLabel } from '../document'
+import { findApiKindLabel, getApiKind } from '../document'
 import { OpenAPIV3 } from 'openapi-types'
-
-const getApiKind = (obj: unknown): string | undefined => {
-  if (!isObject(obj)) return undefined
-  const value = (obj as Record<string, unknown>)[REST_KIND_KEY]
-  return typeof value === 'string' ? value.toLowerCase() : undefined
-}
 
 const hasNoBWC = (obj: unknown): boolean => {
   return getApiKind(obj) === API_KIND.NO_BWC
@@ -130,7 +123,7 @@ export const checkApiKind = (
 
 export const getApiKindFromLabels = (info?: OpenAPIV3.InfoObject, fileLabels?: Labels, versionLabels?: Labels): ApiKind => {
   const infoApiKind = getApiKind(info)
-  if(infoApiKind === API_KIND.NO_BWC) {
+  if (infoApiKind && infoApiKind?.toLowerCase() === API_KIND.NO_BWC) {
     return API_KIND.NO_BWC
   }
   const apiKind = findApiKindLabel(fileLabels, versionLabels)
