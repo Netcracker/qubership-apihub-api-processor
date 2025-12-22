@@ -121,7 +121,7 @@ export const checkApiKind = (
   }
 }
 
-export const getApiKindFromLabels = (info?: OpenAPIV3.InfoObject, fileLabels?: Labels, versionLabels?: Labels): ApiKind => {
+export const calculateApiKind = (info?: OpenAPIV3.InfoObject, fileLabels?: Labels, versionLabels?: Labels): ApiKind => {
   const infoApiKind = getApiKind(info)
   if (infoApiKind && infoApiKind?.toLowerCase() === API_KIND.NO_BWC) {
     return API_KIND.NO_BWC
