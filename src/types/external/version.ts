@@ -30,7 +30,7 @@ export type ResolvedVersion = {
   operationTypes?: OperationTypes[]
   version: string
   apiProcessorVersion: string
-  labels?: Labels
+  versionLabels?: Labels
   // other params (not used in builder logic)
   [key: string]: unknown
   // changeSummary?: object

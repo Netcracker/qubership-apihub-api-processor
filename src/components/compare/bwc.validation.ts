@@ -17,7 +17,7 @@
 import { API_KIND } from '../../consts'
 import { isObject, isValidHttpMethod } from '../../utils'
 import { REST_KIND_KEY } from '../../apitypes'
-import { isArray, JsonPath } from '@netcracker/qubership-apihub-json-crawl'
+import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import {
   ApiCompatibilityKind,
   ApiCompatibilityScope,
@@ -85,9 +85,9 @@ export const checkApiKind = (
       return defaultApiCompatibilityKind
     }
     /*
-    * The remaining NO_BWC markers can only be on operations.
-    * Operation entry (paths/<path>/<method>), which is at most three segments deep
-    * Anything deeper cannot legally carry BWC metadata, so we skip validation there.
+    * We check paths at level 2: paths/<path> and operation level 3: paths/<path>/<method>
+    * Level 2: When an entire path item is deleted/added
+    * Level 3: When individual operations are deleted/added
      */
     const isFirstPathSegmentPaths = path?.[0] === 'paths'
     if (!isFirstPathSegmentPaths || pathLength < PATH_ITEM_PATH_LENGTH || pathLength > MAX_BWC_FLAG_PATH_LENGTH) {
@@ -133,11 +133,7 @@ export const getApiKindFromLabels = (info?: OpenAPIV3.InfoObject, fileLabels?: L
   if(infoApiKind === API_KIND.NO_BWC) {
     return API_KIND.NO_BWC
   }
-  const labels = [
-    ...(Array.isArray(fileLabels) ? fileLabels : []),
-    ...(Array.isArray(versionLabels) ? versionLabels : []),
-  ]
-  const apiKind = findApiKindLabel(labels)
+  const apiKind = findApiKindLabel(fileLabels, versionLabels)
 
   return apiKind?.toLowerCase() === API_KIND.NO_BWC
     ? API_KIND.NO_BWC

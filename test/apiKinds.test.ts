@@ -19,6 +19,7 @@ import {
   BREAKING_CHANGE_TYPE,
   BUILD_TYPE,
   BuildResult,
+  Labels,
   RISKY_CHANGE_TYPE,
   UNCLASSIFIED_CHANGE_TYPE,
   VERSION_STATUS,
@@ -170,15 +171,62 @@ describe('Check Api Compatibility Function tests', () => {
   const PREV_VERSION = 'v1'
   const CURR_VERSION = 'v2'
   const API_KIND_NO_BWC_LABEL = 'apihub/x-api-kind: no-BWC'
+  const API_KIND_BWC_LABEL = 'apihub/x-api-kind: BWC'
 
-  describe('Publish ApiKind Labels tests', () => {
+  describe('Publish ApiKind version Labels tests', () => {
+    test('should apply api kind version label from previous document', async () => {
+      const result = await runApiKindTest(
+        'api-kinds/no-api-kind-in-documents', [], [], [API_KIND_NO_BWC_LABEL],
+      )
+      expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
+    })
+
+    test('should apply api kind version label from current document', async () => {
+      const result = await runApiKindTest(
+        'api-kinds/no-api-kind-in-documents', [], [], [], [API_KIND_NO_BWC_LABEL],
+      )
+      expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
+    })
+  })
+
+  describe('Publish ApiKind file Labels tests', () => {
     test('should apply api kind label from previous document', async () => {
       const result = await runApiKindTest('api-kinds/no-api-kind-in-documents', [API_KIND_NO_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
     })
 
     test('should apply api kind label from current document', async () => {
-      const result = await runApiKindTest('api-kinds/no-api-kind-in-documents', undefined, [API_KIND_NO_BWC_LABEL])
+      const result = await runApiKindTest('api-kinds/no-api-kind-in-documents', [], [API_KIND_NO_BWC_LABEL])
+      expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
+    })
+  })
+
+  describe('Publish ApiKind version Labels and file Labels priority tests', () => {
+    test('should prioritize version label no-BWC over file label BWC in previous version', async () => {
+      const result = await runApiKindTest(
+        'api-kinds/no-api-kind-in-documents', [API_KIND_BWC_LABEL], [], [API_KIND_NO_BWC_LABEL],
+      )
+      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }))
+    })
+
+    test('should prioritize version label no-BWC over file label BWC in current version', async () => {
+      const result = await runApiKindTest(
+        'api-kinds/no-api-kind-in-documents', [], [API_KIND_BWC_LABEL], [], [API_KIND_NO_BWC_LABEL],
+      )
+      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }))
+    })
+
+    test('should prioritize file label no-BWC over version label BWC in previous version', async () => {
+      const result = await runApiKindTest(
+        'api-kinds/no-api-kind-in-documents', [API_KIND_NO_BWC_LABEL], [], [API_KIND_BWC_LABEL],
+      )
+      expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
+    })
+
+    test('should prioritize file label no-BWC over version label BWC in current version', async () => {
+      const result = await runApiKindTest(
+        'api-kinds/no-api-kind-in-documents', [], [API_KIND_NO_BWC_LABEL], [], [API_KIND_BWC_LABEL],
+      )
       expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
     })
   })
@@ -213,19 +261,27 @@ describe('Check Api Compatibility Function tests', () => {
     })
   })
 
-  async function runApiKindTest(packageId: string, prevLabels?: string[], currLabels?: string[]): Promise<BuildResult> {
+  async function runApiKindTest(
+    packageId: string,
+    prevFileLabels?: Labels,
+    currFileLabels?: Labels,
+    prevVersionLabels?: Labels,
+    currVersionLabels?: Labels,
+  ): Promise<BuildResult> {
     const portal = new LocalRegistry(packageId)
 
     await portal.publish(packageId, {
       packageId: packageId,
       version: PREV_VERSION,
-      files: [{ fileId: '1.yaml', ...takeIfDefined({ labels: prevLabels }) }],
+      metadata: {...takeIfDefined({ versionLabels: prevVersionLabels }) },
+      files: [{ fileId: '1.yaml', ...takeIfDefined({ labels: prevFileLabels }) }],
     })
 
     await portal.publish(packageId, {
       packageId: packageId,
       version: CURR_VERSION,
-      files: [{ fileId: '2.yaml', ...takeIfDefined({ labels: currLabels }) }],
+      metadata: {...takeIfDefined({ versionLabels: currVersionLabels }) },
+      files: [{ fileId: '2.yaml', ...takeIfDefined({ labels: currFileLabels }) }],
     })
 
     const editor = new Editor(packageId, {

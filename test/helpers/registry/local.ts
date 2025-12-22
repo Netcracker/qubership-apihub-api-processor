@@ -174,7 +174,7 @@ export class LocalRegistry implements IRegistry {
       apiTypes: apiTypes,
       createdAt: 'unknown',
       createdBy: 'builder',
-      versionLabels: [],
+      versionLabels: config.metadata?.versionLabels as Labels ?? [],
       revision: 0,
       operationTypes: apiTypes.map(apiType => ({ apiType: apiType, changesSummary: getChangesSummary(apiType) })),
       apiProcessorVersion: apiProcessorVersion,

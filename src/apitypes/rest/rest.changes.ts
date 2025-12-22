@@ -99,8 +99,8 @@ export const compareDocuments: DocumentsCompare = async (
     currentPackageId,
     currentGroup,
     previousGroup,
-    previousLabels,
-    currentLabels,
+    previousVersionLabels,
+    currentVersionLabels,
   } = ctx
   const comparisonInternalDocumentId = createComparisonInternalDocumentId(prevDoc, currDoc, previousVersion, currentVersion)
   const prevFile = prevDoc && await rawDocumentResolver(previousVersion, previousPackageId, prevDoc.slug)
@@ -136,8 +136,8 @@ export const compareDocuments: DocumentsCompare = async (
       afterValueNormalizedProperty: AFTER_VALUE_NORMALIZED_PROPERTY,
       beforeValueNormalizedProperty: BEFORE_VALUE_NORMALIZED_PROPERTY,
       apiCompatibilityScopeFunction: checkApiKind(
-        getApiKindFromLabels(prevDocData?.info, prevDoc?.labels, previousLabels),
-        getApiKindFromLabels(currDocData?.info, currDoc?.labels, currentLabels),
+        getApiKindFromLabels(prevDocData?.info, prevDoc?.labels, previousVersionLabels),
+        getApiKindFromLabels(currDocData?.info, currDoc?.labels, currentVersionLabels),
       ),
     },
   ) as { merged: OpenAPIV3.Document; diffs: Diff[] }
