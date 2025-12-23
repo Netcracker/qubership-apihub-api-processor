@@ -48,7 +48,7 @@ export const buildDocument = async (parsedFile: SourceFile, file: BuildConfigFil
   const apiBuilder = ctx.apiBuilders.find(({ types }) => types.includes(parsedFile.type)) || unknownApiBuilder
 
   try {
-    file.apiKind = findApiKindLabel(file.labels, ctx.versionLabels)
+    file.apiKind = calculateApiKindFromLabels(file.labels, ctx.versionLabels)
 
     return await apiBuilder.buildDocument(parsedFile, file, ctx)
   } catch (error) {
@@ -56,7 +56,7 @@ export const buildDocument = async (parsedFile: SourceFile, file: BuildConfigFil
   }
 }
 
-export const findApiKindLabel = (fileLabels: unknown, versionLabels: unknown): ApiKind => {
+export const calculateApiKindFromLabels = (fileLabels: unknown, versionLabels: unknown): ApiKind => {
   if (!Array.isArray(fileLabels) && !Array.isArray(versionLabels)) {
     return API_KIND.BWC
   }

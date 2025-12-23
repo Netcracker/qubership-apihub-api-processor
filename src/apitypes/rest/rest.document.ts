@@ -76,7 +76,7 @@ export const buildRestDocument: DocumentBuilder<OpenAPIV3.Document> = async (par
 
   let bundledFileData = data
 
-  const documentKind = getApiKind(bundledFileData?.info, apiKind)
+  const documentApiKind = getApiKind(bundledFileData?.info, apiKind)
 
   if (parsedFile.type === REST_DOCUMENT_TYPE.SWAGGER) {
     try {
@@ -99,7 +99,7 @@ export const buildRestDocument: DocumentBuilder<OpenAPIV3.Document> = async (par
     fileId: parsedFileId,
     type: type,
     format: FILE_FORMAT.JSON,
-    apiKind: documentKind,
+    apiKind: documentApiKind,
     data: bundledFileData,
     slug, // unique slug should be already generated
     filename: `${slug}.${FILE_FORMAT.JSON}`,

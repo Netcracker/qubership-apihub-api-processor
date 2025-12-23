@@ -23,7 +23,7 @@ import {
   ApiCompatibilityScopeFunction,
 } from '@netcracker/qubership-apihub-api-diff'
 import { Labels } from '../../types'
-import { findApiKindLabel, getApiKind } from '../document'
+import { calculateApiKindFromLabels, getApiKind } from '../document'
 import { OpenAPIV3 } from 'openapi-types'
 
 export const getApiCompatibilityKind = (beforeJson: unknown, afterJson: unknown): ApiCompatibilityKind | undefined => {
@@ -62,10 +62,6 @@ const hasApiKind = (obj: unknown, apiKind: string): boolean => {
 const checkAllMethodsHaveSameApiKind = (obj: unknown, apiKind: string): boolean => {
   if (!isObject(obj)) {
     return false
-  }
-
-  if (hasApiKind(obj, apiKind)) {
-    return true
   }
   const entries = Object.entries(obj)
 
@@ -110,10 +106,9 @@ export const createApiKindChecker = (
     * Level 3: When individual operations are deleted/added
      */
     const isFirstPathSegmentPaths = path?.[0] === 'paths'
-    if (!isFirstPathSegmentPaths || pathLength < PATH_ITEM_PATH_LENGTH || pathLength > OPERATION_OBJECT_PATH_LENGTH) {
+    if (!isFirstPathSegmentPaths) {
       return undefined
     }
-
     const beforeExists = isObject(beforeJson)
     const afterExists = isObject(afterJson)
 
@@ -121,28 +116,30 @@ export const createApiKindChecker = (
       return undefined
     }
 
-    if (beforeExists && afterExists) {
+    if (pathLength === PATH_ITEM_PATH_LENGTH) {
+      // case remove: when a node disappears, api-diff emits REMOVE diffs for each
+      // operation. We only mark the deletion as NO_BWC if all removed methods were
+      // explicitly flagged NO_BWC, keeping deletions consistent with declared scope.
+      if (beforeExists && !afterExists) {
+        return getMethodsApiCompatibilityKind(beforeJson)
+      }
+
+      // case add: additions are checked the same way. A new path or operation is
+      // considered NO_BWC only when every contained method declares NO_BWC.
+      if (afterExists && !beforeExists) {
+        return getMethodsApiCompatibilityKind(afterJson)
+      }
+    }
+
+    if (pathLength === OPERATION_OBJECT_PATH_LENGTH) {
       return getApiCompatibilityKind(beforeJson, afterJson)
-    }
-
-    // case remove: when a node disappears, api-diff emits REMOVE diffs for each
-    // operation. We only mark the deletion as NO_BWC if all removed methods were
-    // explicitly flagged NO_BWC, keeping deletions consistent with declared scope.
-    if (beforeExists && !afterExists) {
-      return getMethodsApiCompatibilityKind(beforeJson)
-    }
-
-    // case add: additions are checked the same way. A new path or operation is
-    // considered NO_BWC only when every contained method declares NO_BWC.
-    if (afterExists && !beforeExists) {
-      return getMethodsApiCompatibilityKind(afterJson)
     }
 
     return undefined
   }
 }
 
-export const getApiKindFormLabels = (
+export const getApiKindFromLabels = (
   info?: OpenAPIV3.InfoObject,
   fileLabels?: Labels,
   versionLabels?: Labels,
@@ -152,6 +149,6 @@ export const getApiKindFormLabels = (
     return infoApiKind.toLowerCase()
   }
 
-  const apiKind = findApiKindLabel(fileLabels, versionLabels)
+  const apiKind = calculateApiKindFromLabels(fileLabels, versionLabels)
   return apiKind?.toLowerCase()
 }
