@@ -174,14 +174,14 @@ describe('Check Api Compatibility Function tests', () => {
   const API_KIND_BWC_LABEL = 'apihub/x-api-kind: BWC'
 
   describe('Publish ApiKind version Labels tests', () => {
-    test('should apply api kind version label from previous document', async () => {
+    test('should apply api kind version label from previous version', async () => {
       const result = await runApiKindTest(
         'api-kinds/no-api-kind-in-documents', [], [], [API_KIND_NO_BWC_LABEL],
       )
       expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
     })
 
-    test('should apply api kind version label from current document', async () => {
+    test('should apply api kind version label from current version', async () => {
       const result = await runApiKindTest(
         'api-kinds/no-api-kind-in-documents', [], [], [], [API_KIND_NO_BWC_LABEL],
       )
@@ -202,12 +202,12 @@ describe('Check Api Compatibility Function tests', () => {
   })
 
   describe('ApiKind info section tests', () => {
-    test('should apply api-kind label in previous document info section', async () => {
+    test('should apply api-kind property in previous document info section', async () => {
       const result = await runApiKindTest('api-kinds/no-bwc-api-kind-info-label-in-prev-document')
       expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
     })
 
-    test('should apply api-kind label in current document info section', async () => {
+    test('should apply api-kind property in current document info section', async () => {
       const result = await runApiKindTest('api-kinds/no-bwc-api-kind-info-label-in-curr-document')
       expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
     })
@@ -232,14 +232,14 @@ describe('Check Api Compatibility Function tests', () => {
   })
 
   describe('Publish ApiKind Priority tests', () => {
-    test('should prioritize version label no-BWC api kind over file label BWC in previous version', async () => {
+    test('should prioritize file label BWC api kind over version label no-BWC in previous version', async () => {
       const result = await runApiKindTest(
         'api-kinds/no-api-kind-in-documents', [API_KIND_BWC_LABEL], [], [API_KIND_NO_BWC_LABEL],
       )
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }))
     })
 
-    test('should prioritize version label no-BWC api kind over file label BWC in current version', async () => {
+    test('should prioritize file label BWC api kind over version label no-BWC in current version', async () => {
       const result = await runApiKindTest(
         'api-kinds/no-api-kind-in-documents', [], [API_KIND_BWC_LABEL], [], [API_KIND_NO_BWC_LABEL],
       )
@@ -260,28 +260,28 @@ describe('Check Api Compatibility Function tests', () => {
       expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
     })
 
-    test('should prioritize info label no-BWC api kind over version label BWC in previous version', async () => {
+    test('should prioritize info property no-BWC api kind over version label BWC in previous version', async () => {
       const result = await runApiKindTest(
         'api-kinds/no-bwc-api-kind-info-label-in-prev-document', [API_KIND_BWC_LABEL], [], [API_KIND_BWC_LABEL],
       )
       expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
     })
 
-    test('should prioritize info label no-BWC api kind over version label BWC in current version', async () => {
+    test('should prioritize info property no-BWC api kind over version label BWC in current version', async () => {
       const result = await runApiKindTest(
         'api-kinds/no-bwc-api-kind-info-label-in-curr-document', [], [API_KIND_BWC_LABEL], [], [API_KIND_BWC_LABEL],
       )
       expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
     })
 
-    test('should prioritize previous info label as BWC when info api-kind overrides no-BWC publish labels', async () => {
+    test('should prioritize previous info property as BWC when info api-kind overrides no-BWC publish labels', async () => {
       const result = await runApiKindTest(
         'api-kinds/bwc-api-kind-info-label-in-prev-document', [API_KIND_NO_BWC_LABEL], [], [API_KIND_NO_BWC_LABEL],
       )
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }))
     })
 
-    test('should prioritize current info label as BWC when info api kind overrides no-BWC publish labels', async () => {
+    test('should prioritize current info property as BWC when info api kind overrides no-BWC publish labels', async () => {
       const result = await runApiKindTest(
         'api-kinds/bwc-api-kind-info-label-in-curr-document', [], [API_KIND_NO_BWC_LABEL], [], [API_KIND_NO_BWC_LABEL],
       )
@@ -290,7 +290,7 @@ describe('Check Api Compatibility Function tests', () => {
 
     test('should prioritize previous operation-level BWC api kind over current no-BWC publish labels', async () => {
       const result = await runApiKindTest(
-        'api-kinds/bwc-api-kind-operation-label-prev-document', [], [API_KIND_NO_BWC_LABEL], [], [API_KIND_NO_BWC_LABEL],
+        'api-kinds/bwc-api-kind-operation-label-prev-document', [API_KIND_NO_BWC_LABEL], [], [API_KIND_NO_BWC_LABEL],
       )
       expect(result).toEqual(changesSummaryMatcher({
         [BREAKING_CHANGE_TYPE]: 1,
@@ -308,16 +308,16 @@ describe('Check Api Compatibility Function tests', () => {
       }))
     })
 
-    test('should prioritize current operation-level no-BWC api kind over current BWC info label', async () => {
-      const result = await runApiKindTest('api-kinds/double-api-kind-info-label-in-curr-document')
+    test('should prioritize current operation-level no-BWC api kind over current BWC info property', async () => {
+      const result = await runApiKindTest('api-kinds/info-bwc-operation-noBWC-in-curr-document')
       expect(result).toEqual(changesSummaryMatcher({
         [RISKY_CHANGE_TYPE]: 1,
         [UNCLASSIFIED_CHANGE_TYPE]: 1, // x-api-kind field in the operation also gives a diff
       }))
     })
 
-    test('should prioritize current operation-level no-BWC api kind over previous BWC info label', async () => {
-      const result = await runApiKindTest('api-kinds/double-api-kind-info-label-in-prev-document')
+    test('should prioritize current operation-level no-BWC api kind over previous BWC info property', async () => {
+      const result = await runApiKindTest('api-kinds/info-bwc-operation-noBWC-in-prev-document')
       expect(result).toEqual(changesSummaryMatcher({
         [RISKY_CHANGE_TYPE]: 1,
         [UNCLASSIFIED_CHANGE_TYPE]: 1, // x-api-kind field in the operation also gives a diff
