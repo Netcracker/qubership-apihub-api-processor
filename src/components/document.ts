@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { BuildConfigFile, BuilderContext, FILE_KIND, SourceFile, TextFile, VersionDocument } from '../types'
+import { ApiKind, BuildConfigFile, BuilderContext, FILE_KIND, SourceFile, TextFile, VersionDocument } from '../types'
 import { API_KIND, API_KIND_LABEL, DOCUMENT_TYPE, FILE_FORMAT_UNKNOWN } from '../consts'
 import { createVersionInternalDocument, getDocumentTitle, getFileExtension, isObject, rawToApiKind } from '../utils'
 import { buildBinaryDocument, REST_KIND_KEY, unknownApiBuilder } from '../apitypes'
@@ -56,7 +56,7 @@ export const buildDocument = async (parsedFile: SourceFile, file: BuildConfigFil
   }
 }
 
-export const findApiKindLabel = (fileLabels: unknown, versionLabels: unknown): string => {
+export const findApiKindLabel = (fileLabels: unknown, versionLabels: unknown): ApiKind => {
   if (!Array.isArray(fileLabels) && !Array.isArray(versionLabels)) {
     return API_KIND.BWC
   }

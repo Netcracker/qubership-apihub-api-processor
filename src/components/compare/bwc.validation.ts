@@ -79,15 +79,15 @@ const checkAllMethodsHaveSameApiKind = (obj: unknown, apiKind: string): boolean 
 
 const ROOT_PATH_LENGTH = 0
 const PATH_ITEM_PATH_LENGTH = 2
-const MAX_BWC_FLAG_PATH_LENGTH = 3
+const OPERATION_OBJECT_PATH_LENGTH = 3
 
-export const checkApiKind = (
+export const createApiKindChecker = (
   prevApiKind: string = API_KIND.BWC,
   currApiKind: string = API_KIND.BWC,
 ): ApiCompatibilityScopeFunction => {
   const defaultApiCompatibilityKind = (prevApiKind === API_KIND.NO_BWC || currApiKind === API_KIND.NO_BWC)
     ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
-    : undefined
+    : ApiCompatibilityKind.BACKWARD_COMPATIBLE
 
   return (
     path?: JsonPath,
@@ -98,7 +98,7 @@ export const checkApiKind = (
     /*
      * Calculating Api Kind for the entire document as the default
      * If there is a NO_BWC marker on:
-     * - Publish label
+     * - Version labels and Document labels
      * - Document API info section
      */
     if (pathLength === ROOT_PATH_LENGTH) {
@@ -110,7 +110,7 @@ export const checkApiKind = (
     * Level 3: When individual operations are deleted/added
      */
     const isFirstPathSegmentPaths = path?.[0] === 'paths'
-    if (!isFirstPathSegmentPaths || pathLength < PATH_ITEM_PATH_LENGTH || pathLength > MAX_BWC_FLAG_PATH_LENGTH) {
+    if (!isFirstPathSegmentPaths || pathLength < PATH_ITEM_PATH_LENGTH || pathLength > OPERATION_OBJECT_PATH_LENGTH) {
       return undefined
     }
 

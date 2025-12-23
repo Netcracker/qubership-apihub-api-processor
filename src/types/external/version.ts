@@ -37,7 +37,6 @@ export type ResolvedVersion = {
   // operationSummary?: object
   // createdAt: string
   // createdBy: string
-  // versionLabels?: string[]
 }
 
 export type OperationTypes = {

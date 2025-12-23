@@ -82,7 +82,7 @@ import {
   getOperationTags,
   OperationsMap,
 } from '../../components'
-import { checkApiKind, getApiKindFormLabels } from '../../components/compare/bwc.validation'
+import { createApiKindChecker, getApiKindFormLabels } from '../../components/compare/bwc.validation'
 
 export const compareDocuments: DocumentsCompare = async (
   operationsMap: OperationsMap,
@@ -135,7 +135,7 @@ export const compareDocuments: DocumentsCompare = async (
       normalizedResult: false,
       afterValueNormalizedProperty: AFTER_VALUE_NORMALIZED_PROPERTY,
       beforeValueNormalizedProperty: BEFORE_VALUE_NORMALIZED_PROPERTY,
-      apiCompatibilityScopeFunction: checkApiKind(
+      apiCompatibilityScopeFunction: createApiKindChecker(
         prevDoc?.apiKind ?? getApiKindFormLabels(prevDocData?.info, prevDoc?.labels, previousVersionLabels),
         currDoc?.apiKind ?? getApiKindFormLabels(currDocData?.info, currDoc?.labels, currentVersionLabels),
       ),
