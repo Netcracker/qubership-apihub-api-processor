@@ -171,7 +171,7 @@ export const buildRestOperation = (
     operationId,
     documentId: documentSlug,
     apiType: REST_API_TYPE,
-    apiKind: rawToApiKind(apiKind),
+    apiKind: rawToApiKind(apiKind, API_KIND.BWC),
     deprecated: !!effectiveOperationObject.deprecated,
     title: effectiveOperationObject.summary || operationId.split('-').map(str => capitalize(str)).join(' '),
     metadata: {

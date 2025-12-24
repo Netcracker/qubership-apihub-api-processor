@@ -82,7 +82,8 @@ import {
   getOperationTags,
   OperationsMap,
 } from '../../components'
-import { createApiKindChecker, getApiKindFromLabels } from '../../components/compare/bwc.validation'
+import { createApiKindChecker } from '../../components/compare/bwc.validation'
+import { calculateApiKindFromLabels, getApiKind } from '../../components/document'
 
 export const compareDocuments: DocumentsCompare = async (
   operationsMap: OperationsMap,
@@ -124,6 +125,9 @@ export const compareDocuments: DocumentsCompare = async (
     currDocData = createCopyWithEmptyPathItems(prevDocData)
   }
 
+  const prevApiKind = prevDoc?.apiKind || getApiKind(prevDocData?.info) || calculateApiKindFromLabels(prevDoc?.labels, previousVersionLabels)
+  const currApiKind = currDoc?.apiKind || getApiKind(currDocData?.info) || calculateApiKindFromLabels(currDoc?.labels, currentVersionLabels)
+
   const { merged, diffs } = apiDiff(
     prevDocData,
     currDocData,
@@ -135,10 +139,7 @@ export const compareDocuments: DocumentsCompare = async (
       normalizedResult: false,
       afterValueNormalizedProperty: AFTER_VALUE_NORMALIZED_PROPERTY,
       beforeValueNormalizedProperty: BEFORE_VALUE_NORMALIZED_PROPERTY,
-      apiCompatibilityScopeFunction: createApiKindChecker(
-        prevDoc?.apiKind ?? getApiKindFromLabels(prevDocData?.info, prevDoc?.labels, previousVersionLabels),
-        currDoc?.apiKind ?? getApiKindFromLabels(currDocData?.info, currDoc?.labels, currentVersionLabels),
-      ),
+      apiCompatibilityScopeFunction: createApiKindChecker(prevApiKind, currApiKind),
     },
   ) as { merged: OpenAPIV3.Document; diffs: Diff[] }
 

@@ -16,7 +16,14 @@
 
 import { ApiKind, BuildConfigFile, BuilderContext, FILE_KIND, SourceFile, TextFile, VersionDocument } from '../types'
 import { API_KIND, API_KIND_LABEL, DOCUMENT_TYPE, FILE_FORMAT_UNKNOWN } from '../consts'
-import { createVersionInternalDocument, getDocumentTitle, getFileExtension, isObject, rawToApiKind } from '../utils'
+import {
+  createVersionInternalDocument,
+  getDocumentTitle,
+  getFileExtension,
+  isObject,
+  isString,
+  rawToApiKind,
+} from '../utils'
 import { buildBinaryDocument, REST_KIND_KEY, unknownApiBuilder } from '../apitypes'
 
 export const buildErrorDocument = (file: BuildConfigFile, parsedFile?: TextFile): VersionDocument => {
@@ -73,16 +80,18 @@ export const calculateApiKindFromLabels = (fileLabels: unknown, versionLabels: u
 
     const match = new RegExp(`${API_KIND_LABEL}:`).exec(label)
     if (match) {
-      return rawToApiKind(label.slice(match[0].length).trim())
+      return rawToApiKind(label.slice(match[0].length).trim(), API_KIND.BWC)
     }
   }
   return API_KIND.BWC
 }
 
-export const getApiKind = (obj: unknown, defaultApiKind?: string): string | undefined => {
-  if (!isObject(obj)) {
-    return defaultApiKind
+export const getApiKind = (obj: unknown, defaultApiKind?: ApiKind): ApiKind | undefined => {
+  if (isObject(obj)) {
+    const apiKindLike = obj?.[REST_KIND_KEY]
+    if (isString(apiKindLike)) {
+      return rawToApiKind(apiKindLike, defaultApiKind)
+    }
   }
-  const apiKind = obj?.[REST_KIND_KEY]
-  return typeof apiKind === 'string' ? apiKind?.toLowerCase() : defaultApiKind
+  return defaultApiKind
 }

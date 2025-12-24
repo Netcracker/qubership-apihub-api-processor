@@ -173,9 +173,9 @@ export const getValueByOpenAPIPath = (obj: any, path: string): any => {
   return value
 }
 
-export const rawToApiKind = (apiKindLike: string): ApiKind => {
+export const rawToApiKind = <T extends ApiKind | undefined>(apiKindLike: string, defaultApiKind: T): ApiKind | T => {
   const candidate = apiKindLike.toLowerCase() as ApiKind
-  return [API_KIND.BWC, API_KIND.NO_BWC, API_KIND.EXPERIMENTAL].includes(candidate) ? candidate : API_KIND.BWC
+  return [API_KIND.BWC, API_KIND.NO_BWC, API_KIND.EXPERIMENTAL].includes(candidate) ? candidate : defaultApiKind
 }
 
 export const calculateApiAudienceTransitions = (

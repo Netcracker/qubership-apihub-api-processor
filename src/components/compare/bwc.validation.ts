@@ -22,18 +22,17 @@ import {
   ApiCompatibilityScope,
   ApiCompatibilityScopeFunction,
 } from '@netcracker/qubership-apihub-api-diff'
-import { Labels } from '../../types'
-import { calculateApiKindFromLabels, getApiKind } from '../document'
-import { OpenAPIV3 } from 'openapi-types'
+import { ApiKind } from '../../types'
+import { getApiKind } from '../document'
 
 export const getApiCompatibilityKind = (
   beforeJson: unknown,
   afterJson: unknown,
-  beforeParentApiKind: string,
-  afterParentApiKind: string,
+  beforeParentApiKind: ApiKind,
+  afterParentApiKind: ApiKind,
 ): ApiCompatibilityKind | undefined => {
-  const beforeKind = getApiKind(beforeJson)?.toLowerCase() ?? beforeParentApiKind
-  const afterKind = getApiKind(afterJson)?.toLowerCase() ?? afterParentApiKind
+  const beforeKind = getApiKind(beforeJson) ?? beforeParentApiKind
+  const afterKind = getApiKind(afterJson) ?? afterParentApiKind
 
   if (!beforeKind && !afterKind) {
     return undefined
@@ -87,8 +86,8 @@ const PATH_ITEM_PATH_LENGTH = 2
 const OPERATION_OBJECT_PATH_LENGTH = 3
 
 export const createApiKindChecker = (
-  prevApiKind: string = API_KIND.BWC,
-  currApiKind: string = API_KIND.BWC,
+  prevApiKind: ApiKind = API_KIND.BWC,
+  currApiKind: ApiKind = API_KIND.BWC,
 ): ApiCompatibilityScopeFunction => {
   const defaultApiCompatibilityKind = (prevApiKind === API_KIND.NO_BWC || currApiKind === API_KIND.NO_BWC)
     ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
@@ -146,18 +145,4 @@ export const createApiKindChecker = (
 
     return undefined
   }
-}
-
-export const getApiKindFromLabels = (
-  info?: OpenAPIV3.InfoObject,
-  fileLabels?: Labels,
-  versionLabels?: Labels,
-): string | undefined => {
-  const infoApiKind = getApiKind(info)
-  if (infoApiKind) {
-    return infoApiKind.toLowerCase()
-  }
-
-  const apiKind = calculateApiKindFromLabels(fileLabels, versionLabels)
-  return apiKind?.toLowerCase()
 }

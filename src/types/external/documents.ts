@@ -43,7 +43,7 @@ export type ResolvedVersionDocuments = {
 
 export type ResolvedVersionDocument = ResolvedDocument & {
   packageRef?: string
-  apiKind?: string
+  apiKind?: ApiKind
 }
 
 export type Labels = string[]
