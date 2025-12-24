@@ -26,15 +26,24 @@ import { Labels } from '../../types'
 import { calculateApiKindFromLabels, getApiKind } from '../document'
 import { OpenAPIV3 } from 'openapi-types'
 
-export const getApiCompatibilityKind = (beforeJson: unknown, afterJson: unknown): ApiCompatibilityKind | undefined => {
-  const beforeApiKind = getApiKind(beforeJson)?.toLowerCase() ?? ''
-  const afterApiKind = getApiKind(afterJson)?.toLowerCase() ?? ''
+export const getApiCompatibilityKind = (
+  beforeJson: unknown,
+  afterJson: unknown,
+  beforeParentApiKind: string,
+  afterParentApiKind: string,
+): ApiCompatibilityKind | undefined => {
+  const beforeKind = getApiKind(beforeJson)?.toLowerCase() ?? beforeParentApiKind
+  const afterKind = getApiKind(afterJson)?.toLowerCase() ?? afterParentApiKind
 
-  if (beforeApiKind === API_KIND.NO_BWC || afterApiKind === API_KIND.NO_BWC) {
+  if (!beforeKind && !afterKind) {
+    return undefined
+  }
+
+  if (beforeKind === API_KIND.NO_BWC || afterKind === API_KIND.NO_BWC) {
     return ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
   }
 
-  if (beforeApiKind === API_KIND.BWC || afterApiKind === API_KIND.BWC) {
+  if (beforeKind === API_KIND.BWC && afterKind === API_KIND.BWC) {
     return ApiCompatibilityKind.BACKWARD_COMPATIBLE
   }
 
@@ -132,7 +141,7 @@ export const createApiKindChecker = (
     }
 
     if (pathLength === OPERATION_OBJECT_PATH_LENGTH) {
-      return getApiCompatibilityKind(beforeJson, afterJson)
+      return getApiCompatibilityKind(beforeJson, afterJson, prevApiKind, currApiKind)
     }
 
     return undefined
