@@ -47,7 +47,7 @@ import {
   takeIf,
   takeIfDefined,
 } from '../../utils'
-import { API_KIND, INLINE_REFS_FLAG, ORIGINS_SYMBOL, VERSION_STATUS } from '../../consts'
+import { APIHUB_API_COMPATIBILITY_KIND, INLINE_REFS_FLAG, ORIGINS_SYMBOL, VERSION_STATUS } from '../../consts'
 import { extractSecuritySchemesNames, getCustomTags, resolveApiAudience } from './rest.utils'
 import { DebugPerformanceContext, syncDebugPerformance } from '../../utils/logs'
 import {
@@ -142,7 +142,7 @@ export const buildRestOperation = (
   }, debugCtx)
 
   const models: Record<string, string> = {}
-  const apiKind = effectiveOperationObject[REST_KIND_KEY] || documentApiKind || API_KIND.BWC
+  const apiKind = effectiveOperationObject[REST_KIND_KEY] || documentApiKind || APIHUB_API_COMPATIBILITY_KIND.BWC
   const [specWithSingleOperation] = syncDebugPerformance('[ModelsAndOperationHashing]', () => {
     const operationSecurity = effectiveOperationObject.security
     const specWithSingleOperation = createSingleOperationSpec(
@@ -171,7 +171,7 @@ export const buildRestOperation = (
     operationId,
     documentId: documentSlug,
     apiType: REST_API_TYPE,
-    apiKind: rawToApiKind(apiKind, API_KIND.BWC),
+    apiKind: rawToApiKind(apiKind, APIHUB_API_COMPATIBILITY_KIND.BWC),
     deprecated: !!effectiveOperationObject.deprecated,
     title: effectiveOperationObject.summary || operationId.split('-').map(str => capitalize(str)).join(' '),
     metadata: {

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { ApiKind, BuildConfigFile, BuilderContext, FILE_KIND, SourceFile, TextFile, VersionDocument } from '../types'
-import { API_KIND, API_KIND_LABEL, DOCUMENT_TYPE, FILE_FORMAT_UNKNOWN } from '../consts'
+import { ApihubApiCompatibilityKind, BuildConfigFile, BuilderContext, FILE_KIND, SourceFile, TextFile, VersionDocument } from '../types'
+import { APIHUB_API_COMPATIBILITY_KIND, API_KIND_LABEL, DOCUMENT_TYPE, FILE_FORMAT_UNKNOWN } from '../consts'
 import {
   createVersionInternalDocument,
   getDocumentTitle,
@@ -63,9 +63,9 @@ export const buildDocument = async (parsedFile: SourceFile, file: BuildConfigFil
   }
 }
 
-export const calculateApiKindFromLabels = (fileLabels: unknown, versionLabels: unknown): ApiKind => {
+export const calculateApiKindFromLabels = (fileLabels: unknown, versionLabels: unknown): ApihubApiCompatibilityKind => {
   if (!Array.isArray(fileLabels) && !Array.isArray(versionLabels)) {
-    return API_KIND.BWC
+    return APIHUB_API_COMPATIBILITY_KIND.BWC
   }
 
   const labels = [
@@ -80,13 +80,13 @@ export const calculateApiKindFromLabels = (fileLabels: unknown, versionLabels: u
 
     const match = new RegExp(`${API_KIND_LABEL}:`).exec(label)
     if (match) {
-      return rawToApiKind(label.slice(match[0].length).trim(), API_KIND.BWC)
+      return rawToApiKind(label.slice(match[0].length).trim(), APIHUB_API_COMPATIBILITY_KIND.BWC)
     }
   }
-  return API_KIND.BWC
+  return APIHUB_API_COMPATIBILITY_KIND.BWC
 }
 
-export const getApiKind = (obj: unknown, defaultApiKind?: ApiKind): ApiKind | undefined => {
+export const getApiKind = (obj: unknown, defaultApiKind?: ApihubApiCompatibilityKind): ApihubApiCompatibilityKind | undefined => {
   if (isObject(obj)) {
     const apiKindLike = obj?.[REST_KIND_KEY]
     if (isString(apiKindLike)) {

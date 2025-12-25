@@ -17,7 +17,7 @@
 import { ApiAudienceTransition, RISKY_CHANGE_TYPE } from './../types/external/comparison'
 import {
   ANNOTATION_CHANGE_TYPE,
-  ApiKind,
+  ApihubApiCompatibilityKind,
   BREAKING_CHANGE_TYPE,
   ChangeSummary,
   DEPRECATED_CHANGE_TYPE,
@@ -25,7 +25,7 @@ import {
   NON_BREAKING_CHANGE_TYPE,
   UNCLASSIFIED_CHANGE_TYPE,
 } from '../types'
-import { API_KIND } from '../consts'
+import { APIHUB_API_COMPATIBILITY_KIND } from '../consts'
 import { Diff, DiffType } from '@netcracker/qubership-apihub-api-diff'
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import { OperationPair } from '../components'
@@ -173,9 +173,9 @@ export const getValueByOpenAPIPath = (obj: any, path: string): any => {
   return value
 }
 
-export const rawToApiKind = <T extends ApiKind | undefined>(apiKindLike: string, defaultApiKind: T): ApiKind | T => {
-  const candidate = apiKindLike.toLowerCase() as ApiKind
-  return [API_KIND.BWC, API_KIND.NO_BWC, API_KIND.EXPERIMENTAL].includes(candidate) ? candidate : defaultApiKind
+export const rawToApiKind = <T extends ApihubApiCompatibilityKind | undefined>(apiKindLike: string, defaultApiKind: T): ApihubApiCompatibilityKind | T => {
+  const candidate = apiKindLike.toLowerCase() as ApihubApiCompatibilityKind
+  return [APIHUB_API_COMPATIBILITY_KIND.BWC, APIHUB_API_COMPATIBILITY_KIND.NO_BWC, APIHUB_API_COMPATIBILITY_KIND.EXPERIMENTAL].includes(candidate) ? candidate : defaultApiKind
 }
 
 export const calculateApiAudienceTransitions = (

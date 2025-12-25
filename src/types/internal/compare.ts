@@ -16,7 +16,7 @@
 
 import { Diff, DiffType } from '@netcracker/qubership-apihub-api-diff'
 import {
-  ApiKind,
+  ApihubApiCompatibilityKind,
   BuildConfig,
   ChangeSummary,
   DiffTypeDto,
@@ -60,8 +60,8 @@ export interface OperationChanges<T extends DiffType | DiffTypeDto = DiffType> {
   operationId?: string
   previousOperationId?: string
   apiType: BuilderType
-  apiKind?: ApiKind
-  previousApiKind?: ApiKind
+  apiKind?: ApihubApiCompatibilityKind
+  previousApiKind?: ApihubApiCompatibilityKind
   changeSummary: ChangeSummary<T>
   impactedSummary: ImpactedOperationSummary
   // @deprecated. OOM problem

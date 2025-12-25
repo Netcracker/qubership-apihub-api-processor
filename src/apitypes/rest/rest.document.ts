@@ -76,7 +76,7 @@ export const buildRestDocument: DocumentBuilder<OpenAPIV3.Document> = async (par
 
   let bundledFileData = data
 
-  const documentApiKind = getApiKind(bundledFileData?.info) || getApiKind(apiKind)
+  const documentApiKind = getApiKind(bundledFileData?.info) || apiKind
 
   if (parsedFile.type === REST_DOCUMENT_TYPE.SWAGGER) {
     try {

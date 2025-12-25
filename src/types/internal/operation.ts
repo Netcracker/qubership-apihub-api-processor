@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { ApiKind, DeprecateItem, OperationsApiType } from '../external'
+import { ApihubApiCompatibilityKind, DeprecateItem, OperationsApiType } from '../external'
 import { ApiAudience } from '../package'
 import { OpenAPIV3 } from 'openapi-types'
 import { GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
@@ -25,7 +25,7 @@ export interface ApiOperation<T = any, M = any> {
   operationId: string
   documentId: string
   apiType: OperationsApiType
-  apiKind: ApiKind
+  apiKind: ApihubApiCompatibilityKind
   deprecated: boolean
   tags: string[]
   metadata: M

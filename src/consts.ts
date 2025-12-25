@@ -108,7 +108,7 @@ export const VERSION_STATUS = {
   NONE: '', // non-existent status for changelog builds
 } as const
 
-export const API_KIND = {
+export const APIHUB_API_COMPATIBILITY_KIND = {
   BWC: 'bwc',
   NO_BWC: 'no-bwc',
   EXPERIMENTAL: 'experimental',

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { ApiKind, FileId, KeyOfConstType, OperationId } from '../external'
+import { ApihubApiCompatibilityKind, FileId, KeyOfConstType, OperationId } from '../external'
 import { FILE_FORMAT } from '../../consts'
 
 export interface VersionDocuments {
@@ -64,7 +64,7 @@ export interface VersionDocument<T = any> extends ZippableDocument<T> {
   */
   publish?: boolean
   source?: Blob
-  apiKind?: ApiKind
+  apiKind?: ApihubApiCompatibilityKind
   versionInternalDocument: VersionInternalDocument
 }
 

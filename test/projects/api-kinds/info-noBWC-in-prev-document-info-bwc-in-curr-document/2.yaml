@@ -6,11 +6,10 @@ info:
 paths:
   /path1:
     post:
-      x-api-kind: no-BWC
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                type: number
+                type: string

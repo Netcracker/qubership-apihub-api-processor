@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { ApiKind, OperationId, OperationsApiType } from '../external'
+import { ApihubApiCompatibilityKind, OperationId, OperationsApiType } from '../external'
 import { PackageDeprecatedItem } from './deprecated'
 
 export type PackageOperations = {
@@ -27,7 +27,7 @@ export interface PackageOperation {
   title: string
   apiType: OperationsApiType
   deprecated: boolean
-  apiKind: ApiKind
+  apiKind: ApihubApiCompatibilityKind
   metadata: RestMetadata | GraphQLMetaData
   searchScopes: Record<string, string>
   tags: string[]

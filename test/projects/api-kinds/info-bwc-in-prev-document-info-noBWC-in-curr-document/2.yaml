@@ -2,6 +2,7 @@ openapi: 3.1.0
 info:
   title: test
   version: 0.1.0
+  x-api-kind: no-BWC
 paths:
   /path1:
     post:
@@ -11,4 +12,4 @@ paths:
           content:
             application/json:
               schema:
-                type: number
+                type: string

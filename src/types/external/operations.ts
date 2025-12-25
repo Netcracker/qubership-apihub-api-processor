@@ -16,10 +16,10 @@
 
 import { KeyOfConstType, OperationId, OperationsApiType, PackageId, VersionId } from './types'
 import { DeprecateItem } from './deprecated'
-import { API_KIND } from '../../consts'
+import { APIHUB_API_COMPATIBILITY_KIND } from '../../consts'
 import { ApiAudience } from '../package'
 
-export type ApiKind = KeyOfConstType<typeof API_KIND>
+export type ApihubApiCompatibilityKind = KeyOfConstType<typeof APIHUB_API_COMPATIBILITY_KIND>
 
 export type VersionOperationsResolver = (
   apiType: OperationsApiType,
@@ -39,7 +39,7 @@ export interface ResolvedOperation<M = any> {
   documentId: string
   title: string
   apiType: OperationsApiType
-  apiKind: ApiKind
+  apiKind: ApihubApiCompatibilityKind
   deprecated: boolean
   metadata: M // TODO: align with contract
   data?: unknown

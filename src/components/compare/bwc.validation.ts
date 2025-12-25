@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { API_KIND } from '../../consts'
+import { APIHUB_API_COMPATIBILITY_KIND } from '../../consts'
 import { isObject, isValidHttpMethod } from '../../utils'
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import {
@@ -22,40 +22,47 @@ import {
   ApiCompatibilityScope,
   ApiCompatibilityScopeFunction,
 } from '@netcracker/qubership-apihub-api-diff'
-import { ApiKind } from '../../types'
+import { ApihubApiCompatibilityKind } from '../../types'
 import { getApiKind } from '../document'
+
+const convertApihubToApiCompatibilityKind = (apihubApiKind: ApihubApiCompatibilityKind): ApiCompatibilityKind => {
+  switch (apihubApiKind) {
+    case APIHUB_API_COMPATIBILITY_KIND.BWC:
+      return ApiCompatibilityKind.BACKWARD_COMPATIBLE
+    case APIHUB_API_COMPATIBILITY_KIND.NO_BWC:
+      return ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
+    default:
+      return ApiCompatibilityKind.BACKWARD_COMPATIBLE
+  }
+}
 
 export const getApiCompatibilityKind = (
   beforeJson: unknown,
   afterJson: unknown,
-  beforeParentApiKind: ApiKind,
-  afterParentApiKind: ApiKind,
+  beforeParentApiKind: ApihubApiCompatibilityKind,
+  afterParentApiKind: ApihubApiCompatibilityKind,
 ): ApiCompatibilityKind | undefined => {
   const beforeKind = getApiKind(beforeJson) ?? beforeParentApiKind
   const afterKind = getApiKind(afterJson) ?? afterParentApiKind
 
-  if (!beforeKind && !afterKind) {
-    return undefined
+  if (beforeKind === APIHUB_API_COMPATIBILITY_KIND.NO_BWC || afterKind === APIHUB_API_COMPATIBILITY_KIND.NO_BWC) {
+    return convertApihubToApiCompatibilityKind(APIHUB_API_COMPATIBILITY_KIND.NO_BWC)
   }
 
-  if (beforeKind === API_KIND.NO_BWC || afterKind === API_KIND.NO_BWC) {
-    return ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
-  }
-
-  if (beforeKind === API_KIND.BWC && afterKind === API_KIND.BWC) {
-    return ApiCompatibilityKind.BACKWARD_COMPATIBLE
+  if (beforeKind === APIHUB_API_COMPATIBILITY_KIND.BWC && afterKind === APIHUB_API_COMPATIBILITY_KIND.BWC) {
+    return convertApihubToApiCompatibilityKind(APIHUB_API_COMPATIBILITY_KIND.BWC)
   }
 
   return undefined
 }
 
 export const getMethodsApiCompatibilityKind = (obj: unknown): ApiCompatibilityKind | undefined => {
-  if (checkAllMethodsHaveSameApiKind(obj, API_KIND.NO_BWC)) {
-    return ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
+  if (checkAllMethodsHaveSameApiKind(obj, APIHUB_API_COMPATIBILITY_KIND.NO_BWC)) {
+    return convertApihubToApiCompatibilityKind(APIHUB_API_COMPATIBILITY_KIND.NO_BWC)
   }
 
-  if (checkAllMethodsHaveSameApiKind(obj, API_KIND.BWC)) {
-    return ApiCompatibilityKind.BACKWARD_COMPATIBLE
+  if (checkAllMethodsHaveSameApiKind(obj, APIHUB_API_COMPATIBILITY_KIND.BWC)) {
+    return convertApihubToApiCompatibilityKind(APIHUB_API_COMPATIBILITY_KIND.BWC)
   }
 
   return undefined
@@ -86,10 +93,10 @@ const PATH_ITEM_PATH_LENGTH = 2
 const OPERATION_OBJECT_PATH_LENGTH = 3
 
 export const createApiKindChecker = (
-  prevApiKind: ApiKind = API_KIND.BWC,
-  currApiKind: ApiKind = API_KIND.BWC,
+  prevApiKind: ApihubApiCompatibilityKind = APIHUB_API_COMPATIBILITY_KIND.BWC,
+  currApiKind: ApihubApiCompatibilityKind = APIHUB_API_COMPATIBILITY_KIND.BWC,
 ): ApiCompatibilityScopeFunction => {
-  const defaultApiCompatibilityKind = (prevApiKind === API_KIND.NO_BWC || currApiKind === API_KIND.NO_BWC)
+  const defaultApiCompatibilityKind = (prevApiKind === APIHUB_API_COMPATIBILITY_KIND.NO_BWC || currApiKind === APIHUB_API_COMPATIBILITY_KIND.NO_BWC)
     ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
     : ApiCompatibilityKind.BACKWARD_COMPATIBLE
 
