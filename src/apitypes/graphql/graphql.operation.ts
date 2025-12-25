@@ -85,13 +85,11 @@ export const buildGraphQLOperation = (
     return result
   }, debugCtx)
 
-  const apiKind = documentApiKind || APIHUB_API_COMPATIBILITY_KIND.BWC
-
   return {
     operationId,
     documentId: documentSlug,
     apiType: GRAPHQL_API_TYPE,
-    apiKind: rawToApiKind(apiKind, APIHUB_API_COMPATIBILITY_KIND.BWC),
+    apiKind: rawToApiKind(documentApiKind, APIHUB_API_COMPATIBILITY_KIND.BWC),
     deprecated: !!singleOperationEffectiveSpec[type]?.[method]?.directives?.deprecated,
     title: toTitleCase(method),
     metadata: {

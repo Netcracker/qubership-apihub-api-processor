@@ -173,7 +173,7 @@ describe('Check Api Compatibility Function tests', () => {
   const API_KIND_NO_BWC_LABEL = 'apihub/x-api-kind: no-BWC'
   const API_KIND_BWC_LABEL = 'apihub/x-api-kind: BWC'
 
-  describe('Calculate parent ApiKind', () => {
+  describe('Calculate default ApiKind', () => {
     test('should apply BWC api kind by default', async () => {
       const result = await runApiKindTest('api-kinds/no-api-kind-in-documents')
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }))
@@ -380,7 +380,7 @@ describe('Check Api Compatibility Function tests', () => {
     })
   })
 
-  describe('Priority operation ApiKind and parent ApiKind', () => {
+  describe('Priority operation ApiKind and default ApiKind', () => {
     test('should prioritize parent no-BWC in previous document over operation BWC property in current document', async () => {
       const result = await runApiKindTest('api-kinds/operation-bwc-in-curr-document', [API_KIND_NO_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher({
@@ -389,7 +389,7 @@ describe('Check Api Compatibility Function tests', () => {
       }))
     })
 
-    test('should prioritize operation BWC property in current document over parent no-BWC in current document', async () => {
+    test('should prioritize operation BWC property in current document over default no-BWC in current document', async () => {
       const result = await runApiKindTest('api-kinds/operation-bwc-in-curr-document', [], [API_KIND_NO_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher({
         [BREAKING_CHANGE_TYPE]: 1,
@@ -397,7 +397,7 @@ describe('Check Api Compatibility Function tests', () => {
       }))
     })
 
-    test('should prioritize operation BWC property in previous document over parent no-BWC in previous document', async () => {
+    test('should prioritize operation BWC property in previous document over default no-BWC in previous document', async () => {
       const result = await runApiKindTest('api-kinds/operation-bwc-in-prev-document', [API_KIND_NO_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher({
         [BREAKING_CHANGE_TYPE]: 1,
@@ -405,7 +405,7 @@ describe('Check Api Compatibility Function tests', () => {
       }))
     })
 
-    test('should prioritize parent no-BWC in current document over parent BWC in current document', async () => {
+    test('should prioritize default no-BWC in current document over operation BWC in previous document', async () => {
       const result = await runApiKindTest('api-kinds/operation-bwc-in-prev-document', [], [API_KIND_NO_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher({
         [RISKY_CHANGE_TYPE]: 1,
@@ -413,7 +413,7 @@ describe('Check Api Compatibility Function tests', () => {
       }))
     })
 
-    test('should prioritize operation no-BWC property in current document over parent BWC in previous document', async () => {
+    test('should prioritize operation no-BWC property in current document over default BWC in previous document', async () => {
       const result = await runApiKindTest('api-kinds/operation-noBWC-in-curr-document', [API_KIND_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher({
         [RISKY_CHANGE_TYPE]: 1,
@@ -421,7 +421,7 @@ describe('Check Api Compatibility Function tests', () => {
       }))
     })
 
-    test('should prioritize operation no-BWC property in current document over parent BWC in current document', async () => {
+    test('should prioritize operation no-BWC property in current document over default BWC in current document', async () => {
       const result = await runApiKindTest('api-kinds/operation-noBWC-in-curr-document', [], [API_KIND_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher({
         [RISKY_CHANGE_TYPE]: 1,
@@ -429,7 +429,7 @@ describe('Check Api Compatibility Function tests', () => {
       }))
     })
 
-    test('should prioritize operation no-BWC property in previous document over parent BWC in previous document', async () => {
+    test('should prioritize operation no-BWC property in previous document over default BWC in previous document', async () => {
       const result = await runApiKindTest('api-kinds/operation-noBWC-in-prev-document', [API_KIND_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher({
         [RISKY_CHANGE_TYPE]: 1,
@@ -437,7 +437,7 @@ describe('Check Api Compatibility Function tests', () => {
       }))
     })
 
-    test('should prioritize operation no-BWC property in previous document over parent BWC in current document', async () => {
+    test('should prioritize operation no-BWC property in previous document over default BWC in current document', async () => {
       const result = await runApiKindTest('api-kinds/operation-noBWC-in-prev-document', [], [API_KIND_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher({
         [RISKY_CHANGE_TYPE]: 1,

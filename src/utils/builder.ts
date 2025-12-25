@@ -29,6 +29,7 @@ import { APIHUB_API_COMPATIBILITY_KIND } from '../consts'
 import { Diff, DiffType } from '@netcracker/qubership-apihub-api-diff'
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import { OperationPair } from '../components'
+import { isString } from './objects'
 
 export type ObjPath = (string | number)[]
 
@@ -173,7 +174,10 @@ export const getValueByOpenAPIPath = (obj: any, path: string): any => {
   return value
 }
 
-export const rawToApiKind = <T extends ApihubApiCompatibilityKind | undefined>(apiKindLike: string, defaultApiKind: T): ApihubApiCompatibilityKind | T => {
+export const rawToApiKind = <T extends ApihubApiCompatibilityKind | undefined>(apiKindLike: unknown, defaultApiKind: T): ApihubApiCompatibilityKind | T => {
+  if(!isString(apiKindLike)){
+    return defaultApiKind
+  }
   const candidate = apiKindLike.toLowerCase() as ApihubApiCompatibilityKind
   return [APIHUB_API_COMPATIBILITY_KIND.BWC, APIHUB_API_COMPATIBILITY_KIND.NO_BWC, APIHUB_API_COMPATIBILITY_KIND.EXPERIMENTAL].includes(candidate) ? candidate : defaultApiKind
 }
