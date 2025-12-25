@@ -18,6 +18,7 @@ import {
   BuildResult,
   ChangeMessage,
   ChangeSummary,
+  ComparisonDocument,
   DeprecateItem,
   EMPTY_CHANGE_SUMMARY,
   MessageSeverity,
@@ -30,8 +31,14 @@ import {
   ZippableDocument,
 } from '../../src'
 import { JsonPath } from 'json-crawl'
-import { ActionType } from '@netcracker/qubership-apihub-api-diff'
-import { ArrayContaining, AsymmetricMatcher, ExpectedRecursive, ObjectContaining, RecursiveMatcher } from '../../.jest/jasmin'
+import { ActionType, DiffType } from '@netcracker/qubership-apihub-api-diff'
+import {
+  ArrayContaining,
+  AsymmetricMatcher,
+  ExpectedRecursive,
+  ObjectContaining,
+  RecursiveMatcher,
+} from '../../.jest/jasmin'
 import { extractSecuritySchemesNames } from '../../src/apitypes/rest/rest.utils'
 import type { OpenAPIV3 } from 'openapi-types'
 
@@ -115,6 +122,30 @@ export function operationTypeMatcher(
     ]),
   },
   )
+}
+
+export function comparisonDocumentMatcher(
+  expected: RecursiveMatcher<ComparisonDocument>,
+): ApihubChangesSummaryMatcher {
+  return expect.objectContaining({
+      comparisons: expect.arrayContaining([
+        expect.objectContaining({
+          comparisonInternalDocuments: expect.arrayContaining([
+            expect.objectContaining(expected),
+          ]),
+        }),
+      ]),
+    },
+  )
+}
+
+export function serializedComparisonDocumentMatcher(
+  apiKind: DiffType,
+): ApihubChangesSummaryMatcher {
+  const pattern = new RegExp(apiKind)
+  return comparisonDocumentMatcher({
+    serializedComparisonDocument: expect.stringMatching(pattern),
+  })
 }
 
 export function operationChangesMatcher(
