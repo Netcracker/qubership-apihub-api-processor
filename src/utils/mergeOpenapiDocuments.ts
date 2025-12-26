@@ -56,7 +56,7 @@ export const mergeOpenapiDocuments = (documents: OpenAPIV3.Document[], info: Ope
     paths: merged.paths,
     components: merged.components,
     security: template?.security || merged.security,
-    ...takeIfDefined({ tags: getTags(documents) }),
+    ...takeIfDefined({ tags: getUsedTags(documents) }),
     ...takeIfDefined({ externalDocs: template?.externalDocs || getExternalDocs(merged, diffs) }),
   }
 }
@@ -112,9 +112,9 @@ function extractDeclarationPaths(diff: Diff): JsonPath[] {
 
 function compliesWithRules(rules: DiffRule[], diff: Diff): boolean {
   return rules.some(allowedDiff => {
-      const matchResult = matchPaths(extractDeclarationPaths(diff), allowedDiff.pathTemplate)
-      return matchResult?.path && allowedDiff.allowedActions.includes(diff.action)
-    },
+    const matchResult = matchPaths(extractDeclarationPaths(diff), allowedDiff.pathTemplate)
+    return matchResult?.path && allowedDiff.allowedActions.includes(diff.action)
+  },
   )
 }
 
@@ -133,7 +133,7 @@ const validateResult = (rules: DiffRule[], diffs: Diff[], title1: string, title2
   }
 }
 
-function getTags(specs: OpenAPIV3.Document[]): OpenAPIV3.TagObject[] | undefined {
+export function getUsedTags(specs: OpenAPIV3.Document[]): OpenAPIV3.TagObject[] | undefined {
   const tagsWithUsages = specs
     .map(({ tags, paths }) => {
       const specTags: string[] = []
@@ -198,10 +198,10 @@ function prepareTemplate(openapi: string, template?: ExportTemplate): ExportTemp
     info,
     ...takeIfDefined({ servers }),
     ...takeIf({
-        components: {
-          securitySchemes,
-        },
-      }, !!securitySchemes,
+      components: {
+        securitySchemes,
+      },
+    }, !!securitySchemes,
     ),
     ...takeIfDefined({ security }),
     ...takeIfDefined({ externalDocs }),
