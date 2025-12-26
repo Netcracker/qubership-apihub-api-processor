@@ -14,21 +14,131 @@
  * limitations under the License.
  */
 
-import { BREAKING_CHANGE_TYPE, ResolvedOperation, RISKY_CHANGE_TYPE } from '../../types'
-import { API_KIND } from '../../consts'
-import { Diff } from '@netcracker/qubership-apihub-api-diff'
+import { APIHUB_API_BWC_KIND, APIHUB_API_NO_BWC_KIND, ApihubApiCompatibilityKind } from '../../consts'
+import { isObject, isValidHttpMethod } from '../../utils'
+import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
+import {
+  ApiCompatibilityScope,
+  ApiCompatibilityScopeFunction,
+  BACKWARD_COMPATIBLE,
+  NOT_BACKWARD_COMPATIBLE,
+} from '@netcracker/qubership-apihub-api-diff'
+import { getApiKindProperty } from '../document'
+import { OpenAPIV3 } from 'openapi-types'
 
-export function reclassifyNoBwcBreakingChanges(
-  operationDiffs: Diff[],
-  previous?: ResolvedOperation,
-  current?: ResolvedOperation,
-): Diff[] {
-  if (current?.apiKind === API_KIND.NO_BWC || previous?.apiKind === API_KIND.NO_BWC) {
-    return operationDiffs?.map((diff) => {
-      return diff.type === BREAKING_CHANGE_TYPE
-        ? { ...diff, type: RISKY_CHANGE_TYPE }
-        : diff
-    })
+export const calculateOperationApiCompatibilityKind = (
+  beforeOperationObject: OpenAPIV3.OperationObject | undefined,
+  afterOperationObject: OpenAPIV3.OperationObject | undefined,
+  beforeDefaultApiKind: ApihubApiCompatibilityKind,
+  afterDefaultApiKind: ApihubApiCompatibilityKind,
+): ApiCompatibilityScope | undefined => {
+  const beforeKind = getApiKindProperty(beforeOperationObject, beforeDefaultApiKind)
+  const afterKind = getApiKindProperty(afterOperationObject, afterDefaultApiKind)
+
+  if (beforeKind === APIHUB_API_NO_BWC_KIND || afterKind === APIHUB_API_NO_BWC_KIND) {
+    return NOT_BACKWARD_COMPATIBLE
   }
-  return operationDiffs
+
+  if (beforeKind === APIHUB_API_BWC_KIND && afterKind === APIHUB_API_BWC_KIND) {
+    return BACKWARD_COMPATIBLE
+  }
+}
+
+export const getMethodsApiCompatibilityKind = (pathItemObject: OpenAPIV3.PathItemObject): ApiCompatibilityScope | undefined => {
+  if (checkAllMethodsHaveSameApiKind(pathItemObject, APIHUB_API_NO_BWC_KIND)) {
+    return NOT_BACKWARD_COMPATIBLE
+  }
+
+  if (checkAllMethodsHaveSameApiKind(pathItemObject, APIHUB_API_BWC_KIND)) {
+    return BACKWARD_COMPATIBLE
+  }
+}
+
+const hasApiKind = (obj: OpenAPIV3.OperationObject, apiKind: ApihubApiCompatibilityKind): boolean => {
+  return getApiKindProperty(obj) === apiKind
+}
+
+// If a path object is removed/added, we must ensure every HTTP method under it
+// is explicitly marked NO_BWC before treating the change as risky.
+const checkAllMethodsHaveSameApiKind = (obj: OpenAPIV3.PathItemObject, apiKind: ApihubApiCompatibilityKind): boolean => {
+  if (!isObject(obj)) {
+    return false
+  }
+  const entries = Object.entries(obj)
+
+  return entries.length > 0 &&
+    entries.every(([key, value]) =>
+      isValidHttpMethod(key) &&
+      isObject(value) &&
+      hasApiKind(value, apiKind),
+    )
+}
+
+const ROOT_PATH_LENGTH = 0
+const PATH_ITEM_PATH_LENGTH = 2
+const OPERATION_OBJECT_PATH_LENGTH = 3
+
+export const createApiKindChecker = (
+  prevDocumentApiKind: ApihubApiCompatibilityKind = APIHUB_API_BWC_KIND,
+  currDocumentApiKind: ApihubApiCompatibilityKind = APIHUB_API_BWC_KIND,
+): ApiCompatibilityScopeFunction => {
+  const defaultApiCompatibilityKind = (prevDocumentApiKind === APIHUB_API_NO_BWC_KIND || currDocumentApiKind === APIHUB_API_NO_BWC_KIND)
+    ? NOT_BACKWARD_COMPATIBLE
+    : BACKWARD_COMPATIBLE
+
+  return (
+    path?: JsonPath,
+    beforeJson?: unknown,
+    afterJson?: unknown,
+  ): ApiCompatibilityScope | undefined => {
+    const pathLength = path?.length ?? 0
+    /*
+     * Calculating Api Kind for the entire document as the default
+     * If there is a NO_BWC marker on:
+     * - Version labels and Document labels
+     * - Document API info section
+     */
+    if (pathLength === ROOT_PATH_LENGTH) {
+      return defaultApiCompatibilityKind
+    }
+    /*
+    * We check paths at level 2: paths/<path> and operation level 3: paths/<path>/<method>
+    * Level 2: When an entire path item is deleted/added
+    * Level 3: When individual operations are deleted/added
+     */
+    const isFirstPathSegmentPaths = path?.[0] === 'paths'
+    if (!isFirstPathSegmentPaths) {
+      return undefined
+    }
+    const beforeExists = isObject(beforeJson)
+    const afterExists = isObject(afterJson)
+
+    if (!beforeExists && !afterExists) {
+      return undefined
+    }
+
+    if (pathLength === PATH_ITEM_PATH_LENGTH) {
+      // case remove: when a node disappears, api-diff emits REMOVE diffs for each
+      // operation. We only mark the deletion as NO_BWC if all removed methods were
+      // explicitly flagged NO_BWC, keeping deletions consistent with declared scope.
+      if (beforeExists && !afterExists) {
+        return getMethodsApiCompatibilityKind(beforeJson)
+      }
+
+      // case add: additions are checked the same way. A new path or operation is
+      // considered NO_BWC only when every contained method declares NO_BWC.
+      if (afterExists && !beforeExists) {
+        return getMethodsApiCompatibilityKind(afterJson)
+      }
+    }
+
+    if (pathLength === OPERATION_OBJECT_PATH_LENGTH) {
+      const beforeOperationObject = beforeJson as OpenAPIV3.OperationObject | undefined
+      const afterOperationObject = afterJson as OpenAPIV3.OperationObject | undefined
+
+      return calculateOperationApiCompatibilityKind(beforeOperationObject, afterOperationObject, prevDocumentApiKind, currDocumentApiKind)
+    }
+
+    return undefined
+  }
 }
