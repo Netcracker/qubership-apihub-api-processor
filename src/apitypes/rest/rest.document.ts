@@ -40,7 +40,7 @@ import { dump } from './rest.utils'
 import { generateHtmlPage } from '../../utils/export'
 import { removeOasExtensions } from '../../utils/removeOasExtensions'
 import { OpenApiExtensionKey } from '@netcracker/qubership-apihub-api-unifier'
-import { getApiKind } from '../../components/document'
+import { getApiKindProperty } from '../../components/document'
 
 const openApiDocumentMeta = (data: OpenAPIV3.Document): RestDocumentInfo => {
   if (typeof data !== 'object' || !data) {
@@ -76,7 +76,7 @@ export const buildRestDocument: DocumentBuilder<OpenAPIV3.Document> = async (par
 
   let bundledFileData = data
 
-  const documentApiKind = getApiKind(bundledFileData?.info) || apiKind
+  const documentApiKind = getApiKindProperty(bundledFileData?.info) || apiKind
 
   if (parsedFile.type === REST_DOCUMENT_TYPE.SWAGGER) {
     try {

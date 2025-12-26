@@ -15,9 +15,15 @@
  */
 
 import { FileId, KeyOfConstType, OperationsApiType, PackageId, VersionId } from './types'
-import { BUILD_TYPE, FILE_FORMAT_HTML, FILE_FORMAT_JSON, FILE_FORMAT_YAML, VERSION_STATUS } from '../../consts'
+import {
+  ApihubApiCompatibilityKind,
+  BUILD_TYPE,
+  FILE_FORMAT_HTML,
+  FILE_FORMAT_JSON,
+  FILE_FORMAT_YAML,
+  VERSION_STATUS,
+} from '../../consts'
 import { OpenApiExtensionKey } from '@netcracker/qubership-apihub-api-unifier'
-import { ApihubApiCompatibilityKind } from './operations'
 
 export type BuildType = KeyOfConstType<typeof BUILD_TYPE>
 export type VersionStatus = KeyOfConstType<typeof VERSION_STATUS>

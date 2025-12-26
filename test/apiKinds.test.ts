@@ -15,7 +15,9 @@
  */
 
 import {
-  APIHUB_API_COMPATIBILITY_KIND,
+  APIHUB_API_BWC_KIND,
+  APIHUB_API_EXPERIMENTAL_KIND,
+  APIHUB_API_NO_BWC_KIND,
   BREAKING_CHANGE_TYPE,
   BUILD_TYPE,
   BuildResult,
@@ -48,7 +50,7 @@ describe('API Kinds test', () => {
       }],
     })
 
-    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND.NO_BWC)
+    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_NO_BWC_KIND)
   })
 
   test('document with uppercase label must have no-bwc api kind', async () => {
@@ -63,7 +65,7 @@ describe('API Kinds test', () => {
       }],
     })
 
-    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND.NO_BWC)
+    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_NO_BWC_KIND)
   })
 
   test('document with label must have experimental api kind', async () => {
@@ -78,7 +80,7 @@ describe('API Kinds test', () => {
       }],
     })
 
-    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND.EXPERIMENTAL)
+    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_EXPERIMENTAL_KIND)
   })
 
   test('document with incorrect label value must have bwc api kind', async () => {
@@ -93,7 +95,7 @@ describe('API Kinds test', () => {
       }],
     })
 
-    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND.BWC)
+    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_BWC_KIND)
   })
 
   test('version with label must have no-bwc api kind', async () => {
@@ -110,7 +112,7 @@ describe('API Kinds test', () => {
       },
     })
 
-    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND.NO_BWC)
+    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_NO_BWC_KIND)
   })
 })
 

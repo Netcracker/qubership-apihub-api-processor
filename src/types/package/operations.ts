@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-import { ApihubApiCompatibilityKind, OperationId, OperationsApiType } from '../external'
+import { OperationId, OperationsApiType } from '../external'
 import { PackageDeprecatedItem } from './deprecated'
+import { ApihubApiCompatibilityKind } from '../../consts'
 
 export type PackageOperations = {
   operations: PackageOperation[]

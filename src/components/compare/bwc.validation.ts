@@ -14,67 +14,53 @@
  * limitations under the License.
  */
 
-import { APIHUB_API_COMPATIBILITY_KIND } from '../../consts'
+import { APIHUB_API_BWC_KIND, APIHUB_API_NO_BWC_KIND, ApihubApiCompatibilityKind } from '../../consts'
 import { isObject, isValidHttpMethod } from '../../utils'
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import {
-  ApiCompatibilityKind,
   ApiCompatibilityScope,
   ApiCompatibilityScopeFunction,
+  BACKWARD_COMPATIBLE,
+  NOT_BACKWARD_COMPATIBLE,
 } from '@netcracker/qubership-apihub-api-diff'
-import { ApihubApiCompatibilityKind } from '../../types'
-import { getApiKind } from '../document'
+import { getApiKindProperty } from '../document'
+import { OpenAPIV3 } from 'openapi-types'
 
-const convertApihubToApiCompatibilityKind = (apihubApiKind: ApihubApiCompatibilityKind): ApiCompatibilityKind => {
-  switch (apihubApiKind) {
-    case APIHUB_API_COMPATIBILITY_KIND.BWC:
-      return ApiCompatibilityKind.BACKWARD_COMPATIBLE
-    case APIHUB_API_COMPATIBILITY_KIND.NO_BWC:
-      return ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
-    default:
-      return ApiCompatibilityKind.BACKWARD_COMPATIBLE
+export const calculateOperationApiCompatibilityKind = (
+  beforeOperationObject: OpenAPIV3.OperationObject | undefined,
+  afterOperationObject: OpenAPIV3.OperationObject | undefined,
+  beforeDefaultApiKind: ApihubApiCompatibilityKind,
+  afterDefaultApiKind: ApihubApiCompatibilityKind,
+): ApiCompatibilityScope | undefined => {
+  const beforeKind = getApiKindProperty(beforeOperationObject, beforeDefaultApiKind)
+  const afterKind = getApiKindProperty(afterOperationObject, afterDefaultApiKind)
+
+  if (beforeKind === APIHUB_API_NO_BWC_KIND || afterKind === APIHUB_API_NO_BWC_KIND) {
+    return NOT_BACKWARD_COMPATIBLE
+  }
+
+  if (beforeKind === APIHUB_API_BWC_KIND && afterKind === APIHUB_API_BWC_KIND) {
+    return BACKWARD_COMPATIBLE
   }
 }
 
-export const getApiCompatibilityKind = (
-  beforeJson: unknown,
-  afterJson: unknown,
-  beforeParentApiKind: ApihubApiCompatibilityKind,
-  afterParentApiKind: ApihubApiCompatibilityKind,
-): ApiCompatibilityKind | undefined => {
-  const beforeKind = getApiKind(beforeJson) ?? beforeParentApiKind
-  const afterKind = getApiKind(afterJson) ?? afterParentApiKind
-
-  if (beforeKind === APIHUB_API_COMPATIBILITY_KIND.NO_BWC || afterKind === APIHUB_API_COMPATIBILITY_KIND.NO_BWC) {
-    return convertApihubToApiCompatibilityKind(APIHUB_API_COMPATIBILITY_KIND.NO_BWC)
+export const getMethodsApiCompatibilityKind = (pathItemObject: OpenAPIV3.PathItemObject): ApiCompatibilityScope | undefined => {
+  if (checkAllMethodsHaveSameApiKind(pathItemObject, APIHUB_API_NO_BWC_KIND)) {
+    return NOT_BACKWARD_COMPATIBLE
   }
 
-  if (beforeKind === APIHUB_API_COMPATIBILITY_KIND.BWC && afterKind === APIHUB_API_COMPATIBILITY_KIND.BWC) {
-    return convertApihubToApiCompatibilityKind(APIHUB_API_COMPATIBILITY_KIND.BWC)
+  if (checkAllMethodsHaveSameApiKind(pathItemObject, APIHUB_API_BWC_KIND)) {
+    return BACKWARD_COMPATIBLE
   }
-
-  return undefined
 }
 
-export const getMethodsApiCompatibilityKind = (obj: unknown): ApiCompatibilityKind | undefined => {
-  if (checkAllMethodsHaveSameApiKind(obj, APIHUB_API_COMPATIBILITY_KIND.NO_BWC)) {
-    return convertApihubToApiCompatibilityKind(APIHUB_API_COMPATIBILITY_KIND.NO_BWC)
-  }
-
-  if (checkAllMethodsHaveSameApiKind(obj, APIHUB_API_COMPATIBILITY_KIND.BWC)) {
-    return convertApihubToApiCompatibilityKind(APIHUB_API_COMPATIBILITY_KIND.BWC)
-  }
-
-  return undefined
-}
-
-const hasApiKind = (obj: unknown, apiKind: string): boolean => {
-  return getApiKind(obj) === apiKind
+const hasApiKind = (obj: OpenAPIV3.OperationObject, apiKind: ApihubApiCompatibilityKind): boolean => {
+  return getApiKindProperty(obj) === apiKind
 }
 
 // If a path object is removed/added, we must ensure every HTTP method under it
 // is explicitly marked NO_BWC before treating the change as risky.
-const checkAllMethodsHaveSameApiKind = (obj: unknown, apiKind: string): boolean => {
+const checkAllMethodsHaveSameApiKind = (obj: OpenAPIV3.PathItemObject, apiKind: ApihubApiCompatibilityKind): boolean => {
   if (!isObject(obj)) {
     return false
   }
@@ -93,12 +79,12 @@ const PATH_ITEM_PATH_LENGTH = 2
 const OPERATION_OBJECT_PATH_LENGTH = 3
 
 export const createApiKindChecker = (
-  prevApiKind: ApihubApiCompatibilityKind = APIHUB_API_COMPATIBILITY_KIND.BWC,
-  currApiKind: ApihubApiCompatibilityKind = APIHUB_API_COMPATIBILITY_KIND.BWC,
+  prevDocumentApiKind: ApihubApiCompatibilityKind = APIHUB_API_BWC_KIND,
+  currDocumentApiKind: ApihubApiCompatibilityKind = APIHUB_API_BWC_KIND,
 ): ApiCompatibilityScopeFunction => {
-  const defaultApiCompatibilityKind = (prevApiKind === APIHUB_API_COMPATIBILITY_KIND.NO_BWC || currApiKind === APIHUB_API_COMPATIBILITY_KIND.NO_BWC)
-    ? ApiCompatibilityKind.NOT_BACKWARD_COMPATIBLE
-    : ApiCompatibilityKind.BACKWARD_COMPATIBLE
+  const defaultApiCompatibilityKind = (prevDocumentApiKind === APIHUB_API_NO_BWC_KIND || currDocumentApiKind === APIHUB_API_NO_BWC_KIND)
+    ? NOT_BACKWARD_COMPATIBLE
+    : BACKWARD_COMPATIBLE
 
   return (
     path?: JsonPath,
@@ -147,7 +133,10 @@ export const createApiKindChecker = (
     }
 
     if (pathLength === OPERATION_OBJECT_PATH_LENGTH) {
-      return getApiCompatibilityKind(beforeJson, afterJson, prevApiKind, currApiKind)
+      const beforeOperationObject = beforeJson as OpenAPIV3.OperationObject | undefined
+      const afterOperationObject = afterJson as OpenAPIV3.OperationObject | undefined
+
+      return calculateOperationApiCompatibilityKind(beforeOperationObject, afterOperationObject, prevDocumentApiKind, currDocumentApiKind)
     }
 
     return undefined

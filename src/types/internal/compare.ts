@@ -16,7 +16,6 @@
 
 import { Diff, DiffType } from '@netcracker/qubership-apihub-api-diff'
 import {
-  ApihubApiCompatibilityKind,
   BuildConfig,
   ChangeSummary,
   DiffTypeDto,
@@ -38,6 +37,7 @@ import {
   BuilderType,
 } from './apiBuilder'
 import { ObjectHashCache } from '../../utils/hashes'
+import { ApihubApiCompatibilityKind } from '../../consts'
 
 export type ChangeKind = keyof ChangeSummary
 

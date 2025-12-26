@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { ApihubApiCompatibilityKind, FileId, KeyOfConstType, OperationId } from '../external'
-import { FILE_FORMAT } from '../../consts'
+import { FileId, KeyOfConstType, OperationId } from '../external'
+import { ApihubApiCompatibilityKind, FILE_FORMAT } from '../../consts'
 
 export interface VersionDocuments {
   documents: VersionDocument[]

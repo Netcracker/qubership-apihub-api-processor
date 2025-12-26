@@ -19,13 +19,12 @@ import {
   getKeyValue,
   getSplittedVersionKey,
   isOperationDeprecated,
-  rawToApiKind,
   removeComponents,
   setValueByPath,
   takeIf,
   takeIfDefined,
 } from '../../utils'
-import { APIHUB_API_COMPATIBILITY_KIND, INLINE_REFS_FLAG, ORIGINS_SYMBOL, VERSION_STATUS } from '../../consts'
+import { APIHUB_API_BWC_KIND, INLINE_REFS_FLAG, ORIGINS_SYMBOL, VERSION_STATUS } from '../../consts'
 import { GraphQLSchemaType, VersionGraphQLDocument, VersionGraphQLOperation } from './graphql.types'
 import { GRAPHQL_API_TYPE, GRAPHQL_TYPE } from './graphql.consts'
 import { GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
@@ -89,7 +88,7 @@ export const buildGraphQLOperation = (
     operationId,
     documentId: documentSlug,
     apiType: GRAPHQL_API_TYPE,
-    apiKind: rawToApiKind(documentApiKind, APIHUB_API_COMPATIBILITY_KIND.BWC),
+    apiKind: documentApiKind || APIHUB_API_BWC_KIND,
     deprecated: !!singleOperationEffectiveSpec[type]?.[method]?.directives?.deprecated,
     title: toTitleCase(method),
     metadata: {

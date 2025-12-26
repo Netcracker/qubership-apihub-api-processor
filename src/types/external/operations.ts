@@ -14,12 +14,10 @@
  * limitations under the License.
  */
 
-import { KeyOfConstType, OperationId, OperationsApiType, PackageId, VersionId } from './types'
+import { OperationId, OperationsApiType, PackageId, VersionId } from './types'
 import { DeprecateItem } from './deprecated'
-import { APIHUB_API_COMPATIBILITY_KIND } from '../../consts'
 import { ApiAudience } from '../package'
-
-export type ApihubApiCompatibilityKind = KeyOfConstType<typeof APIHUB_API_COMPATIBILITY_KIND>
+import { ApihubApiCompatibilityKind } from '../../consts'
 
 export type VersionOperationsResolver = (
   apiType: OperationsApiType,

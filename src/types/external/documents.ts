@@ -17,7 +17,7 @@
 import { FileId, OperationsApiType, PackageId, TemplatePath, VersionId } from './types'
 import { ResolvedReferenceMap } from './references'
 import { FileFormat } from '../internal'
-import { ApihubApiCompatibilityKind } from './operations'
+import { ApihubApiCompatibilityKind } from '../../consts'
 
 export type ResolvedDocument = {
   fileId: string

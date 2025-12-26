@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-import { ApihubApiCompatibilityKind, DeprecateItem, OperationsApiType } from '../external'
+import { DeprecateItem, OperationsApiType } from '../external'
 import { ApiAudience } from '../package'
 import { OpenAPIV3 } from 'openapi-types'
 import { GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
+import { ApihubApiCompatibilityKind } from '../../consts'
 
 export type SearchScopes<T extends string = string> = Record<T, Set<string>>
 
