@@ -331,7 +331,7 @@ const isOperationPaths = (paths: JsonPath[]): boolean => {
 //  DO NOT pass output of this method to apiDiff
 // TODO: conceptually, this method does processing which is very similar
 // is very similar to the reducedSourceSpecifications transformation.
- // We should merge these two functions into one.
+// We should merge these two functions into one.
 export const createSingleOperationSpec = (
   document: OpenAPIV3.Document,
   path: string,

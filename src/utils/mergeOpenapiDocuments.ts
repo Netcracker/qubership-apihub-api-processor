@@ -128,7 +128,7 @@ const validateResult = (rules: DiffRule[], diffs: Diff[], title1: string, title2
 
   if (firstProhibitedDiff) {
     throw new Error(`Unable to merge ${trimPath(firstPathFromProhibitedDiff).join('.')}. These specifications have different content for it: ${title1}, ${title2}.
-       Please resolve the conflicts in source specification, republish them and try again. You can also download reduced source specifications and merge operations manually.`,
+      Please resolve the conflicts in source specification, republish them and try again. You can also download reduced source specifications and merge operations manually.`,
     )
   }
 }
