@@ -373,40 +373,38 @@ describe('Check Api Compatibility Function tests', () => {
     })
   })
 
+  const OPERATION_RISKY_CHANGE_TYPES = {
+    [RISKY_CHANGE_TYPE]: 1,
+    [UNCLASSIFIED_CHANGE_TYPE]: 1, // x-api-kind field in the operation also gives a diff
+  }
+
+  const OPERATION_BREAKING_CHANGE_TYPES = {
+    [BREAKING_CHANGE_TYPE]: 1,
+    [UNCLASSIFIED_CHANGE_TYPE]: 1, // x-api-kind field in the operation also gives a diff
+  }
+
   describe('ApiKind operations section tests', () => {
     test('should apply operation no-BWC in current document', async () => {
       const result = await runApiKindTest('api-kinds/operation-noBWC-in-curr-document')
-      expect(result).toEqual(changesSummaryMatcher({
-        [RISKY_CHANGE_TYPE]: 1,
-        [UNCLASSIFIED_CHANGE_TYPE]: 1, // x-api-kind field in the operation also gives a diff
-      }))
+      expect(result).toEqual(changesSummaryMatcher(OPERATION_RISKY_CHANGE_TYPES ))
       expect(result).toEqual(serializedComparisonDocumentMatcher(RISKY_CHANGE_TYPE))
     })
 
     test('should apply operation no-BWC in previous document', async () => {
       const result = await runApiKindTest('api-kinds/operation-noBWC-in-prev-document')
-      expect(result).toEqual(changesSummaryMatcher({
-        [RISKY_CHANGE_TYPE]: 1,
-        [UNCLASSIFIED_CHANGE_TYPE]: 1, // x-api-kind field in the operation also gives a diff
-      }))
+      expect(result).toEqual(changesSummaryMatcher(OPERATION_RISKY_CHANGE_TYPES ))
       expect(result).toEqual(serializedComparisonDocumentMatcher(RISKY_CHANGE_TYPE))
     })
 
     test('should prioritize operation no-BWC property in current document over operation BWC property in previous document', async () => {
       const result = await runApiKindTest('api-kinds/operation-bwc-in-prev-document-operation-noBWC-in-curr-document')
-      expect(result).toEqual(changesSummaryMatcher({
-        [RISKY_CHANGE_TYPE]: 1,
-        [UNCLASSIFIED_CHANGE_TYPE]: 1, // x-api-kind field in the operation also gives a diff
-      }))
+      expect(result).toEqual(changesSummaryMatcher(OPERATION_RISKY_CHANGE_TYPES ))
       expect(result).toEqual(serializedComparisonDocumentMatcher(RISKY_CHANGE_TYPE))
     })
 
     test('should prioritize operation no-BWC property in previous document over operation BWC property in current document', async () => {
       const result = await runApiKindTest('api-kinds/operation-noBWC-in-prev-document-operation-bwc-in-curr-document')
-      expect(result).toEqual(changesSummaryMatcher({
-        [RISKY_CHANGE_TYPE]: 1,
-        [UNCLASSIFIED_CHANGE_TYPE]: 1, // x-api-kind field in the operation also gives a diff
-      }))
+      expect(result).toEqual(changesSummaryMatcher(OPERATION_RISKY_CHANGE_TYPES ))
       expect(result).toEqual(serializedComparisonDocumentMatcher(RISKY_CHANGE_TYPE))
     })
   })
@@ -414,73 +412,49 @@ describe('Check Api Compatibility Function tests', () => {
   describe('Priority operation ApiKind and default ApiKind', () => {
     test('should prioritize parent no-BWC in previous document over operation BWC property in current document', async () => {
       const result = await runApiKindTest('api-kinds/operation-bwc-in-curr-document', [API_KIND_NO_BWC_LABEL])
-      expect(result).toEqual(changesSummaryMatcher({
-        [RISKY_CHANGE_TYPE]: 1,
-        [UNCLASSIFIED_CHANGE_TYPE]: 1, // x-api-kind field in the operation also gives a diff
-      }))
+      expect(result).toEqual(changesSummaryMatcher(OPERATION_RISKY_CHANGE_TYPES ))
       expect(result).toEqual(serializedComparisonDocumentMatcher(RISKY_CHANGE_TYPE))
     })
 
     test('should prioritize operation BWC property in current document over default no-BWC in current document', async () => {
       const result = await runApiKindTest('api-kinds/operation-bwc-in-curr-document', [], [API_KIND_NO_BWC_LABEL])
-      expect(result).toEqual(changesSummaryMatcher({
-        [BREAKING_CHANGE_TYPE]: 1,
-        [UNCLASSIFIED_CHANGE_TYPE]: 1, // x-api-kind field in the operation also gives a diff
-      }))
+      expect(result).toEqual(changesSummaryMatcher(OPERATION_BREAKING_CHANGE_TYPES ))
       expect(result).toEqual(serializedComparisonDocumentMatcher(BREAKING_CHANGE_TYPE))
     })
 
     test('should prioritize operation BWC property in previous document over default no-BWC in previous document', async () => {
       const result = await runApiKindTest('api-kinds/operation-bwc-in-prev-document', [API_KIND_NO_BWC_LABEL])
-      expect(result).toEqual(changesSummaryMatcher({
-        [BREAKING_CHANGE_TYPE]: 1,
-        [UNCLASSIFIED_CHANGE_TYPE]: 1, // x-api-kind field in the operation also gives a diff
-      }))
+      expect(result).toEqual(changesSummaryMatcher(OPERATION_BREAKING_CHANGE_TYPES ))
       expect(result).toEqual(serializedComparisonDocumentMatcher(BREAKING_CHANGE_TYPE))
     })
 
     test('should prioritize default no-BWC in current document over operation BWC in previous document', async () => {
       const result = await runApiKindTest('api-kinds/operation-bwc-in-prev-document', [], [API_KIND_NO_BWC_LABEL])
-      expect(result).toEqual(changesSummaryMatcher({
-        [RISKY_CHANGE_TYPE]: 1,
-        [UNCLASSIFIED_CHANGE_TYPE]: 1, // x-api-kind field in the operation also gives a diff
-      }))
+      expect(result).toEqual(changesSummaryMatcher(OPERATION_RISKY_CHANGE_TYPES ))
       expect(result).toEqual(serializedComparisonDocumentMatcher(RISKY_CHANGE_TYPE))
     })
 
     test('should prioritize operation no-BWC property in current document over default BWC in previous document', async () => {
       const result = await runApiKindTest('api-kinds/operation-noBWC-in-curr-document', [API_KIND_BWC_LABEL])
-      expect(result).toEqual(changesSummaryMatcher({
-        [RISKY_CHANGE_TYPE]: 1,
-        [UNCLASSIFIED_CHANGE_TYPE]: 1, // x-api-kind field in the operation also gives a diff
-      }))
+      expect(result).toEqual(changesSummaryMatcher(OPERATION_RISKY_CHANGE_TYPES ))
       expect(result).toEqual(serializedComparisonDocumentMatcher(RISKY_CHANGE_TYPE))
     })
 
     test('should prioritize operation no-BWC property in current document over default BWC in current document', async () => {
       const result = await runApiKindTest('api-kinds/operation-noBWC-in-curr-document', [], [API_KIND_BWC_LABEL])
-      expect(result).toEqual(changesSummaryMatcher({
-        [RISKY_CHANGE_TYPE]: 1,
-        [UNCLASSIFIED_CHANGE_TYPE]: 1, // x-api-kind field in the operation also gives a diff
-      }))
+      expect(result).toEqual(changesSummaryMatcher(OPERATION_RISKY_CHANGE_TYPES ))
       expect(result).toEqual(serializedComparisonDocumentMatcher(RISKY_CHANGE_TYPE))
     })
 
     test('should prioritize operation no-BWC property in previous document over default BWC in previous document', async () => {
       const result = await runApiKindTest('api-kinds/operation-noBWC-in-prev-document', [API_KIND_BWC_LABEL])
-      expect(result).toEqual(changesSummaryMatcher({
-        [RISKY_CHANGE_TYPE]: 1,
-        [UNCLASSIFIED_CHANGE_TYPE]: 1, // x-api-kind field in the operation also gives a diff
-      }))
+      expect(result).toEqual(changesSummaryMatcher(OPERATION_RISKY_CHANGE_TYPES ))
       expect(result).toEqual(serializedComparisonDocumentMatcher(RISKY_CHANGE_TYPE))
     })
 
     test('should prioritize operation no-BWC property in previous document over default BWC in current document', async () => {
       const result = await runApiKindTest('api-kinds/operation-noBWC-in-prev-document', [], [API_KIND_BWC_LABEL])
-      expect(result).toEqual(changesSummaryMatcher({
-        [RISKY_CHANGE_TYPE]: 1,
-        [UNCLASSIFIED_CHANGE_TYPE]: 1, // x-api-kind field in the operation also gives a diff
-      }))
+      expect(result).toEqual(changesSummaryMatcher(OPERATION_RISKY_CHANGE_TYPES ))
       expect(result).toEqual(serializedComparisonDocumentMatcher(RISKY_CHANGE_TYPE))
     })
   })
