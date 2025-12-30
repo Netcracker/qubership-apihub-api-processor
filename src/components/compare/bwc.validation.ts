@@ -34,13 +34,17 @@ export const calculateOperationApiCompatibilityKind = (
 ): ApiCompatibilityKind => {
   const beforeKind = getApiKindProperty(beforeOperationObject, beforeDefaultApiKind)
   const afterKind = getApiKindProperty(afterOperationObject, afterDefaultApiKind)
+  const isOperationRemoved = isObject(beforeOperationObject) && !isObject(afterOperationObject)
+
+  // Handle operation removal: compatibility depends on the removed operation's kind
+  if (isOperationRemoved) {
+    return beforeKind === APIHUB_API_NO_BWC_KIND
+      ? API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
+      : API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
+  }
 
   if (beforeKind === APIHUB_API_NO_BWC_KIND || afterKind === APIHUB_API_NO_BWC_KIND) {
     return API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
-  }
-
-  if (beforeKind === APIHUB_API_BWC_KIND && afterKind === APIHUB_API_BWC_KIND) {
-    return API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
   }
 
   return API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
