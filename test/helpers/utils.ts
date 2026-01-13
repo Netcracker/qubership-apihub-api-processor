@@ -19,18 +19,24 @@ import path from 'path'
 import mime from 'mime-types'
 
 import {
+  ApiDocument,
   BUILD_TYPE,
   BuildConfig,
   BuildConfigFile,
   BuildResult,
   ChangeSummary,
   EMPTY_CHANGE_SUMMARY,
+  HASH_FLAG,
+  ORIGINS_SYMBOL,
+  SYNTHETIC_TITLE_FLAG,
   VERSION_STATUS,
 } from '../../src'
 import { buildSchema, introspectionFromSchema } from 'graphql/utilities'
 import { LocalRegistry } from './registry'
 import { Editor } from './editor'
 import { getFileExtension } from '../../src/utils'
+import { DIFF_META_KEY, DIFFS_AGGREGATED_META_KEY } from '@netcracker/qubership-apihub-api-diff'
+import { deserialize } from '@netcracker/qubership-apihub-api-unifier'
 
 export const loadFileAsString = async (filePath: string, folder: string, fileName: string): Promise<string | null> => {
   return (await loadFile(filePath, folder, fileName))?.text() ?? null
@@ -265,4 +271,16 @@ export async function prepareChangelogDashboard(
     buildType: BUILD_TYPE.CHANGELOG,
     status: VERSION_STATUS.RELEASE,
   })
+}
+
+const DESERIALIZE_SYMBOL_STRING_MAPPING = new Map([
+  ['HASH_FLAG', HASH_FLAG],
+  ['ORIGINS_SYMBOL', ORIGINS_SYMBOL],
+  ['SYNTHETIC_TITLE_FLAG', SYNTHETIC_TITLE_FLAG],
+  ['DIFF_META_KEY', DIFF_META_KEY],
+  ['DIFFS_AGGREGATED_META_KEY', DIFFS_AGGREGATED_META_KEY],
+])
+
+export function deserializeDocument(normalizedDocument: string): ApiDocument {
+  return deserialize(normalizedDocument, DESERIALIZE_SYMBOL_STRING_MAPPING) as ApiDocument
 }
