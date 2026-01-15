@@ -1,0 +1,23 @@
+asyncapi: 3.0.0
+info:
+  title: Test AsyncAPI
+  version: 1.0.0
+channels:
+  channel1:
+    address: address1
+    messages:
+      userData:
+        payload:
+          type: object
+          properties:
+            userId:
+              type: string
+operations:
+  onUserSignup:
+    action: receive
+    channel:
+      $ref: '#/channels/channel1'
+  onUserUpdate:
+    action: receive
+    channel:
+      $ref: '#/channels/channel1'

@@ -1,0 +1,25 @@
+asyncapi: 3.0.0
+info:
+  title: Test AsyncAPI
+  version: 1.0.0
+servers:
+  production:
+    protocol: amqp
+    host: api.example.com
+channels:
+  channel1:
+    address: address1
+    servers:
+      - $ref: '#/servers/production'
+    messages:
+      userData:
+        payload:
+          type: object
+          properties:
+            userId:
+              type: string
+operations:
+  onUserSignup:
+    action: receive
+    channel:
+      $ref: '#/channels/channel1'

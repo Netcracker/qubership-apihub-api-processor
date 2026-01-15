@@ -102,9 +102,9 @@ export const compareDocuments: DocumentsCompare = async (
 
   // Iterate through operations in merged document
   const { operations } = merged
-  if (isObject(operations)) {
+  if (operations && isObject(operations)) {
     for (const [operationKey, operationData] of Object.entries(operations)) {
-      if (!isObject(operationData)) {
+      if (!operationData || !isObject(operationData)) {
         continue
       }
       const operationObject = operationData as AsyncAPIV3.OperationObject
@@ -114,17 +114,13 @@ export const compareDocuments: DocumentsCompare = async (
         continue
       }
 
-      //  todo check - ref must be resolved already in merged document
-      // Extract channel name from reference
-      const channelRef = (operationChannel as AsyncAPIV3.ReferenceObject)?.$ref
-      const channel = typeof channelRef === 'string' && channelRef.startsWith('#/channels/')
-        ? channelRef.split('/').pop() || operationKey
-        : operationKey
-
       // Use simple operation ID (no normalization needed for AsyncAPI)
-      const operationId = slugify(`${action}-${channel}`, SLUG_OPTIONS_OPERATION_ID)
+      const operationId = slugify(`${action}-${operationKey}`, SLUG_OPTIONS_OPERATION_ID)
 
-      const { current, previous } = operationsMap[operationId] ?? {}
+      const {
+        current,
+        previous ,
+      } = operationsMap[operationId] ?? {}
       if (!current && !previous) {
         throw new Error(`Can't find the ${operationId} operation from documents pair ${prevDoc?.fileId} and ${currDoc?.fileId}`)
       }
@@ -136,6 +132,10 @@ export const compareDocuments: DocumentsCompare = async (
       if (operationPotentiallyChanged) {
         operationDiffs = [
           ...(operationObject as WithAggregatedDiffs<AsyncAPIV3.OperationObject>)[DIFFS_AGGREGATED_META_KEY] ?? [],
+          // TODO: check
+          // ...extractAsyncApiVersionDiff(merged),
+          // ...extractRootServersDiffs(merged),
+          // ...extractChannelsDiffs(merged, operationChannel),
         ]
       }
       if (operationAddedOrRemoved) {
