@@ -17,6 +17,7 @@
 import {
   buildChangelogPackage,
   changesSummaryMatcher,
+  noChangesMatcher,
   numberOfImpactedOperationsMatcher,
   operationTypeMatcher,
 } from './helpers'
@@ -30,22 +31,28 @@ import {
 
 describe('AsyncAPI 3.0 Changelog', () => {
 
+  test('no changes', async () => {
+    const result = await buildChangelogPackage('asyncapi-changes/no-changes')
+
+    expect(result).toEqual(noChangesMatcher(ASYNCAPI_API_TYPE))
+  })
+
   describe('Channels', () => {
-    test('Add channel', async () => {
+    test('add channel', async () => {
       const result = await buildChangelogPackage('asyncapi-changes/channel/add')
 
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('Remove channel', async () => {
+    test('remove channel', async () => {
       const result = await buildChangelogPackage('asyncapi-changes/channel/remove')
 
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('Change channel address', async () => {
+    test('change channel address', async () => {
       const result = await buildChangelogPackage('asyncapi-changes/channel/change')
 
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
@@ -54,70 +61,93 @@ describe('AsyncAPI 3.0 Changelog', () => {
   })
 
   describe('Operations tests', () => {
-    test('Add operation', async () => {
+    test('add operation', async () => {
       const result = await buildChangelogPackage('asyncapi-changes/operation/add')
       expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('Remove operation', async () => {
+    test('add multiple operations', async () => {
+      const result = await buildChangelogPackage('asyncapi-changes/operation/add-multiple')
+      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
+    })
+
+    test('remove operation', async () => {
       const result = await buildChangelogPackage('asyncapi-changes/operation/remove')
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('Change operation', async () => {
+    test('add and remove operations', async () => {
+      const result = await buildChangelogPackage('asyncapi-changes/operation/add-remove')
+      expect(result).toEqual(changesSummaryMatcher({
+        [BREAKING_CHANGE_TYPE]: 1,
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+      }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({
+        [BREAKING_CHANGE_TYPE]: 1,
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+      }, ASYNCAPI_API_TYPE))
+    })
+
+    test('change operation', async () => {
       const result = await buildChangelogPackage('asyncapi-changes/operation/change')
 
       expect(result).toEqual(changesSummaryMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    // wrong
-    test('Rename operation', async () => {
+    test('renamed operation as add/remove', async () => {
       const result = await buildChangelogPackage('asyncapi-changes/operation/rename')
-      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(changesSummaryMatcher({
+        [BREAKING_CHANGE_TYPE]: 1,
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+      }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({
+        [BREAKING_CHANGE_TYPE]: 1,
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+      }, ASYNCAPI_API_TYPE))
     })
   })
 
   describe('Servers', () => {
-    test('Add server', async () => {
+    test('add server', async () => {
       const result = await buildChangelogPackage('asyncapi-changes/server/add')
 
       expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('Remove server', async () => {
+    test('remove server', async () => {
       const result = await buildChangelogPackage('asyncapi-changes/server/remove')
 
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('Change server', async () => {
+    test('change server', async () => {
       const result = await buildChangelogPackage('asyncapi-changes/server/change')
 
       expect(result).toEqual(changesSummaryMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('Add root servers', async () => {
+    test('add root servers', async () => {
       const result = await buildChangelogPackage('asyncapi-changes/server/add-root')
 
       expect(result).toEqual(changesSummaryMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('Remove root servers', async () => {
+    test('remove root servers', async () => {
       const result = await buildChangelogPackage('asyncapi-changes/server/remove-root')
 
       expect(result).toEqual(changesSummaryMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('Change root servers', async () => {
+    test('change root servers', async () => {
       const result = await buildChangelogPackage('asyncapi-changes/server/change-root')
 
       expect(result).toEqual(changesSummaryMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
