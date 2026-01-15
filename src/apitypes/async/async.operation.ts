@@ -177,7 +177,7 @@ const isOperationPaths = (paths: JsonPath[]): boolean => {
  * Creates a single operation spec from AsyncAPI document
  * Crops the document to contain only the specific operation
  */
-const createSingleOperationSpec = (
+export const createSingleOperationSpec = (
   document: AsyncAPIV3.AsyncAPIObject,
   operationKey: string,
   servers?: Record<string, any>,

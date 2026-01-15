@@ -1,0 +1,22 @@
+info:
+  title: Async Operation Spec Without Version
+  version: 1.0.0
+channels:
+  userEvents:
+    address: user.events
+    messages:
+      userSignedUp:
+        $ref: '#/components/messages/userSignedUp'
+operations:
+  onReceive:
+    action: receive
+    channel:
+      $ref: '#/channels/userEvents'
+components:
+  messages:
+    userSignedUp:
+      payload:
+        type: object
+        properties:
+          userId:
+            type: string
