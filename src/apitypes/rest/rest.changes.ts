@@ -125,8 +125,10 @@ export const compareDocuments: DocumentsCompare = async (
     currDocData = createCopyWithEmptyPathItems(prevDocData)
   }
 
+  const currDocumentApiKind = currDoc?.apiKind
+  // ApiKind is not guaranteed for the previous document, since we are downloaded this data and ApiKind is not a required field.
+  // In this case, we calculate ApiKind by labels in order of priority
   const prevDocumentApiKind = prevDoc?.apiKind || getApiKindProperty(prevDocData?.info) || calculateApiKindFromLabels(prevDoc?.labels, previousVersionLabels)
-  const currDocumentApiKind = currDoc?.apiKind || getApiKindProperty(currDocData?.info) || calculateApiKindFromLabels(currDoc?.labels, currentVersionLabels)
 
   const { merged, diffs } = apiDiff(
     prevDocData,

@@ -26,16 +26,13 @@ import {
   BuildResult,
   ChangeSummary,
   EMPTY_CHANGE_SUMMARY,
-  HASH_FLAG,
-  ORIGINS_SYMBOL,
-  SYNTHETIC_TITLE_FLAG,
+  SERIALIZE_SYMBOL_STRING_MAPPING,
   VERSION_STATUS,
 } from '../../src'
 import { buildSchema, introspectionFromSchema } from 'graphql/utilities'
 import { LocalRegistry } from './registry'
 import { Editor } from './editor'
 import { getFileExtension } from '../../src/utils'
-import { DIFF_META_KEY, DIFFS_AGGREGATED_META_KEY } from '@netcracker/qubership-apihub-api-diff'
 import { deserialize } from '@netcracker/qubership-apihub-api-unifier'
 
 export const loadFileAsString = async (filePath: string, folder: string, fileName: string): Promise<string | null> => {
@@ -273,14 +270,14 @@ export async function prepareChangelogDashboard(
   })
 }
 
-const DESERIALIZE_SYMBOL_STRING_MAPPING = new Map([
-  ['HASH_FLAG', HASH_FLAG],
-  ['ORIGINS_SYMBOL', ORIGINS_SYMBOL],
-  ['SYNTHETIC_TITLE_FLAG', SYNTHETIC_TITLE_FLAG],
-  ['DIFF_META_KEY', DIFF_META_KEY],
-  ['DIFFS_AGGREGATED_META_KEY', DIFFS_AGGREGATED_META_KEY],
-])
+const invertMap = (map: Map<symbol, string>): Map<string, symbol> => {
+  return new Map(
+    [...map].map(([key, value]) => [value, key]),
+  )
+}
 
-export function deserializeDocument(normalizedDocument: string): ApiDocument {
-  return deserialize(normalizedDocument, DESERIALIZE_SYMBOL_STRING_MAPPING) as ApiDocument
+const DESERIALIZE_SYMBOL_STRING_MAPPING = invertMap(SERIALIZE_SYMBOL_STRING_MAPPING)
+
+export function deserializeDocument(serializedDocument: string): ApiDocument {
+  return deserialize(serializedDocument, DESERIALIZE_SYMBOL_STRING_MAPPING) as ApiDocument
 }

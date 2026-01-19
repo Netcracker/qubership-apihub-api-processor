@@ -319,6 +319,7 @@ export class LocalRegistry implements IRegistry {
         filename: document.filename,
         labels: document?.metadata?.labels as Labels ?? [],
         title: document.title,
+        apiKind: document.apiKind,
         includedOperationIds: filterOperationIdsByGroup ? document.operationIds.filter(filterOperationIdsByGroup!) : document.operationIds,
         description: document.description,
         data: toBase64(JSON.stringify(document.data)),
