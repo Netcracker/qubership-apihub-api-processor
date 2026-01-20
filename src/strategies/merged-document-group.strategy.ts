@@ -26,7 +26,7 @@ import {
 import { DocumentGroupStrategy } from './document-group.strategy'
 import { OpenAPIV3 } from 'openapi-types'
 import { REST_API_TYPE } from '../apitypes'
-import { BUILD_TYPE, FILE_FORMAT_JSON } from '../consts'
+import { APIHUB_API_BWC_KIND, BUILD_TYPE, FILE_FORMAT_JSON } from '../consts'
 import { loadYaml } from '@netcracker/qubership-apihub-api-unifier'
 
 export class MergedDocumentGroupStrategy implements BuilderStrategy {
@@ -87,6 +87,7 @@ export class MergedDocumentGroupStrategy implements BuilderStrategy {
       metadata: {},
       publish: true,
       versionInternalDocument: createVersionInternalDocument(title),
+      apiKind: APIHUB_API_BWC_KIND,
     }
     return buildResult
   }

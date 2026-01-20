@@ -64,7 +64,7 @@ export interface VersionDocument<T = any> extends ZippableDocument<T> {
   */
   publish?: boolean
   source?: Blob
-  apiKind?: ApihubApiCompatibilityKind
+  apiKind: ApihubApiCompatibilityKind
   versionInternalDocument: VersionInternalDocument
 }
 

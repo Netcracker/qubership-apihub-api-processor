@@ -88,7 +88,7 @@ export const buildGraphQLOperation = (
     operationId,
     documentId: documentSlug,
     apiType: GRAPHQL_API_TYPE,
-    apiKind: documentApiKind || APIHUB_API_BWC_KIND,
+    apiKind: documentApiKind,
     deprecated: !!singleOperationEffectiveSpec[type]?.[method]?.directives?.deprecated,
     title: toTitleCase(method),
     metadata: {
