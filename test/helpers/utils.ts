@@ -276,7 +276,7 @@ const invertMap = (map: Map<unknown, unknown>): Map<unknown, unknown> => {
   )
 }
 
-const DESERIALIZE_SYMBOL_STRING_MAPPING = invertMap(SERIALIZE_SYMBOL_STRING_MAPPING)
+const DESERIALIZE_SYMBOL_STRING_MAPPING = invertMap(SERIALIZE_SYMBOL_STRING_MAPPING) as Map<string, symbol>
 
 export function deserializeDocument(serializedDocument: string): ApiDocument {
   return deserialize(serializedDocument, DESERIALIZE_SYMBOL_STRING_MAPPING) as ApiDocument
