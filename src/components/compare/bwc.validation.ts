@@ -142,7 +142,8 @@ export const createApihubApiCompatibilityScopeFunction = (
     }
 
     if (pathLength === OPERATION_OBJECT_PATH_LENGTH) {
-      if (isSpecificationExtension(path?.[2])) {
+      const propertyKey = path?.at(-1)
+      if (isSpecificationExtension(propertyKey)) {
         return undefined
       }
 
