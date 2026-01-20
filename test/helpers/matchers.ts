@@ -127,7 +127,7 @@ export function operationTypeMatcher(
   )
 }
 
-export function comparisonDocumentMatcher(
+export function comparisonDocumentDiffMatcher(
   expected: RecursiveMatcher<{ serializedComparisonDocument: AsymmetricMatcher<string> }>,
 ): ApihubComparisonDocumentMatcher {
   return expect.objectContaining({
@@ -274,7 +274,7 @@ export function serializedComparisonDocumentMatcher(
     return diffs
   }
 
-  return comparisonDocumentMatcher({
+  return comparisonDocumentDiffMatcher({
     serializedComparisonDocument: {
       asymmetricMatch: (actual: string): boolean => {
         try {
