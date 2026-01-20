@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-import { APIHUB_API_COMPATIBILITY_KIND_BWC, APIHUB_API_COMPATIBILITY_KIND_NO_BWC, ApihubApiCompatibilityKind } from '../../consts'
+import {
+  APIHUB_API_COMPATIBILITY_KIND_BWC, APIHUB_API_COMPATIBILITY_KIND_NO_BWC, ApihubApiCompatibilityKind,
+  SPECIFICATION_EXTENSION_PREFIX,
+} from '../../consts'
 import { isObject, isValidHttpMethod } from '../../utils'
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import {
@@ -66,6 +69,10 @@ export const getMethodsApiCompatibilityKind = (pathItemObject: OpenAPIV3.PathIte
 
 const hasApiKind = (obj: OpenAPIV3.OperationObject, apiKind: ApihubApiCompatibilityKind): boolean => {
   return getApiKindProperty(obj) === apiKind
+}
+
+const isSpecificationExtension = (propertyKey?: PropertyKey): boolean => {
+  return propertyKey?.toString()?.startsWith(SPECIFICATION_EXTENSION_PREFIX) ?? false
 }
 
 // If a path object is removed/added, we must ensure every HTTP method under it
@@ -135,6 +142,10 @@ export const createApihubApiCompatibilityScopeFunction = (
     }
 
     if (pathLength === OPERATION_OBJECT_PATH_LENGTH) {
+      if (isSpecificationExtension(path?.[2])) {
+        return undefined
+      }
+
       const beforeOperationObject = beforeJson as OpenAPIV3.OperationObject | undefined
       const afterOperationObject = afterJson as OpenAPIV3.OperationObject | undefined
 

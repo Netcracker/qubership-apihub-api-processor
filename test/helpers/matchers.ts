@@ -281,6 +281,7 @@ export function serializedComparisonDocumentMatcher(
           const deserializedDoc = deserializeDocument(actual)
           const diffs = extractAllDiffsFromDocument(deserializedDoc)
 
+          // TODO: It works, but it's not ideal way. It is better to do it by diffsMatcher.
           const diffTypes = new Set(diffs.map(diff => diff.type))
           return apiKinds.every(apiKind => diffTypes.has(apiKind))
         } catch (error) {

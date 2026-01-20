@@ -270,7 +270,7 @@ export async function prepareChangelogDashboard(
   })
 }
 
-const invertMap = (map: Map<symbol, string>): Map<string, symbol> => {
+const invertMap = (map: Map<unknown, unknown>): Map<unknown, unknown> => {
   return new Map(
     [...map].map(([key, value]) => [value, key]),
   )

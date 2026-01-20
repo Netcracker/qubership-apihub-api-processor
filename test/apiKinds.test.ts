@@ -21,13 +21,18 @@ import {
   BREAKING_CHANGE_TYPE,
   BUILD_TYPE,
   BuildResult,
+  EMPTY_CHANGE_SUMMARY,
   Labels,
+  NON_BREAKING_CHANGE_TYPE,
   RISKY_CHANGE_TYPE,
   UNCLASSIFIED_CHANGE_TYPE,
   VERSION_STATUS,
 } from '../src'
+import { jest } from '@jest/globals'
 import { changesSummaryMatcher, Editor, LocalRegistry, serializedComparisonDocumentMatcher } from './helpers'
 import { takeIfDefined } from '../src/utils'
+import * as bwcValidation from '../src/components/compare/bwc.validation'
+import { calculateOperationApiCompatibilityKind } from '../src/components/compare/bwc.validation'
 
 let afterPackage: LocalRegistry
 const AFTER_PACKAGE_ID = 'api-kinds'
@@ -604,6 +609,69 @@ describe('Check Api Compatibility Function tests', () => {
       const result = await runApiKindTest('api-kinds/remove-pathItem-operations-noBWC-and-noBWC-in-prev-document', [], [API_KIND_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 2 }))
       expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
+    })
+  })
+
+  describe('PathItem specification extensions tests', () => {
+    let calculateOperationApiCompatibilityKindSpy: ReturnType<typeof jest.spyOn>
+    let getMethodsApiCompatibilityKindSpy: ReturnType<typeof jest.spyOn>
+
+    beforeEach(() => {
+      calculateOperationApiCompatibilityKindSpy = jest.spyOn(bwcValidation, 'calculateOperationApiCompatibilityKind')
+      getMethodsApiCompatibilityKindSpy = jest.spyOn(bwcValidation, 'getMethodsApiCompatibilityKind')
+    })
+
+    afterEach(() => {
+      calculateOperationApiCompatibilityKindSpy.mockRestore()
+      getMethodsApiCompatibilityKindSpy.mockRestore()
+    })
+
+    const checkCalculateApiCompatibilityKindNotCallForSpecificationExtensions = (): void => {
+      // Call only for operations comparisons, but not for path item specification extensions
+      expect(calculateOperationApiCompatibilityKindSpy).toHaveBeenCalledTimes(1)
+      expect(calculateOperationApiCompatibilityKindSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          responses: expect.anything(),
+        }),
+        expect.objectContaining({
+          responses: expect.anything(),
+        }),
+        expect.any(String),
+        expect.any(String),
+      )
+
+      const [[before, after]] =
+        calculateOperationApiCompatibilityKindSpy.mock.calls
+      expect(before).not.toHaveProperty('extension-data')
+      expect(after).not.toHaveProperty('extension-data')
+
+      expect(getMethodsApiCompatibilityKindSpy).not.toHaveBeenCalled()
+    }
+
+    test('should not calculate apiKind for path item specification extensions', async () => {
+      await runApiKindTest('api-kinds/change-spec-extension-object-in-pathItem')
+      expect(calculateOperationApiCompatibilityKindSpy).not.toHaveBeenCalled()
+      expect(getMethodsApiCompatibilityKindSpy).not.toHaveBeenCalled()
+    })
+
+    test('should not calculate apiKind for path item specification extension string when remove it', async () => {
+      await runApiKindTest('api-kinds/remove-spec-extension-string-in-pathItem')
+      checkCalculateApiCompatibilityKindNotCallForSpecificationExtensions()
+    })
+
+    test('should not calculate apiKind for path item specification extension object when remove it', async () => {
+      await runApiKindTest('api-kinds/remove-spec-extension-object-in-pathItem')
+      checkCalculateApiCompatibilityKindNotCallForSpecificationExtensions()
+    })
+
+    test('should not calculate apiKind for path item specification extension string when add it', async () => {
+      await runApiKindTest('api-kinds/add-spec-extension-string-in-pathItem')
+      checkCalculateApiCompatibilityKindNotCallForSpecificationExtensions()
+    })
+
+    test('should not calculate apiKind for path item specification extension object when add it', async () => {
+      await runApiKindTest('api-kinds/add-spec-extension-object-in-pathItem')
+      checkCalculateApiCompatibilityKindNotCallForSpecificationExtensions()
     })
   })
 
