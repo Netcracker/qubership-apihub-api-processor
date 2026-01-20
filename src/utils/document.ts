@@ -32,7 +32,6 @@ import {
 } from '../types'
 import { bundle, Resolver } from 'api-ref-bundler'
 import {
-  APIHUB_API_COMPATIBILITY_KIND_BWC,
   FILE_FORMAT_HTML,
   FILE_FORMAT_JSON,
   FILE_FORMAT_YAML,
@@ -62,7 +61,6 @@ export function toVersionDocument(document: ResolvedGroupDocument, fileFormat: F
     dependencies: [],
     description: '',
     metadata: {},
-    apiKind: APIHUB_API_COMPATIBILITY_KIND_BWC,
     versionInternalDocument: createVersionInternalDocument(document.slug),
   }
 }

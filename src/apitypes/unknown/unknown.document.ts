@@ -21,10 +21,10 @@ import {
   getBundledFileDataWithDependencies,
   getDocumentTitle,
 } from '../../utils'
-import { APIHUB_API_COMPATIBILITY_KIND_BWC, FILE_FORMAT } from '../../consts'
+import { FILE_FORMAT } from '../../consts'
 
 export const buildUnknownDocument: DocumentBuilder<string> = async (parsedFile, file, ctx): Promise<VersionDocument> => {
-  const { fileId, slug = '', publish, apiKind: apiKindFormLabels, ...metadata } = file
+  const { fileId, slug = '', publish, ...metadata } = file
   const { type, format, source } = parsedFile
 
   let description = ''
@@ -59,13 +59,12 @@ export const buildUnknownDocument: DocumentBuilder<string> = async (parsedFile, 
     metadata,
     errors: parsedFile.errors?.length ?? 0,
     source,
-    apiKind: apiKindFormLabels || APIHUB_API_COMPATIBILITY_KIND_BWC,
     versionInternalDocument: createVersionInternalDocument(slug),
   }
 }
 
 export const buildBinaryDocument: (parsedFile: SourceFile, file: BuildConfigFile) => Promise<VersionDocument> = async (parsedFile, file): Promise<VersionDocument> => {
-  const { fileId, slug = '', publish, apiKind: apiKindFormLabels, ...metadata } = file
+  const { fileId, slug = '', publish, ...metadata } = file
   const { type, format, source } = parsedFile
 
   return {
@@ -82,7 +81,6 @@ export const buildBinaryDocument: (parsedFile: SourceFile, file: BuildConfigFile
     filename: fileId,
     metadata,
     source,
-    apiKind: apiKindFormLabels || APIHUB_API_COMPATIBILITY_KIND_BWC,
     versionInternalDocument: createVersionInternalDocument(slug),
   }
 }

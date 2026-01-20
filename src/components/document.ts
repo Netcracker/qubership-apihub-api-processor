@@ -33,7 +33,7 @@ import {
 import { buildBinaryDocument, REST_KIND_KEY, unknownApiBuilder } from '../apitypes'
 
 export const buildErrorDocument = (file: BuildConfigFile, parsedFile?: TextFile): VersionDocument => {
-  const { fileId, slug = '', publish = true, apiKind: apiKindFromLabels, ...metadata } = file
+  const { fileId, slug = '', publish = true, ...metadata } = file
   return {
     fileId: fileId,
     type: DOCUMENT_TYPE.UNKNOWN,
@@ -48,7 +48,6 @@ export const buildErrorDocument = (file: BuildConfigFile, parsedFile?: TextFile)
     operationIds: [],
     metadata,
     source: parsedFile?.source,
-    apiKind: apiKindFromLabels || APIHUB_API_COMPATIBILITY_KIND_BWC,
     versionInternalDocument: createVersionInternalDocument(slug),
   }
 }

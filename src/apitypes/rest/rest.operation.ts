@@ -47,7 +47,7 @@ import {
   takeIfDefined,
 } from '../../utils'
 import { getUsedTags } from '../../utils/mergeOpenapiDocuments'
-import { INLINE_REFS_FLAG, ORIGINS_SYMBOL, VERSION_STATUS } from '../../consts'
+import { APIHUB_API_COMPATIBILITY_KIND_BWC, INLINE_REFS_FLAG, ORIGINS_SYMBOL, VERSION_STATUS } from '../../consts'
 import { extractSecuritySchemesNames, getCustomTags, resolveApiAudience } from './rest.utils'
 import { DebugPerformanceContext, syncDebugPerformance } from '../../utils/logs'
 import {
@@ -68,6 +68,7 @@ import { extractOperationBasePath } from '@netcracker/qubership-apihub-api-diff'
 import { calculateHash, ObjectHashCache } from '../../utils/hashes'
 import { calculateTolerantHash } from '../../components/deprecated'
 import { getValueByPath } from '../../utils/path'
+import { getApiKindProperty } from '../../components/document'
 
 export const buildRestOperation = (
   operationId: string,
@@ -142,6 +143,7 @@ export const buildRestOperation = (
   }, debugCtx)
 
   const models: Record<string, string> = {}
+  const operationApiKind = getApiKindProperty(effectiveOperationObject) || documentApiKind || APIHUB_API_COMPATIBILITY_KIND_BWC
   const [specWithSingleOperation] = syncDebugPerformance('[ModelsAndOperationHashing]', () => {
     const operationSecurity = effectiveOperationObject.security
     const specWithSingleOperation = createSingleOperationSpec(
@@ -170,7 +172,7 @@ export const buildRestOperation = (
     operationId,
     documentId: documentSlug,
     apiType: REST_API_TYPE,
-    apiKind: documentApiKind,
+    apiKind: operationApiKind,
     deprecated: !!effectiveOperationObject.deprecated,
     title: effectiveOperationObject.summary || operationId.split('-').map(str => capitalize(str)).join(' '),
     metadata: {
