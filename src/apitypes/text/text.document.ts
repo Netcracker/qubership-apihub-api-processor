@@ -17,9 +17,10 @@
 import { DocumentBuilder, DocumentDumper, VersionDocument } from '../../types'
 import { TEXT_DOCUMENT_TYPE } from './text.consts'
 import { createVersionInternalDocument } from '../../utils'
+import { APIHUB_API_COMPATIBILITY_KIND_BWC } from '../../consts'
 
 export const buildTextDocument: DocumentBuilder<string> = async (parsedFile, file): Promise<VersionDocument<string>> => {
-  const { fileId, slug = '', publish = true, ...metadata } = file
+  const { fileId, slug = '', publish = true, apiKind: apiKindFormLabels, ...metadata } = file
   return {
     fileId,
     type: TEXT_DOCUMENT_TYPE.MARKDOWN,
@@ -34,6 +35,7 @@ export const buildTextDocument: DocumentBuilder<string> = async (parsedFile, fil
     operationIds: [],
     metadata,
     source: parsedFile.source,
+    apiKind: apiKindFormLabels || APIHUB_API_COMPATIBILITY_KIND_BWC,
     versionInternalDocument: createVersionInternalDocument(slug),
   }
 }
