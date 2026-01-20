@@ -25,7 +25,7 @@ import type { GraphQLSchema, IntrospectionQuery } from 'graphql'
 import { BuildConfigFile, DocumentDumper, TextFile, VersionDocument } from '../../types'
 import { GRAPHQL_DOCUMENT_TYPE } from './graphql.consts'
 import { createVersionInternalDocument } from '../../utils'
-import { APIHUB_API_BWC_KIND } from '../../consts'
+import { APIHUB_API_COMPATIBILITY_KIND_BWC } from '../../consts'
 
 export const buildGraphQLDocument = async (parsedFile: TextFile, file: BuildConfigFile): Promise<VersionDocument<GraphApiSchema>> => {
   let graphapi: GraphApiSchema
@@ -46,7 +46,7 @@ export const buildGraphQLDocument = async (parsedFile: TextFile, file: BuildConf
     format,
     data: graphapi,
     publish,
-    apiKind: apiKindFromLabels || APIHUB_API_BWC_KIND,
+    apiKind: apiKindFromLabels || APIHUB_API_COMPATIBILITY_KIND_BWC,
     slug, // unique slug should be already generated
     filename: `${slug}.graphql`,
     title: fileId.split('/').pop()!.replace(/\.[^/.]+$/, ''),

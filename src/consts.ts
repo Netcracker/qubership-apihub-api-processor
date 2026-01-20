@@ -108,13 +108,13 @@ export const VERSION_STATUS = {
   NONE: '', // non-existent status for changelog builds
 } as const
 
-export const APIHUB_API_BWC_KIND = 'bwc'
-export const APIHUB_API_NO_BWC_KIND = 'no-bwc'
-export const APIHUB_API_EXPERIMENTAL_KIND = 'experimental'
+export const APIHUB_API_COMPATIBILITY_KIND_BWC = 'bwc'
+export const APIHUB_API_COMPATIBILITY_KIND_NO_BWC = 'no-bwc'
+export const APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL = 'experimental'
 
-export type ApihubApiCompatibilityKind = typeof APIHUB_API_BWC_KIND
-  | typeof APIHUB_API_NO_BWC_KIND
-  | typeof APIHUB_API_EXPERIMENTAL_KIND
+export type ApihubApiCompatibilityKind = typeof APIHUB_API_COMPATIBILITY_KIND_BWC
+  | typeof APIHUB_API_COMPATIBILITY_KIND_NO_BWC
+  | typeof APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL
 
 export const API_KIND_LABEL = 'apihub/x-api-kind'
 

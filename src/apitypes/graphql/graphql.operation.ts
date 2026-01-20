@@ -24,7 +24,7 @@ import {
   takeIf,
   takeIfDefined,
 } from '../../utils'
-import { APIHUB_API_BWC_KIND, INLINE_REFS_FLAG, ORIGINS_SYMBOL, VERSION_STATUS } from '../../consts'
+import { INLINE_REFS_FLAG, ORIGINS_SYMBOL, VERSION_STATUS } from '../../consts'
 import { GraphQLSchemaType, VersionGraphQLDocument, VersionGraphQLOperation } from './graphql.types'
 import { GRAPHQL_API_TYPE, GRAPHQL_TYPE } from './graphql.consts'
 import { GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'

@@ -15,9 +15,9 @@
  */
 
 import {
-  APIHUB_API_BWC_KIND,
-  APIHUB_API_EXPERIMENTAL_KIND,
-  APIHUB_API_NO_BWC_KIND,
+  APIHUB_API_COMPATIBILITY_KIND_BWC,
+  APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL,
+  APIHUB_API_COMPATIBILITY_KIND_NO_BWC,
   BREAKING_CHANGE_TYPE,
   BUILD_TYPE,
   BuildResult,
@@ -50,7 +50,7 @@ describe('API Kinds test', () => {
       }],
     })
 
-    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_NO_BWC_KIND)
+    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
   })
 
   test('document with uppercase label must have no-bwc api kind', async () => {
@@ -65,7 +65,7 @@ describe('API Kinds test', () => {
       }],
     })
 
-    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_NO_BWC_KIND)
+    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
   })
 
   test('document with label must have experimental api kind', async () => {
@@ -80,7 +80,7 @@ describe('API Kinds test', () => {
       }],
     })
 
-    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_EXPERIMENTAL_KIND)
+    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL)
   })
 
   test('document with incorrect label value must have bwc api kind', async () => {
@@ -95,7 +95,7 @@ describe('API Kinds test', () => {
       }],
     })
 
-    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_BWC_KIND)
+    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_BWC)
   })
 
   test('version with label must have no-bwc api kind', async () => {
@@ -112,7 +112,7 @@ describe('API Kinds test', () => {
       },
     })
 
-    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_NO_BWC_KIND)
+    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
   })
 })
 
@@ -459,7 +459,7 @@ describe('Check Api Compatibility Function tests', () => {
     })
   })
 
-  describe('Remove operations/pathItem tests', () => {
+  describe('Remove operations tests', () => {
     test('should apply removed operations as BWC by default', async () => {
       const result = await runApiKindTest('api-kinds/remove-operations-bwc')
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }))
@@ -477,7 +477,9 @@ describe('Check Api Compatibility Function tests', () => {
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }))
       expect(result).toEqual(serializedComparisonDocumentMatcher([BREAKING_CHANGE_TYPE]))
     })
+  })
 
+  describe('Remove pathItem tests', () => {
     test('should apply removed operations as no-BWC by default', async () => {
       const result = await runApiKindTest('api-kinds/remove-operations-noBWC')
       expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))

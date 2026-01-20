@@ -28,7 +28,7 @@ import {
   ExportFormat,
   VersionDocument,
 } from '../../types'
-import { APIHUB_API_BWC_KIND, FILE_FORMAT, FILE_FORMAT_HTML, FILE_FORMAT_JSON } from '../../consts'
+import { APIHUB_API_COMPATIBILITY_KIND_BWC, FILE_FORMAT, FILE_FORMAT_HTML, FILE_FORMAT_JSON } from '../../consts'
 import {
   createBundlingErrorHandler,
   createVersionInternalDocument,
@@ -76,7 +76,7 @@ export const buildRestDocument: DocumentBuilder<OpenAPIV3.Document> = async (par
 
   let bundledFileData = data
 
-  const documentApiKind = getApiKindProperty(bundledFileData?.info) || apiKindFromLabels || APIHUB_API_BWC_KIND
+  const documentApiKind = getApiKindProperty(bundledFileData?.info) || apiKindFromLabels || APIHUB_API_COMPATIBILITY_KIND_BWC
 
   if (parsedFile.type === REST_DOCUMENT_TYPE.SWAGGER) {
     try {

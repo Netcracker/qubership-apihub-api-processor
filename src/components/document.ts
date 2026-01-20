@@ -17,7 +17,7 @@
 import { BuildConfigFile, BuilderContext, FILE_KIND, SourceFile, TextFile, VersionDocument } from '../types'
 import {
   API_KIND_LABEL,
-  APIHUB_API_BWC_KIND,
+  APIHUB_API_COMPATIBILITY_KIND_BWC,
   ApihubApiCompatibilityKind,
   DOCUMENT_TYPE,
   FILE_FORMAT_UNKNOWN,
@@ -48,7 +48,7 @@ export const buildErrorDocument = (file: BuildConfigFile, parsedFile?: TextFile)
     operationIds: [],
     metadata,
     source: parsedFile?.source,
-    apiKind: apiKindFromLabels || APIHUB_API_BWC_KIND,
+    apiKind: apiKindFromLabels || APIHUB_API_COMPATIBILITY_KIND_BWC,
     versionInternalDocument: createVersionInternalDocument(slug),
   }
 }
@@ -72,7 +72,7 @@ export const buildDocument = async (parsedFile: SourceFile, file: BuildConfigFil
 
 export const calculateApiKindFromLabels = (fileLabels: unknown, versionLabels: unknown): ApihubApiCompatibilityKind => {
   if (!Array.isArray(fileLabels) && !Array.isArray(versionLabels)) {
-    return APIHUB_API_BWC_KIND
+    return APIHUB_API_COMPATIBILITY_KIND_BWC
   }
 
   const labels = [
@@ -87,10 +87,10 @@ export const calculateApiKindFromLabels = (fileLabels: unknown, versionLabels: u
 
     const match = new RegExp(`${API_KIND_LABEL}:`).exec(label)
     if (match) {
-      return rawToApiKind(label.slice(match[0].length).trim(), APIHUB_API_BWC_KIND)
+      return rawToApiKind(label.slice(match[0].length).trim(), APIHUB_API_COMPATIBILITY_KIND_BWC)
     }
   }
-  return APIHUB_API_BWC_KIND
+  return APIHUB_API_COMPATIBILITY_KIND_BWC
 }
 
 export const getApiKindProperty = (obj: unknown, defaultApiKind?: ApihubApiCompatibilityKind): ApihubApiCompatibilityKind | undefined => {

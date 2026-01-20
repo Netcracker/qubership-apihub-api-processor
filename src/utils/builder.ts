@@ -29,9 +29,9 @@ import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import { OperationPair } from '../components'
 import { isString } from './objects'
 import {
-  APIHUB_API_BWC_KIND,
-  APIHUB_API_EXPERIMENTAL_KIND,
-  APIHUB_API_NO_BWC_KIND,
+  APIHUB_API_COMPATIBILITY_KIND_BWC,
+  APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL,
+  APIHUB_API_COMPATIBILITY_KIND_NO_BWC,
   ApihubApiCompatibilityKind,
 } from '../consts'
 
@@ -183,7 +183,7 @@ export const rawToApiKind = <T extends ApihubApiCompatibilityKind | undefined>(a
     return defaultApiKind
   }
   const candidate = apiKindLike.toLowerCase() as ApihubApiCompatibilityKind
-  return [APIHUB_API_BWC_KIND, APIHUB_API_NO_BWC_KIND, APIHUB_API_EXPERIMENTAL_KIND].includes(candidate) ? candidate : defaultApiKind
+  return [APIHUB_API_COMPATIBILITY_KIND_BWC, APIHUB_API_COMPATIBILITY_KIND_NO_BWC, APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL].includes(candidate) ? candidate : defaultApiKind
 }
 
 export const calculateApiAudienceTransitions = (

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { APIHUB_API_BWC_KIND, APIHUB_API_NO_BWC_KIND, ApihubApiCompatibilityKind } from '../../consts'
+import { APIHUB_API_COMPATIBILITY_KIND_BWC, APIHUB_API_COMPATIBILITY_KIND_NO_BWC, ApihubApiCompatibilityKind } from '../../consts'
 import { isObject, isValidHttpMethod } from '../../utils'
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import {
@@ -38,12 +38,12 @@ export const calculateOperationApiCompatibilityKind = (
 
   // Handle operation removal: compatibility depends on the removed operation's kind
   if (isOperationRemoved) {
-    return beforeKind === APIHUB_API_NO_BWC_KIND
+    return beforeKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC
       ? API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
       : API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
   }
 
-  if (beforeKind === APIHUB_API_NO_BWC_KIND || afterKind === APIHUB_API_NO_BWC_KIND) {
+  if (beforeKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC || afterKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC) {
     return API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
   }
 
@@ -51,15 +51,15 @@ export const calculateOperationApiCompatibilityKind = (
 }
 
 export const getMethodsApiCompatibilityKind = (pathItemObject: OpenAPIV3.PathItemObject, prevDocumentApiKind: ApihubApiCompatibilityKind): ApiCompatibilityKind => {
-  if (checkAllMethodsHaveSameApiKind(pathItemObject, APIHUB_API_NO_BWC_KIND)) {
+  if (checkAllMethodsHaveSameApiKind(pathItemObject, APIHUB_API_COMPATIBILITY_KIND_NO_BWC)) {
     return API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
   }
 
-  if (checkAllMethodsHaveSameApiKind(pathItemObject, APIHUB_API_BWC_KIND)) {
+  if (checkAllMethodsHaveSameApiKind(pathItemObject, APIHUB_API_COMPATIBILITY_KIND_BWC)) {
     return API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
   }
 
-  return prevDocumentApiKind === APIHUB_API_NO_BWC_KIND
+  return prevDocumentApiKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC
     ? API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
     : API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
 }
@@ -86,10 +86,10 @@ const PATH_ITEM_PATH_LENGTH = 2
 const OPERATION_OBJECT_PATH_LENGTH = 3
 
 export const createApihubApiCompatibilityScopeFunction = (
-  prevDocumentApiKind: ApihubApiCompatibilityKind = APIHUB_API_BWC_KIND,
-  currDocumentApiKind: ApihubApiCompatibilityKind = APIHUB_API_BWC_KIND,
+  prevDocumentApiKind: ApihubApiCompatibilityKind = APIHUB_API_COMPATIBILITY_KIND_BWC,
+  currDocumentApiKind: ApihubApiCompatibilityKind = APIHUB_API_COMPATIBILITY_KIND_BWC,
 ): ApiCompatibilityScopeFunction => {
-  const defaultApiCompatibilityKind = (prevDocumentApiKind === APIHUB_API_NO_BWC_KIND || currDocumentApiKind === APIHUB_API_NO_BWC_KIND)
+  const defaultApiCompatibilityKind = (prevDocumentApiKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC || currDocumentApiKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
     ? API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
     : API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
 
