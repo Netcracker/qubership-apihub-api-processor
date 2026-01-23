@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-import { ApiKind, DeprecateItem, OperationsApiType } from '../external'
+import { DeprecateItem, OperationsApiType } from '../external'
 import { ApiAudience } from '../package'
 import { OpenAPIV3 } from 'openapi-types'
 import { GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
+import { ApihubApiCompatibilityKind } from '../../consts'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/cjs/spec-types'
 
 export type SearchScopes<T extends string = string> = Record<T, Set<string>>
@@ -26,7 +27,7 @@ export interface ApiOperation<T = any, M = any> {
   operationId: string
   documentId: string
   apiType: OperationsApiType
-  apiKind: ApiKind
+  apiKind: ApihubApiCompatibilityKind
   deprecated: boolean
   tags: string[]
   metadata: M
