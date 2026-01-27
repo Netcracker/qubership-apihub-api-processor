@@ -33,7 +33,7 @@ import {
 } from '../../consts'
 import YAML from 'js-yaml'
 import { Diff, DIFF_META_KEY, DIFFS_AGGREGATED_META_KEY } from '@netcracker/qubership-apihub-api-diff'
-import { isPathParamRenameDiff } from '../../utils'
+import { capitalize, isPathParamRenameDiff } from '../../utils'
 
 
 export function getCustomTags(data: object): CustomTags {
@@ -156,3 +156,9 @@ export function validateGroupPrefix(group: unknown, paramName: string): void {
     throw new Error(`${paramName} must begin and end with a "/" character and contain at least one meaningful character, received: "${group}"`)
   }
 }
+
+export const formatRestOperationId = (operationId: string): string =>
+  operationId
+    .split('-')
+    .map(str => capitalize(str.replace(/_/g, '')))
+    .join(' ')
