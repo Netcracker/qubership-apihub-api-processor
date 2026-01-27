@@ -32,7 +32,7 @@ import {
 import {
   _calculateRestOperationIdV1,
   buildSearchScope,
-  calculateRestOperationId,
+  calculateRestOperationId, calculateRestOperationTitle,
   extractSymbolProperty,
   getKeyValue,
   getSplittedVersionKey,
@@ -47,7 +47,7 @@ import {
 } from '../../utils'
 import { getUsedTags } from '../../utils/mergeOpenapiDocuments'
 import { APIHUB_API_COMPATIBILITY_KIND_BWC, INLINE_REFS_FLAG, ORIGINS_SYMBOL, VERSION_STATUS } from '../../consts'
-import { extractSecuritySchemesNames, formatRestOperationId, getCustomTags, resolveApiAudience } from './rest.utils'
+import { extractSecuritySchemesNames, getCustomTags, resolveApiAudience } from './rest.utils'
 import { DebugPerformanceContext, syncDebugPerformance } from '../../utils/logs'
 import {
   calculateDeprecatedItems,
@@ -173,7 +173,7 @@ export const buildRestOperation = (
     apiType: REST_API_TYPE,
     apiKind: operationApiKind,
     deprecated: !!effectiveOperationObject.deprecated,
-    title: effectiveOperationObject.summary || formatRestOperationId(operationId),
+    title: effectiveOperationObject.summary || calculateRestOperationTitle(basePath, method, path),
     metadata: {
       customTags: customTags,
       path: normalizePath(basePath + path),
