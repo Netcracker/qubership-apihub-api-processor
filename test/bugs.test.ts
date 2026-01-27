@@ -367,7 +367,7 @@ describe('Operation Bugs', () => {
     expect(data).toHaveProperty(['paths', '/test', 'post', 'responses', '200', 'content', 'application/json', 'schema', 'properties', 'testConnectionDate', 'example'], '2022-03-10T16:15:50Z')
   })
 
-  test('should rest operationId title format as a readable without extra characters', async () => {
+  test('should format rest operationId title without extra characters', async () => {
     const editor = await Editor.openProject('bugs', bugsPackage)
     const result = await editor.run({
       files: [{fileId: 'title-rest-operation-id-format.yaml', publish: true}],
