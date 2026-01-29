@@ -19,9 +19,11 @@ import {
   buildChangelogPackage,
   buildGqlChangelogPackage,
   DEFAULT_PROJECTS_PATH,
+  Editor,
   loadFileAsString,
+  LocalRegistry,
 } from './helpers'
-import { OperationChanges } from '../src'
+import { BUILD_TYPE, BuildConfigFile, BuildResult, OperationChanges, VERSION_STATUS } from '../src'
 
 describe('Comparison Internal Documents tests', () => {
 
@@ -100,6 +102,80 @@ describe('Comparison Internal Documents tests', () => {
   })
 
   describe('Dashboards tests', () => {
+    async function buildChangelogLinkedDashboards(
+      packageId1: string,
+      packageId2: string,
+    ): Promise<BuildResult> {
+      const AFTER_VERSION_ID = 'v1'
+      const BEFORE_VERSION_ID = 'v2'
+      const dashboardPackageId1 = 'dashboards/dashboard1'
+      const dashboardPackageId2 = 'dashboards/dashboard2'
+      const filesBefore: BuildConfigFile[] = [{ fileId: 'v1.yaml' }]
+      const filesAfter: BuildConfigFile[] = [{ fileId: 'v2.yaml' }]
+
+      const pkg1 = LocalRegistry.openPackage(packageId1)
+      await pkg1.publish(pkg1.packageId, {
+        packageId: pkg1.packageId,
+        version: BEFORE_VERSION_ID,
+        files: filesBefore,
+      })
+
+      await pkg1.publish(pkg1.packageId, {
+        packageId: pkg1.packageId,
+        version: AFTER_VERSION_ID,
+        previousVersion: BEFORE_VERSION_ID,
+        files: filesAfter,
+      })
+
+      const pkg2 = LocalRegistry.openPackage(packageId2)
+      await pkg2.publish(pkg2.packageId, {
+        packageId: pkg2.packageId,
+        version: BEFORE_VERSION_ID,
+        files: filesBefore,
+      })
+
+      await pkg2.publish(pkg2.packageId, {
+        packageId: pkg2.packageId,
+        version: AFTER_VERSION_ID,
+        previousVersion: BEFORE_VERSION_ID,
+        files: filesAfter,
+      })
+
+      const dashboard1 = LocalRegistry.openPackage(dashboardPackageId1)
+      await dashboard1.publish(dashboard1.packageId, {
+        packageId: dashboardPackageId1,
+        version: BEFORE_VERSION_ID,
+        apiType: 'rest',
+        refs: [
+          { refId: pkg1.packageId, version: BEFORE_VERSION_ID },
+          { refId: pkg2.packageId, version: BEFORE_VERSION_ID },
+        ],
+      })
+
+      const dashboard2 = LocalRegistry.openPackage(dashboardPackageId2)
+      await dashboard2.publish(dashboard2.packageId, {
+        packageId: dashboardPackageId2,
+        version: AFTER_VERSION_ID,
+        apiType: 'rest',
+        previousVersion: BEFORE_VERSION_ID,
+        previousVersionPackageId: dashboard1.packageId,
+        refs: [
+          { refId: pkg1.packageId, version: AFTER_VERSION_ID },
+          { refId: pkg2.packageId, version: AFTER_VERSION_ID },
+        ],
+      })
+
+      const editor = new Editor(dashboard2.packageId, {
+        version: AFTER_VERSION_ID,
+        packageId: dashboard2.packageId,
+        previousVersionPackageId: dashboard2.packageId,
+        previousVersion: BEFORE_VERSION_ID,
+        buildType: BUILD_TYPE.CHANGELOG,
+        status: VERSION_STATUS.RELEASE,
+      })
+      return await editor.run()
+    }
+
     it('should dashboards have comparison internal data', async () => {
       const result = await buildChangelogDashboard('dashboards/pckg1', 'dashboards/pckg2')
       const { comparisons } = result
@@ -116,6 +192,16 @@ describe('Comparison Internal Documents tests', () => {
 
       expect(operationChanges2.comparisonInternalDocumentId).toEqual(internalDocument2.comparisonDocumentId)
       expect(operationChanges2['comparisonInternalDocumentId']).toEqual('dashboards/pckg2_v2_v2_dashboards/pckg2')
+    })
+
+    it('should dashboards have different comparison internal document ids', async () => {
+      const result = await buildChangelogLinkedDashboards('dashboards/pckg1', 'dashboards/pckg2')
+
+      const [comparisons1, comparisons2] = result.comparisons
+      const dashboardsComparisonDocumentId1 = comparisons1.comparisonInternalDocuments['0'].comparisonDocumentId
+      const dashboardsComparisonDocumentId2 = comparisons2.comparisonInternalDocuments['0'].comparisonDocumentId
+
+      expect(dashboardsComparisonDocumentId1).not.toEqual(dashboardsComparisonDocumentId2)
     })
   })
 
@@ -205,4 +291,3 @@ describe('Comparison Internal Documents tests', () => {
     })
   }
 })
-

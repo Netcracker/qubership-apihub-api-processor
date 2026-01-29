@@ -308,7 +308,7 @@ type FileParam = string | undefined
 type FileParams = FileParam[] | null
 
 export const createComparisonFileId = (prev: FileParams | null, curr: FileParams): string => {
-  return [...prev || [], ...curr || []].filter(Boolean).join('_')
+  return [...prev || [], ...curr || []].filter(Boolean).join('_').replace(/\//g, '_')
 }
 
 export const createComparisonInternalDocumentId = (
