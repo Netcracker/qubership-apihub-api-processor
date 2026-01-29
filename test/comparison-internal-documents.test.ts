@@ -30,34 +30,34 @@ describe('Comparison Internal Documents tests', () => {
   describe('OAS tests', () => {
     runCommonPreProcessedChangelogDocumentsTests(
       'comparison-internal-documents/case2',
-      'before_v1_comparison-internal-documents/case2_after_v2_comparison-internal-documents/case2',
+      'before_v1_comparison-internal-documents_case2_after_v2_comparison-internal-documents_case2',
     )
 
     it('should have comparison internal document data for add operation', async () => {
       await checkComparisonInternalDocumentIdExist(
         'changelog/add-operation',
-        'before_v1_changelog/add-operation_after_v2_changelog/add-operation',
+        'before_v1_changelog_add-operation_after_v2_changelog_add-operation',
       )
     })
 
     it('should have comparison internal document data for change inside operation', async () => {
       await checkComparisonInternalDocumentIdExist(
         'changelog/change-inside-operation',
-        'before_v1_changelog/change-inside-operation_after_v2_changelog/change-inside-operation',
+        'before_v1_changelog_change-inside-operation_after_v2_changelog_change-inside-operation',
       )
     })
 
     it('should have comparison internal document data for operation changes fields', async () => {
       await checkComparisonInternalDocumentIdExist(
         'changelog/operation-changes-fields',
-        'before_v1_changelog/operation-changes-fields_after_v2_changelog/operation-changes-fields',
+        'before_v1_changelog_operation-changes-fields_after_v2_changelog_operation-changes-fields',
       )
     })
 
     it('should have comparison internal document data for remove operation', async () => {
       await checkComparisonInternalDocumentIdExist(
         'changelog/remove-operation',
-        'before_v1_changelog/remove-operation_after_v2_changelog/remove-operation',
+        'before_v1_changelog_remove-operation_after_v2_changelog_remove-operation',
       )
     })
   })
@@ -65,14 +65,14 @@ describe('Comparison Internal Documents tests', () => {
   describe('Graphql tests', () => {
     runCommonPreProcessedChangelogDocumentsTests(
       'comparison-internal-documents/case1',
-      'before_v1_comparison-internal-documents/case1_after_v2_comparison-internal-documents/case1',
+      'before_v1_comparison-internal-documents_case1_after_v2_comparison-internal-documents_case1',
       true,
     )
 
     it('should have comparison internal document data for add operation', async () => {
       await checkComparisonInternalDocumentIdExist(
         'graphql-changes/add-operation',
-        'before_v1_graphql-changes/add-operation_after_v2_graphql-changes/add-operation',
+        'before_v1_graphql-changes_add-operation_after_v2_graphql-changes_add-operation',
         true,
       )
     })
@@ -80,7 +80,7 @@ describe('Comparison Internal Documents tests', () => {
     it('should have comparison internal document data for change inside operation', async () => {
       await checkComparisonInternalDocumentIdExist(
         'graphql-changes/change-inside-operation',
-        'before_v1_graphql-changes/change-inside-operation_after_v2_graphql-changes/change-inside-operation',
+        'before_v1_graphql-changes_change-inside-operation_after_v2_graphql-changes_change-inside-operation',
         true,
       )
     })
@@ -88,14 +88,14 @@ describe('Comparison Internal Documents tests', () => {
     it('should have comparison internal document data for operation changes fields', async () => {
       await checkComparisonInternalDocumentIdExist(
         'graphql-changes/operation-changes-fields',
-        'before_v1_graphql-changes/operation-changes-fields_after_v2_graphql-changes/operation-changes-fields',
+        'before_v1_graphql-changes_operation-changes-fields_after_v2_graphql-changes_operation-changes-fields',
         true,
       )
     })
     it('should have comparison internal document data for remove operation', async () => {
       await checkComparisonInternalDocumentIdExist(
         'graphql-changes/remove-operation',
-        'before_v1_graphql-changes/remove-operation_after_v2_graphql-changes/remove-operation',
+        'before_v1_graphql-changes_remove-operation_after_v2_graphql-changes_remove-operation',
         true,
       )
     })
@@ -185,13 +185,13 @@ describe('Comparison Internal Documents tests', () => {
       const [operationChanges1] = comparisons1.data as OperationChanges[]
 
       expect(operationChanges1.comparisonInternalDocumentId).toEqual(internalDocument1.comparisonDocumentId)
-      expect(operationChanges1['comparisonInternalDocumentId']).toEqual('v1_v1_dashboards/pckg1')
+      expect(operationChanges1['comparisonInternalDocumentId']).toEqual('v1_v1_dashboards_pckg1')
 
       const [internalDocument2] = comparisons2.comparisonInternalDocuments
       const [operationChanges2] = comparisons2.data as OperationChanges[]
 
       expect(operationChanges2.comparisonInternalDocumentId).toEqual(internalDocument2.comparisonDocumentId)
-      expect(operationChanges2['comparisonInternalDocumentId']).toEqual('dashboards/pckg2_v2_v2_dashboards/pckg2')
+      expect(operationChanges2['comparisonInternalDocumentId']).toEqual('dashboards_pckg2_v2_v2_dashboards_pckg2')
     })
 
     it('should dashboards have different comparison internal document ids', async () => {
