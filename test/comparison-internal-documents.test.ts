@@ -26,41 +26,76 @@ import { OperationChanges } from '../src'
 describe('Comparison Internal Documents tests', () => {
 
   describe('OAS tests', () => {
-    runCommonPreProcessedChangelogDocumentsTests('comparison-internal-documents/case2')
+    runCommonPreProcessedChangelogDocumentsTests(
+      'comparison-internal-documents/case2',
+      'before_v1_comparison-internal-documents/case2_after_v2_comparison-internal-documents/case2',
+    )
 
     it('should have comparison internal document data for add operation', async () => {
-      await checkComparisonInternalDocumentIdExist('changelog/add-operation')
+      await checkComparisonInternalDocumentIdExist(
+        'changelog/add-operation',
+        'before_v1_changelog/add-operation_after_v2_changelog/add-operation',
+      )
     })
 
     it('should have comparison internal document data for change inside operation', async () => {
-      await checkComparisonInternalDocumentIdExist('changelog/change-inside-operation')
+      await checkComparisonInternalDocumentIdExist(
+        'changelog/change-inside-operation',
+        'before_v1_changelog/change-inside-operation_after_v2_changelog/change-inside-operation',
+      )
     })
 
     it('should have comparison internal document data for operation changes fields', async () => {
-      await checkComparisonInternalDocumentIdExist('changelog/operation-changes-fields')
+      await checkComparisonInternalDocumentIdExist(
+        'changelog/operation-changes-fields',
+        'before_v1_changelog/operation-changes-fields_after_v2_changelog/operation-changes-fields',
+      )
     })
 
     it('should have comparison internal document data for remove operation', async () => {
-      await checkComparisonInternalDocumentIdExist('changelog/remove-operation')
+      await checkComparisonInternalDocumentIdExist(
+        'changelog/remove-operation',
+        'before_v1_changelog/remove-operation_after_v2_changelog/remove-operation',
+      )
     })
   })
 
   describe('Graphql tests', () => {
-    runCommonPreProcessedChangelogDocumentsTests('comparison-internal-documents/case1', true)
+    runCommonPreProcessedChangelogDocumentsTests(
+      'comparison-internal-documents/case1',
+      'before_v1_comparison-internal-documents/case1_after_v2_comparison-internal-documents/case1',
+      true,
+    )
 
     it('should have comparison internal document data for add operation', async () => {
-      await checkComparisonInternalDocumentIdExist('graphql-changes/add-operation', true)
+      await checkComparisonInternalDocumentIdExist(
+        'graphql-changes/add-operation',
+        'before_v1_graphql-changes/add-operation_after_v2_graphql-changes/add-operation',
+        true,
+      )
     })
 
     it('should have comparison internal document data for change inside operation', async () => {
-      await checkComparisonInternalDocumentIdExist('graphql-changes/change-inside-operation', true)
+      await checkComparisonInternalDocumentIdExist(
+        'graphql-changes/change-inside-operation',
+        'before_v1_graphql-changes/change-inside-operation_after_v2_graphql-changes/change-inside-operation',
+        true,
+      )
     })
 
     it('should have comparison internal document data for operation changes fields', async () => {
-      await checkComparisonInternalDocumentIdExist('graphql-changes/operation-changes-fields', true)
+      await checkComparisonInternalDocumentIdExist(
+        'graphql-changes/operation-changes-fields',
+        'before_v1_graphql-changes/operation-changes-fields_after_v2_graphql-changes/operation-changes-fields',
+        true,
+      )
     })
     it('should have comparison internal document data for remove operation', async () => {
-      await checkComparisonInternalDocumentIdExist('graphql-changes/remove-operation', true)
+      await checkComparisonInternalDocumentIdExist(
+        'graphql-changes/remove-operation',
+        'before_v1_graphql-changes/remove-operation_after_v2_graphql-changes/remove-operation',
+        true,
+      )
     })
   })
 
@@ -74,18 +109,18 @@ describe('Comparison Internal Documents tests', () => {
       const [operationChanges1] = comparisons1.data as OperationChanges[]
 
       expect(operationChanges1.comparisonInternalDocumentId).toEqual(internalDocument1.comparisonDocumentId)
-      expect(operationChanges1['comparisonInternalDocumentId']).toEqual('v1_v1')
+      expect(operationChanges1['comparisonInternalDocumentId']).toEqual('v1_v1_dashboards/pckg1')
 
       const [internalDocument2] = comparisons2.comparisonInternalDocuments
       const [operationChanges2] = comparisons2.data as OperationChanges[]
 
       expect(operationChanges2.comparisonInternalDocumentId).toEqual(internalDocument2.comparisonDocumentId)
-      expect(operationChanges2['comparisonInternalDocumentId']).toEqual('v2_v2')
+      expect(operationChanges2['comparisonInternalDocumentId']).toEqual('dashboards/pckg2_v2_v2_dashboards/pckg2')
     })
   })
 
   // Checking for the existence of comparison internal document fields
-  async function checkComparisonInternalDocumentIdExist(packageId: string, isGraphql: boolean = false): Promise<void> {
+  async function checkComparisonInternalDocumentIdExist(packageId: string, comparisonInternalDocumentId: string, isGraphql: boolean = false): Promise<void> {
     const result = isGraphql
       ? await buildGqlChangelogPackage(packageId)
       : await buildChangelogPackage(packageId)
@@ -102,11 +137,11 @@ describe('Comparison Internal Documents tests', () => {
     expect(document.comparisonFileId).not.toBeNull()
 
     expect(operationChanges).toHaveProperty('comparisonInternalDocumentId')
-    expect(operationChanges['comparisonInternalDocumentId']).toEqual('before_v1_after_v2')
+    expect(operationChanges['comparisonInternalDocumentId']).toEqual(comparisonInternalDocumentId)
   }
 
   // Checking the correctness of the filling comparison internal document data
-  async function runCommonPreProcessedChangelogDocumentsTests(packageId: string, isGraphql: boolean = false): Promise<void> {
+  async function runCommonPreProcessedChangelogDocumentsTests(packageId: string, comparisonInternalDocumentId: string, isGraphql: boolean = false): Promise<void> {
     it('should comparisons have comparisonInternalDocuments', async () => {
       const result = isGraphql
         ? await buildGqlChangelogPackage(packageId)
@@ -122,7 +157,7 @@ describe('Comparison Internal Documents tests', () => {
 
       comparisons.forEach(comparison => {
         const [document] = comparison.comparisonInternalDocuments
-        expect(document.comparisonDocumentId).toEqual('before_v1_after_v2')
+        expect(document.comparisonDocumentId).toEqual(comparisonInternalDocumentId)
         expect(JSON.parse(document.serializedComparisonDocument)).toEqual(JSON.parse(expectedComparisonFile as string))
         expect(document).toHaveProperty('comparisonFileId')
       })
@@ -137,7 +172,7 @@ describe('Comparison Internal Documents tests', () => {
         expect(data).not.toBeNull()
         data && data.forEach(operationChanges => {
           expect(operationChanges).toHaveProperty('comparisonInternalDocumentId')
-          expect(operationChanges['comparisonInternalDocumentId']).toEqual('before_v1_after_v2')
+          expect(operationChanges['comparisonInternalDocumentId']).toEqual(comparisonInternalDocumentId)
         })
       })
     })
