@@ -312,12 +312,12 @@ export const createComparisonFileId = (prev: FileParams | null, curr: FileParams
 }
 
 export const createComparisonInternalDocumentId = (
-  prevSlug: string | undefined,
   previousVersion: string,
   previousPackageId: string,
-  currSlug: string | undefined,
+  prevSlug: string | undefined,
   currentVersion: string,
   currentPackageId: string,
+  currSlug: string | undefined,
 ): string => {
   return createComparisonFileId([prevSlug, previousVersion, previousPackageId || currentPackageId], [currSlug, currentVersion, currentPackageId])
 }

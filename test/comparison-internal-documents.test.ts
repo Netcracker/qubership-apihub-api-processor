@@ -23,9 +23,43 @@ import {
   loadFileAsString,
   LocalRegistry,
 } from './helpers'
-import { BUILD_TYPE, BuildConfigFile, BuildResult, OperationChanges, VERSION_STATUS } from '../src'
+import {
+  BUILD_TYPE,
+  BuildConfigFile,
+  BuildResult,
+  createComparisonInternalDocumentId,
+  OperationChanges,
+  VERSION_STATUS,
+} from '../src'
 
 describe('Comparison Internal Documents tests', () => {
+
+  describe('Comparison documents id unit tests', () => {
+    it('should create different ids for prev and curr documents ', () => {
+      const version = '1.0.0'
+      const packageId = 'myPackage'
+      const slug = 'mySlug'
+
+      const beforeInternalDocumentId = createComparisonInternalDocumentId(
+        version,
+        packageId,
+        slug,
+        '',
+        '',
+        '',
+      )
+      const afterInternalDocumentId = createComparisonInternalDocumentId(
+        '',
+        '',
+        '',
+        version,
+        packageId,
+        slug,
+      )
+
+      expect(beforeInternalDocumentId).not.toEqual(afterInternalDocumentId)
+    })
+  })
 
   describe('OAS tests', () => {
     runCommonPreProcessedChangelogDocumentsTests(
@@ -194,7 +228,7 @@ describe('Comparison Internal Documents tests', () => {
       expect(operationChanges2['comparisonInternalDocumentId']).toEqual('dashboards_pckg2_v2_v2_dashboards_pckg2')
     })
 
-    it('should dashboards have different comparison internal document ids', async () => {
+    it('should publish changelog for dashboard that contains packages that have changes and the same document names and versions', async () => {
       const result = await buildChangelogLinkedDashboards('dashboards/pckg1', 'dashboards/pckg2')
 
       const [comparisons1, comparisons2] = result.comparisons
