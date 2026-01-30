@@ -20,7 +20,7 @@ import type { Parser, ParseOutput, Diagnostic } from '@asyncapi/parser'
 import { ASYNC_DOCUMENT_TYPE, ASYNC_FILE_FORMAT } from './async.consts'
 import { FILE_KIND, TextFile } from '../../types'
 import { getFileExtension } from '../../utils'
-import { v3 as AsyncAPIV3 } from '@asyncapi/parser/cjs/spec-types'
+import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 
 interface ValidationError {
   message: string

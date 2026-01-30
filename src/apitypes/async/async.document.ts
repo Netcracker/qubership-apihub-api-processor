@@ -24,7 +24,7 @@ import {
   getDocumentTitle,
 } from '../../utils'
 import { dump } from '../../utils/apihubSpecificationExtensions'
-import { v3 as AsyncAPIV3 } from '@asyncapi/parser/cjs/spec-types'
+import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 
 const asyncApiDocumentMeta = (data: AsyncAPIV3.AsyncAPIObject): AsyncAPIV3.InfoObject => {
   if (typeof data !== 'object' || !data) {

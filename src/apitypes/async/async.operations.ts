@@ -17,21 +17,20 @@
 import { buildAsyncApiOperation } from './async.operation'
 import { OperationsBuilder } from '../../types'
 import {
+  calculateRestOperationId,
   createBundlingErrorHandler,
   createSerializedInternalDocument,
   isNotEmpty,
   removeComponents,
-  SLUG_OPTIONS_OPERATION_ID,
-  slugify,
 } from '../../utils'
 import type * as TYPE from './async.types'
+import { AsyncOperationActionType } from './async.types'
 import { INLINE_REFS_FLAG } from '../../consts'
 import { asyncFunction } from '../../utils/async'
 import { logLongBuild, syncDebugPerformance } from '../../utils/logs'
 import { normalize, RefErrorType } from '@netcracker/qubership-apihub-api-unifier'
 import { ASYNC_EFFECTIVE_NORMALIZE_OPTIONS } from './async.consts'
-import { v3 as AsyncAPIV3 } from '@asyncapi/parser/cjs/spec-types'
-import { AsyncOperationActionType } from './async.types'
+import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 
 type OperationInfo = { channel: string; action: string }
 type DuplicateEntry = { operationId: string; operations: OperationInfo[] }
@@ -42,25 +41,25 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
 
   const { notifications, normalizedSpecFragmentsHashCache, config } = ctx
   const { effectiveDocument, refsOnlyDocument } = syncDebugPerformance('[NormalizeDocument]', () => {
-    const effectiveDocument = normalize(
-      documentWithoutComponents,
-      {
-        ...ASYNC_EFFECTIVE_NORMALIZE_OPTIONS,
-        source: document.data,
-        onRefResolveError: (message: string, _path: PropertyKey[], _ref: string, errorType: RefErrorType) =>
-          bundlingErrorHandler([{ message, errorType }]),
-      },
-    ) as AsyncAPIV3.AsyncAPIObject
-    const refsOnlyDocument = normalize(
-      documentWithoutComponents,
-      {
-        mergeAllOf: false,
-        inlineRefsFlag: INLINE_REFS_FLAG,
-        source: document.data,
-      },
-    ) as AsyncAPIV3.AsyncAPIObject
-    return { effectiveDocument, refsOnlyDocument }
-  },
+      const effectiveDocument = normalize(
+        documentWithoutComponents,
+        {
+          ...ASYNC_EFFECTIVE_NORMALIZE_OPTIONS,
+          source: document.data,
+          onRefResolveError: (message: string, _path: PropertyKey[], _ref: string, errorType: RefErrorType) =>
+            bundlingErrorHandler([{ message, errorType }]),
+        },
+      ) as AsyncAPIV3.AsyncAPIObject
+      const refsOnlyDocument = normalize(
+        documentWithoutComponents,
+        {
+          mergeAllOf: false,
+          inlineRefsFlag: INLINE_REFS_FLAG,
+          source: document.data,
+        },
+      ) as AsyncAPIV3.AsyncAPIObject
+      return { effectiveDocument, refsOnlyDocument }
+    },
     debugCtx,
   )
 
@@ -78,45 +77,43 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
     if (!operationData || typeof operationData !== 'object') {
       continue
     }
-
+    const operationObject = operationData as AsyncAPIV3.OperationObject
     await asyncFunction(async () => {
-      // Extract action and channel from operation
-      const action = (operationData as any).action as AsyncOperationActionType
-      const channelRef = (operationData as any).channel
+      const action = operationObject.action as AsyncOperationActionType
+      const channel = operationObject.channel as AsyncAPIV3.ChannelObject
+      const servers = channel.servers as AsyncAPIV3.ServerObject[]
 
-      if (!action || !channelRef) {
+      if (!action || !channel) {
         return
       }
 
-      // Extract channel name from reference (e.g., "#/channels/userSignup" -> "userSignup")
-      const channel = typeof channelRef === 'string' && channelRef.startsWith('#/channels/')
-        ? channelRef.split('/').pop() || operationKey
-        : operationKey
+      const basePath = extractAsyncOperationBasePath(servers)
 
-      // TODO: Consider using operationId from spec if present (operationData.operationId)
-      const operationId = slugify(`${action}-${channel}`, SLUG_OPTIONS_OPERATION_ID)
+      // TODO how to calculate operationId in AsyncAPI?
+      const operationId = calculateRestOperationId(basePath, operationKey, action)
 
       const trackedOperations = operationIdMap.get(operationId) ?? []
-      trackedOperations.push({ channel, action })
+      // TODO review
+      trackedOperations.push({ channel: operationKey, action })
       operationIdMap.set(operationId, trackedOperations)
 
       syncDebugPerformance('[Operation]', (innerDebugCtx) =>
         logLongBuild(() => {
-          const operation = buildAsyncApiOperation(
-            operationId,
-            operationKey,
-            action,
-            channel,
-            document,
-            effectiveDocument,
-            refsOnlyDocument,
-            notifications,
-            config,
-            normalizedSpecFragmentsHashCache,
-            innerDebugCtx,
-          )
-          operations.push(operation)
-        },
+            const operation = buildAsyncApiOperation(
+              operationId,
+              operationKey,
+              action,
+              channel,
+              document,
+              effectiveDocument,
+              refsOnlyDocument,
+              notifications,
+              config,
+              normalizedSpecFragmentsHashCache,
+              innerDebugCtx,
+            )
+            operations.push(operation)
+          },
           `${config.packageId}/${config.version} ${operationId}`,
         ), debugCtx, [operationId])
     })
@@ -152,3 +149,30 @@ function createDuplicatesError(fileId: string, duplicates: DuplicateEntry[]): Er
   return new Error(`Duplicated operationIds found within document '${fileId}':\n${duplicatesList}`)
 }
 
+//TODO move to diff utils
+export const extractAsyncOperationBasePath = (servers?: AsyncAPIV3.ServerObject[]): string => {
+  if (!Array.isArray(servers) || !servers.length) { return '' }
+
+  try {
+    const [firstServer] = servers
+    let serverUrl = firstServer.host + (firstServer.protocol ? `:${firstServer.protocol}` : '')
+    if (!serverUrl) {
+      return ''
+    }
+
+    const { variables = {} } = firstServer as AsyncAPIV3.ServerObject
+
+    for (const param of Object.keys(variables)) {
+      const serverVariableObject = (variables as Record<string, AsyncAPIV3.ServerVariableObject>)[param] as AsyncAPIV3.ServerVariableObject
+      const serverVariableDefault = serverVariableObject?.default
+      if (serverVariableDefault) {
+        serverUrl = serverUrl.replace(new RegExp(`{${param}}`, 'g'), serverVariableDefault)
+      }
+    }
+
+    const { pathname } = new URL(serverUrl, 'https://localhost')
+    return pathname.slice(-1) === '/' ? pathname.slice(0, -1) : pathname
+  } catch (error) {
+    return ''
+  }
+}

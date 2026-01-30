@@ -39,14 +39,15 @@ import {
 } from '@netcracker/qubership-apihub-api-unifier'
 import { calculateHash, ObjectHashCache } from '../../utils/hashes'
 import { extractProtocol } from './async.utils'
-import { v3 as AsyncAPIV3 } from '@asyncapi/parser/cjs/spec-types'
+import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { getApiKindProperty } from '../../components/document'
+import { AsyncOperationActionType, VersionAsyncOperation } from './async.types'
 
 export const buildAsyncApiOperation = (
   operationId: string,
   operationKey: string,
-  action: 'send' | 'receive',
-  channel: string,
+  action: AsyncOperationActionType,
+  channel: AsyncAPIV3.ChannelObject,
   document: TYPE.VersionAsyncDocument,
   effectiveDocument: AsyncAPIV3.AsyncAPIObject,
   refsOnlyDocument: AsyncAPIV3.AsyncAPIObject,
@@ -54,13 +55,13 @@ export const buildAsyncApiOperation = (
   config: BuildConfig,
   normalizedSpecFragmentsHashCache: ObjectHashCache,
   debugCtx?: DebugPerformanceContext,
-): TYPE.VersionAsyncOperation => {
-
-  const { apiKind: documentApiKind, servers, components } = document.data
-  const { versionInternalDocument } = document
+): VersionAsyncOperation => {
+  const { apiKind: documentApiKind, data: documentData, slug: documentSlug, versionInternalDocument, metadata: documentMetadata } = document
+  const { servers, components } = documentData
   const effectiveOperationObject: AsyncAPIV3.OperationObject = effectiveDocument.operations?.[operationKey] as AsyncAPIV3.OperationObject || {}
   const effectiveSingleOperationSpec = createSingleOperationSpec(effectiveDocument, operationKey)
 
+  // TODO check tags. Its more complex in AsyncAPI
   const tags: string[] = effectiveOperationObject?.tags?.map(tag => (tag as AsyncAPIV3.TagObject)?.name) || []
 
   // Extract search scopes (similar to REST)
@@ -83,7 +84,7 @@ export const buildAsyncApiOperation = (
     )
   }, debugCtx)
 
-  // Calculate deprecated items
+  // TODO: Need to understand how to handle deprecations in AsyncAPI operations properly
   const deprecatedItems: DeprecateItem[] = []
   syncDebugPerformance('[DeprecatedItems]', () => {
     const foundedDeprecatedItems = calculateDeprecatedItems(effectiveSingleOperationSpec, ORIGINS_SYMBOL)
@@ -110,14 +111,12 @@ export const buildAsyncApiOperation = (
     }
   }, debugCtx)
 
-  // Extract API kind
   const operationApiKind = getApiKindProperty(effectiveOperationObject) || documentApiKind || APIHUB_API_COMPATIBILITY_KIND_BWC
 
-  // Build operation data with models
   const models: Record<string, string> = {}
   const [specWithSingleOperation] = syncDebugPerformance('[ModelsAndOperationHashing]', () => {
     const specWithSingleOperation = createSingleOperationSpec(
-      document.data,
+      documentData,
       operationKey,
       servers,
       components,
@@ -132,22 +131,24 @@ export const buildAsyncApiOperation = (
   const customTags = getCustomTags(effectiveOperationObject)
 
   // Resolve API audience
-  const apiAudience = resolveApiAudience(document.metadata?.info)
+  const apiAudience = resolveApiAudience(documentMetadata?.info)
 
   // Extract protocol from servers or channel bindings
   const protocol = extractProtocol(effectiveDocument, channel)
 
   return {
     operationId,
-    documentId: document.slug,
+    documentId: documentSlug,
     apiType: 'asyncapi',
     apiKind: operationApiKind,
     //todo check deprecated
     deprecated: false,
+    // TODO check title, we changed it in release
     title: effectiveOperationObject.title || effectiveOperationObject.summary || operationKey.split('-').map(str => capitalize(str)).join(' '),
     metadata: {
       action,
-      channel,
+      // TODO check channel name extraction
+      channel: channel.title || '',
       protocol,
       customTags,
     },
@@ -179,8 +180,8 @@ const isOperationPaths = (paths: JsonPath[]): boolean => {
 export const createSingleOperationSpec = (
   document: AsyncAPIV3.AsyncAPIObject,
   operationKey: string,
-  servers?: Record<string, any>,
-  components?: Record<string, any>,
+  servers?: AsyncAPIV3.ServersObject,
+  components?: AsyncAPIV3.ComponentsObject,
 ): TYPE.AsyncOperationData => {
   const operation = document.operations?.[operationKey]
 

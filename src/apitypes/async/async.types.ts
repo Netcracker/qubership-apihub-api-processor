@@ -17,7 +17,7 @@
 import { ApiOperation, NotificationMessage, VersionDocument } from '../../types'
 import { ASYNC_DOCUMENT_TYPE, ASYNC_SCOPES } from './async.consts'
 import { CustomTags } from '../../utils/apihubSpecificationExtensions'
-import { v3 as AsyncAPIV3 } from '@asyncapi/parser/cjs/spec-types'
+import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 
 export type AsyncScopeType = keyof typeof ASYNC_SCOPES
 export type AsyncDocumentType = (typeof ASYNC_DOCUMENT_TYPE)[keyof typeof ASYNC_DOCUMENT_TYPE]

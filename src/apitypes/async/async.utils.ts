@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { v3 as AsyncAPIV3 } from '@asyncapi/parser/cjs/spec-types'
+import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { isObject } from '../../utils'
 import { AsyncOperationActionType } from './async.types'
 
@@ -27,7 +27,7 @@ export { dump, getCustomTags, resolveApiAudience } from '../../utils/apihubSpeci
  * @param channel - Channel name
  * @returns Protocol string (e.g., 'kafka', 'amqp', 'mqtt') or 'unknown'
  */
-export function extractProtocol(document: AsyncAPIV3.AsyncAPIObject, channel: string): string {
+export function extractProtocol(document: AsyncAPIV3.AsyncAPIObject, channel: AsyncAPIV3.ChannelObject): string {
   // Try to extract protocol from servers
   const { servers } = document
   if (isObject(servers)) {
@@ -39,11 +39,10 @@ export function extractProtocol(document: AsyncAPIV3.AsyncAPIObject, channel: st
   }
 
   // Try to extract protocol from channel bindings
-  if (document.channels && document.channels[channel]) {
-    const channelObj = document.channels[channel]
-    if (isObject(channelObj)) {
+  if (channel) {
+    if (isObject(channel)) {
       // Check for protocol in bindings
-      const { bindings } = channelObj
+      const { bindings } = channel
       if (isObject(bindings)) {
         // Common protocol bindings: kafka, amqp, mqtt, http, ws, etc.
         const knownProtocols = ['kafka', 'amqp', 'mqtt', 'http', 'ws', 'websockets', 'jms', 'nats', 'redis', 'sns', 'sqs']

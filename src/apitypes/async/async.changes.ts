@@ -45,7 +45,7 @@ import {
   getOperationTags,
   OperationsMap,
 } from '../../components'
-import { v3 as AsyncAPIV3 } from '@asyncapi/parser/cjs/spec-types'
+import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 
 export const compareDocuments: DocumentsCompare = async (
   operationsMap: OperationsMap,
