@@ -53,3 +53,5 @@ export const ASYNC_EFFECTIVE_NORMALIZE_OPTIONS: NormalizeOptions = {
   originsFlag: ORIGINS_SYMBOL,
   hashFlag: HASH_FLAG,
 }
+
+export const ASYNC_KNOWN_PROTOCOLS = ['kafka', 'amqp', 'mqtt', 'http', 'ws', 'websockets', 'jms', 'nats', 'redis', 'sns', 'sqs']

@@ -20,7 +20,7 @@ import {
   calculateRestOperationId,
   createBundlingErrorHandler,
   createSerializedInternalDocument,
-  isNotEmpty,
+  isNotEmpty, isObject,
   removeComponents,
 } from '../../utils'
 import type * as TYPE from './async.types'
@@ -32,12 +32,13 @@ import { normalize, RefErrorType } from '@netcracker/qubership-apihub-api-unifie
 import { ASYNC_EFFECTIVE_NORMALIZE_OPTIONS } from './async.consts'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 
-type OperationInfo = { channel: string; action: string }
+type OperationInfo = { operationKey: string; action: string }
 type DuplicateEntry = { operationId: string; operations: OperationInfo[] }
 
 export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObject> = async (document, ctx, debugCtx) => {
-  const documentWithoutComponents = removeComponents(document.data)
-  const bundlingErrorHandler = createBundlingErrorHandler(ctx, document.fileId)
+  const { data: documentData, fileId: documentFileId } = document
+  const documentWithoutComponents = removeComponents(documentData)
+  const bundlingErrorHandler = createBundlingErrorHandler(ctx, documentFileId)
 
   const { notifications, normalizedSpecFragmentsHashCache, config } = ctx
   const { effectiveDocument, refsOnlyDocument } = syncDebugPerformance('[NormalizeDocument]', () => {
@@ -45,7 +46,7 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
         documentWithoutComponents,
         {
           ...ASYNC_EFFECTIVE_NORMALIZE_OPTIONS,
-          source: document.data,
+          source: documentData,
           onRefResolveError: (message: string, _path: PropertyKey[], _ref: string, errorType: RefErrorType) =>
             bundlingErrorHandler([{ message, errorType }]),
         },
@@ -55,7 +56,7 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
         {
           mergeAllOf: false,
           inlineRefsFlag: INLINE_REFS_FLAG,
-          source: document.data,
+          source: documentData,
         },
       ) as AsyncAPIV3.AsyncAPIObject
       return { effectiveDocument, refsOnlyDocument }
@@ -66,7 +67,7 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
   const { operations: operationsObj } = effectiveDocument
 
   const operations: TYPE.VersionAsyncOperation[] = []
-  if (!operationsObj || typeof operationsObj !== 'object') {
+  if (!isObject(operationsObj)) {
     return []
   }
 
@@ -74,7 +75,7 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
 
   // Iterate through all operations in AsyncAPI 3.0 document
   for (const [operationKey, operationData] of Object.entries(operationsObj)) {
-    if (!operationData || typeof operationData !== 'object') {
+    if (!isObject(operationData)) {
       continue
     }
     const operationObject = operationData as AsyncAPIV3.OperationObject
@@ -94,7 +95,7 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
 
       const trackedOperations = operationIdMap.get(operationId) ?? []
       // TODO review
-      trackedOperations.push({ channel: operationKey, action })
+      trackedOperations.push({ operationKey, action })
       operationIdMap.set(operationId, trackedOperations)
 
       syncDebugPerformance('[Operation]', (innerDebugCtx) =>
@@ -121,7 +122,7 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
 
   const duplicates = findDuplicates(operationIdMap)
   if (isNotEmpty(duplicates)) {
-    throw createDuplicatesError(document.fileId, duplicates)
+    throw createDuplicatesError(documentFileId, duplicates)
   }
 
   if (operations.length) {
@@ -141,7 +142,7 @@ function createDuplicatesError(fileId: string, duplicates: DuplicateEntry[]): Er
   const duplicatesList = duplicates
     .map(({ operationId, operations }) => {
       const operationsList = operations
-        .map((operation: OperationInfo) => `${operation.action.toUpperCase()} ${operation.channel}`)
+        .map((operation: OperationInfo) => `${operation.action.toUpperCase()} ${operation.operationKey}`)
         .join(', ')
       return `- operationId '${operationId}': Found ${operations.length} operations: ${operationsList}`
     })

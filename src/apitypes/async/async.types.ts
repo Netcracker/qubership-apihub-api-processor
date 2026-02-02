@@ -15,13 +15,14 @@
  */
 
 import { ApiOperation, NotificationMessage, VersionDocument } from '../../types'
-import { ASYNC_DOCUMENT_TYPE, ASYNC_SCOPES } from './async.consts'
+import { ASYNC_DOCUMENT_TYPE, ASYNC_KNOWN_PROTOCOLS, ASYNC_SCOPES } from './async.consts'
 import { CustomTags } from '../../utils/apihubSpecificationExtensions'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 
 export type AsyncScopeType = keyof typeof ASYNC_SCOPES
 export type AsyncDocumentType = (typeof ASYNC_DOCUMENT_TYPE)[keyof typeof ASYNC_DOCUMENT_TYPE]
 export type AsyncOperationActionType = 'send' | 'receive'
+
 /**
  * AsyncAPI 3.0 operation metadata
  */
@@ -39,6 +40,9 @@ export interface AsyncDocumentInfo {
   title: string
   description: string
   version: string
+  info?: Partial<AsyncAPIV3.InfoObject>
+  externalDocs?: Partial<AsyncAPIV3.ExternalDocumentationObject>
+  tags: AsyncAPIV3.TagObject[]
 }
 
 /**
@@ -56,12 +60,13 @@ export interface AsyncOperationData {
 export type VersionAsyncDocument = VersionDocument<AsyncAPIV3.AsyncAPIObject>
 export type VersionAsyncOperation = ApiOperation<AsyncOperationData, AsyncOperationMeta>
 
+// TODO Delete AsyncRefCache if not used in future
 export interface AsyncRefCache {
   scopes: Record<AsyncScopeType, string>
   refs: string[]
   data: any
 }
-
+// TODO Delete AsyncOperationContext if not used in future
 export interface AsyncOperationContext {
   operationId: string
   scopes: Record<AsyncScopeType, string>
@@ -70,3 +75,5 @@ export interface AsyncOperationContext {
   refsCache: Record<string, AsyncRefCache>
   notifications: NotificationMessage[]
 }
+
+export type AsyncProtocol = typeof ASYNC_KNOWN_PROTOCOLS[number] | 'unknown'

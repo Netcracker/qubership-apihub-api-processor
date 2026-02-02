@@ -111,7 +111,7 @@ export const buildAsyncApiOperation = (
     }
   }, debugCtx)
 
-  const operationApiKind = getApiKindProperty(effectiveOperationObject) || documentApiKind || APIHUB_API_COMPATIBILITY_KIND_BWC
+  const operationApiKind = getApiKindProperty(effectiveOperationObject)
 
   const models: Record<string, string> = {}
   const [specWithSingleOperation] = syncDebugPerformance('[ModelsAndOperationHashing]', () => {

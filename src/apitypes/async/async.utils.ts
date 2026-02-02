@@ -16,7 +16,8 @@
 
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { isObject } from '../../utils'
-import { AsyncOperationActionType } from './async.types'
+import { AsyncOperationActionType, AsyncProtocol } from './async.types'
+import { ASYNC_KNOWN_PROTOCOLS } from './async.consts'
 
 // Re-export shared utilities
 export { dump, getCustomTags, resolveApiAudience } from '../../utils/apihubSpecificationExtensions'
@@ -27,33 +28,37 @@ export { dump, getCustomTags, resolveApiAudience } from '../../utils/apihubSpeci
  * @param channel - Channel name
  * @returns Protocol string (e.g., 'kafka', 'amqp', 'mqtt') or 'unknown'
  */
-export function extractProtocol(document: AsyncAPIV3.AsyncAPIObject, channel: AsyncAPIV3.ChannelObject): string {
+export function extractProtocol(document: AsyncAPIV3.AsyncAPIObject, channel: AsyncAPIV3.ChannelObject): AsyncProtocol {
+  // TODO why servers is preferred over channel bindings?
   // Try to extract protocol from servers
   const { servers } = document
   if (isObject(servers)) {
     for (const server of Object.values(servers)) {
       if (isServerObject(server)) {
-        return String(server.protocol)
+        return server.protocol
       }
     }
   }
 
   // Try to extract protocol from channel bindings
   if (channel) {
-    if (isObject(channel)) {
-      // Check for protocol in bindings
-      const { bindings } = channel
-      if (isObject(bindings)) {
-        // Common protocol bindings: kafka, amqp, mqtt, http, ws, etc.
-        const knownProtocols = ['kafka', 'amqp', 'mqtt', 'http', 'ws', 'websockets', 'jms', 'nats', 'redis', 'sns', 'sqs']
-        for (const protocol of knownProtocols) {
-          if (bindings[protocol]) {
-            return protocol
-          }
-        }
+    const bindings = channel?.bindings as AsyncAPIV3.ChannelBindingsObject
+    if (isObject(bindings)) {
+      const protocol = ASYNC_KNOWN_PROTOCOLS.find(protocol => protocol in bindings)
+      if (protocol) {
+        return protocol
       }
     }
   }
+
+  // TODO check needed?
+  // if (isObject(channel.servers)) {
+  //   for (const server of Object.values(channel.servers as AsyncAPIV3.ServerObject[])) {
+  //     if (isServerObject(server) && server.protocol) {
+  //       return server.protocol
+  //     }
+  //   }
+  // }
 
   return 'unknown'
 }
@@ -77,4 +82,3 @@ export function determineOperationAction(operationData: any): AsyncOperationActi
 function isServerObject(server: AsyncAPIV3.ServerObject | AsyncAPIV3.ReferenceObject): server is AsyncAPIV3.ServerObject {
   return server && typeof server === 'object' && 'protocol' in server
 }
-
