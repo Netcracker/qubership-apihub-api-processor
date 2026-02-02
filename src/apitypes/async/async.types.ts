@@ -59,6 +59,10 @@ export interface AsyncOperationData {
 
 export type VersionAsyncDocument = VersionDocument<AsyncAPIV3.AsyncAPIObject>
 export type VersionAsyncOperation = ApiOperation<AsyncOperationData, AsyncOperationMeta>
+export type AsyncOperation = ApiOperation & {
+  channels?: ApiOperation<AsyncAPIV3.ChannelsObject, AsyncOperationMeta>
+  messages?: ApiOperation<AsyncAPIV3.MessageObject[], AsyncOperationMeta>
+}
 
 // TODO Delete AsyncRefCache if not used in future
 export interface AsyncRefCache {

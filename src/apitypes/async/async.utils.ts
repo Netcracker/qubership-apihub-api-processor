@@ -18,6 +18,7 @@ import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { isObject } from '../../utils'
 import { AsyncOperationActionType, AsyncProtocol } from './async.types'
 import { ASYNC_KNOWN_PROTOCOLS } from './async.consts'
+import { normalize } from '@netcracker/qubership-apihub-api-unifier'
 
 // Re-export shared utilities
 export { dump, getCustomTags, resolveApiAudience } from '../../utils/apihubSpecificationExtensions'
@@ -81,4 +82,41 @@ export function determineOperationAction(operationData: any): AsyncOperationActi
 
 function isServerObject(server: AsyncAPIV3.ServerObject | AsyncAPIV3.ReferenceObject): server is AsyncAPIV3.ServerObject {
   return server && typeof server === 'object' && 'protocol' in server
+}
+
+function isTagObject(item: AsyncAPIV3.TagObject | AsyncAPIV3.ReferenceObject): item is AsyncAPIV3.TagObject {
+  return (item as AsyncAPIV3.TagObject).name !== undefined
+}
+
+function isExternalDocumentationObject(item: AsyncAPIV3.ExternalDocumentationObject | AsyncAPIV3.ReferenceObject): item is AsyncAPIV3.ExternalDocumentationObject {
+  return (item as AsyncAPIV3.ExternalDocumentationObject).url !== undefined
+}
+
+export function toTagObjects(
+  data: AsyncAPIV3.AsyncAPIObject,
+): AsyncAPIV3.TagObject[] {
+  return data?.info?.tags?.map(item => {
+    if (isTagObject(item)) {
+      return item
+    }
+
+    return normalize(item, {
+      source: data,
+    }) as AsyncAPIV3.TagObject
+  }) ?? []
+}
+
+export function toExternalDocumentationObject(
+  data: AsyncAPIV3.AsyncAPIObject,
+): AsyncAPIV3.ExternalDocumentationObject | undefined {
+  const externalDocs = data?.info?.externalDocs
+  if (!externalDocs) {
+    return undefined
+  }
+
+  return isExternalDocumentationObject(externalDocs)
+    ? externalDocs
+    : normalize(externalDocs, {
+      source: data,
+    }) as AsyncAPIV3.ExternalDocumentationObject
 }

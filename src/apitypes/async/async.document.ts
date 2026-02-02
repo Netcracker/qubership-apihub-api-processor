@@ -28,7 +28,7 @@ import {
   createVersionInternalDocument,
   EXPORT_FORMAT_TO_FILE_FORMAT,
   getBundledFileDataWithDependencies,
-  getDocumentTitle,
+  getDocumentTitle, getStringValue,
   isObject,
 } from '../../utils'
 import { dump } from '../../utils/apihubSpecificationExtensions'
@@ -38,16 +38,14 @@ import { getApiKindProperty } from '../../components/document'
 import { OpenApiExtensionKey } from '@netcracker/qubership-apihub-api-unifier'
 import { removeOasExtensions } from '../../utils/removeOasExtensions'
 import { generateHtmlPage } from '../../utils/export'
+import { toExternalDocumentationObject, toTagObjects } from './async.utils'
 
-// TODO ExternalDocs and Tags have refs support in AsyncAPI, need to handle them properly
 const asyncApiDocumentMeta = (data: AsyncAPIV3.AsyncAPIObject): AsyncDocumentInfo => {
   if (!isObject(data)) {
     return { title: '', description: '', version: '', info: {}, externalDocs: {}, tags: [] }
   }
 
-  const { title = '', version = '', description = '', externalDocs = {}, tags = [] } = data?.info || {}
-
-  const getStringValue = (value: unknown): string => (typeof (<unknown>value) === 'string' ? <string>value : '')
+  const { title = '', version = '', description = '' } = data?.info || {}
 
   const info: Partial<AsyncAPIV3.InfoObject> = { ...data?.info }
   delete info?.title
@@ -61,8 +59,8 @@ const asyncApiDocumentMeta = (data: AsyncAPIV3.AsyncAPIObject): AsyncDocumentInf
     description: getStringValue(description),
     version: getStringValue(version),
     info: Object.keys(info).length ? info : undefined,
-    externalDocs: externalDocs,
-    tags: tags as AsyncAPIV3.TagObject[] ?? [],
+    externalDocs: toExternalDocumentationObject(data),
+    tags: toTagObjects(data),
   }
 }
 

@@ -1,0 +1,11 @@
+{
+  "packageId": "asyncapi-info-external-documentation",
+  "version": "v1",
+  "files": [
+    {
+      "fileId": "spec.yaml",
+      "publish": false,
+      "labels": []
+    }
+  ]
+}

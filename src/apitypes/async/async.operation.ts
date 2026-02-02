@@ -140,7 +140,7 @@ export const buildAsyncApiOperation = (
     operationId,
     documentId: documentSlug,
     apiType: 'asyncapi',
-    apiKind: operationApiKind,
+    apiKind: operationApiKind || documentApiKind || APIHUB_API_COMPATIBILITY_KIND_BWC,
     //todo check deprecated
     deprecated: false,
     // TODO check title, we changed it in release
@@ -148,7 +148,9 @@ export const buildAsyncApiOperation = (
     metadata: {
       action,
       // TODO check channel name extraction
-      channel: channel.title || '',
+      channel: '',
+      // channel: channel,
+      // message: message,
       protocol,
       customTags,
     },
