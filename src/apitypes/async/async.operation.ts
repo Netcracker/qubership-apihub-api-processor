@@ -16,6 +16,7 @@
 
 import { JsonPath, syncCrawl } from '@netcracker/qubership-apihub-json-crawl'
 import type * as TYPE from './async.types'
+import { AsyncOperationActionType, VersionAsyncOperation } from './async.types'
 import { BuildConfig, DeprecateItem, NotificationMessage, SearchScopes } from '../../types'
 import {
   capitalize,
@@ -29,10 +30,11 @@ import { APIHUB_API_COMPATIBILITY_KIND_BWC, ORIGINS_SYMBOL, VERSION_STATUS } fro
 import { getCustomTags, resolveApiAudience } from '../../utils/apihubSpecificationExtensions'
 import { DebugPerformanceContext, syncDebugPerformance } from '../../utils/logs'
 import {
+  ASYNCAPI_PROPERTY_COMPONENTS,
+  ASYNCAPI_PROPERTY_MESSAGES,
   calculateDeprecatedItems,
-  JSON_SCHEMA_PROPERTY_DEPRECATED,
+  Jso,
   matchPaths,
-  OPEN_API_PROPERTY_PATHS,
   pathItemToFullPath,
   PREDICATE_ANY_VALUE,
   resolveOrigins,
@@ -41,13 +43,15 @@ import { calculateHash, ObjectHashCache } from '../../utils/hashes'
 import { extractProtocol } from './async.utils'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { getApiKindProperty } from '../../components/document'
-import { AsyncOperationActionType, VersionAsyncOperation } from './async.types'
+import { calculateTolerantHash } from '../../components/deprecated'
+import { ASYNCAPI_DEPRECATION_EXTENSION_KEY } from './async.consts'
 
 export const buildAsyncApiOperation = (
   operationId: string,
   operationKey: string,
   action: AsyncOperationActionType,
   channel: AsyncAPIV3.ChannelObject,
+  message: AsyncAPIV3.MessageObject,
   document: TYPE.VersionAsyncDocument,
   effectiveDocument: AsyncAPIV3.AsyncAPIObject,
   refsOnlyDocument: AsyncAPIV3.AsyncAPIObject,
@@ -84,26 +88,48 @@ export const buildAsyncApiOperation = (
     )
   }, debugCtx)
 
-  // TODO: Need to understand how to handle deprecations in AsyncAPI operations properly
   const deprecatedItems: DeprecateItem[] = []
   syncDebugPerformance('[DeprecatedItems]', () => {
+    if(message[ASYNCAPI_DEPRECATION_EXTENSION_KEY]){
+      const declarationJsonPaths = resolveOrigins(message as Jso, ASYNCAPI_DEPRECATION_EXTENSION_KEY, ORIGINS_SYMBOL)?.map(pathItemToFullPath) ?? []
+      const [version] = getSplittedVersionKey(config.version)
+      const messageId = declarationJsonPaths[0][2] || ''
+      deprecatedItems.push({
+        declarationJsonPaths,
+        description:  `[Deprecated] message '${message.title || messageId.toString()}'`,
+        ...{[isOperationDeprecated]: true},
+        deprecatedInPreviousVersions: config.status === VERSION_STATUS.RELEASE ? [version] : [],
+      })
+    }
+
+    if(channel[ASYNCAPI_DEPRECATION_EXTENSION_KEY]){
+      const declarationJsonPaths = resolveOrigins(channel as Jso, ASYNCAPI_DEPRECATION_EXTENSION_KEY, ORIGINS_SYMBOL)?.map(pathItemToFullPath) ?? []
+      const [version] = getSplittedVersionKey(config.version)
+      const channelId = declarationJsonPaths[0][1] || ''
+      const hash = calculateHash(channel, normalizedSpecFragmentsHashCache)
+      const tolerantHash = calculateTolerantHash(channel as Jso, notifications)
+      deprecatedItems.push({
+        declarationJsonPaths,
+        description: `[Deprecated] channel '${channelId.toString()}'`,
+        deprecatedInPreviousVersions: config.status === VERSION_STATUS.RELEASE ? [version] : [],
+        hash: hash,
+        tolerantHash: tolerantHash,
+      })
+    }
     const foundedDeprecatedItems = calculateDeprecatedItems(effectiveSingleOperationSpec, ORIGINS_SYMBOL)
 
     for (const item of foundedDeprecatedItems) {
-      const { description, deprecatedReason, value } = item
+      const { description, value } = item
 
-      const declarationJsonPaths = resolveOrigins(value, JSON_SCHEMA_PROPERTY_DEPRECATED, ORIGINS_SYMBOL)?.map(pathItemToFullPath) ?? []
-      const isOperation = isOperationPaths(declarationJsonPaths)
+      const declarationJsonPaths = resolveOrigins(value, ASYNCAPI_DEPRECATION_EXTENSION_KEY, ORIGINS_SYMBOL)?.map(pathItemToFullPath) ?? []
       const [version] = getSplittedVersionKey(config.version)
 
-      const tolerantHash = undefined // Skip tolerant hash for now
-      const hash = isOperation ? undefined : calculateHash(value, normalizedSpecFragmentsHashCache)
+      const tolerantHash = calculateTolerantHash(value, notifications)
+      const hash = calculateHash(value, normalizedSpecFragmentsHashCache)
 
       deprecatedItems.push({
         declarationJsonPaths,
         description,
-        ...takeIfDefined({ deprecatedInfo: deprecatedReason }),
-        ...takeIf({ [isOperationDeprecated]: true }, isOperation),
         deprecatedInPreviousVersions: config.status === VERSION_STATUS.RELEASE ? [version] : [],
         ...takeIfDefined({ hash: hash }),
         ...takeIfDefined({ tolerantHash: tolerantHash }),
@@ -112,6 +138,7 @@ export const buildAsyncApiOperation = (
   }, debugCtx)
 
   const operationApiKind = getApiKindProperty(effectiveOperationObject)
+  const channelApiKind = getApiKindProperty(channel)
 
   const models: Record<string, string> = {}
   const [specWithSingleOperation] = syncDebugPerformance('[ModelsAndOperationHashing]', () => {
@@ -140,11 +167,10 @@ export const buildAsyncApiOperation = (
     operationId,
     documentId: documentSlug,
     apiType: 'asyncapi',
-    apiKind: operationApiKind || documentApiKind || APIHUB_API_COMPATIBILITY_KIND_BWC,
-    //todo check deprecated
-    deprecated: false,
+    apiKind: channelApiKind || operationApiKind || documentApiKind || APIHUB_API_COMPATIBILITY_KIND_BWC,
+    deprecated: !!message[ASYNCAPI_DEPRECATION_EXTENSION_KEY],
     // TODO check title, we changed it in release
-    title: effectiveOperationObject.title || effectiveOperationObject.summary || operationKey.split('-').map(str => capitalize(str)).join(' '),
+    title: message.title || operationKey.split('-').map(str => capitalize(str)).join(' '),
     metadata: {
       action,
       // TODO check channel name extraction
@@ -168,10 +194,10 @@ export const buildAsyncApiOperation = (
   }
 }
 
-const isOperationPaths = (paths: JsonPath[]): boolean => {
+const isMessagePaths = (paths: JsonPath[]): boolean => {
   return !!matchPaths(
     paths,
-    [[OPEN_API_PROPERTY_PATHS, PREDICATE_ANY_VALUE, PREDICATE_ANY_VALUE, PREDICATE_ANY_VALUE]],
+    [[ASYNCAPI_PROPERTY_COMPONENTS, ASYNCAPI_PROPERTY_MESSAGES, PREDICATE_ANY_VALUE, PREDICATE_ANY_VALUE]],
   )
 }
 
@@ -202,4 +228,3 @@ export const createSingleOperationSpec = (
     ...takeIfDefined({ components }),
   }
 }
-

@@ -1,0 +1,32 @@
+asyncapi: 3.0.0
+info:
+  title: Async Operation Spec
+  version: 1.0.0
+servers:
+  production:
+    host: broker.example.com
+    protocol: mqtt
+operations:
+  onReceive:
+    action: receive
+    channel:
+      address: user.events
+      messages:
+        userSignedUp:
+          payload:
+            type: object
+            properties:
+              userId:
+                type: string
+  onSend:
+    action: send
+    channel:
+      address: user.events
+      messages:
+        userSignedUp:
+          payload:
+            type: object
+            properties:
+              userId:
+                type: string
+

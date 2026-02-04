@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-import { buildAsyncApiOperation } from './async.operation'
 import { OperationsBuilder } from '../../types'
 import {
   calculateRestOperationId,
   createBundlingErrorHandler,
   createSerializedInternalDocument,
-  isNotEmpty, isObject,
+  isNotEmpty,
+  isObject,
   removeComponents,
 } from '../../utils'
 import type * as TYPE from './async.types'
@@ -31,6 +31,7 @@ import { logLongBuild, syncDebugPerformance } from '../../utils/logs'
 import { normalize, RefErrorType } from '@netcracker/qubership-apihub-api-unifier'
 import { ASYNC_EFFECTIVE_NORMALIZE_OPTIONS } from './async.consts'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
+import { buildAsyncApiOperation } from './async.operation'
 
 type OperationInfo = { operationKey: string; action: string }
 type DuplicateEntry = { operationId: string; operations: OperationInfo[] }
@@ -64,60 +65,69 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
     debugCtx,
   )
 
-  const { operations: operationsObj } = effectiveDocument
+  const { operations } = effectiveDocument
 
-  const operations: TYPE.VersionAsyncOperation[] = []
-  if (!isObject(operationsObj)) {
+  const apihubOperations: TYPE.VersionAsyncOperation[] = []
+  if (!isObject(operations)) {
     return []
   }
 
   const operationIdMap = new Map<string, OperationInfo[]>()
 
   // Iterate through all operations in AsyncAPI 3.0 document
-  for (const [operationKey, operationData] of Object.entries(operationsObj)) {
+  for (const [operationKey, operationData] of Object.entries(operations)) {
     if (!isObject(operationData)) {
       continue
     }
-    const operationObject = operationData as AsyncAPIV3.OperationObject
-    await asyncFunction(async () => {
-      const action = operationObject.action as AsyncOperationActionType
-      const channel = operationObject.channel as AsyncAPIV3.ChannelObject
-      const servers = channel.servers as AsyncAPIV3.ServerObject[]
+    const operation = operationData as AsyncAPIV3.OperationObject
+    const messages = operation.messages as AsyncAPIV3.MessageObject[]
+    if (!messages.length) {
+      continue
+    }
 
-      if (!action || !channel) {
-        return
+    for (const message of messages) {
+      if (!isObject(message)) {
+        continue
       }
 
-      const basePath = extractAsyncOperationBasePath(servers)
+      await asyncFunction(async () => {
+        const action = operation.action as AsyncOperationActionType
+        const channel = operation.channel as AsyncAPIV3.ChannelObject
 
-      // TODO how to calculate operationId in AsyncAPI?
-      const operationId = calculateRestOperationId(basePath, operationKey, action)
+        if (!action || !channel) {
+          return
+        }
 
-      const trackedOperations = operationIdMap.get(operationId) ?? []
-      // TODO review
-      trackedOperations.push({ operationKey, action })
-      operationIdMap.set(operationId, trackedOperations)
+        // TODO how to calculate operationId in AsyncAPI?
+        const operationId = calculateRestOperationId((message as AsyncAPIV3.MessageObject)?.title || '', operationKey, action)
 
-      syncDebugPerformance('[Operation]', (innerDebugCtx) =>
-        logLongBuild(() => {
-            const operation = buildAsyncApiOperation(
-              operationId,
-              operationKey,
-              action,
-              channel,
-              document,
-              effectiveDocument,
-              refsOnlyDocument,
-              notifications,
-              config,
-              normalizedSpecFragmentsHashCache,
-              innerDebugCtx,
-            )
-            operations.push(operation)
-          },
-          `${config.packageId}/${config.version} ${operationId}`,
-        ), debugCtx, [operationId])
-    })
+        const trackedOperations = operationIdMap.get(operationId) ?? []
+        // TODO review
+        trackedOperations.push({ operationKey, action })
+        operationIdMap.set(operationId, trackedOperations)
+
+        syncDebugPerformance('[Operation]', (innerDebugCtx) =>
+          logLongBuild(() => {
+              const operation = buildAsyncApiOperation(
+                operationId,
+                operationKey,
+                action,
+                channel,
+                message,
+                document,
+                effectiveDocument,
+                refsOnlyDocument,
+                notifications,
+                config,
+                normalizedSpecFragmentsHashCache,
+                innerDebugCtx,
+              )
+              apihubOperations.push(operation)
+            },
+            `${config.packageId}/${config.version} ${operationId}`,
+          ), debugCtx, [operationId])
+      })
+    }
   }
 
   const duplicates = findDuplicates(operationIdMap)
@@ -125,11 +135,11 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
     throw createDuplicatesError(documentFileId, duplicates)
   }
 
-  if (operations.length) {
+  if (apihubOperations.length) {
     createSerializedInternalDocument(document, effectiveDocument, ASYNC_EFFECTIVE_NORMALIZE_OPTIONS)
   }
 
-  return operations
+  return apihubOperations
 }
 
 function findDuplicates(operationIdMap: Map<string, OperationInfo[]>): DuplicateEntry[] {

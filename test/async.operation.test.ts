@@ -20,6 +20,7 @@ import * as path from 'path'
 import YAML from 'js-yaml'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/cjs/spec-types'
 import { createSingleOperationSpec } from '../src/apitypes/async/async.operation'
+import { buildPackage } from './helpers'
 
 // Helper function to load YAML test files
 const loadYamlFile = async (relativePath: string): Promise<AsyncAPIV3.AsyncAPIObject> => {
@@ -28,7 +29,26 @@ const loadYamlFile = async (relativePath: string): Promise<AsyncAPIV3.AsyncAPIOb
   return YAML.load(content) as AsyncAPIV3.AsyncAPIObject
 }
 
-describe('AsyncAPI 3.0 Operation Unit Tests', () => {
+describe('AsyncAPI 3.0 Operation Tests', () => {
+
+  describe('Building Package with Operations', () => {
+    test('should ignore operation without message', async () => {
+      const result = await buildPackage('asyncapi/operations/broken-operation')
+      expect(Array.from(result.operations.values())).toHaveLength(0)
+    })
+
+    test('should extract single operation from package', async () => {
+      const result = await buildPackage('asyncapi/operations/single-operation')
+      expect(Array.from(result.operations.values())).toHaveLength(1)
+    })
+
+    test('should extract multiple operations from package', async () => {
+      const result = await buildPackage('asyncapi/operations/multiple-operations')
+      expect(Array.from(result.operations.values())).toHaveLength(3)
+    })
+  })
+
+  // todo need to check
   describe('createSingleOperationSpec', () => {
     const TEST_OPERATION_KEY = 'onReceive'
 
@@ -41,8 +61,8 @@ describe('AsyncAPI 3.0 Operation Unit Tests', () => {
     }
 
     test('should keep only the requested operation and preserve channels', async () => {
-      const document = await loadYamlFile('async.operation/base.yaml')
-
+      const document = await loadYamlFile('asyncapi/operations/base.yaml')
+      // const result1 = await buildPackage('asyncapi/operations')
       const result = createTestSingleOperationSpec(document, document.servers, document.components)
 
       expect(Object.keys(result.operations || {})).toEqual([TEST_OPERATION_KEY])
@@ -51,7 +71,7 @@ describe('AsyncAPI 3.0 Operation Unit Tests', () => {
     })
 
     test('should include provided servers and components', async () => {
-      const document = await loadYamlFile('async.operation/base.yaml')
+      const document = await loadYamlFile('asyncapi/operations/base.yaml')
       const servers: AsyncAPIV3.ServersObject = {
         staging: {
           host: 'staging.example.com',
@@ -73,7 +93,7 @@ describe('AsyncAPI 3.0 Operation Unit Tests', () => {
     })
 
     test('should default asyncapi version to 3.0.0 when missing', async () => {
-      const document = await loadYamlFile('async.operation/no-asyncapi.yaml')
+      const document = await loadYamlFile('asyncapi/operations/base.yaml')
 
       const result = createTestSingleOperationSpec(document)
 
@@ -81,7 +101,7 @@ describe('AsyncAPI 3.0 Operation Unit Tests', () => {
     })
 
     test('should throw when the operation is not found', async () => {
-      const document = await loadYamlFile('async.operation/base.yaml')
+      const document = await loadYamlFile('asyncapi/operations/base.yaml')
 
       expect(() => createSingleOperationSpec(document, 'missing-operation')).toThrow(
         'Operation missing-operation not found in document',
