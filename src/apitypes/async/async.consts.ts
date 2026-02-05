@@ -56,3 +56,5 @@ export const ASYNC_EFFECTIVE_NORMALIZE_OPTIONS: NormalizeOptions = {
 
 export const ASYNC_KNOWN_PROTOCOLS = ['kafka', 'amqp', 'mqtt', 'http', 'ws', 'websockets', 'jms', 'nats', 'redis', 'sns', 'sqs']
 export const ASYNCAPI_DEPRECATION_EXTENSION_KEY = 'x-deprecated'
+// todo move to unifier
+export const DEPRECATED_MESSAGE_PREFIX = '[Deprecated]'

@@ -14,25 +14,48 @@
  * limitations under the License.
  */
 
-import { buildPackage } from './helpers'
+import { describe, expect, test } from '@jest/globals'
+import { buildPackage, deprecatedItemDescriptionMatcher } from './helpers'
 
 describe('AsyncAPI 3.0 Deprecated tests', () => {
 
-  test('channel', async ()=> {
+  test('should detect deprecated channel', async ()=> {
     const result = await buildPackage('asyncapi/deprecated/channel')
-    const deprecatedItems = Array.from(result.operations.values()).flatMap(operation => operation.deprecatedItems)
+    const deprecatedItems = Array.from(result.operations.values()).flatMap(operation => operation.deprecatedItems ?? [])
 
     expect(deprecatedItems.length).toBeGreaterThan(0)
-    expect(deprecatedItems[0]).toHaveProperty(['description'], '[Deprecated] channel \'userSignedUp\'')
+    expect(deprecatedItems[0]).toEqual(deprecatedItemDescriptionMatcher('[Deprecated] channel \'userSignedUp\''))
   })
-  test('messages', async ()=> {
+
+  test('should detect deprecated messages', async ()=> {
     const result = await buildPackage('asyncapi/deprecated/messages')
-    const deprecatedItems = Array.from(result.operations.values()).flatMap(operation => operation.deprecatedItems)
+    const deprecatedItems = Array.from(result.operations.values()).flatMap(operation => operation.deprecatedItems ?? [])
 
     expect(deprecatedItems.length).toBeGreaterThan(0)
-    expect(deprecatedItems[0]).toHaveProperty(['description'], '[Deprecated] channel \'User Signed Up\'')
+    expect(deprecatedItems[0]).toEqual(deprecatedItemDescriptionMatcher('[Deprecated] message \'User Signed Up\''))
   })
 
-    // todo need tests for deprecated schemas inside message payloads
+  test('should mark apihub operation is deprecated if message deprecated', async ()=> {
+    const result = await buildPackage('asyncapi/deprecated/messages')
+    const operations = Array.from(result.operations.values())
+
+    const [operation] = operations
+    expect(operation.deprecated).toBe(true)
+  })
+
+  test('should detect deprecated schemas (deprecated flag in payload schema)', async ()=> {
+    const result = await buildPackage('asyncapi/deprecated/schemas')
+    const deprecatedItems = Array.from(result.operations.values()).flatMap(operation => operation.deprecatedItems ?? [])
+    expect(deprecatedItems.length).toBeGreaterThan(0)
+
+    const [deprecatedItem] = deprecatedItems
+    expect(deprecatedItem).toEqual(deprecatedItemDescriptionMatcher('[Deprecated] schema in \'components.schemas.DeprecatedEmail\''))
+
+    expect(deprecatedItem).toHaveProperty('hash')
+    expect(deprecatedItem).toHaveProperty('tolerantHash')
+
+    expect(deprecatedItem.declarationJsonPaths.some(path => path.at(-1) === 'deprecated')).toBe(true)
+  })
+
     // todo need tests for 'description' field in DeprecateItem
 })
