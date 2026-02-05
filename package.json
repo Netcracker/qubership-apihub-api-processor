@@ -31,9 +31,9 @@
     "update-lock-file": "update-lock-file @netcracker"
   },
   "dependencies": {
-    "@netcracker/qubership-apihub-api-diff": "next",
-    "@netcracker/qubership-apihub-api-unifier": "next",
-    "@netcracker/qubership-apihub-graphapi": "next",
+    "@netcracker/qubership-apihub-api-diff": "bugfix-directive-declaration-lost",
+    "@netcracker/qubership-apihub-api-unifier": "bugfix-directive-declaration-lost",
+    "@netcracker/qubership-apihub-graphapi": "bugfix-directive-declaration-lost",
     "@netcracker/qubership-apihub-json-crawl": "next",
     "adm-zip": "0.5.10",
     "ajv": "^8.12.0",
