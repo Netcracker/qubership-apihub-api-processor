@@ -30,12 +30,13 @@ export { dump, getCustomTags, resolveApiAudience } from '../../utils/apihubSpeci
  * @returns Protocol string (e.g., 'kafka', 'amqp', 'mqtt') or 'unknown'
  */
 export function extractProtocol(channel: AsyncAPIV3.ChannelObject): AsyncProtocol {
-  if (isObject(channel.servers)) {
-    for (const server of Object.values(channel.servers as AsyncAPIV3.ServerObject[])) {
-      if (isServerObject(server) && server.protocol) {
-        const {protocol} = server
-        return ASYNC_SUPPORTED_PROTOCOLS.includes(protocol) ? protocol as AsyncProtocol : 'unknown'
-      }
+  if (!isObject(channel.servers)) {
+    return 'unknown'
+  }
+  for (const server of Object.values(channel.servers as AsyncAPIV3.ServerObject[])) {
+    if (isServerObject(server) && server.protocol) {
+      const { protocol } = server
+      return ASYNC_SUPPORTED_PROTOCOLS.includes(protocol) ? protocol as AsyncProtocol : 'unknown'
     }
   }
 
@@ -59,7 +60,7 @@ export function determineOperationAction(operationData: any): AsyncOperationActi
 }
 
 function isServerObject(server: AsyncAPIV3.ServerObject | AsyncAPIV3.ReferenceObject): server is AsyncAPIV3.ServerObject {
-  return server && typeof server === 'object' && 'protocol' in server
+  return isObject(server) && 'protocol' in server
 }
 
 function isTagObject(item: AsyncAPIV3.TagObject | AsyncAPIV3.ReferenceObject): item is AsyncAPIV3.TagObject {

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { describe, expect, test } from '@jest/globals'
+import { describe, expect, it, test } from '@jest/globals'
 import * as fs from 'fs/promises'
 import * as path from 'path'
 import YAML from 'js-yaml'
@@ -93,26 +93,53 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
   })
 
   describe('protocol', () => {
-    it('unit unique values', () => {
-      const data = [
-        [{
-          title: 'channel1',
-          servers: [{
-            protocol: 'amqp',
-          }],
-        } as AsyncAPIV3.ChannelObject, 'result1'],
-      ]
-      data.forEach(([channel, expected]) => {
-        const result = extractProtocol(channel as AsyncAPIV3.ChannelObject)
-        expect(result).toBe(expected)
-      })
+    it('should uses the (first) server protocol when supported', () => {
+      const channel = {
+        title: 'channel1',
+        servers: [
+          { protocol: 'amqp' },
+          { protocol: 'kafka' },
+        ],
+      } as unknown as AsyncAPIV3.ChannelObject
+
+      expect(extractProtocol(channel)).toBe('amqp')
+    })
+
+    it('should returns unknown for unsupported protocol', () => {
+      const channel = {
+        title: 'channel1',
+        servers: [
+          { protocol: 'mqtt' },
+          { protocol: 'amqp' },
+        ],
+      } as unknown as AsyncAPIV3.ChannelObject
+
+      expect(extractProtocol(channel)).toBe('unknown')
+    })
+
+    it('should returns first server with protocol', () => {
+      const channel = {
+        title: 'channel1',
+        servers: [
+          { $ref: '#/servers/amqp1' },
+          { protocol: 'amqp' },
+        ],
+      } as unknown as AsyncAPIV3.ChannelObject
+
+      expect(extractProtocol(channel)).toBe('unknown')
+    })
+
+    it('should returns unknown when servers are missing or empty', () => {
+      expect(extractProtocol({ title: 'no-servers' } as unknown as AsyncAPIV3.ChannelObject)).toBe('unknown')
+      expect(extractProtocol({ title: 'empty-servers', servers: [] } as unknown as AsyncAPIV3.ChannelObject)).toBe('unknown')
     })
 
     it('e2e', async () => {
       const result = await buildPackage('asyncapi/operations/single-operation')
       const operations = Array.from(result.operations.values())
       const [operation] = operations
-      expect(operation.metadata.protocol).toBe('protocol')
+      // In test spec, channel's first server is amqp.
+      expect(operation.metadata.protocol).toBe('amqp')
     })
   })
 
