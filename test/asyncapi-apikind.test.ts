@@ -6,9 +6,10 @@ import {
 import { calculateAsyncApiKind } from '../src/apitypes/async/async.utils'
 import { buildPackage } from './helpers'
 
-describe('apiKind', () => {
-  it('unit unique values', () => {
+describe('AsyncAPI apiKind calculation', () => {
+  it('should calculate apiKind from operation and channel values', () => {
     const data = [
+      // Operation ApiKind, Channel ApiKnd, Result
       [undefined, undefined, APIHUB_API_COMPATIBILITY_KIND_BWC],
       [APIHUB_API_COMPATIBILITY_KIND_BWC, undefined, APIHUB_API_COMPATIBILITY_KIND_BWC],
       [undefined, APIHUB_API_COMPATIBILITY_KIND_BWC, APIHUB_API_COMPATIBILITY_KIND_BWC],
@@ -23,7 +24,7 @@ describe('apiKind', () => {
     })
   })
 
-  it('e2e', async () => {
+  it('should apply apiKind to operations based on operation/channel compatibility kind', async () => {
     const result = await buildPackage('asyncapi/api-kind/base')
     const operations = Array.from(result.operations.values())
 
@@ -47,5 +48,12 @@ describe('apiKind', () => {
     expect(operationBwcWithChannelNoBwc.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_BWC)
     expect(operationNoBwcWithChannelBwc.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
     expect(operationNoBwcWithChannelNoBwc.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
+  })
+
+  it('should apply channel apiKind to all operations using that channel', async () => {
+    const result = await buildPackage('asyncapi/api-kind/share-channel-api-kind')
+    const operations = Array.from(result.operations.values())
+
+    expect(operations.every(operation => operation.apiKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC)).toBeTrue()
   })
 })

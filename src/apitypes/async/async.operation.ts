@@ -26,7 +26,7 @@ import {
   takeIf,
   takeIfDefined,
 } from '../../utils'
-import { APIHUB_API_COMPATIBILITY_KIND_BWC, ORIGINS_SYMBOL, VERSION_STATUS } from '../../consts'
+import { ORIGINS_SYMBOL, VERSION_STATUS } from '../../consts'
 import { getCustomTags, resolveApiAudience } from '../../utils/apihubSpecificationExtensions'
 import { DebugPerformanceContext, syncDebugPerformance } from '../../utils/logs'
 import {
@@ -61,7 +61,6 @@ export const buildAsyncApiOperation = (
   debugCtx?: DebugPerformanceContext,
 ): VersionAsyncOperation => {
   const {
-    apiKind: documentApiKind,
     data: documentData,
     slug: documentSlug,
     versionInternalDocument,
@@ -105,11 +104,11 @@ export const buildAsyncApiOperation = (
 
     if (message[ASYNCAPI_DEPRECATION_EXTENSION_KEY]) {
       const declarationJsonPaths = resolveDeclarationJsonPaths(message as Jso)
-      const messageId = extractKeyAfterPrefix(declarationJsonPaths, [ASYNCAPI_PROPERTY_COMPONENTS, ASYNCAPI_PROPERTY_MESSAGES])
+      const messageTitle = message.title || extractKeyAfterPrefix(declarationJsonPaths, [ASYNCAPI_PROPERTY_COMPONENTS, ASYNCAPI_PROPERTY_MESSAGES])
 
       deprecatedItems.push({
         declarationJsonPaths,
-        description: `${DEPRECATED_MESSAGE_PREFIX} message '${message.title || messageId || operationId}'`,
+        description: `${DEPRECATED_MESSAGE_PREFIX} message '${messageTitle}'`,
         ...{ [isOperationDeprecated]: true },
         deprecatedInPreviousVersions,
       })
@@ -117,11 +116,11 @@ export const buildAsyncApiOperation = (
 
     if (channel[ASYNCAPI_DEPRECATION_EXTENSION_KEY]) {
       const declarationJsonPaths = resolveDeclarationJsonPaths(channel as Jso)
-      const channelId = extractKeyAfterPrefix(declarationJsonPaths, [ASYNCAPI_PROPERTY_CHANNELS])
+      const channelTitle = channel.title || extractKeyAfterPrefix(declarationJsonPaths, [ASYNCAPI_PROPERTY_CHANNELS])
 
       deprecatedItems.push({
         declarationJsonPaths,
-        description: `${DEPRECATED_MESSAGE_PREFIX} channel '${channelId || operationId}'`,
+        description: `${DEPRECATED_MESSAGE_PREFIX} channel '${channelTitle}'`,
         deprecatedInPreviousVersions,
         hash: calculateHash(channel, normalizedSpecFragmentsHashCache),
         tolerantHash: calculateTolerantHash(channel as Jso, notifications),
@@ -167,19 +166,19 @@ export const buildAsyncApiOperation = (
   const apiAudience = resolveApiAudience(documentMetadata?.info)
 
   const protocol = extractProtocol(channel)
-
+  // todo get channelId
+  const channelId = 'channelId'
   return {
     operationId,
     documentId: documentSlug,
     apiType: 'asyncapi',
-    apiKind: calculateAsyncApiKind(channelApiKind, operationApiKind),
+    apiKind: calculateAsyncApiKind(operationApiKind, channelApiKind),
     deprecated: !!message[ASYNCAPI_DEPRECATION_EXTENSION_KEY],
     // TODO check title, we changed it in release
     title: message.title || operationKey.split('-').map(str => capitalize(str)).join(' '),
     metadata: {
       action,
-      // TODO check channel name extraction
-      channel: channel.address || channel.title || '',
+      channel: channelId,
       protocol,
       customTags,
     },

@@ -65,7 +65,7 @@ const asyncApiDocumentMeta = (data: AsyncAPIV3.AsyncAPIObject): AsyncDocumentInf
 }
 
 export const buildAsyncApiDocument: DocumentBuilder<AsyncAPIV3.AsyncAPIObject> = async (parsedFile, file, ctx): Promise<VersionDocument> => {
-  const { fileId, slug = '', publish = true, apiKind, ...fileMetadata } = file
+  const { fileId, slug = '', publish = true, ...fileMetadata } = file
 
   const {
     data,
@@ -73,8 +73,6 @@ export const buildAsyncApiDocument: DocumentBuilder<AsyncAPIV3.AsyncAPIObject> =
   } = await getBundledFileDataWithDependencies(fileId, ctx.parsedFileResolver, createBundlingErrorHandler(ctx, fileId))
 
   const bundledFileData = data as AsyncAPIV3.AsyncAPIObject
-
-  const documentApiKind = getApiKindProperty(bundledFileData?.info) || apiKind
 
   const { description, title, version, info, externalDocs, tags } = asyncApiDocumentMeta(bundledFileData)
   const metadata = {
@@ -88,7 +86,6 @@ export const buildAsyncApiDocument: DocumentBuilder<AsyncAPIV3.AsyncAPIObject> =
     fileId: parsedFileId,
     type,
     format: FILE_FORMAT.JSON,
-    apiKind: documentApiKind,
     data: bundledFileData,
     slug, // unique slug should be already generated
     filename: `${slug}.${FILE_FORMAT.JSON}`,

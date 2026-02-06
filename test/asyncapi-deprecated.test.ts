@@ -17,6 +17,7 @@
 import { describe, expect, test } from '@jest/globals'
 import { buildPackage, deprecatedItemDescriptionMatcher } from './helpers'
 import { DeprecateItem } from '../src'
+import { isOperationDeprecated } from '../src/utils'
 
 describe('AsyncAPI 3.0 Deprecated tests', () => {
 
@@ -60,6 +61,12 @@ describe('AsyncAPI 3.0 Deprecated tests', () => {
 
       expect(deprecatedItem).not.toHaveProperty('hash')
       expect(deprecatedItem).not.toHaveProperty('tolerantHash')
+    })
+
+    test('should deprecated message has OperationDeprecated symbol with true', async () => {
+      const [deprecatedItem] = deprecatedItems
+      const operationDeprecatedSymbol  = (deprecatedItem as unknown as Record<symbol, boolean>)[isOperationDeprecated]
+      expect(operationDeprecatedSymbol).toBeTruthy()
     })
   })
 

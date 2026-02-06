@@ -92,7 +92,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
     })
   })
 
-  describe('protocol', () => {
+  describe('Operation protocol', () => {
     it('should uses the (first) server protocol when supported', () => {
       const channel = {
         title: 'channel1',
@@ -100,7 +100,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
           { protocol: 'amqp' },
           { protocol: 'kafka' },
         ],
-      } as unknown as AsyncAPIV3.ChannelObject
+      } as AsyncAPIV3.ChannelObject
 
       expect(extractProtocol(channel)).toBe('amqp')
     })
@@ -112,7 +112,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
           { protocol: 'mqtt' },
           { protocol: 'amqp' },
         ],
-      } as unknown as AsyncAPIV3.ChannelObject
+      } as AsyncAPIV3.ChannelObject
 
       expect(extractProtocol(channel)).toBe('unknown')
     })
@@ -124,7 +124,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
           { $ref: '#/servers/amqp1' },
           { protocol: 'amqp' },
         ],
-      } as unknown as AsyncAPIV3.ChannelObject
+      } as AsyncAPIV3.ChannelObject
 
       expect(extractProtocol(channel)).toBe('unknown')
     })
@@ -134,7 +134,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       expect(extractProtocol({ title: 'empty-servers', servers: [] } as unknown as AsyncAPIV3.ChannelObject)).toBe('unknown')
     })
 
-    it('e2e', async () => {
+    it('should operation has protocol', async () => {
       const result = await buildPackage('asyncapi/operations/single-operation')
       const operations = Array.from(result.operations.values())
       const [operation] = operations
