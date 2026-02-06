@@ -18,8 +18,8 @@ import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { isObject } from '../../utils'
 import { AsyncOperationActionType, AsyncProtocol } from './async.types'
 import { normalize } from '@netcracker/qubership-apihub-api-unifier'
-import { APIHUB_API_COMPATIBILITY_KIND_BWC, ApihubApiCompatibilityKind } from '../../consts'
 import { ASYNC_SUPPORTED_PROTOCOLS } from './async.consts'
+import { APIHUB_API_COMPATIBILITY_KIND_BWC, ApihubApiCompatibilityKind } from '../../consts'
 
 // Re-export shared utilities
 export { dump, getCustomTags, resolveApiAudience } from '../../utils/apihubSpecificationExtensions'
@@ -100,8 +100,8 @@ export function toExternalDocumentationObject(
 }
 
 export const calculateAsyncApiKind = (
-  channelApiKind: ApihubApiCompatibilityKind | undefined,
   operationApiKind: ApihubApiCompatibilityKind | undefined,
+  channelApiKind: ApihubApiCompatibilityKind | undefined,
 ): ApihubApiCompatibilityKind => {
-  return channelApiKind || operationApiKind || APIHUB_API_COMPATIBILITY_KIND_BWC
+  return operationApiKind || channelApiKind || APIHUB_API_COMPATIBILITY_KIND_BWC
 }

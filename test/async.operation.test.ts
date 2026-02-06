@@ -109,7 +109,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
     })
 
     it('e2e', async () => {
-      const result = await buildPackage('asyncapi/operations/additional-data-and-metadata')
+      const result = await buildPackage('asyncapi/operations/single-operation')
       const operations = Array.from(result.operations.values())
       const [operation] = operations
       expect(operation.metadata.protocol).toBe('protocol')
