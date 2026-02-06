@@ -15,7 +15,7 @@
  */
 
 import { ApiOperation, NotificationMessage, VersionDocument } from '../../types'
-import { ASYNC_DOCUMENT_TYPE, ASYNC_KNOWN_PROTOCOLS, ASYNC_SCOPES } from './async.consts'
+import { ASYNC_DOCUMENT_TYPE, ASYNC_SCOPES, ASYNC_SUPPORTED_PROTOCOLS } from './async.consts'
 import { CustomTags } from '../../utils/apihubSpecificationExtensions'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 
@@ -70,6 +70,7 @@ export interface AsyncRefCache {
   refs: string[]
   data: any
 }
+
 // TODO Delete AsyncOperationContext if not used in future
 export interface AsyncOperationContext {
   operationId: string
@@ -80,4 +81,4 @@ export interface AsyncOperationContext {
   notifications: NotificationMessage[]
 }
 
-export type AsyncProtocol = typeof ASYNC_KNOWN_PROTOCOLS[number] | 'unknown'
+export type AsyncProtocol = typeof ASYNC_SUPPORTED_PROTOCOLS[number] | 'unknown'

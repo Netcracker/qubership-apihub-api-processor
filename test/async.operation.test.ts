@@ -20,7 +20,9 @@ import * as path from 'path'
 import YAML from 'js-yaml'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/cjs/spec-types'
 import { createSingleOperationSpec } from '../src/apitypes/async/async.operation'
+import { calculateAsyncOperationId } from '../src/utils'
 import { buildPackage } from './helpers'
+import { extractProtocol } from '../src/apitypes/async/async.utils'
 
 // Helper function to load YAML test files
 const loadYamlFile = async (relativePath: string): Promise<AsyncAPIV3.AsyncAPIObject> => {
@@ -45,6 +47,72 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
     test('should extract multiple operations from package', async () => {
       const result = await buildPackage('asyncapi/operations/multiple-operations')
       expect(Array.from(result.operations.values())).toHaveLength(3)
+    })
+  })
+
+  describe('operationId', () => {
+    it('unit unique values', () => {
+      const data = [
+        ['channel1', 'message1', 'send', 'result1'],
+        ['channel1', 'message1', 'receive', 'result2'],
+        ['channel2', 'message1', 'send', 'result3'],
+      ]
+      data.forEach(([data1, data2, data3, expected]) => {
+        const result = calculateAsyncOperationId(data1, data2, data3)
+        expect(result).toBe(expected)
+      })
+    })
+
+    it('e2e', async () => {
+      const result = await buildPackage('asyncapi/operations/single-operation')
+      const operations = Array.from(result.operations.values())
+      const [operation] = operations
+      expect(operation.operationId).toBe('id')
+    })
+  })
+
+  describe('operation title', () => {
+    it('unit unique values', () => {
+      const data = [
+        ['channel1', 'message1', 'send', 'result1'],
+        ['channel1', 'message1', 'receive', 'result2'],
+        ['channel2', 'message1', 'send', 'result3'],
+      ]
+      data.forEach(([data1, data2, data3, expected]) => {
+        const result = calculateAsyncOperationId(data1, data2, data3)
+        expect(result).toBe(expected)
+      })
+    })
+
+    it('e2e', async () => {
+      const result = await buildPackage('asyncapi/operations/single-operation')
+      const operations = Array.from(result.operations.values())
+      const [operation] = operations
+      expect(operation.title).toBe('id')
+    })
+  })
+
+  describe('protocol', () => {
+    it('unit unique values', () => {
+      const data = [
+        [{
+          title: 'channel1',
+          servers: [{
+            protocol: 'amqp',
+          }],
+        } as AsyncAPIV3.ChannelObject, 'result1'],
+      ]
+      data.forEach(([channel, expected]) => {
+        const result = extractProtocol(channel as AsyncAPIV3.ChannelObject)
+        expect(result).toBe(expected)
+      })
+    })
+
+    it('e2e', async () => {
+      const result = await buildPackage('asyncapi/operations/additional-data-and-metadata')
+      const operations = Array.from(result.operations.values())
+      const [operation] = operations
+      expect(operation.metadata.protocol).toBe('protocol')
     })
   })
 

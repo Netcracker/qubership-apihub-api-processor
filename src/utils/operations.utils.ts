@@ -165,3 +165,11 @@ export const createSerializedInternalDocument = (document: VersionDocument, effe
   }
   versionInternalDocument.serializedVersionDocument = serializeDocument(denormalize(effectiveDocument, options) as ApiDocument)
 }
+
+export const calculateAsyncOperationId = (
+  basePath: string,
+  path: string,
+  method: string,
+): string => {
+  return _calculateRestOperationIdV2(basePath, path, method)
+}

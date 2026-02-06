@@ -40,7 +40,7 @@ import {
   resolveOrigins,
 } from '@netcracker/qubership-apihub-api-unifier'
 import { calculateHash, ObjectHashCache } from '../../utils/hashes'
-import { extractProtocol } from './async.utils'
+import { calculateAsyncApiKind, extractProtocol } from './async.utils'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { getApiKindProperty } from '../../components/document'
 import { calculateTolerantHash } from '../../components/deprecated'
@@ -132,15 +132,13 @@ export const buildAsyncApiOperation = (
     for (const item of foundedDeprecatedItems) {
       const { description, value } = item
       const declarationJsonPaths = resolveOrigins(value, JSON_SCHEMA_PROPERTY_DEPRECATED, ORIGINS_SYMBOL)?.map(pathItemToFullPath) ?? []
-      const tolerantHash = calculateTolerantHash(value, notifications)
-      const hash = calculateHash(value, normalizedSpecFragmentsHashCache)
 
       deprecatedItems.push({
         declarationJsonPaths,
         description,
         deprecatedInPreviousVersions,
-        ...takeIfDefined({ hash: hash }),
-        ...takeIfDefined({ tolerantHash: tolerantHash }),
+        hash: calculateHash(channel, normalizedSpecFragmentsHashCache),
+        tolerantHash: calculateTolerantHash(channel as Jso, notifications),
       })
     }
   }, debugCtx)
@@ -168,23 +166,20 @@ export const buildAsyncApiOperation = (
   // Resolve API audience
   const apiAudience = resolveApiAudience(documentMetadata?.info)
 
-  // Extract protocol from servers or channel bindings
-  const protocol = extractProtocol(effectiveDocument, channel)
+  const protocol = extractProtocol(channel)
 
   return {
     operationId,
     documentId: documentSlug,
     apiType: 'asyncapi',
-    apiKind: channelApiKind || operationApiKind || documentApiKind || APIHUB_API_COMPATIBILITY_KIND_BWC,
+    apiKind: calculateAsyncApiKind(channelApiKind, operationApiKind),
     deprecated: !!message[ASYNCAPI_DEPRECATION_EXTENSION_KEY],
     // TODO check title, we changed it in release
     title: message.title || operationKey.split('-').map(str => capitalize(str)).join(' '),
     metadata: {
       action,
       // TODO check channel name extraction
-      channel: '',
-      // channel: channel,
-      // message: message,
+      channel: channel.address || channel.title || '',
       protocol,
       customTags,
     },

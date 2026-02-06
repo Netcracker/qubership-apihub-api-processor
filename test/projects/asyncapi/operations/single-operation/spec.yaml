@@ -3,9 +3,19 @@ info:
   title: Account Service
   version: 1.0.0
   description: This service is in charge of processing user signups
+servers:
+  amqp1:
+    host: broker-amqp.example.com
+    protocol: amqp
+  kafka1:
+    host: broker-kafka.example.com
+    protocol: kafka
 channels:
   userSignedup:
     address: user/signedup
+    servers:
+      - $ref: '#/servers/amqp1'
+      - $ref: '#/servers/kafka1'
     messages:
       UserSignedUp:
         $ref: '#/components/messages/UserSignedUp'

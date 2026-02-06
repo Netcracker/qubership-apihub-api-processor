@@ -16,7 +16,7 @@
 
 import { OperationsBuilder } from '../../types'
 import {
-  calculateRestOperationId,
+  calculateAsyncOperationId,
   createBundlingErrorHandler,
   createSerializedInternalDocument,
   isNotEmpty,
@@ -99,7 +99,7 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
         }
 
         // TODO how to calculate operationId in AsyncAPI?
-        const operationId = calculateRestOperationId((message as AsyncAPIV3.MessageObject)?.title || '', operationKey, action)
+        const operationId = calculateAsyncOperationId((message as AsyncAPIV3.MessageObject)?.title || '', operationKey, action)
 
         const trackedOperations = operationIdMap.get(operationId) ?? []
         // TODO review
@@ -158,32 +158,4 @@ function createDuplicatesError(fileId: string, duplicates: DuplicateEntry[]): Er
     })
     .join('\n')
   return new Error(`Duplicated operationIds found within document '${fileId}':\n${duplicatesList}`)
-}
-
-//TODO move to diff utils
-export const extractAsyncOperationBasePath = (servers?: AsyncAPIV3.ServerObject[]): string => {
-  if (!Array.isArray(servers) || !servers.length) { return '' }
-
-  try {
-    const [firstServer] = servers
-    let serverUrl = firstServer.host + (firstServer.protocol ? `:${firstServer.protocol}` : '')
-    if (!serverUrl) {
-      return ''
-    }
-
-    const { variables = {} } = firstServer as AsyncAPIV3.ServerObject
-
-    for (const param of Object.keys(variables)) {
-      const serverVariableObject = (variables as Record<string, AsyncAPIV3.ServerVariableObject>)[param] as AsyncAPIV3.ServerVariableObject
-      const serverVariableDefault = serverVariableObject?.default
-      if (serverVariableDefault) {
-        serverUrl = serverUrl.replace(new RegExp(`{${param}}`, 'g'), serverVariableDefault)
-      }
-    }
-
-    const { pathname } = new URL(serverUrl, 'https://localhost')
-    return pathname.slice(-1) === '/' ? pathname.slice(0, -1) : pathname
-  } catch (error) {
-    return ''
-  }
 }

@@ -17,49 +17,27 @@
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { isObject } from '../../utils'
 import { AsyncOperationActionType, AsyncProtocol } from './async.types'
-import { ASYNC_KNOWN_PROTOCOLS } from './async.consts'
 import { normalize } from '@netcracker/qubership-apihub-api-unifier'
+import { APIHUB_API_COMPATIBILITY_KIND_BWC, ApihubApiCompatibilityKind } from '../../consts'
+import { ASYNC_SUPPORTED_PROTOCOLS } from './async.consts'
 
 // Re-export shared utilities
 export { dump, getCustomTags, resolveApiAudience } from '../../utils/apihubSpecificationExtensions'
 
 /**
  * Extracts protocol from AsyncAPI document servers or channel bindings
- * @param document - AsyncAPI document
- * @param channel - Channel name
+ * @param channel - Channel object to extract protocol from
  * @returns Protocol string (e.g., 'kafka', 'amqp', 'mqtt') or 'unknown'
  */
-export function extractProtocol(document: AsyncAPIV3.AsyncAPIObject, channel: AsyncAPIV3.ChannelObject): AsyncProtocol {
-  // TODO why servers is preferred over channel bindings?
-  // Try to extract protocol from servers
-  const { servers } = document
-  if (isObject(servers)) {
-    for (const server of Object.values(servers)) {
-      if (isServerObject(server)) {
-        return server.protocol
+export function extractProtocol(channel: AsyncAPIV3.ChannelObject): AsyncProtocol {
+  if (isObject(channel.servers)) {
+    for (const server of Object.values(channel.servers as AsyncAPIV3.ServerObject[])) {
+      if (isServerObject(server) && server.protocol) {
+        const {protocol} = server
+        return ASYNC_SUPPORTED_PROTOCOLS.includes(protocol) ? protocol as AsyncProtocol : 'unknown'
       }
     }
   }
-
-  // Try to extract protocol from channel bindings
-  if (channel) {
-    const bindings = channel?.bindings as AsyncAPIV3.ChannelBindingsObject
-    if (isObject(bindings)) {
-      const protocol = ASYNC_KNOWN_PROTOCOLS.find(protocol => protocol in bindings)
-      if (protocol) {
-        return protocol
-      }
-    }
-  }
-
-  // TODO check needed?
-  // if (isObject(channel.servers)) {
-  //   for (const server of Object.values(channel.servers as AsyncAPIV3.ServerObject[])) {
-  //     if (isServerObject(server) && server.protocol) {
-  //       return server.protocol
-  //     }
-  //   }
-  // }
 
   return 'unknown'
 }
@@ -119,4 +97,11 @@ export function toExternalDocumentationObject(
     : normalize(externalDocs, {
       source: data,
     }) as AsyncAPIV3.ExternalDocumentationObject
+}
+
+export const calculateAsyncApiKind = (
+  channelApiKind: ApihubApiCompatibilityKind | undefined,
+  operationApiKind: ApihubApiCompatibilityKind | undefined,
+): ApihubApiCompatibilityKind => {
+  return channelApiKind || operationApiKind || APIHUB_API_COMPATIBILITY_KIND_BWC
 }
