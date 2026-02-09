@@ -19,7 +19,7 @@ import * as fs from 'fs/promises'
 import * as path from 'path'
 import YAML from 'js-yaml'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/cjs/spec-types'
-import { createSingleOperationSpec } from '../src/apitypes/async/async.operation'
+import { createOperationSpec } from '../src/apitypes/async/async.operation'
 import { calculateAsyncOperationId } from '../src/utils'
 import { buildPackage } from './helpers'
 import { extractProtocol } from '../src/apitypes/async/async.utils'
@@ -146,13 +146,14 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
   // todo need to check
   describe('createSingleOperationSpec', () => {
     const TEST_OPERATION_KEY = 'onReceive'
+    const TEST_OPERATION_KEY_2 = 'onSend'
 
     const createTestSingleOperationSpec = (
       document: AsyncAPIV3.AsyncAPIObject,
       servers?: AsyncAPIV3.ServersObject,
       components?: AsyncAPIV3.ComponentsObject,
-    ): ReturnType<typeof createSingleOperationSpec> => {
-      return createSingleOperationSpec(document, TEST_OPERATION_KEY, servers, components)
+    ): ReturnType<typeof createOperationSpec> => {
+      return createOperationSpec(document, TEST_OPERATION_KEY, servers, components)
     }
 
     test('should keep only the requested operation and preserve channels', async () => {
@@ -163,6 +164,15 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       expect(Object.keys(result.operations || {})).toEqual([TEST_OPERATION_KEY])
       expect(result.operations?.[TEST_OPERATION_KEY]).toEqual(document.operations?.[TEST_OPERATION_KEY])
       expect(result.channels).toEqual(document.channels)
+    })
+
+    test('should keep only the requested operations (group)', async () => {
+      const document = await loadYamlFile('asyncapi/operations/base.yaml')
+      const result = createOperationSpec(document, [TEST_OPERATION_KEY, TEST_OPERATION_KEY_2])
+
+      expect(Object.keys(result.operations || {})).toEqual([TEST_OPERATION_KEY, TEST_OPERATION_KEY_2])
+      expect(result.operations?.[TEST_OPERATION_KEY]).toEqual(document.operations?.[TEST_OPERATION_KEY])
+      expect(result.operations?.[TEST_OPERATION_KEY_2]).toEqual(document.operations?.[TEST_OPERATION_KEY_2])
     })
 
     test('should include provided servers and components', async () => {
@@ -198,8 +208,16 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
     test('should throw when the operation is not found', async () => {
       const document = await loadYamlFile('asyncapi/operations/base.yaml')
 
-      expect(() => createSingleOperationSpec(document, 'missing-operation')).toThrow(
+      expect(() => createOperationSpec(document, 'missing-operation')).toThrow(
         'Operation missing-operation not found in document',
+      )
+    })
+
+    test('should throw when one of requested operations is not found (group)', async () => {
+      const document = await loadYamlFile('asyncapi/operations/base.yaml')
+
+      expect(() => createOperationSpec(document, [TEST_OPERATION_KEY, 'missing-operation'])).toThrow(
+        'Operations missing-operation not found in document',
       )
     })
   })

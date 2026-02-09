@@ -68,7 +68,7 @@ export const buildAsyncApiOperation = (
   } = document
   const { servers, components } = documentData
   const effectiveOperationObject: AsyncAPIV3.OperationObject = effectiveDocument.operations?.[operationKey] as AsyncAPIV3.OperationObject || {}
-  const effectiveSingleOperationSpec = createSingleOperationSpec(effectiveDocument, operationKey)
+  const effectiveSingleOperationSpec = createOperationSpec(effectiveDocument, operationKey)
 
   // TODO check tags. Its more complex in AsyncAPI
   const tags: string[] = effectiveOperationObject?.tags?.map(tag => (tag as AsyncAPIV3.TagObject)?.name) || []
@@ -147,7 +147,7 @@ export const buildAsyncApiOperation = (
 
   const models: Record<string, string> = {}
   const [specWithSingleOperation] = syncDebugPerformance('[ModelsAndOperationHashing]', () => {
-    const specWithSingleOperation = createSingleOperationSpec(
+    const specWithSingleOperation = createOperationSpec(
       documentData,
       operationKey,
       servers,
@@ -197,28 +197,38 @@ export const buildAsyncApiOperation = (
 }
 
 /**
- * Creates a single operation spec from AsyncAPI document
- * Crops the document to contain only the specific operation
+ * Creates an operation spec from AsyncAPI document
+ * Crops the document to contain only the requested operation(s)
  */
-export const createSingleOperationSpec = (
+export const createOperationSpec = (
   document: AsyncAPIV3.AsyncAPIObject,
-  operationKey: string,
+  operationKey: string | string[],
   servers?: AsyncAPIV3.ServersObject,
   components?: AsyncAPIV3.ComponentsObject,
 ): TYPE.AsyncOperationData => {
-  const operation = document.operations?.[operationKey]
-
-  if (!operation) {
-    throw new Error(`Operation ${operationKey} not found in document`)
+  const operationKeys = Array.isArray(operationKey) ? operationKey : [operationKey]
+  if (!operationKeys.length) {
+    throw new Error('No operation keys provided')
   }
+
+  const missingOperationKeys = operationKeys.filter(key => !document.operations?.[key])
+  if (missingOperationKeys.length) {
+    // Preserve legacy error message format for single key calls
+    if (!Array.isArray(operationKey) && missingOperationKeys.length === 1) {
+      throw new Error(`Operation ${missingOperationKeys[0]} not found in document`)
+    }
+    throw new Error(`Operations ${missingOperationKeys.join(', ')} not found in document`)
+  }
+
+  const selectedOperations = Object.fromEntries(
+    operationKeys.map(key => [key, document.operations![key]]),
+  )
 
   return {
     asyncapi: document.asyncapi || '3.0.0',
     info: document.info,
     ...takeIfDefined({ servers }),
-    operations: {
-      [operationKey]: operation,
-    },
+    operations: selectedOperations,
     channels: document.channels,
     ...takeIfDefined({ components }),
   }
