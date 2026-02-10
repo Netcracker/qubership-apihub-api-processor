@@ -20,27 +20,34 @@ import { AsyncOperationActionType, VersionAsyncOperation } from './async.types'
 import { BuildConfig, DeprecateItem, NotificationMessage, SearchScopes } from '../../types'
 import {
   capitalize,
+  getKeyValue,
   getSplittedVersionKey,
   isDeprecatedOperationItem,
   isOperationDeprecated,
+  setValueByPath,
   takeIf,
-  takeIfDefined,
 } from '../../utils'
-import { ORIGINS_SYMBOL, VERSION_STATUS } from '../../consts'
+import { INLINE_REFS_FLAG, ORIGINS_SYMBOL, VERSION_STATUS } from '../../consts'
 import { getCustomTags, resolveApiAudience } from '../../utils/apihubSpecificationExtensions'
 import { DebugPerformanceContext, syncDebugPerformance } from '../../utils/logs'
 import {
   ASYNCAPI_PROPERTY_CHANNELS,
   ASYNCAPI_PROPERTY_COMPONENTS,
   ASYNCAPI_PROPERTY_MESSAGES,
+  ASYNCAPI_PROPERTY_SERVERS,
   calculateDeprecatedItems,
+  grepValue,
   Jso,
   JSON_SCHEMA_PROPERTY_DEPRECATED,
+  matchPaths,
+  parseRef,
   pathItemToFullPath,
+  PREDICATE_ANY_VALUE,
+  PREDICATE_UNCLOSED_END,
   resolveOrigins,
 } from '@netcracker/qubership-apihub-api-unifier'
 import { calculateHash, ObjectHashCache } from '../../utils/hashes'
-import { calculateAsyncApiKind, extractProtocol } from './async.utils'
+import { calculateAsyncApiKind, extractKeyAfterPrefix, extractProtocol } from './async.utils'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { getApiKindProperty } from '../../components/document'
 import { calculateTolerantHash } from '../../components/deprecated'
@@ -150,10 +157,8 @@ export const buildAsyncApiOperation = (
     const specWithSingleOperation = createOperationSpec(
       documentData,
       operationKey,
-      servers,
-      components,
+      refsOnlyDocument,
     )
-    // For AsyncAPI, we could calculate spec refs similar to REST, but keeping it simple for now
     return [specWithSingleOperation]
   }, debugCtx)
 
@@ -203,55 +208,100 @@ export const buildAsyncApiOperation = (
 export const createOperationSpec = (
   document: AsyncAPIV3.AsyncAPIObject,
   operationKey: string | string[],
-  servers?: AsyncAPIV3.ServersObject,
-  components?: AsyncAPIV3.ComponentsObject,
+  refsOnlyDocument?: AsyncAPIV3.AsyncAPIObject,
 ): TYPE.AsyncOperationData => {
+  const operations = document?.operations
+  if (!operations) {
+    throw new Error('No operations')
+  }
+
   const operationKeys = Array.isArray(operationKey) ? operationKey : [operationKey]
-  if (!operationKeys.length) {
+  if (operationKeys.length === 0) {
     throw new Error('No operation keys provided')
   }
 
-  const missingOperationKeys = operationKeys.filter(key => !document.operations?.[key])
-  if (missingOperationKeys.length) {
-    // Preserve legacy error message format for single key calls
+  const missingOperationKeys: string[] = []
+  const selectedOperations: Record<string, AsyncAPIV3.OperationObject> = {}
+  for (const key of operationKeys) {
+    const operation = operations[key] as AsyncAPIV3.OperationObject | undefined
+    if (!operation) {
+      missingOperationKeys.push(key)
+      continue
+    }
+    selectedOperations[key] = operation
+  }
+
+  if (missingOperationKeys.length > 0) {
     if (!Array.isArray(operationKey) && missingOperationKeys.length === 1) {
       throw new Error(`Operation ${missingOperationKeys[0]} not found in document`)
     }
     throw new Error(`Operations ${missingOperationKeys.join(', ')} not found in document`)
   }
 
-  const selectedOperations = Object.fromEntries(
-    operationKeys.map(key => [key, document.operations![key]]),
-  )
-
-  return {
+  const resultSpec: TYPE.AsyncOperationData = {
     asyncapi: document.asyncapi || '3.0.0',
     info: document.info,
-    ...takeIfDefined({ servers }),
     operations: selectedOperations,
-    channels: document.channels,
-    ...takeIfDefined({ components }),
   }
-}
 
-// todo move?
-const extractKeyAfterPrefix = (paths: JsonPath[], prefix: PropertyKey[]): string | undefined => {
-  for (const path of paths) {
-    if (path.length <= prefix.length) {
-      continue
-    }
-    let matches = true
-    for (let i = 0; i < prefix.length; i++) {
-      if (path[i] !== prefix[i]) {
-        matches = false
+  const refsOnlyOperations = refsOnlyDocument?.operations
+  if (refsOnlyOperations) {
+    let hasAllOperationsInRefsOnly = true
+    for (const key of operationKeys) {
+      if (!refsOnlyOperations[key]) {
+        hasAllOperationsInRefsOnly = false
         break
       }
     }
-    if (!matches) {
-      continue
+    if (hasAllOperationsInRefsOnly) {
+      const handledObjects = new Set<unknown>()
+      const inlineRefs = new Set<string>()
+
+      syncCrawl(
+        refsOnlyDocument,
+        ({ key, value }) => {
+          if (typeof key === 'symbol' && key !== INLINE_REFS_FLAG) {
+            return { done: true }
+          }
+          if (handledObjects.has(value)) {
+            return { done: true }
+          }
+          handledObjects.add(value)
+          if (key !== INLINE_REFS_FLAG) {
+            return { value }
+          }
+          if (!Array.isArray(value)) {
+            return { done: true }
+          }
+          value.forEach(ref => inlineRefs.add(ref))
+        },
+      )
+
+      const componentNameMatcher = grepValue('componentName')
+      const matchPatterns = [
+        [ASYNCAPI_PROPERTY_COMPONENTS, PREDICATE_ANY_VALUE, componentNameMatcher, PREDICATE_UNCLOSED_END],
+        [ASYNCAPI_PROPERTY_CHANNELS, componentNameMatcher, PREDICATE_UNCLOSED_END],
+        [ASYNCAPI_PROPERTY_SERVERS, componentNameMatcher, PREDICATE_UNCLOSED_END],
+      ]
+
+      inlineRefs.forEach(ref => {
+        const parsed = parseRef(ref)
+        const path = parsed?.jsonPath
+        if (!path) {
+          return
+        }
+        const matchResult = matchPaths([path], matchPatterns)
+        if (!matchResult) {
+          return
+        }
+        const component = getKeyValue(document, ...matchResult.path) as Record<string, unknown>
+        if (!component) {
+          return
+        }
+        setValueByPath(resultSpec, matchResult.path, component)
+      })
     }
-    const key = path[prefix.length]
-    return key === undefined ? undefined : String(key)
   }
-  return undefined
+  return resultSpec
 }
+

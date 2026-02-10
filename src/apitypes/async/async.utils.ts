@@ -20,6 +20,7 @@ import { AsyncOperationActionType, AsyncProtocol } from './async.types'
 import { normalize } from '@netcracker/qubership-apihub-api-unifier'
 import { ASYNC_SUPPORTED_PROTOCOLS } from './async.consts'
 import { APIHUB_API_COMPATIBILITY_KIND_BWC, ApihubApiCompatibilityKind } from '../../consts'
+import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 
 // Re-export shared utilities
 export { dump, getCustomTags, resolveApiAudience } from '../../utils/apihubSpecificationExtensions'
@@ -105,4 +106,25 @@ export const calculateAsyncApiKind = (
   channelApiKind: ApihubApiCompatibilityKind | undefined,
 ): ApihubApiCompatibilityKind => {
   return operationApiKind || channelApiKind || APIHUB_API_COMPATIBILITY_KIND_BWC
+}
+
+export const extractKeyAfterPrefix = (paths: JsonPath[], prefix: PropertyKey[]): string | undefined => {
+  for (const path of paths) {
+    if (path.length <= prefix.length) {
+      continue
+    }
+    let matches = true
+    for (let i = 0; i < prefix.length; i++) {
+      if (path[i] !== prefix[i]) {
+        matches = false
+        break
+      }
+    }
+    if (!matches) {
+      continue
+    }
+    const key = path[prefix.length]
+    return key === undefined ? undefined : String(key)
+  }
+  return undefined
 }
