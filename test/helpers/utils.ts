@@ -281,3 +281,5 @@ const DESERIALIZE_SYMBOL_STRING_MAPPING = invertMap(SERIALIZE_SYMBOL_STRING_MAPP
 export function deserializeDocument(serializedDocument: string): ApiDocument {
   return deserialize(serializedDocument, DESERIALIZE_SYMBOL_STRING_MAPPING) as ApiDocument
 }
+
+export const cloneDocument = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
