@@ -51,8 +51,8 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
     })
   })
 
-  describe('operationId', () => {
-    it('unit unique values', () => {
+  describe('OperationId Tests', () => {
+    it('should generate unique operationIds (unit)', () => {
       const data = [
         ['channel1', 'message1', 'send', 'channel1message1-send'],
         ['channel1', 'message1', 'receive', 'channel1message1-receive'],
@@ -64,7 +64,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       })
     })
 
-    it('e2e', async () => {
+    it('should set operationId in built package (e2e)', async () => {
       const result = await buildPackage('asyncapi/operations/single-operation')
       const operations = Array.from(result.operations.values())
       const [operation] = operations
@@ -75,7 +75,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
   })
 
   describe('operation title', () => {
-    it('e2e', async () => {
+    it('should set operation title in built package (e2e)', async () => {
       const result = await buildPackage('asyncapi/operations/single-operation')
       const operations = Array.from(result.operations.values())
       const [operation] = operations
@@ -134,7 +134,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
     })
   })
 
-  describe('createOperationSpec', () => {
+  describe('Create operation spec tests', () => {
     const OPERATION_1 = 'sendUserSignedUp'
     const OPERATION_2 = 'sendUserSignedOut'
     let baseDocument: AsyncAPIV3.AsyncAPIObject
@@ -173,7 +173,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       expect(result.operations?.[OPERATION_2]).toEqual(baseDocument.operations?.[OPERATION_2])
     })
 
-    test('accepts duplicated requested keys (same operation) without duplicating output', async () => {
+    test('should accept duplicated requested keys (same operation) without duplicating output', async () => {
       const result = createOperationSpec(baseDocument, [OPERATION_1, OPERATION_1, OPERATION_2, OPERATION_1])
 
       expect(Object.keys(result.operations || {})).toEqual([OPERATION_1, OPERATION_2])
@@ -193,26 +193,28 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       const document = cloneDocument(baseDocument)
       delete document.operations
 
-      expect(() => createOperationSpec(document, OPERATION_1)).toThrow('No operations')
+      expect(() => createOperationSpec(document, OPERATION_1)).toThrow(
+        'AsyncAPI document has no operations. Expected a non-empty "operations" object at document.operations.',
+      )
     })
 
     test('throws when operation keys array is empty', async () => {
-      expect(() => createOperationSpec(baseDocument, [])).toThrow('No operation keys provided')
+      expect(() => createOperationSpec(baseDocument, [])).toThrow(
+        'No operation keys provided. Pass a non-empty operation key string or a non-empty array of operation keys.',
+      )
     })
 
     test('throws when the requested operation key is not found (string)', async () => {
-      expect(() => createOperationSpec(baseDocument, 'missing-operation')).toThrow(
-        'Operation missing-operation not found in document',
-      )
+      expect(() => createOperationSpec(baseDocument, 'missing-operation')).toThrow('Operation "missing-operation" not found in document.operations')
     })
 
     test('throws when one or more requested operation keys are not found (array)', async () => {
       expect(() => createOperationSpec(baseDocument, [OPERATION_1, 'missing-1', 'missing-2'])).toThrow(
-        'Operations missing-1, missing-2 not found in document',
+        'Operations not found in document.operations: missing-1, missing-2',
       )
     })
 
-    test('inlines referenced channels/servers/components when refsOnlyDocument has inline refs (manual refs)', async () => {
+    test('should inline referenced channels/servers/components when refsOnlyDocument has inline refs (manual refs)', async () => {
       const refsOnlyDocument = {
         operations: { [OPERATION_1]: {} },
         [INLINE_REFS_FLAG]: [
@@ -232,7 +234,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       expect(baseDocument).toHaveProperty(['components', 'messages', 'UserSignedUp'], result?.components?.messages?.UserSignedUp)
     })
 
-    test('skips inlining when refsOnlyDocument does not contain all requested operations', async () => {
+    test('should skip inlining when refsOnlyDocument does not contain all requested operations', async () => {
       const document = baseDocument
 
       const refsOnlyDocument = {

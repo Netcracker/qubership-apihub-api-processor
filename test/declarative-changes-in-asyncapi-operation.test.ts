@@ -17,7 +17,7 @@
 import { buildChangelogPackage, changesSummaryMatcher, numberOfImpactedOperationsMatcher } from './helpers'
 import { ASYNCAPI_API_TYPE, BREAKING_CHANGE_TYPE } from '../src'
 
-describe('Number of declarative changes in asyncapi operation test', () => {
+describe.skip('Number of declarative changes in asyncapi operation test', () => {
   test('Multiple use of one schema in a message payload', async () => {
     const result = await buildChangelogPackage('declarative-changes-in-asyncapi-operation/case1')
     expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))

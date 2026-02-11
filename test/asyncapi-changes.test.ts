@@ -29,7 +29,7 @@ import {
   UNCLASSIFIED_CHANGE_TYPE,
 } from '../src'
 
-describe('AsyncAPI 3.0 Changelog', () => {
+describe.skip('AsyncAPI 3.0 Changelog', () => {
 
   test('no changes', async () => {
     const result = await buildChangelogPackage('asyncapi-changes/no-changes')

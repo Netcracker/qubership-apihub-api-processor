@@ -74,7 +74,7 @@ describe('AsyncAPI Validation', () => {
         expect(errorMessage).toContain('AsyncAPI validation')
 
         // Should contain file name from parseFile error wrapping
-        expect(errorMessage).toContain('operation-message-not-belong-to-specified-channel')
+        expect(errorMessage).toContain(fileId)
         return errorMessage
       }
     }

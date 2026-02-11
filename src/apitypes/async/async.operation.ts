@@ -202,22 +202,35 @@ export const buildAsyncApiOperation = (
 }
 
 /**
- * Creates an operation spec from AsyncAPI document
- * Crops the document to contain only the requested operation(s)
+ * Creates an operation spec (a cropped AsyncAPI document) that contains only the requested operation(s).
+ *
+ * By default, the returned object includes only `asyncapi`, `info`, and `operations`.
+ * If `refsDocument` is provided and contains inline refs for all requested operations, the function
+ * will also inline referenced `channels`, `servers`, and `components` from the original `document`.
+ *
+ * @param document AsyncAPI 3.0 document to crop.
+ * @param operationKey Operation key or an array of operation keys to include.
+ * @param refsDocument Optional "refs-only" document used to detect inline refs that must be copied.
+ * @throws Error when the document has no `operations`, when no operation keys are provided, or when any
+ *         requested operation key is missing in the document.
  */
 export const createOperationSpec = (
   document: AsyncAPIV3.AsyncAPIObject,
   operationKey: string | string[],
-  refsOnlyDocument?: AsyncAPIV3.AsyncAPIObject,
+  refsDocument?: AsyncAPIV3.AsyncAPIObject,
 ): TYPE.AsyncOperationData => {
   const operations = document?.operations
   if (!operations) {
-    throw new Error('No operations')
+    throw new Error(
+      'AsyncAPI document has no operations. Expected a non-empty "operations" object at document.operations.',
+    )
   }
 
   const operationKeys = Array.isArray(operationKey) ? operationKey : [operationKey]
   if (operationKeys.length === 0) {
-    throw new Error('No operation keys provided')
+    throw new Error(
+      'No operation keys provided. Pass a non-empty operation key string or a non-empty array of operation keys.',
+    )
   }
 
   const missingOperationKeys: string[] = []
@@ -233,9 +246,13 @@ export const createOperationSpec = (
 
   if (missingOperationKeys.length > 0) {
     if (!Array.isArray(operationKey) && missingOperationKeys.length === 1) {
-      throw new Error(`Operation ${missingOperationKeys[0]} not found in document`)
+      throw new Error(
+        `Operation "${missingOperationKeys[0]}" not found in document.operations`,
+      )
     }
-    throw new Error(`Operations ${missingOperationKeys.join(', ')} not found in document`)
+    throw new Error(
+      `Operations not found in document.operations: ${missingOperationKeys.join(', ')}`,
+    )
   }
 
   const resultSpec: TYPE.AsyncOperationData = {
@@ -244,64 +261,62 @@ export const createOperationSpec = (
     operations: selectedOperations,
   }
 
-  const refsOnlyOperations = refsOnlyDocument?.operations
-  if (refsOnlyOperations) {
-    let hasAllOperationsInRefsOnly = true
-    for (const key of operationKeys) {
-      if (!refsOnlyOperations[key]) {
-        hasAllOperationsInRefsOnly = false
-        break
-      }
-    }
-    if (hasAllOperationsInRefsOnly) {
-      const handledObjects = new Set<unknown>()
-      const inlineRefs = new Set<string>()
+  const refsOnlyOperations = refsDocument?.operations
+  if (!refsOnlyOperations) {
+    return resultSpec
+  }
 
-      syncCrawl(
-        refsOnlyDocument,
-        ({ key, value }) => {
-          if (typeof key === 'symbol' && key !== INLINE_REFS_FLAG) {
-            return { done: true }
-          }
-          if (handledObjects.has(value)) {
-            return { done: true }
-          }
-          handledObjects.add(value)
-          if (key !== INLINE_REFS_FLAG) {
-            return { value }
-          }
-          if (!Array.isArray(value)) {
-            return { done: true }
-          }
-          value.forEach(ref => inlineRefs.add(ref))
-        },
-      )
-
-      const componentNameMatcher = grepValue('componentName')
-      const matchPatterns = [
-        [ASYNCAPI_PROPERTY_COMPONENTS, PREDICATE_ANY_VALUE, componentNameMatcher, PREDICATE_UNCLOSED_END],
-        [ASYNCAPI_PROPERTY_CHANNELS, componentNameMatcher, PREDICATE_UNCLOSED_END],
-        [ASYNCAPI_PROPERTY_SERVERS, componentNameMatcher, PREDICATE_UNCLOSED_END],
-      ]
-
-      inlineRefs.forEach(ref => {
-        const parsed = parseRef(ref)
-        const path = parsed?.jsonPath
-        if (!path) {
-          return
-        }
-        const matchResult = matchPaths([path], matchPatterns)
-        if (!matchResult) {
-          return
-        }
-        const component = getKeyValue(document, ...matchResult.path) as Record<string, unknown>
-        if (!component) {
-          return
-        }
-        setValueByPath(resultSpec, matchResult.path, component)
-      })
+  // If there are not enough operations, we will get an incorrect result.
+  for (const key of operationKeys) {
+    if (!refsOnlyOperations[key]) {
+      return resultSpec
     }
   }
+  const handledObjects = new Set<unknown>()
+  const inlineRefs = new Set<string>()
+
+  syncCrawl(
+    refsDocument,
+    ({ key, value }) => {
+      if (typeof key === 'symbol' && key !== INLINE_REFS_FLAG) {
+        return { done: true }
+      }
+      if (handledObjects.has(value)) {
+        return { done: true }
+      }
+      handledObjects.add(value)
+      if (key !== INLINE_REFS_FLAG) {
+        return { value }
+      }
+      if (!Array.isArray(value)) {
+        return { done: true }
+      }
+      value.forEach(ref => inlineRefs.add(ref))
+    },
+  )
+
+  const componentNameMatcher = grepValue('componentName')
+  const matchPatterns = [
+    [ASYNCAPI_PROPERTY_COMPONENTS, PREDICATE_ANY_VALUE, componentNameMatcher, PREDICATE_UNCLOSED_END],
+    [ASYNCAPI_PROPERTY_CHANNELS, componentNameMatcher, PREDICATE_UNCLOSED_END],
+    [ASYNCAPI_PROPERTY_SERVERS, componentNameMatcher, PREDICATE_UNCLOSED_END],
+  ]
+
+  inlineRefs.forEach(ref => {
+    const parsed = parseRef(ref)
+    const path = parsed?.jsonPath
+    if (!path) {
+      return
+    }
+    const matchResult = matchPaths([path], matchPatterns)
+    if (!matchResult) {
+      return
+    }
+    const component = getKeyValue(document, ...matchResult.path) as Record<string, unknown>
+    if (!component) {
+      return
+    }
+    setValueByPath(resultSpec, matchResult.path, component)
+  })
   return resultSpec
 }
-
