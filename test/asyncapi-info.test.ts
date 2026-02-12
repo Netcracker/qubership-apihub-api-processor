@@ -3,9 +3,13 @@ import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 
 describe('Info', () => {
   describe('Tags', () => {
-    test('Simple', async () => {
+    const TAGS_INLINE_PACKAGE_ID = 'asyncapi/info/tags/simple'
+    const TAGS_FROM_REF_PACKAGE_ID = 'asyncapi/info/tags/refs'
+    const TAGS_MIXED_INLINE_AND_REF_PACKAGE_ID = 'asyncapi/info/tags/mixed'
+
+    test('should extract tags from inline tag definitions', async () => {
       await runTagsTest(
-        'asyncapi/info/tags/simple',
+        TAGS_INLINE_PACKAGE_ID,
         [
           {
             'name': 'simple_tag1',
@@ -18,9 +22,9 @@ describe('Info', () => {
         ])
     })
 
-    test('Refs', async () => {
+    test('should extract tags when tags are defined via $ref', async () => {
       await runTagsTest(
-        'asyncapi/info/tags/refs',
+        TAGS_FROM_REF_PACKAGE_ID,
         [
           {
             'name': 'ref_tag1',
@@ -33,9 +37,9 @@ describe('Info', () => {
         ])
     })
 
-    test('mixed', async () => {
+    test('should extract tags from a mix of inline and $ref tag definitions', async () => {
       await runTagsTest(
-        'asyncapi/info/tags/mixed',
+        TAGS_MIXED_INLINE_AND_REF_PACKAGE_ID,
         [
           {
             'name': 'ref_tag1',
@@ -58,15 +62,18 @@ describe('Info', () => {
   })
   
   describe('External documentation', () => {
-    test('Simple', async () => {
-      await runExternalDocumentationTest('asyncapi/info/external-documentation/simple', {
+    const EXTERNAL_DOCS_INLINE_PACKAGE_ID = 'asyncapi/info/external-documentation/simple'
+    const EXTERNAL_DOCS_FROM_REF_PACKAGE_ID = 'asyncapi/info/external-documentation/refs'
+
+    test('should extract external documentation from an inline externalDocs object', async () => {
+      await runExternalDocumentationTest(EXTERNAL_DOCS_INLINE_PACKAGE_ID, {
         'description': 'Simple',
         'url': 'https://example.com/docs',
       })
     })
 
-    test('Refs', async () => {
-      await runExternalDocumentationTest('asyncapi/info/external-documentation/refs', {
+    test('should extract external documentation when externalDocs is defined via $ref', async () => {
+      await runExternalDocumentationTest(EXTERNAL_DOCS_FROM_REF_PACKAGE_ID, {
         'description': 'Ref',
         'url': 'https://example.com/docs',
       })

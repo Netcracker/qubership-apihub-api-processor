@@ -15,7 +15,7 @@
  */
 
 import { describe, expect, test } from '@jest/globals'
-import { buildPackage, deprecatedItemDescriptionMatcher } from './helpers'
+import { buildPackageDefaultConfig, deprecatedItemDescriptionMatcher } from './helpers'
 import { DeprecateItem } from '../src'
 import { isOperationDeprecated } from '../src/utils'
 
@@ -24,7 +24,7 @@ describe('AsyncAPI 3.0 Deprecated tests', () => {
   describe('Channel tests', () => {
     let deprecatedItems: DeprecateItem[]
     beforeAll(async () => {
-      const result = await buildPackage('asyncapi/deprecated/channel')
+      const result = await buildPackageDefaultConfig('asyncapi/deprecated/channel')
       deprecatedItems = Array.from(result.operations.values()).flatMap(operation => operation.deprecatedItems ?? [])
     })
 
@@ -45,7 +45,7 @@ describe('AsyncAPI 3.0 Deprecated tests', () => {
   describe('Messages tests', () => {
     let deprecatedItems: DeprecateItem[]
     beforeAll(async () => {
-      const result = await buildPackage('asyncapi/deprecated/messages')
+      const result = await buildPackageDefaultConfig('asyncapi/deprecated/messages')
       deprecatedItems = Array.from(result.operations.values()).flatMap(operation => operation.deprecatedItems ?? [])
     })
 
@@ -71,7 +71,7 @@ describe('AsyncAPI 3.0 Deprecated tests', () => {
   })
 
   test('should mark apihub operation is deprecated if message deprecated', async () => {
-    const result = await buildPackage('asyncapi/deprecated/messages')
+    const result = await buildPackageDefaultConfig('asyncapi/deprecated/messages')
     const operations = Array.from(result.operations.values())
 
     const [operation] = operations
@@ -79,7 +79,7 @@ describe('AsyncAPI 3.0 Deprecated tests', () => {
   })
 
   test('should detect deprecated schemas (deprecated flag in payload schema)', async () => {
-    const result = await buildPackage('asyncapi/deprecated/schemas')
+    const result = await buildPackageDefaultConfig('asyncapi/deprecated/schemas')
     const deprecatedItems = Array.from(result.operations.values()).flatMap(operation => operation.deprecatedItems ?? [])
     expect(deprecatedItems.length).toBeGreaterThan(0)
 
