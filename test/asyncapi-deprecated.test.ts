@@ -42,6 +42,7 @@ describe('AsyncAPI 3.0 Deprecated tests', () => {
       expect(deprecatedItem).toHaveProperty('tolerantHash')
     })
   })
+
   describe('Messages tests', () => {
     let deprecatedItems: DeprecateItem[]
     beforeAll(async () => {

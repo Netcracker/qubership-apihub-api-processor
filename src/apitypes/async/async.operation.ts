@@ -19,7 +19,7 @@ import type * as TYPE from './async.types'
 import { AsyncOperationActionType, VersionAsyncOperation } from './async.types'
 import { BuildConfig, DeprecateItem, NotificationMessage, SearchScopes } from '../../types'
 import {
-  capitalize,
+  getInlineRefsFomDocument,
   getKeyValue,
   getSplittedVersionKey,
   isDeprecatedOperationItem,
@@ -27,7 +27,7 @@ import {
   setValueByPath,
   takeIf,
 } from '../../utils'
-import { INLINE_REFS_FLAG, ORIGINS_SYMBOL, VERSION_STATUS } from '../../consts'
+import { ORIGINS_SYMBOL, VERSION_STATUS } from '../../consts'
 import { getCustomTags, resolveApiAudience } from '../../utils/apihubSpecificationExtensions'
 import { DebugPerformanceContext, syncDebugPerformance } from '../../utils/logs'
 import {
@@ -170,19 +170,19 @@ export const buildAsyncApiOperation = (
   const apiAudience = resolveApiAudience(documentMetadata?.info)
 
   const protocol = extractProtocol(channel)
-  // todo get channelId
+  // todo get channelId and messageId
   const channelId = 'channelId'
+  const messageId = 'messageId'
   return {
     operationId,
     documentId: documentSlug,
     apiType: 'asyncapi',
     apiKind: calculateAsyncApiKind(operationApiKind, channelApiKind),
     deprecated: !!message[ASYNCAPI_DEPRECATION_EXTENSION_KEY],
-    // TODO check title, we changed it in release
-    title: message.title || operationKey.split('-').map(str => capitalize(str)).join(' '),
+    title: message.title || messageId,
     metadata: {
       action,
-      channel: channelId,
+      channel: channel.title || channelId,
       protocol,
       customTags,
     },
@@ -271,28 +271,7 @@ export const createOperationSpec = (
       return resultSpec
     }
   }
-  const handledObjects = new Set<unknown>()
-  const inlineRefs = new Set<string>()
-
-  syncCrawl(
-    refsDocument,
-    ({ key, value }) => {
-      if (typeof key === 'symbol' && key !== INLINE_REFS_FLAG) {
-        return { done: true }
-      }
-      if (handledObjects.has(value)) {
-        return { done: true }
-      }
-      handledObjects.add(value)
-      if (key !== INLINE_REFS_FLAG) {
-        return { value }
-      }
-      if (!Array.isArray(value)) {
-        return { done: true }
-      }
-      value.forEach(ref => inlineRefs.add(ref))
-    },
-  )
+  const inlineRefs = getInlineRefsFomDocument(refsDocument)
 
   const componentNameMatcher = grepValue('componentName')
   const matchPatterns = [
