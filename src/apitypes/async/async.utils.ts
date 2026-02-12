@@ -16,7 +16,7 @@
 
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { isObject } from '../../utils'
-import { AsyncOperationActionType, AsyncProtocol } from './async.types'
+import { AsyncOperationActionType } from './async.types'
 import { normalize } from '@netcracker/qubership-apihub-api-unifier'
 import { APIHUB_API_COMPATIBILITY_KIND_BWC, ApihubApiCompatibilityKind } from '../../consts'
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
@@ -29,7 +29,7 @@ export { dump, getCustomTags, resolveApiAudience } from '../../utils/apihubSpeci
  * @param channel - Channel object to extract protocol from
  * @returns Protocol string (e.g., 'kafka', 'amqp', 'mqtt') or 'unknown'
  */
-export function extractProtocol(channel: AsyncAPIV3.ChannelObject): AsyncProtocol {
+export function extractProtocol(channel: AsyncAPIV3.ChannelObject): string {
   if (!isObject(channel.servers)) {
     return 'unknown'
   }

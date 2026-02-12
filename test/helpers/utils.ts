@@ -25,15 +25,16 @@ import {
   BuildConfigFile,
   BuildResult,
   ChangeSummary,
-  EMPTY_CHANGE_SUMMARY,
+  EMPTY_CHANGE_SUMMARY, Labels,
   SERIALIZE_SYMBOL_STRING_MAPPING,
   VERSION_STATUS,
 } from '../../src'
 import { buildSchema, introspectionFromSchema } from 'graphql/utilities'
 import { LocalRegistry } from './registry'
 import { Editor } from './editor'
-import { getFileExtension } from '../../src/utils'
+import { getFileExtension, takeIfDefined } from '../../src/utils'
 import { deserialize } from '@netcracker/qubership-apihub-api-unifier'
+import YAML from 'js-yaml'
 
 export const loadFileAsString = async (filePath: string, folder: string, fileName: string): Promise<string | null> => {
   return (await loadFile(filePath, folder, fileName))?.text() ?? null
@@ -270,6 +271,31 @@ export async function prepareChangelogDashboard(
   })
 }
 
+export async function buildPackageDefaultConfig(
+  packageId: string,
+  fileLabels?: Labels,
+  versionLabels?: Labels,
+): Promise<BuildResult> {
+  const portal = new LocalRegistry(packageId)
+
+  await portal.publish(packageId, {
+    packageId: packageId,
+    version: 'v1',
+    metadata: { ...takeIfDefined({ versionLabels: versionLabels }) },
+    files: [{ fileId: 'spec.yaml', ...takeIfDefined({ labels: fileLabels }), publish: true }],
+  })
+
+  const editor = new Editor(packageId, {
+    packageId: packageId,
+    version: 'v1',
+    status: VERSION_STATUS.RELEASE,
+    buildType: BUILD_TYPE.BUILD,
+    files: [{ fileId: 'spec.yaml'}],
+  }, {}, portal)
+
+  return editor.run()
+}
+
 const invertMap = <K, V>(map: Map<K, V>): Map<V, K> => {
   return new Map(
     [...map].map(([key, value]: [K, V]) => [value, key]),
@@ -283,3 +309,10 @@ export function deserializeDocument(serializedDocument: string): ApiDocument {
 }
 
 export const cloneDocument = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
+
+// Helper function to load YAML test files
+export const loadYamlFile = async <T>(relativePath: string): Promise<T> => {
+  const filePath = path.join(process.cwd(), 'test/projects', relativePath)
+  const content = await fs.readFile(filePath, 'utf8')
+  return YAML.load(content) as T
+}

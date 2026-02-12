@@ -1,10 +1,11 @@
 import {
   APIHUB_API_COMPATIBILITY_KIND_BWC,
   APIHUB_API_COMPATIBILITY_KIND_NO_BWC,
-  ApihubApiCompatibilityKind, ApiOperation,
+  ApihubApiCompatibilityKind,
+  ApiOperation,
 } from '../src'
 import { calculateAsyncApiKind } from '../src/apitypes/async/async.utils'
-import { buildPackage } from './helpers'
+import { buildPackageDefaultConfig } from './helpers'
 
 describe('AsyncAPI apiKind calculation', () => {
   describe('Unit tests', () => {
@@ -38,7 +39,7 @@ describe('AsyncAPI apiKind calculation', () => {
     let operationNoBwcWithChannelNoBwc: ApiOperation
 
     beforeAll(async () => {
-      const result = await buildPackage('asyncapi/api-kind/base')
+      const result = await buildPackageDefaultConfig('asyncapi/api-kind/base')
       ;[
         operation,
         operationWithCannelBwc,
@@ -90,9 +91,23 @@ describe('AsyncAPI apiKind calculation', () => {
   })
 
   it('should apply channel apiKind to all operations using that channel', async () => {
-    const result = await buildPackage('asyncapi/api-kind/share-channel-api-kind')
+    const result = await buildPackageDefaultConfig('asyncapi/api-kind/share-channel-api-kind')
     const operations = Array.from(result.operations.values())
 
     expect(operations.every(operation => operation.apiKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC)).toBeTrue()
+  })
+
+  describe('Labels should not redefine AsyncAPI apiKind', () => {
+    it('should not override default apiKind by Label', async () => {
+      const result = await buildPackageDefaultConfig('asyncapi/api-kind/base', ['apihub/x-api-kind: no-BWC'])
+      const [operation] = Array.from(result.operations.values())
+      expect(operation.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_BWC)
+    })
+
+    it('should not override operation/channel apiKind by Label', async () => {
+      const result = await buildPackageDefaultConfig('asyncapi/api-kind/base', ['apihub/x-api-kind: no-BWC'])
+      const [operationWithCannelBwc] = Array.from(result.operations.values())
+      expect(operationWithCannelBwc.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_BWC)
+    })
   })
 })

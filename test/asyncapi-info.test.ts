@@ -1,4 +1,4 @@
-import { buildPackage } from './helpers'
+import { buildPackageDefaultConfig } from './helpers'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 
 describe('Info', () => {
@@ -49,7 +49,7 @@ describe('Info', () => {
     })
 
     async function runTagsTest(packageId: string, expectedTags: AsyncAPIV3.TagObject[]): Promise<void> {
-      const result = await buildPackage(packageId)
+      const result = await buildPackageDefaultConfig(packageId)
 
       const [document] = Array.from(result.documents.values())
       const { tags } = document.metadata
@@ -76,7 +76,7 @@ describe('Info', () => {
       packageId: string,
       expectedExternalDocumentationObject: AsyncAPIV3.ExternalDocumentationObject,
     ): Promise<void> {
-      const result = await buildPackage(packageId)
+      const result = await buildPackageDefaultConfig(packageId)
 
       const [document] = Array.from(result.documents.values())
       const { externalDocs } = document.metadata
