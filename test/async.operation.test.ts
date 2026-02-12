@@ -74,7 +74,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
     })
   })
 
-  describe('operation title', () => {
+  describe('Operation title test', () => {
     it('should set operation title in built package (e2e)', async () => {
       const result = await buildPackage('asyncapi/operations/single-operation')
       const operations = Array.from(result.operations.values())
@@ -83,7 +83,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
     })
   })
 
-  describe('Operation protocol', () => {
+  describe('Operation protocol tests', () => {
     it('should uses the (first) server protocol when supported', () => {
       const channel = {
         title: 'channel1',
@@ -94,18 +94,6 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       } as AsyncAPIV3.ChannelObject
 
       expect(extractProtocol(channel)).toBe('amqp')
-    })
-
-    it('should returns unknown for unsupported protocol', () => {
-      const channel = {
-        title: 'channel1',
-        servers: [
-          { protocol: 'mqtt' },
-          { protocol: 'amqp' },
-        ],
-      } as AsyncAPIV3.ChannelObject
-
-      expect(extractProtocol(channel)).toBe('unknown')
     })
 
     it('should skip $ref servers and return first server with protocol', () => {

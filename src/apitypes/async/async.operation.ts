@@ -73,7 +73,6 @@ export const buildAsyncApiOperation = (
     versionInternalDocument,
     metadata: documentMetadata,
   } = document
-  const { servers, components } = documentData
   const effectiveOperationObject: AsyncAPIV3.OperationObject = effectiveDocument.operations?.[operationKey] as AsyncAPIV3.OperationObject || {}
   const effectiveSingleOperationSpec = createOperationSpec(effectiveDocument, operationKey)
 

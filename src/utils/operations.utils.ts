@@ -167,9 +167,8 @@ export const createSerializedInternalDocument = (document: VersionDocument, effe
 }
 
 export const calculateAsyncOperationId = (
-  basePath: string,
-  path: string,
-  method: string,
+  normalizedOperationId: string,
+  normalizedMessageId: string,
 ): string => {
-  return _calculateRestOperationIdV2(basePath, path, method)
+  return `${normalizedOperationId}-${normalizedMessageId}`
 }

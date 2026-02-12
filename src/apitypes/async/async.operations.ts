@@ -98,8 +98,8 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
           return
         }
 
-        // TODO how to calculate operationId in AsyncAPI?
-        const operationId = calculateAsyncOperationId((message as AsyncAPIV3.MessageObject)?.title || '', operationKey, action)
+        // TODO FIX IT
+        const operationId = calculateAsyncOperationId((message as AsyncAPIV3.MessageObject)?.title || '', operationKey)
 
         const trackedOperations = operationIdMap.get(operationId) ?? []
         // TODO review

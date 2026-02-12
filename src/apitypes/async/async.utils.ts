@@ -18,7 +18,6 @@ import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { isObject } from '../../utils'
 import { AsyncOperationActionType, AsyncProtocol } from './async.types'
 import { normalize } from '@netcracker/qubership-apihub-api-unifier'
-import { ASYNC_SUPPORTED_PROTOCOLS } from './async.consts'
 import { APIHUB_API_COMPATIBILITY_KIND_BWC, ApihubApiCompatibilityKind } from '../../consts'
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 
@@ -37,7 +36,7 @@ export function extractProtocol(channel: AsyncAPIV3.ChannelObject): AsyncProtoco
   for (const server of Object.values(channel.servers as AsyncAPIV3.ServerObject[])) {
     if (isServerObject(server) && server.protocol) {
       const { protocol } = server
-      return ASYNC_SUPPORTED_PROTOCOLS.includes(protocol) ? protocol as AsyncProtocol : 'unknown'
+      return protocol
     }
   }
 
