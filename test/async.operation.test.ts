@@ -115,6 +115,54 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
     })
   })
 
+  describe('Operation security tests', () => {
+    it('should preserve operation-level security in built package', async () => {
+      const result = await buildPackageDefaultConfig('asyncapi/operations/security-operation')
+      const [apiHubOperation] = Array.from(result.operations.values())
+      const asyncApiDocument: AsyncAPIV3.AsyncAPIObject = apiHubOperation.data
+      const operationEntries = Object.values(asyncApiDocument.operations ?? {}) as AsyncAPIV3.OperationObject[]
+      expect(operationEntries).toHaveLength(1)
+
+      const [asyncOperation] = operationEntries
+      expect(asyncOperation.security).toBeDefined()
+      expect(asyncOperation.security).toHaveLength(2)
+    })
+
+    it('should include securitySchemes in components when inlined', async () => {
+      const result = await buildPackageDefaultConfig('asyncapi/operations/security-operation')
+      const [apiHubOperation] = Array.from(result.operations.values())
+      const asyncApiDocument: AsyncAPIV3.AsyncAPIObject = apiHubOperation.data
+
+      const securitySchemes = asyncApiDocument.components?.securitySchemes
+      expect(securitySchemes).toHaveProperty('oauth2')
+      expect(securitySchemes).toHaveProperty('apiKey')
+    })
+
+    it('should not have security when operation has no security defined', async () => {
+      const result = await buildPackageDefaultConfig('asyncapi/operations/single-operation')
+      const [apiHubOperation] = Array.from(result.operations.values())
+      const asyncApiDocument: AsyncAPIV3.AsyncAPIObject = apiHubOperation.data
+
+      const operationEntries = Object.values(asyncApiDocument.operations ?? {}) as AsyncAPIV3.OperationObject[]
+      const [asyncOperation] = operationEntries
+      expect(asyncOperation.security).toBeUndefined()
+    })
+
+    it('should have security in operations channel servers', async () => {
+      const result = await buildPackageDefaultConfig('asyncapi/operations/server-security-operation')
+      const operations = Array.from(result.operations.values())
+      expect(operations).toHaveLength(1)
+
+      const [apiHubOperation] = operations
+      const asyncApiDocument: AsyncAPIV3.AsyncAPIObject = apiHubOperation.data
+
+      const serverEntries = asyncApiDocument?.servers ? Object.values(asyncApiDocument.servers) as AsyncAPIV3.ServerObject[] : []
+      const serverWithSecurity = serverEntries.find(server => server.security)
+      expect(serverWithSecurity).toBeDefined()
+      expect(serverWithSecurity!.security).toHaveLength(2)
+    })
+  })
+
   describe('Create operation spec tests', () => {
     const OPERATION_1 = 'sendUserSignedUp'
     const OPERATION_2 = 'sendUserSignedOut'
