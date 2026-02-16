@@ -51,7 +51,7 @@ import { calculateAsyncApiKind, extractKeyAfterPrefix, extractProtocol } from '.
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { getApiKindProperty } from '../../components/document'
 import { calculateTolerantHash } from '../../components/deprecated'
-import { ASYNCAPI_DEPRECATION_EXTENSION_KEY, DEPRECATED_MESSAGE_PREFIX } from './async.consts'
+import { ASYNCAPI_API_TYPE, ASYNCAPI_DEPRECATION_EXTENSION_KEY, DEPRECATED_MESSAGE_PREFIX } from './async.consts'
 
 export const buildAsyncApiOperation = (
   operationId: string,
@@ -76,7 +76,7 @@ export const buildAsyncApiOperation = (
   const effectiveOperationObject: AsyncAPIV3.OperationObject = effectiveDocument.operations?.[operationKey] as AsyncAPIV3.OperationObject || {}
   const effectiveSingleOperationSpec = createOperationSpec(effectiveDocument, operationKey)
 
-  // TODO check tags. Its more complex in AsyncAPI
+  // TODO Out of scope
   const tags: string[] = effectiveOperationObject?.tags?.map(tag => (tag as AsyncAPIV3.TagObject)?.name) || []
 
   // Extract search scopes (similar to REST)
@@ -133,8 +133,8 @@ export const buildAsyncApiOperation = (
       })
     }
 
-    const foundedDeprecatedItems = calculateDeprecatedItems(effectiveSingleOperationSpec, ORIGINS_SYMBOL)
-    for (const item of foundedDeprecatedItems) {
+    const foundDeprecatedItems = calculateDeprecatedItems(effectiveSingleOperationSpec, ORIGINS_SYMBOL)
+    for (const item of foundDeprecatedItems) {
       const { description, value } = item
       const declarationJsonPaths = resolveOrigins(value, JSON_SCHEMA_PROPERTY_DEPRECATED, ORIGINS_SYMBOL)?.map(pathItemToFullPath) ?? []
 
@@ -142,8 +142,8 @@ export const buildAsyncApiOperation = (
         declarationJsonPaths,
         description,
         deprecatedInPreviousVersions,
-        hash: calculateHash(channel, normalizedSpecFragmentsHashCache),
-        tolerantHash: calculateTolerantHash(channel as Jso, notifications),
+        hash: calculateHash(value, normalizedSpecFragmentsHashCache),
+        tolerantHash: calculateTolerantHash(value as Jso, notifications),
       })
     }
   }, debugCtx)
@@ -151,14 +151,14 @@ export const buildAsyncApiOperation = (
   const operationApiKind = getApiKindProperty(effectiveOperationObject)
   const channelApiKind = getApiKindProperty(channel)
 
+  // TODO: Populate models when AsyncAPI model extraction is implemented
   const models: Record<string, string> = {}
-  const [specWithSingleOperation] = syncDebugPerformance('[ModelsAndOperationHashing]', () => {
-    const specWithSingleOperation = createOperationSpec(
+  const specWithSingleOperation = syncDebugPerformance('[ModelsAndOperationHashing]', () => {
+    return createOperationSpec(
       documentData,
       operationKey,
       refsOnlyDocument,
     )
-    return [specWithSingleOperation]
   }, debugCtx)
 
   const deprecatedOperationItem = deprecatedItems.find(isDeprecatedOperationItem)
@@ -170,13 +170,13 @@ export const buildAsyncApiOperation = (
   const apiAudience = resolveApiAudience(documentMetadata?.info)
 
   const protocol = extractProtocol(channel)
-  // todo get channelId and messageId
+  // todo Get channelId and messageId. A new api-unifier is awaiting
   const channelId = 'channelId'
   const messageId = 'messageId'
   return {
     operationId,
     documentId: documentSlug,
-    apiType: 'asyncapi',
+    apiType: ASYNCAPI_API_TYPE,
     apiKind: calculateAsyncApiKind(operationApiKind, channelApiKind),
     deprecated: !!message[ASYNCAPI_DEPRECATION_EXTENSION_KEY],
     title: message.title || messageId,

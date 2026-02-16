@@ -79,9 +79,16 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
     if (!isObject(operationData)) {
       continue
     }
-    const operation = operationData as AsyncAPIV3.OperationObject
-    const messages = operation.messages as AsyncAPIV3.MessageObject[]
-    if (!messages.length) {
+    const operationObject = operationData as AsyncAPIV3.OperationObject
+    const messages = operationData.messages as AsyncAPIV3.MessageObject[]
+
+    if (!Array.isArray(messages) || messages.length === 0) {
+      continue
+    }
+
+    const action = operationObject.action as AsyncOperationActionType
+    const channel = operationObject.channel as AsyncAPIV3.ChannelObject
+    if (!action || !channel) {
       continue
     }
 
@@ -90,25 +97,17 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
         continue
       }
 
-      await asyncFunction(async () => {
-        const action = operation.action as AsyncOperationActionType
-        const channel = operation.channel as AsyncAPIV3.ChannelObject
+      const operationId = calculateAsyncOperationId(operationKey, (message.title as string) || '')
 
-        if (!action || !channel) {
-          return
-        }
+      if (!operationIdMap.has(operationId)) {
+        operationIdMap.set(operationId, [])
+      }
+      operationIdMap.get(operationId)!.push({ operationKey, action })
 
-        // TODO FIX IT
-        const operationId = calculateAsyncOperationId((message as AsyncAPIV3.MessageObject)?.title || '', operationKey)
-
-        const trackedOperations = operationIdMap.get(operationId) ?? []
-        // TODO review
-        trackedOperations.push({ operationKey, action })
-        operationIdMap.set(operationId, trackedOperations)
-
+      await asyncFunction(() => {
         syncDebugPerformance('[Operation]', (innerDebugCtx) =>
           logLongBuild(() => {
-              const operation = buildAsyncApiOperation(
+              const builtOperation = buildAsyncApiOperation(
                 operationId,
                 operationKey,
                 action,
@@ -122,7 +121,7 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
                 normalizedSpecFragmentsHashCache,
                 innerDebugCtx,
               )
-              apihubOperations.push(operation)
+              apihubOperations.push(builtOperation)
             },
             `${config.packageId}/${config.version} ${operationId}`,
           ), debugCtx, [operationId])

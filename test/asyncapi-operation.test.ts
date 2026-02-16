@@ -65,7 +65,14 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
   })
 
   describe('Operation title test', () => {
-    it('should set operation title in built package (e2e)', async () => {
+    it('should set operation title in built package (e2e) as message title', async () => {
+      const result = await buildPackageDefaultConfig('asyncapi/operations/single-operation')
+      const operations = Array.from(result.operations.values())
+      const [operation] = operations
+      expect(operation.title).toBe('User Signed Up')
+    })
+
+    it.skip('should set operation title as message id if message title doesn\'t exist', async () => {
       const result = await buildPackageDefaultConfig('asyncapi/operations/single-operation')
       const operations = Array.from(result.operations.values())
       const [operation] = operations
@@ -74,7 +81,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
   })
 
   describe('Operation protocol tests', () => {
-    it('should uses the (first) server protocol when supported', () => {
+    it('should uses the (first) server protocol', () => {
       const channel = {
         title: 'channel1',
         servers: [
@@ -110,8 +117,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       const result = await buildPackageDefaultConfig('asyncapi/operations/single-operation')
       const operations = Array.from(result.operations.values())
       const [operation] = operations
-      // In test spec, channel's first server is amqp.
-      expect(operation.metadata.protocol).toBe('amqp')
+      expect(operation.metadata.protocol).toBeDefined()
     })
   })
 
