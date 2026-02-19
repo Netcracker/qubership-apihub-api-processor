@@ -40,9 +40,9 @@ import { FILE_FORMAT_JSON, INLINE_REFS_FLAG, NORMALIZE_OPTIONS } from '../consts
 import { normalize } from '@netcracker/qubership-apihub-api-unifier'
 import { extractOperationBasePath } from '@netcracker/qubership-apihub-api-diff'
 import { calculateSpecRefs, extractCommonPathItemProperties } from '../apitypes/rest/rest.operation'
-import { buildFromSchema, GraphApiSchema, printGraphApi } from '@netcracker/qubership-apihub-graphapi'
+import { GraphApiSchema, printGraphApi } from '@netcracker/qubership-apihub-graphapi'
 import { createSingleOperationSpec } from '../apitypes/graphql/graphql.operation'
-import { buildSchema } from 'graphql/index'
+import { parseGraphQLSource } from '../utils/graphql-transformer'
 
 const documentTransformers: Record<OperationsApiType, (document: ResolvedGroupDocument, format: FileFormat, packages: ResolvedReferenceMap) => VersionDocument> = {
   [REST_API_TYPE]: getRestTransformedDocument,
@@ -57,42 +57,39 @@ function getTransformedDocument(apiType: OperationsApiType, document: ResolvedGr
   return transformer(document, format, packages)
 }
 
-function applyPackageRef(versionDocument: VersionDocument, document: ResolvedGroupDocument, packages: ResolvedReferenceMap): void {
+function buildTransformedDocument<T extends VersionDocument>(
+  document: ResolvedGroupDocument,
+  format: FileFormat,
+  packages: ResolvedReferenceMap,
+  populateData: (versionDocument: T) => void,
+): T {
+  const versionDocument = toVersionDocument(document, format) as T
+  populateData(versionDocument)
+  versionDocument.publish = true
   if (document.packageRef) {
     const { refId } = packages[document.packageRef]
     versionDocument.fileId = `${refId}_${versionDocument.fileId}`
     versionDocument.filename = `${refId}_${versionDocument.filename}`
   }
+  return versionDocument
 }
 
 function getRestTransformedDocument(document: ResolvedGroupDocument, format: FileFormat, packages: ResolvedReferenceMap): VersionRestDocument {
-  const versionDocument = toVersionDocument(document, format)
-
-  const sourceDocument = extractDocumentData(versionDocument)
-  versionDocument.data = transformDocumentData(versionDocument)
-  const normalizedDocument = normalizeOpenApi(versionDocument.data, sourceDocument)
-  versionDocument.publish = true
-
-  calculateSpecRefs(sourceDocument, normalizedDocument, versionDocument.data, versionDocument.operationIds)
-
-  applyPackageRef(versionDocument, document, packages)
-
-  return versionDocument
+  return buildTransformedDocument<VersionRestDocument>(document, format, packages, (versionDocument) => {
+    const sourceDocument = extractDocumentData(versionDocument)
+    versionDocument.data = transformDocumentData(versionDocument)
+    const normalizedDocument = normalizeOpenApi(versionDocument.data, sourceDocument)
+    calculateSpecRefs(sourceDocument, normalizedDocument, versionDocument.data, versionDocument.operationIds)
+  })
 }
 
 function getGraphQLTransformedDocument(document: ResolvedGroupDocument, format: FileFormat, packages: ResolvedReferenceMap): VersionDocument<string> {
-  const versionDocument = toVersionDocument(document, format) as VersionDocument<string>
-
-  const sourceDocument = extractGraphQLDocumentData(versionDocument)
-
-  const refsOnlyDocument = normalizeGraphQL(sourceDocument)
-
-  versionDocument.data = printGraphApi(createSingleOperationSpec(sourceDocument, refsOnlyDocument, versionDocument.operationIds))
-  versionDocument.publish = true
-
-  applyPackageRef(versionDocument, document, packages)
-
-  return versionDocument
+  return buildTransformedDocument<VersionDocument<string>>(document, format, packages, (versionDocument) => {
+    const sourceDocument = extractGraphQLDocumentData(versionDocument)
+    const refsOnlyDocument = normalizeGraphQL(sourceDocument)
+    const operationsSpec = createSingleOperationSpec(sourceDocument, refsOnlyDocument, versionDocument.operationIds)
+    versionDocument.data = printGraphApi(operationsSpec)
+  })
 }
 
 export class DocumentGroupStrategy implements BuilderStrategy {
@@ -145,12 +142,7 @@ function extractDocumentData(versionDocument: VersionDocument): OpenAPIV3.Docume
 
 function extractGraphQLDocumentData(versionDocument: VersionDocument): GraphApiSchema {
   try {
-    return buildFromSchema(
-      buildSchema(
-        versionDocument.source as unknown as string,
-        { noLocation: true },
-      ),
-    )
+    return parseGraphQLSource(versionDocument.source as unknown as string)
   } catch (e) {
     throw new Error(`Cannot parse GraphQL data of ${versionDocument.slug}: ${e instanceof Error ? e.message : e}`)
   }

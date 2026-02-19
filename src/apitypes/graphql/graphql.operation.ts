@@ -28,7 +28,7 @@ import { APIHUB_API_COMPATIBILITY_KIND_BWC, INLINE_REFS_FLAG, ORIGINS_SYMBOL, VE
 import { GraphQLSchemaType, VersionGraphQLDocument, VersionGraphQLOperation } from './graphql.types'
 import { GRAPHQL_API_TYPE, GRAPHQL_TYPE, GRAPHQL_TYPE_KEYS } from './graphql.consts'
 import { calculateGraphqlOperationId } from '../../utils'
-import { GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
+import { GraphApiDirectiveDefinition, GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
 import { toTitleCase } from '../../utils/strings'
 import {
   calculateDeprecatedItems,
@@ -43,6 +43,7 @@ import {
   resolveOrigins,
 } from '@netcracker/qubership-apihub-api-unifier'
 import { JsonPath, syncCrawl } from '@netcracker/qubership-apihub-json-crawl'
+import { DirectiveLocation } from 'graphql/language'
 import { DebugPerformanceContext, syncDebugPerformance } from '../../utils/logs'
 import { calculateHash, ObjectHashCache } from '../../utils/hashes'
 
@@ -170,18 +171,51 @@ export const calculateSpecRefs = (sourceSpec: unknown, normalizedSpec: unknown, 
   })
 }
 
+const RUNTIME_DIRECTIVE_LOCATIONS = new Set([
+  DirectiveLocation.QUERY,
+  DirectiveLocation.MUTATION,
+  DirectiveLocation.SUBSCRIPTION,
+  DirectiveLocation.FIELD,
+  DirectiveLocation.FRAGMENT_DEFINITION,
+  DirectiveLocation.FRAGMENT_SPREAD,
+  DirectiveLocation.INLINE_FRAGMENT,
+  DirectiveLocation.VARIABLE_DEFINITION,
+])
+
+const copyRuntimeDirectives = (source: GraphApiSchema, target: GraphApiSchema): void => {
+  const directives = source.components?.directives
+  if (!directives || typeof directives !== 'object') { return }
+
+  const runtimeDirectives = Object.fromEntries(
+    Object.entries(directives as Record<string, GraphApiDirectiveDefinition>)
+      .filter(([, d]) => d.locations.some(loc => RUNTIME_DIRECTIVE_LOCATIONS.has(loc))),
+  )
+  if (Object.keys(runtimeDirectives).length === 0) { return }
+
+  const targetRecord = target as unknown as Record<string, Record<string, unknown>>
+  if (!targetRecord.components) { targetRecord.components = {} }
+  targetRecord.components.directives = {
+    ...(targetRecord.components.directives as Record<string, unknown>),
+    ...runtimeDirectives,
+  }
+}
+
 /**
  * Creates a GraphQL spec containing only the specified operations with resolved component references.
  *
  * @param sourceDocument The original GraphQL document (used as source for operation data and component values).
  * @param normalizedDocument A normalized/refs-only document (used to detect inline refs that must be copied).
  * @param operationsId Array of operation IDs (as produced by calculateGraphqlOperationId) to include.
+ * @param includeRuntimeDirectives When true, runtime directive definitions (QUERY, MUTATION, FIELD, etc.)
+ *   from source components are included in the result regardless of whether they are referenced by the operations.
+ *   This replicates the behavior of removeComponents + cropToSingleOperation.
  * @throws Error when no operations are provided or when any requested operation is missing in the document.
  */
 export const createSingleOperationSpec = (
   sourceDocument: GraphApiSchema,
   normalizedDocument: GraphApiSchema,
   operationsId: string[],
+  includeRuntimeDirectives = false,
 ): GraphApiSchema => {
   if (operationsId.length === 0) {
     throw new Error(
@@ -241,6 +275,10 @@ export const createSingleOperationSpec = (
 
   // Resolve component references from normalizedDocument into result
   calculateSpecRefs(sourceDocument, normalizedOperationSpec, result)
+
+  if (includeRuntimeDirectives) {
+    copyRuntimeDirectives(sourceDocument, result)
+  }
 
   return result
 }
