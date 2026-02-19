@@ -28,7 +28,7 @@ interface FileBase {
   fileId: string
   type: string
   format: FileFormat
-  source: Blob
+  source?: Blob
 }
 
 export interface TextFile<T = any> extends FileBase {

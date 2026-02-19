@@ -22,13 +22,15 @@ import {
   BuilderContext,
   BuilderResolvers,
   BuildResult,
-  ChangeSummary, ComparisonInternalDocument,
+  ChangeSummary,
+  ComparisonInternalDocument,
   EMPTY_CHANGE_SUMMARY,
   FILE_FORMAT,
   graphqlApiBuilder,
   isGraphqlDocument,
   isRestDocument,
-  KIND_PACKAGE, Labels,
+  KIND_PACKAGE,
+  Labels,
   MESSAGE_SEVERITY,
   NotificationMessage,
   OperationId,
@@ -59,11 +61,14 @@ import {
   VersionDocument,
   VersionDocuments,
   VersionId,
-  VersionsComparison, VersionsComparisonDto,
+  VersionsComparison,
+  VersionsComparisonDto,
   ZippableDocument,
 } from '../../../src'
 import {
-  getOperationsFileContent, saveComparisonInternalDocuments, saveComparisonInternalDocumentsArray,
+  getOperationsFileContent,
+  saveComparisonInternalDocuments,
+  saveComparisonInternalDocumentsArray,
   saveComparisonsArray,
   saveDocumentsArray,
   saveEachComparison,
@@ -71,7 +76,9 @@ import {
   saveEachOperation,
   saveInfo,
   saveNotifications,
-  saveOperationsArray, saveVersionInternalDocuments, saveVersionInternalDocumentsArray,
+  saveOperationsArray,
+  saveVersionInternalDocuments,
+  saveVersionInternalDocumentsArray,
 } from './utils'
 import {
   getCompositeKey,
@@ -322,8 +329,9 @@ export class LocalRegistry implements IRegistry {
         apiKind: document.apiKind,
         includedOperationIds: filterOperationIdsByGroup ? document.operationIds.filter(filterOperationIdsByGroup!) : document.operationIds,
         description: document.description,
-        data: toBase64(JSON.stringify(document.data)),
+        data: toBase64(JSON.stringify(document.data || document.source)),
         ...takeIfDefined({ packageRef: refId }),
+        ...takeIfDefined({ source: document.source }),
       }))
   }
 

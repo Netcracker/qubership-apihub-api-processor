@@ -28,6 +28,7 @@ export type ResolvedDocument = {
   title: string
   version?: string
   labels?: Labels
+  source?: Blob
 }
 
 export type VersionDocumentsResolver = (
