@@ -17,7 +17,7 @@
 import { Editor, exportDocumentMatcher, exportDocumentsMatcher, LocalRegistry } from './helpers'
 import {
   BUILD_TYPE,
-  ExportRestOperationsGroupBuildConfig,
+  ExportOperationsGroupBuildConfig,
   FILE_FORMAT_HTML,
   FILE_FORMAT_JSON,
   FILE_FORMAT_YAML,
@@ -40,7 +40,7 @@ const groupToOperationIdsMap = {
   ],
 }
 
-const COMMON_REDUCED_GROUP_EXPORT_CONFIG: Partial<ExportRestOperationsGroupBuildConfig> = {
+const COMMON_REDUCED_GROUP_EXPORT_CONFIG: Partial<ExportOperationsGroupBuildConfig> = {
   packageId: 'documents-collision',
   version: 'v1',
   groupName: GROUP_WITH_OPERATIONS_FROM_DOCUMENTS_WITH_THE_SAME_NAMES,

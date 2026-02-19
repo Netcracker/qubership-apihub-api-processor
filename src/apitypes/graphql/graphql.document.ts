@@ -22,9 +22,11 @@ import {
 } from '@netcracker/qubership-apihub-graphapi'
 import type { GraphQLSchema, IntrospectionQuery } from 'graphql'
 
-import { BuildConfigFile, DocumentDumper, TextFile, VersionDocument } from '../../types'
+import { _TemplateResolver, BuildConfigFile, DocumentDumper, ExportDocument, ExportFormat, TextFile, VersionDocument } from '../../types'
+import { FILE_FORMAT_HTML } from '../../consts'
 import { GRAPHQL_DOCUMENT_TYPE } from './graphql.consts'
-import { createVersionInternalDocument } from '../../utils'
+import { createVersionInternalDocument, getDocumentTitle } from '../../utils'
+import { generateHtmlPage } from '../../utils/export'
 
 export const buildGraphQLDocument = async (parsedFile: TextFile, file: BuildConfigFile): Promise<VersionDocument<GraphApiSchema>> => {
   let graphapi: GraphApiSchema
@@ -60,4 +62,36 @@ export const buildGraphQLDocument = async (parsedFile: TextFile, file: BuildConf
 
 export const dumpGraphQLDocument: DocumentDumper<GraphApiSchema> = (document) => {
   return new Blob([printGraphApi(document.data)], { type: 'text/plain' })
+}
+
+export async function createGraphQLExportDocument(
+  filename: string,
+  data: string,
+  format: ExportFormat,
+  packageName: string,
+  version: string,
+  templateResolver: _TemplateResolver,
+  generatedHtmlExportDocuments?: ExportDocument[],
+): Promise<ExportDocument> {
+  const exportFilename = `${getDocumentTitle(filename)}.${format === FILE_FORMAT_HTML ? FILE_FORMAT_HTML : 'graphql'}`
+
+  if (format === FILE_FORMAT_HTML) {
+    const htmlExportDocument: ExportDocument = {
+      data: await generateHtmlPage(
+        data,
+        getDocumentTitle(filename),
+        packageName,
+        version,
+        templateResolver,
+      ),
+      filename: exportFilename,
+    }
+    generatedHtmlExportDocuments?.push(htmlExportDocument)
+    return htmlExportDocument
+  }
+
+  return {
+    data: new Blob([data], { type: 'text/plain' }),
+    filename: exportFilename,
+  }
 }
