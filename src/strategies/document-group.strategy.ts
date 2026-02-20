@@ -142,7 +142,7 @@ function extractDocumentData(versionDocument: VersionDocument): OpenAPIV3.Docume
 
 function extractGraphQLDocumentData(versionDocument: VersionDocument): GraphApiSchema {
   try {
-    return parseGraphQLSource(parseBase64String(versionDocument.data) as string)
+    return parseGraphQLSource(fromBase64(versionDocument.data) as string)
   } catch (e) {
     throw new Error(`Cannot parse GraphQL data of ${versionDocument.slug}: ${e instanceof Error ? e.message : e}`)
   }
