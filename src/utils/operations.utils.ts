@@ -175,10 +175,10 @@ export const createSerializedInternalDocument = (document: VersionDocument, effe
 }
 
 export const calculateAsyncOperationId = (
-  normalizedOperationId: string,
-  normalizedMessageId: string,
+  operationId: string,
+  messageId: string,
 ): string => {
-  return `${normalizedOperationId}-${normalizedMessageId}`
+  return slugify(`${operationId}-${messageId}`, SLUG_OPTIONS_NORMALIZED_OPERATION_ID)
 }
 
 export const getInlineRefsFomDocument = (document: RestOperationData | AsyncOperationData): Set<string> => {
@@ -204,4 +204,8 @@ export const getInlineRefsFomDocument = (document: RestOperationData | AsyncOper
     },
   )
   return inlineRefs
+}
+
+export const isReferenceObject = (obj: unknown): boolean => {
+  return isObject(obj) && '$ref' in obj
 }

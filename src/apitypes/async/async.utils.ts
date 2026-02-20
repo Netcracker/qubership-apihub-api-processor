@@ -15,10 +15,14 @@
  */
 
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
-import { isObject } from '../../utils'
+import { isObject, isReferenceObject } from '../../utils'
 import { AsyncOperationActionType } from './async.types'
 import { normalize } from '@netcracker/qubership-apihub-api-unifier'
-import { APIHUB_API_COMPATIBILITY_KIND_BWC, ApihubApiCompatibilityKind } from '../../consts'
+import {
+  APIHUB_API_COMPATIBILITY_KIND_BWC,
+  ApihubApiCompatibilityKind,
+  FIRST_REFERENCE_KEY_PROPERTY,
+} from '../../consts'
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 
 // Re-export shared utilities
@@ -59,12 +63,12 @@ export function determineOperationAction(operationData: any): AsyncOperationActi
   return 'send'
 }
 
-function isServerObject(server: AsyncAPIV3.ServerObject | AsyncAPIV3.ReferenceObject): server is AsyncAPIV3.ServerObject {
-  return isObject(server) && 'protocol' in server
+function isServerObject(obj: AsyncAPIV3.ServerObject | AsyncAPIV3.ReferenceObject): obj is AsyncAPIV3.ServerObject {
+  return isObject(obj) && !isReferenceObject(obj)
 }
 
-function isTagObject(item: AsyncAPIV3.TagObject | AsyncAPIV3.ReferenceObject): item is AsyncAPIV3.TagObject {
-  return (item as AsyncAPIV3.TagObject).name !== undefined
+function isTagObject(obj: AsyncAPIV3.TagObject | AsyncAPIV3.ReferenceObject): obj is AsyncAPIV3.TagObject {
+  return isObject(obj) && !isReferenceObject(obj)
 }
 
 function isExternalDocumentationObject(item: AsyncAPIV3.ExternalDocumentationObject | AsyncAPIV3.ReferenceObject): item is AsyncAPIV3.ExternalDocumentationObject {
@@ -126,4 +130,15 @@ export const extractKeyAfterPrefix = (paths: JsonPath[], prefix: PropertyKey[]):
     return key === undefined ? undefined : String(key)
   }
   return undefined
+}
+
+const getAsyncItemId = (item: AsyncAPIV3.ChannelObject | AsyncAPIV3.MessageObject): string => {
+  return (item as Record<symbol, string>)[FIRST_REFERENCE_KEY_PROPERTY]
+}
+
+export const getAsyncMessageId = (message: AsyncAPIV3.MessageObject): string => {
+  return getAsyncItemId(message)
+}
+export const getAsyncChannelId = (channel: AsyncAPIV3.ChannelObject): string => {
+  return getAsyncItemId(channel)
 }

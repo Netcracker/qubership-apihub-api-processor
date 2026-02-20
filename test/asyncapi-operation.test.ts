@@ -42,25 +42,53 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
   })
 
   describe('OperationId Tests', () => {
-    it.skip('should generate unique operationIds (unit)', () => {
+    it('should generate unique operationIds (unit)', () => {
       const data = [
-        ['channel1', 'message1', 'channel1message1-send'],
-        ['channel1', 'message1', 'channel1message1-receive'],
-        ['channel2', 'message1', 'channel2message1-send'],
+        // basic asyncapi
+        ['publishOrderCreated', 'orderCreated', 'publishOrderCreated-orderCreated'],
+
+        // dotted event version
+        ['publishOrder', 'order.created.v1', 'publishOrder-order.created.v1'],
+
+        // namespace event
+        ['publishUser', 'com.company.user.created', 'publishUser-com.company.user.created'],
+
+        // slash in messageId (channel-like)
+        ['publishUser', 'user/account/created','publishUser-user-account-created'],
+
+        // brackets version
+        ['publishOrder', 'orderCreated(v1)', 'publishOrder-orderCreated_v1_'],
+        ['publishOrder', 'orderCreated[v1]', 'publishOrder-orderCreated_v1_'],
+
+        // underscore preserved
+        ['publish_user', 'user_created', 'publish_user-user_created'],
+
+        // star preserved
+        ['publishEvent', 'event.created*internal', 'publishEvent-event.created*internal'],
+
+        // spaces (slug replaces with dash)
+        ['publish Order', 'order created', 'publish-Order-order-created'],
+
+        // complex asyncapi real-world
+        ['publishOrderEvent', 'com.company.order/created.v1', 'publishOrderEvent-com.company.order-created.v1'],
+
+        // kafka topic style
+        ['publishKafkaEvent', 'order.created.v1.eu-west-1', 'publishKafkaEvent-order.created.v1.eu-west-1'],
+
+        // mixed symbols
+        ['publish(Order)', 'order.created[v1]', 'publish_Order_-order.created_v1_'],
       ]
-      data.forEach(([data1, data2, expected]) => {
-        const result = calculateAsyncOperationId(data1, data2)
+      data.forEach(([operationId, messageId, expected]) => {
+        const result = calculateAsyncOperationId(operationId, messageId)
         expect(result).toBe(expected)
       })
     })
 
-    it.skip('should set operationId in built package (e2e)', async () => {
+    it('should set operationId in built package (e2e)', async () => {
       const result = await buildPackageDefaultConfig('asyncapi/operations/single-operation')
       const operations = Array.from(result.operations.values())
       const [operation] = operations
-      expect(operation.operationId).toBe(
-        calculateAsyncOperationId('User Signed Up', 'sendUserSignedup'),
-      )
+      expect(operation.operationId).toBe('sendUserSignedup-UserSignedUp')
     })
   })
 
@@ -72,7 +100,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       expect(operation.title).toBe('User Signed Up')
     })
 
-    it.skip('should set operation title as message id if message title doesn\'t exist', async () => {
+    it('should set operation title as message id if message title doesn\'t exist', async () => {
       const result = await buildPackageDefaultConfig('asyncapi/operations/single-operation')
       const operations = Array.from(result.operations.values())
       const [operation] = operations

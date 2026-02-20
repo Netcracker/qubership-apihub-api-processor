@@ -47,7 +47,7 @@ import {
   resolveOrigins,
 } from '@netcracker/qubership-apihub-api-unifier'
 import { calculateHash, ObjectHashCache } from '../../utils/hashes'
-import { calculateAsyncApiKind, extractKeyAfterPrefix, extractProtocol } from './async.utils'
+import { calculateAsyncApiKind, extractKeyAfterPrefix, extractProtocol, getAsyncChannelId } from './async.utils'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { getApiKindProperty } from '../../components/document'
 import { calculateTolerantHash } from '../../components/deprecated'
@@ -55,6 +55,7 @@ import { ASYNCAPI_API_TYPE, ASYNCAPI_DEPRECATION_EXTENSION_KEY, DEPRECATED_MESSA
 
 export const buildAsyncApiOperation = (
   operationId: string,
+  messageId: string,
   operationKey: string,
   action: AsyncOperationActionType,
   channel: AsyncAPIV3.ChannelObject,
@@ -170,9 +171,7 @@ export const buildAsyncApiOperation = (
   const apiAudience = resolveApiAudience(documentMetadata?.info)
 
   const protocol = extractProtocol(channel)
-  // todo Get channelId and messageId. A new api-unifier is awaiting
-  const channelId = 'channelId'
-  const messageId = 'messageId'
+
   return {
     operationId,
     documentId: documentSlug,
@@ -182,7 +181,7 @@ export const buildAsyncApiOperation = (
     title: message.title || messageId,
     metadata: {
       action,
-      channel: channel.title || channelId,
+      channel: channel.title || getAsyncChannelId(channel),
       protocol,
       customTags,
     },

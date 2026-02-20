@@ -25,13 +25,14 @@ import {
 } from '../../utils'
 import type * as TYPE from './async.types'
 import { AsyncOperationActionType } from './async.types'
-import { INLINE_REFS_FLAG } from '../../consts'
+import { FIRST_REFERENCE_KEY_PROPERTY, INLINE_REFS_FLAG } from '../../consts'
 import { asyncFunction } from '../../utils/async'
 import { logLongBuild, syncDebugPerformance } from '../../utils/logs'
 import { normalize, RefErrorType } from '@netcracker/qubership-apihub-api-unifier'
 import { ASYNC_EFFECTIVE_NORMALIZE_OPTIONS } from './async.consts'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { buildAsyncApiOperation } from './async.operation'
+import { getAsyncMessageId } from './async.utils'
 
 type OperationInfo = { operationKey: string; action: string }
 type DuplicateEntry = { operationId: string; operations: OperationInfo[] }
@@ -47,6 +48,7 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
         documentWithoutComponents,
         {
           ...ASYNC_EFFECTIVE_NORMALIZE_OPTIONS,
+          firstReferenceKeyProperty: FIRST_REFERENCE_KEY_PROPERTY,
           source: documentData,
           onRefResolveError: (message: string, _path: PropertyKey[], _ref: string, errorType: RefErrorType) =>
             bundlingErrorHandler([{ message, errorType }]),
@@ -93,11 +95,8 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
     }
 
     for (const message of messages) {
-      if (!isObject(message)) {
-        continue
-      }
-
-      const operationId = calculateAsyncOperationId(operationKey, (message.title as string) || '')
+      const messageId = getAsyncMessageId(message)
+      const operationId = calculateAsyncOperationId(operationKey, messageId)
 
       if (!operationIdMap.has(operationId)) {
         operationIdMap.set(operationId, [])
@@ -109,6 +108,7 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
           logLongBuild(() => {
               const builtOperation = buildAsyncApiOperation(
                 operationId,
+                messageId,
                 operationKey,
                 action,
                 channel,
