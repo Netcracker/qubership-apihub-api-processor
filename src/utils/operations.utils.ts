@@ -19,7 +19,12 @@ import { GraphApiComponents, GraphApiDirectiveDefinition } from '@netcracker/qub
 import { OpenAPIV3 } from 'openapi-types'
 import { isObject } from './objects'
 import { serializeDocument } from './document'
-import { SLUG_OPTIONS_DOCUMENT_ID, SLUG_OPTIONS_NORMALIZED_OPERATION_ID, SLUG_OPTIONS_OPERATION_ID, slugify } from './slugify'
+import {
+  SLUG_OPTIONS_DOCUMENT_ID,
+  SLUG_OPTIONS_NORMALIZED_OPERATION_ID,
+  SLUG_OPTIONS_OPERATION_ID,
+  slugify,
+} from './slugify'
 import { normalizePath, removeFirstSlash } from './builder'
 import { Diff, DiffAction } from '@netcracker/qubership-apihub-api-diff'
 import {
@@ -30,7 +35,10 @@ import {
   PREDICATE_ANY_VALUE,
 } from '@netcracker/qubership-apihub-api-unifier'
 import { DirectiveLocation } from 'graphql/language'
-import { HTTP_METHODS_SET } from '../consts'
+import { HTTP_METHODS_SET, INLINE_REFS_FLAG } from '../consts'
+import { syncCrawl } from '@netcracker/qubership-apihub-json-crawl'
+import { RestOperationData } from '../apitypes/rest/rest.types'
+import { AsyncOperationData } from '../apitypes'
 
 export function getOperationsList(buildResult: BuildResult): ApiOperation[] {
   return [...buildResult.operations.values()]
@@ -164,4 +172,40 @@ export const createSerializedInternalDocument = (document: VersionDocument, effe
     return
   }
   versionInternalDocument.serializedVersionDocument = serializeDocument(denormalize(effectiveDocument, options) as ApiDocument)
+}
+
+export const calculateAsyncOperationId = (
+  operationId: string,
+  messageId: string,
+): string => {
+  return slugify(`${operationId}-${messageId}`, SLUG_OPTIONS_NORMALIZED_OPERATION_ID)
+}
+
+export const getInlineRefsFomDocument = (document: RestOperationData | AsyncOperationData): Set<string> => {
+  const handledObjects = new Set<unknown>()
+  const inlineRefs = new Set<string>()
+  syncCrawl(
+    document,
+    ({ key, value }) => {
+      if (typeof key === 'symbol' && key !== INLINE_REFS_FLAG) {
+        return { done: true }
+      }
+      if (handledObjects.has(value)) {
+        return { done: true }
+      }
+      handledObjects.add(value)
+      if (key !== INLINE_REFS_FLAG) {
+        return { value }
+      }
+      if (!Array.isArray(value)) {
+        return { done: true }
+      }
+      value.forEach(ref => inlineRefs.add(ref))
+    },
+  )
+  return inlineRefs
+}
+
+export const isReferenceObject = (obj: unknown): boolean => {
+  return isObject(obj) && '$ref' in obj
 }

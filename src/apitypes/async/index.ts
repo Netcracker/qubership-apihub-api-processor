@@ -16,16 +16,16 @@
 
 import { buildAsyncApiDocument, dumpAsyncApiDocument } from './async.document'
 import { buildAsyncApiOperations } from './async.operations'
-import { ASYNCAPI_API_TYPE, ASYNC_DOCUMENT_TYPE } from './async.consts'
+import { ASYNC_DOCUMENT_TYPE, ASYNCAPI_API_TYPE } from './async.consts'
 import { parseAsyncApiFile } from './async.parser'
 import { ApiBuilder } from '../../types'
 import { compareDocuments } from './async.changes'
-import { AsyncApiDocument } from './async.types'
+import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 
 export * from './async.consts'
 export * from './async.types'
 
-export const asyncApiBuilder: ApiBuilder<AsyncApiDocument> = {
+export const asyncApiBuilder: ApiBuilder<AsyncAPIV3.AsyncAPIObject> = {
   apiType: ASYNCAPI_API_TYPE,
   types: Object.values(ASYNC_DOCUMENT_TYPE),
   parser: parseAsyncApiFile,

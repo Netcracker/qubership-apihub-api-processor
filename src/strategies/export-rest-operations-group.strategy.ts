@@ -29,7 +29,6 @@ import { EXPORT_FORMAT_TO_FILE_FORMAT, getSplittedVersionKey } from '../utils'
 import { BUILD_TYPE, FILE_FORMAT_HTML, FILE_FORMAT_JSON } from '../consts'
 import { createCommonStaticExportDocuments, createUnknownExportDocument, generateIndexHtmlPage } from '../utils/export'
 import { createRestExportDocument } from '../apitypes/rest/rest.document'
-import { isRestDocument } from '../apitypes'
 
 export class ExportRestOperationsGroupStrategy implements BuilderStrategy {
   async execute(config: ExportRestOperationsGroupBuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {

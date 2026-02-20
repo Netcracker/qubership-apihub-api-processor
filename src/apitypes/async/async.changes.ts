@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-import { AsyncApiDocument } from './async.types'
-import { isEmpty, SLUG_OPTIONS_OPERATION_ID, slugify } from '../../utils'
+import { isEmpty, isObject, SLUG_OPTIONS_OPERATION_ID, slugify } from '../../utils'
 import {
   aggregateDiffsWithRollup,
   apiDiff,
@@ -46,6 +45,7 @@ import {
   getOperationTags,
   OperationsMap,
 } from '../../components'
+import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 
 export const compareDocuments: DocumentsCompare = async (
   operationsMap: OperationsMap,
@@ -67,8 +67,8 @@ export const compareDocuments: DocumentsCompare = async (
   const comparisonInternalDocumentId = createComparisonInternalDocumentId(prevDoc, currDoc, previousVersion, currentVersion)
   const prevFile = prevDoc && await rawDocumentResolver(previousVersion, previousPackageId, prevDoc.slug)
   const currFile = currDoc && await rawDocumentResolver(currentVersion, currentPackageId, currDoc.slug)
-  let prevDocData = prevFile && JSON.parse(await prevFile.text()) as AsyncApiDocument
-  let currDocData = currFile && JSON.parse(await currFile.text()) as AsyncApiDocument
+  let prevDocData = prevFile && JSON.parse(await prevFile.text()) as AsyncAPIV3.AsyncAPIObject
+  let currDocData = currFile && JSON.parse(await currFile.text()) as AsyncAPIV3.AsyncAPIObject
 
   // Create an empty counterpart of the document for the case when one of the documents is empty
   if (!prevDocData && currDocData) {
@@ -89,7 +89,7 @@ export const compareDocuments: DocumentsCompare = async (
       afterValueNormalizedProperty: AFTER_VALUE_NORMALIZED_PROPERTY,
       beforeValueNormalizedProperty: BEFORE_VALUE_NORMALIZED_PROPERTY,
     },
-  ) as { merged: AsyncApiDocument; diffs: Diff[] }
+  ) as { merged: AsyncAPIV3.AsyncAPIObject; diffs: Diff[] }
 
   if (isEmpty(diffs)) {
     return { operationChanges: [], tags: new Set() }
@@ -101,29 +101,26 @@ export const compareDocuments: DocumentsCompare = async (
   const operationChanges: OperationChanges[] = []
 
   // Iterate through operations in merged document
-  if (merged.operations && typeof merged.operations === 'object') {
-    for (const [operationKey, operationData] of Object.entries(merged.operations)) {
-      if (!operationData || typeof operationData !== 'object') {
+  const { operations } = merged
+  if (operations && isObject(operations)) {
+    for (const [operationKey, operationData] of Object.entries(operations)) {
+      if (!operationData || !isObject(operationData)) {
         continue
       }
-
+      const operationObject = operationData as AsyncAPIV3.OperationObject
       // Extract action and channel from operation
-      const action = (operationData as any).action as 'send' | 'receive'  //TODO: fix type
-      const channelRef = (operationData as any).channel
-
-      if (!action || !channelRef) {
+      const { action, channel: operationChannel } = operationObject
+      if (!action || !operationChannel) {
         continue
       }
-
-      // Extract channel name from reference
-      const channel = typeof channelRef === 'string' && channelRef.startsWith('#/channels/')
-        ? channelRef.split('/').pop() || operationKey
-        : operationKey
 
       // Use simple operation ID (no normalization needed for AsyncAPI)
-      const operationId = slugify(`${action}-${channel}`, SLUG_OPTIONS_OPERATION_ID)
+      const operationId = slugify(`${action}-${operationKey}`, SLUG_OPTIONS_OPERATION_ID)
 
-      const { current, previous } = operationsMap[operationId] ?? {}
+      const {
+        current,
+        previous ,
+      } = operationsMap[operationId] ?? {}
       if (!current && !previous) {
         throw new Error(`Can't find the ${operationId} operation from documents pair ${prevDoc?.fileId} and ${currDoc?.fileId}`)
       }
@@ -134,11 +131,15 @@ export const compareDocuments: DocumentsCompare = async (
       let operationDiffs: Diff[] = []
       if (operationPotentiallyChanged) {
         operationDiffs = [
-          ...(operationData as WithAggregatedDiffs<any>)[DIFFS_AGGREGATED_META_KEY] ?? [],
+          ...(operationObject as WithAggregatedDiffs<AsyncAPIV3.OperationObject>)[DIFFS_AGGREGATED_META_KEY] ?? [],
+          // TODO: check
+          // ...extractAsyncApiVersionDiff(merged),
+          // ...extractRootServersDiffs(merged),
+          // ...extractChannelsDiffs(merged, operationChannel),
         ]
       }
       if (operationAddedOrRemoved) {
-        const operationAddedOrRemovedDiff = (merged.operations as WithDiffMetaRecord<Record<string, any>>)[DIFF_META_KEY]?.[operationKey]
+        const operationAddedOrRemovedDiff = (operations as WithDiffMetaRecord<AsyncAPIV3.OperationsObject>)[DIFF_META_KEY]?.[operationKey]
         if (operationAddedOrRemovedDiff) {
           operationDiffs.push(operationAddedOrRemovedDiff)
         }
@@ -171,12 +172,12 @@ export const compareDocuments: DocumentsCompare = async (
  * Creates a copy of the AsyncAPI document with empty operations
  * Used for comparison when one document doesn't exist
  */
-function createCopyWithEmptyOperations(template: AsyncApiDocument): AsyncApiDocument {
+function createCopyWithEmptyOperations(template: AsyncAPIV3.AsyncAPIObject): AsyncAPIV3.AsyncAPIObject {
   const { operations, ...rest } = template
 
   return {
     operations: operations ? Object.fromEntries(
-      Object.keys(operations).map(key => [key, {}]),
+      Object.keys(operations).map(key => [key, {} as AsyncAPIV3.OperationObject]),
     ) : {},
     ...rest,
   }

@@ -14,59 +14,70 @@
  * limitations under the License.
  */
 
-import { ASYNC_KIND_KEY } from './async.consts'
-import type { AsyncDocumentInfo, AsyncApiDocument } from './async.types'
 import {
+  _TemplateResolver,
   DocumentBuilder,
   DocumentDumper,
+  ExportDocument,
+  ExportFormat,
+  VersionDocument,
 } from '../../types'
-import { FILE_FORMAT } from '../../consts'
+import { FILE_FORMAT, FILE_FORMAT_HTML } from '../../consts'
 import {
   createBundlingErrorHandler,
   createVersionInternalDocument,
+  EXPORT_FORMAT_TO_FILE_FORMAT,
   getBundledFileDataWithDependencies,
-  getDocumentTitle,
+  getDocumentTitle, getStringValue,
+  isObject,
 } from '../../utils'
 import { dump } from '../../utils/apihubSpecificationExtensions'
+import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
+import { AsyncDocumentInfo } from './async.types'
+import { OpenApiExtensionKey } from '@netcracker/qubership-apihub-api-unifier'
+import { removeOasExtensions } from '../../utils/removeOasExtensions'
+import { generateHtmlPage } from '../../utils/export'
+import { toExternalDocumentationObject, toTagObjects } from './async.utils'
 
-const asyncApiDocumentMeta = (data: AsyncApiDocument): AsyncDocumentInfo => {
-  if (typeof data !== 'object' || !data) {
-    return { title: '', description: '', version: '' }
+const asyncApiDocumentMeta = (data: AsyncAPIV3.AsyncAPIObject): AsyncDocumentInfo => {
+  if (!isObject(data)) {
+    return { title: '', description: '', version: '', tags: [] }
   }
 
-  const { title = '', version = '', description = '' } = data?.info || {}
-
-  const getStringValue = (value: unknown): string => (typeof (<unknown>value) === 'string' ? <string>value : '')
+  const { title = '', version = '', description = '', externalDocs: _externalDocs, tags: _tags, ...restInfo } = data.info || {}
 
   return {
     title: getStringValue(title),
     description: getStringValue(description),
     version: getStringValue(version),
+    info: Object.keys(restInfo).length ? restInfo : undefined,
+    externalDocs: toExternalDocumentationObject(data),
+    tags: toTagObjects(data),
   }
 }
 
-export const buildAsyncApiDocument: DocumentBuilder<AsyncApiDocument> = async (parsedFile, file, ctx) => {
-  const { fileId, slug = '', publish = true, apiKind, ...fileMetadata } = file
+export const buildAsyncApiDocument: DocumentBuilder<AsyncAPIV3.AsyncAPIObject> = async (parsedFile, file, ctx): Promise<VersionDocument> => {
+  const { fileId, slug = '', publish = true, ...fileMetadata } = file
 
   const {
     data,
     dependencies,
   } = await getBundledFileDataWithDependencies(fileId, ctx.parsedFileResolver, createBundlingErrorHandler(ctx, fileId))
 
-  const bundledFileData = data as AsyncApiDocument
+  const bundledFileData = data as AsyncAPIV3.AsyncAPIObject
 
-  const documentKind = bundledFileData?.info?.[ASYNC_KIND_KEY] || apiKind
-
-  const { description, title, version } = asyncApiDocumentMeta(bundledFileData)
+  const { description, title, version, info, externalDocs, tags } = asyncApiDocumentMeta(bundledFileData)
   const metadata = {
     ...fileMetadata,
+    info,
+    externalDocs,
+    tags,
   }
-
+  const { type, fileId: parsedFileId, source, errors } = parsedFile
   return {
-    fileId: parsedFile.fileId,
-    type: parsedFile.type,
+    fileId: parsedFileId,
+    type,
     format: FILE_FORMAT.JSON,
-    apiKind: documentKind,
     data: bundledFileData,
     slug, // unique slug should be already generated
     filename: `${slug}.${FILE_FORMAT.JSON}`,
@@ -77,13 +88,68 @@ export const buildAsyncApiDocument: DocumentBuilder<AsyncApiDocument> = async (p
     version,
     metadata,
     publish,
-    source: parsedFile.source,
-    errors: parsedFile.errors?.length ?? 0,
+    source,
+    errors: errors?.length ?? 0,
     versionInternalDocument: createVersionInternalDocument(slug),
   }
 }
 
-export const dumpAsyncApiDocument: DocumentDumper<AsyncApiDocument> = (document, format) => {
+export const dumpAsyncApiDocument: DocumentDumper<AsyncAPIV3.AsyncAPIObject> = (document, format) => {
   return new Blob(...dump(document.data, format ?? FILE_FORMAT.JSON))
 }
 
+/**
+ * Creates an export document from AsyncAPI data.
+ *
+ * Note: When `format` is HTML, the resulting document is also pushed into
+ * `generatedHtmlExportDocuments` (if provided) as a side effect.
+ */
+export async function createAsyncExportDocument(
+  filename: string,
+  data: string,
+  format: ExportFormat,
+  packageName: string,
+  version: string,
+  templateResolver: _TemplateResolver,
+  allowedOasExtensions?: OpenApiExtensionKey[],
+  generatedHtmlExportDocuments?: ExportDocument[],
+): Promise<ExportDocument> {
+  const exportFilename = `${getDocumentTitle(filename)}.${format}`
+
+  let parsed: object
+  try {
+    parsed = JSON.parse(data)
+  } catch (e) {
+    throw new Error(`Failed to parse document '${filename}': ${(e as Error).message}`)
+  }
+
+  const fileFormat = EXPORT_FORMAT_TO_FILE_FORMAT.get(format)
+  if (!fileFormat) {
+    throw new Error(`Unsupported export format: ${format}`)
+  }
+
+  const [[document], blobProperties] = dump(
+    removeOasExtensions(parsed as Parameters<typeof removeOasExtensions>[0], allowedOasExtensions),
+    fileFormat,
+  )
+
+  if (format === FILE_FORMAT_HTML) {
+    const htmlExportDocument = {
+      data: await generateHtmlPage(
+        document,
+        getDocumentTitle(filename),
+        packageName,
+        version,
+        templateResolver,
+      ),
+      filename: exportFilename,
+    }
+    generatedHtmlExportDocuments?.push(htmlExportDocument)
+    return htmlExportDocument
+  }
+
+  return {
+    data: new Blob([document], blobProperties),
+    filename: exportFilename,
+  }
+}
