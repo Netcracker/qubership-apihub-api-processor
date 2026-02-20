@@ -91,7 +91,7 @@ export async function createGraphQLExportDocument(
   }
 
   return {
-    data: new Blob([data], { type: 'text/plain' }),
+    data: new Blob([data], { type: 'application/graphql' }),
     filename: exportFilename,
   }
 }
