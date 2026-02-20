@@ -277,7 +277,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       builderStrategyContext.setStrategy(new ExportRestDocumentStrategy())
     }
 
-    if (buildType === BUILD_TYPE.EXPORT_REST_OPERATIONS_GROUP) {
+    if (buildType === BUILD_TYPE.EXPORT_REST_OPERATIONS_GROUP || buildType === BUILD_TYPE.EXPORT_GRAPHQL_OPERATIONS_GROUP) {
       builderStrategyContext.setStrategy(new ExportRestOperationsGroupStrategy())
     }
 

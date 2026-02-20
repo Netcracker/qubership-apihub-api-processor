@@ -17,7 +17,7 @@
 import { FileId, KeyOfConstType, OperationsApiType, PackageId, VersionId } from './types'
 import {
   ApihubApiCompatibilityKind,
-  BUILD_TYPE,
+  BUILD_TYPE, FILE_FORMAT_GRAPHQL,
   FILE_FORMAT_HTML,
   FILE_FORMAT_JSON,
   FILE_FORMAT_YAML,
@@ -36,6 +36,7 @@ export type ExportFormat =
   | typeof FILE_FORMAT_YAML
   | typeof FILE_FORMAT_JSON
   | typeof FILE_FORMAT_HTML
+  | typeof FILE_FORMAT_GRAPHQL
 
 export const VALIDATION_RULES_SEVERITY_LEVEL_ERROR = 'error'
 export const VALIDATION_RULES_SEVERITY_LEVEL_WARNING = 'warning'
@@ -115,11 +116,11 @@ export interface ExportRestDocumentBuildConfig extends BuildConfigBase {
   allowedOasExtensions?: OpenApiExtensionKey[]
 }
 
-export interface ExportRestOperationsGroupBuildConfig extends BuildConfigBase {
-  buildType: typeof BUILD_TYPE.EXPORT_REST_OPERATIONS_GROUP
+export interface ExportOperationsGroupBuildConfig extends BuildConfigBase {
+  buildType: typeof BUILD_TYPE.EXPORT_REST_OPERATIONS_GROUP | typeof BUILD_TYPE.EXPORT_GRAPHQL_OPERATIONS_GROUP
   packageId: PackageId
   version: VersionId
-  // apiType?: OperationsApiType //todo Document transformation is available only for apiType = REST
+  apiType?: OperationsApiType
   groupName: string
   operationsSpecTransformation: OperationsSpecTransformation
   format: ExportFormat
@@ -133,7 +134,7 @@ export interface ReducedSourceSpecificationsBuildConfig extends BuildConfigBase 
   version: VersionId
   groupName: string
   format: ExportFormat
-  apiType?: OperationsApiType //todo Document transformation is available only for apiType = REST
+  apiType?: OperationsApiType
 }
 
 // deprecated
@@ -175,7 +176,7 @@ export type BuildConfigAggregator =
   | PublishBuildConfig
   | ExportVersionBuildConfig
   | ExportRestDocumentBuildConfig
-  | ExportRestOperationsGroupBuildConfig
+  | ExportOperationsGroupBuildConfig
   | ReducedSourceSpecificationsBuildConfig
   | MergedSpecificationBuildConfig
   | ChangelogBuildConfig

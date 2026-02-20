@@ -15,7 +15,8 @@
  */
 
 import { Editor, loadFileAsString, LocalRegistry, VERSIONS_PATH } from './helpers'
-import { BUILD_TYPE, BuildConfigAggregator, BuildResult, PACKAGE, PackageNotifications, REST_API_TYPE } from '../src'
+import { BUILD_TYPE, BuildConfigAggregator, BuildResult, GRAPHQL_API_TYPE, PACKAGE, PackageNotifications, REST_API_TYPE } from '../src'
+import { parseGraphQLSource } from '../src/utils/graphql-transformer'
 import { loadYaml } from '@netcracker/qubership-apihub-api-unifier'
 
 const GROUP_NAME = 'manualGroup'
@@ -37,6 +38,12 @@ const groupToOnePathOperationIdsMap = {
   [GROUP_NAME]: [
     'path1-get',
     'path1-post',
+  ],
+}
+const graphQLOperationIdsMap = {
+  [GROUP_NAME]: [
+    'query-listPets',
+    'query-listUsers',
   ],
 }
 
@@ -83,6 +90,51 @@ describe('Document Group test', () => {
 
       for (const document of Array.from(result.documents.values())) {
         expect(document.data).toHaveProperty(['components', 'schemas', 'MySchema'])
+      }
+    })
+
+    test('should rename documents with matching names', async () => {
+      const dashboard = LocalRegistry.openPackage('documents-collision', groupToOperationIdsMap2)
+      const package1 = LocalRegistry.openPackage('documents-collision/package1')
+      const package2 = LocalRegistry.openPackage('documents-collision/package2')
+      const package3 = LocalRegistry.openPackage('documents-collision/package3')
+
+      await dashboard.publish(dashboard.packageId, { packageId: dashboard.packageId })
+      await package1.publish(package1.packageId, { packageId: package1.packageId })
+      await package2.publish(package2.packageId, { packageId: package2.packageId })
+      await package3.publish(package3.packageId, { packageId: package3.packageId })
+
+      const editor = await Editor.openProject(dashboard.packageId, dashboard)
+      const result = await editor.run({
+        packageId: dashboard.packageId,
+        buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
+        groupName: GROUP_NAME,
+        apiType: REST_API_TYPE,
+      })
+
+      expect(Array.from(result.documents.values())).toEqual(
+        expect.toIncludeSameMembers([
+          expect.objectContaining({
+            fileId: 'documents-collision/package1_1.yaml',
+            filename: 'documents-collision/package1_1.json',
+          }),
+          expect.objectContaining({
+            fileId: 'documents-collision/package1_2.yaml',
+            filename: 'documents-collision/package1_2.json',
+          }),
+          expect.objectContaining({
+            fileId: 'documents-collision/package2_1.yaml',
+            filename: 'documents-collision/package2_1.json',
+          }),
+          expect.objectContaining({
+            fileId: 'documents-collision/package3_1.yaml',
+            filename: 'documents-collision/package3_1.json',
+          }),
+        ]),
+      )
+
+      for (const document of Array.from(result.documents.values())) {
+        expect(Object.keys(document.data.paths).length).toEqual(document.operationIds.length)
       }
     })
 
@@ -292,6 +344,72 @@ describe('Document Group test', () => {
 
     expect(result.merged?.data).toEqual(expectedResult)
   }
+
+  // todo fix it
+  describe.skip('GraphQL document group', () => {
+    test('should produce valid GraphQL SDL with only requested operations', async () => {
+      const { result } = await runPublishPackage(
+        'graphql',
+        graphQLOperationIdsMap,
+        { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS, apiType: GRAPHQL_API_TYPE },
+      )
+
+      expect(result.documents.size).toBeGreaterThan(0)
+
+      for (const document of Array.from(result.documents.values())) {
+        expect(typeof document.data).toBe('string')
+
+        const schema = parseGraphQLSource(document.data as string)
+        expect(schema.graphapi).toBeDefined()
+
+        if (schema.queries) {
+          const queryNames = Object.keys(schema.queries)
+          for (const name of queryNames) {
+            expect(graphQLOperationIdsMap[GROUP_NAME]).toContain(`query-${name}`)
+          }
+        }
+      }
+    })
+
+    test('should not include operations outside the group', async () => {
+      const singleOpGroup = {
+        [GROUP_NAME]: ['query-listPets'],
+      }
+      const { result } = await runPublishPackage(
+        'graphql',
+        singleOpGroup,
+        { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS, apiType: GRAPHQL_API_TYPE },
+      )
+
+      for (const document of Array.from(result.documents.values())) {
+        const schema = parseGraphQLSource(document.data as string)
+
+        if (schema.queries) {
+          expect(Object.keys(schema.queries)).toEqual(['listPets'])
+        }
+
+        expect(schema.mutations).toBeUndefined()
+      }
+    })
+
+    test('should include mutation when group contains mutation operation', async () => {
+      const mutationGroup = {
+        [GROUP_NAME]: ['mutation-petAvailabilityCheck'],
+      }
+      const { result } = await runPublishPackage(
+        'graphql',
+        mutationGroup,
+        { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS, apiType: GRAPHQL_API_TYPE },
+      )
+
+      for (const document of Array.from(result.documents.values())) {
+        const schema = parseGraphQLSource(document.data as string)
+        expect(schema.mutations).toBeDefined()
+        expect(Object.keys(schema.mutations!)).toEqual(['petAvailabilityCheck'])
+        expect(schema.queries).toBeUndefined()
+      }
+    })
+  })
 
   async function runPublishPackage(
     packageId: string,

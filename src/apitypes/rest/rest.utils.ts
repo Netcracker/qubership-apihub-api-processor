@@ -20,13 +20,13 @@ import {
   API_AUDIENCE_EXTERNAL,
   API_AUDIENCE_INTERNAL,
   API_AUDIENCE_UNKNOWN,
-  ApiAudience,
+  ApiAudience, FileFormat,
   WithAggregatedDiffs,
   WithDiffMetaRecord,
 } from '../../types'
 import { isObject } from '@netcracker/qubership-apihub-json-crawl'
 import {
-  CUSTOM_PARAMETER_API_AUDIENCE,
+  CUSTOM_PARAMETER_API_AUDIENCE, FILE_FORMAT_GRAPHQL,
   FILE_FORMAT_JSON,
   FILE_FORMAT_YAML,
   SPECIFICATION_EXTENSION_PREFIX,
@@ -64,14 +64,23 @@ export const resolveApiAudience = (info: unknown): ApiAudience => {
 
 type TextBlobConstructorParameters = [[string], BlobPropertyBag]
 
-export const dump = (value: unknown, format: typeof FILE_FORMAT_YAML | typeof FILE_FORMAT_JSON): TextBlobConstructorParameters => {
-  if (format === FILE_FORMAT_YAML) {
-    return [[YAML.dump(value)], { type: 'application/yaml' }]
+export const dump = (
+  value: unknown,
+  format: FileFormat,
+): TextBlobConstructorParameters => {
+  switch (format) {
+    case FILE_FORMAT_YAML:
+      return [[YAML.dump(value)], { type: 'application/yaml' }]
+
+    case FILE_FORMAT_JSON:
+      return [[JSON.stringify(value, undefined, 2)], { type: 'application/json' }]
+
+    case FILE_FORMAT_GRAPHQL:
+      return [[value as string], { type: 'application/graphql' }]
+
+    default:
+      throw new Error(`Unsupported format: ${format}`)
   }
-  if (format === FILE_FORMAT_JSON) {
-    return [[JSON.stringify(value, undefined, 2)], { type: 'application/json' }]
-  }
-  throw new Error(`Unsupported format: ${format}`)
 }
 
 export const extractOpenapiVersionDiff = (doc: OpenAPIV3.Document): Diff[] => {
