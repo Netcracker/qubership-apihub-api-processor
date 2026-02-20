@@ -331,7 +331,6 @@ export class LocalRegistry implements IRegistry {
         description: document.description,
         data: toBase64(JSON.stringify(document.data || document.source)),
         ...takeIfDefined({ packageRef: refId }),
-        ...takeIfDefined({ source: document.source }),
       }))
   }
 
