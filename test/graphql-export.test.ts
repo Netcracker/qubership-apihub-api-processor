@@ -15,9 +15,8 @@
  */
 
 import { describe, expect, test } from '@jest/globals'
-import { createGraphQLExportDocument } from '../src/apitypes/graphql/graphql.document'
-import { FILE_FORMAT_HTML, FILE_FORMAT_JSON, FILE_FORMAT_YAML } from '../src/consts'
-import { _TemplateResolver, ExportFormat, OperationsApiType } from '../src/types'
+import { FILE_FORMAT_GRAPHQL, FILE_FORMAT_HTML, FILE_FORMAT_JSON, FILE_FORMAT_YAML } from '../src/consts'
+import { OperationsApiType } from '../src/types'
 import { Editor, LocalRegistry } from './helpers'
 import {
   BUILD_TYPE,
@@ -26,62 +25,6 @@ import {
   TRANSFORMATION_KIND_REDUCED,
 } from '../src'
 import { parseGraphQLSource } from '../src/utils/graphql-transformer'
-
-const GRAPHQL_DATA = 'type Query { hello: String }'
-
-const MOCK_TEMPLATE_RESOLVER: _TemplateResolver = async (_path: string): Promise<Blob> => {
-  return new Blob(['<html>{{content}}</html>'], { type: 'text/html' })
-}
-
-describe('Create graphQL export document tests', () => {
-  describe('Export formats test', () => {
-    test('should create export document default .graphql extension for unsupported formats', async () => {
-      const unsupportedExportGraphQLFormats = [FILE_FORMAT_JSON, FILE_FORMAT_YAML]
-      for (const unsupportedFormat of unsupportedExportGraphQLFormats) {
-        const result = await createGraphQLExportDocument(
-          'mySchema.graphql',
-          GRAPHQL_DATA,
-          unsupportedFormat as ExportFormat,
-          'test-package',
-          'v1',
-          MOCK_TEMPLATE_RESOLVER,
-        )
-
-        expect(result.filename).toBe('mySchema.graphql')
-        expect(result.data).toBeInstanceOf(Blob)
-        const text = await result.data.text()
-        expect(text).toBe(GRAPHQL_DATA)
-      }
-    })
-
-    test('should create export document with .html extension for HTML format', async () => {
-      const result = await createGraphQLExportDocument(
-        'mySchema.graphql',
-        GRAPHQL_DATA,
-        FILE_FORMAT_HTML,
-        'test-package',
-        'v1',
-        MOCK_TEMPLATE_RESOLVER,
-      )
-
-      expect(result.filename).toBe('mySchema.html')
-      expect(result.data).toBeInstanceOf(Blob)
-    })
-  })
-
-  test('should set correct content type for non-HTML format', async () => {
-    const result = await createGraphQLExportDocument(
-      'schema.graphql',
-      GRAPHQL_DATA,
-      FILE_FORMAT_JSON,
-      'test-package',
-      'v1',
-      MOCK_TEMPLATE_RESOLVER,
-    )
-
-    expect(result.data.type).toBe('application/graphql')
-  })
-})
 
 describe('Export GraphQL Operations Group integration tests', () => {
   const GRAPHQL_EXPORT_PACKAGE = 'graphql-export'
@@ -124,10 +67,24 @@ describe('Export GraphQL Operations Group integration tests', () => {
       editor = await Editor.openProject(pkg.packageId, pkg)
     })
 
+    test('should not export graphql document to json', async () => {
+      await expect(editor.run({
+        ...COMMON_GRAPHQL_GROUP_EXPORT_CONFIG,
+        format: FILE_FORMAT_JSON,
+      })).rejects.toThrow('Export format is not supported: json')
+    })
+
+    test('should not export graphql document to yaml', async () => {
+      await expect(editor.run({
+        ...COMMON_GRAPHQL_GROUP_EXPORT_CONFIG,
+        format: FILE_FORMAT_YAML,
+      })).rejects.toThrow('Export format is not supported: yaml')
+    })
+
     test('should export reduced graphql operations group to graphql', async () => {
       const result = await editor.run({
         ...COMMON_GRAPHQL_GROUP_EXPORT_CONFIG,
-        format: FILE_FORMAT_JSON,
+        format: FILE_FORMAT_GRAPHQL,
       })
 
       expect(result.exportFileName).toBeDefined()

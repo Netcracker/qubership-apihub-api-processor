@@ -28,7 +28,7 @@ import {
 import { GRAPHQL_API_TYPE, REST_API_TYPE } from '../apitypes'
 import {
   calculateRestOperationId,
-  EXPORT_FORMAT_TO_FILE_FORMAT,
+  EXPORT_API_TYPE_FORMATS,
   fromBase64,
   isValidHttpMethod,
   takeIfDefined,
@@ -105,7 +105,8 @@ export class DocumentGroupStrategy implements BuilderStrategy {
       throw new Error(`API type is not supported: ${apiType}`)
     }
 
-    const documentFormat = EXPORT_FORMAT_TO_FILE_FORMAT.get(format)
+    const availableFormatsForApiType = EXPORT_API_TYPE_FORMATS.get(apiType)
+    const documentFormat = availableFormatsForApiType?.get(format)
     if (!documentFormat) {
       throw new Error(`Export format is not supported: ${format}`)
     }

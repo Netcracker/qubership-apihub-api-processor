@@ -30,7 +30,7 @@ import {
   TRANSFORMATION_KIND_MERGED,
   TRANSFORMATION_KIND_REDUCED,
 } from '../types'
-import { EXPORT_FORMAT_TO_FILE_FORMAT, getSplittedVersionKey } from '../utils'
+import { EXPORT_API_TYPE_FORMATS, EXPORT_FORMAT_TO_FILE_FORMAT, getSplittedVersionKey } from '../utils'
 import { createCommonStaticExportDocuments, createUnknownExportDocument, generateIndexHtmlPage } from '../utils/export'
 import { DocumentGroupStrategy } from './document-group.strategy'
 import { MergedDocumentGroupStrategy } from './merged-document-group.strategy'
@@ -115,11 +115,16 @@ async function exportReducedDocuments(config: ExportOperationsGroupBuildConfig, 
   const { templateResolver, packageResolver } = contexts.builderContext(config)
   const { name: packageName } = await packageResolver(packageId)
 
+  const availableFormatsForApiType = EXPORT_API_TYPE_FORMATS.get(apiType)
+  const documentFormat = availableFormatsForApiType?.get(format)
+  if (!documentFormat) {
+    throw new Error(`Export format is not supported: ${format}`)
+  }
+
   await new DocumentGroupStrategy().execute({
     ...config,
     buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
-    // TODO by the apitype
-    format: EXPORT_FORMAT_TO_FILE_FORMAT.get(format)!,
+    format: documentFormat,
   }, buildResult, contexts)
 
   const createExportDocument = getExportDocumentFactory(apiType)
@@ -136,8 +141,8 @@ async function exportReducedDocuments(config: ExportOperationsGroupBuildConfig, 
     buildResult.exportDocuments.push(createUnknownExportDocument('index.html', await generateIndexHtmlPage(packageName, version, generatedHtmlExportDocuments, templateResolver)))
   }
 }
-// TODO move or edit
-type ExportDocumentFactory = (
+
+function getExportDocumentFactory(apiType: OperationsApiType | undefined): (
   document: { filename: string; data: unknown },
   format: ExportFormat,
   packageName: string,
@@ -145,16 +150,28 @@ type ExportDocumentFactory = (
   templateResolver: _TemplateResolver,
   allowedOasExtensions: OpenApiExtensionKey[] | undefined,
   generatedHtmlExportDocuments: ExportDocument[],
-) => Promise<ExportDocument>
-
-function getExportDocumentFactory(apiType: OperationsApiType | undefined): ExportDocumentFactory {
+) => Promise<ExportDocument> {
   switch (apiType) {
     case GRAPHQL_API_TYPE:
-      return (doc, format, packageName, version, templateResolver, _allowedOasExtensions, generatedHtmlExportDocuments) =>
-        createGraphQLExportDocument(doc.filename, doc.data as string, format, packageName, version, templateResolver, generatedHtmlExportDocuments)
+      return (
+        doc,
+        format,
+        packageName,
+        version,
+        templateResolver,
+        _allowedOasExtensions,
+        generatedHtmlExportDocuments,
+      ) => createGraphQLExportDocument(doc.filename, doc.data as string, format, packageName, version, templateResolver, generatedHtmlExportDocuments)
     case REST_API_TYPE:
     default:
-      return (doc, format, packageName, version, templateResolver, allowedOasExtensions, generatedHtmlExportDocuments) =>
-        createRestExportDocument(doc.filename, JSON.stringify(doc.data), format, packageName, version, templateResolver, allowedOasExtensions, generatedHtmlExportDocuments)
+      return (
+        doc,
+        format,
+        packageName,
+        version,
+        templateResolver,
+        allowedOasExtensions,
+        generatedHtmlExportDocuments,
+      ) => createRestExportDocument(doc.filename, JSON.stringify(doc.data), format, packageName, version, templateResolver, allowedOasExtensions, generatedHtmlExportDocuments)
   }
 }
