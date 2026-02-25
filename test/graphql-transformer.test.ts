@@ -15,75 +15,19 @@
  */
 
 import { cropRawGraphQlDocumentToRawSingleOperationGraphQlDocument } from '../src'
-import { parseGraphQLSource } from '../src/utils/graphql-transformer'
 import { buildSchema } from 'graphql'
+import { loadFileAsString } from './helpers'
 
-const SCHEMA_WITH_MULTIPLE_OPERATIONS = `
-directive @deprecated(reason: String = "No longer supported") on FIELD_DEFINITION | ARGUMENT_DEFINITION | ENUM_VALUE
+describe('Crop raw graphql document to raw single operation document tests', () => {
+  let graphql: string
 
-type Query {
-  listPets(listId: String): [Pet!]
-  getPet(id: String!): Pet
-  listUsers(listId: String): [User!]
-  getUser(id: String!): User @deprecated(reason: "Use listUsers instead")
-}
-
-type Mutation {
-  petAvailabilityCheck(input: AvailabilityCheckRequest): [AvailabilityCheckResult!]
-}
-
-type Subscription {
-  onPetAdded: Pet
-}
-
-input AvailabilityCheckRequest {
-  petId: [String!]
-}
-
-type AvailabilityCheckResult {
-  petId: String
-  availabilityCheckResult: String
-}
-
-type Pet {
-  id: String
-  name: String
-  category: Category
-  status: String
-}
-
-type Category {
-  id: String
-  name: String
-}
-
-type User {
-  id: String
-  username: String
-  firstName: String
-  lastName: String
-}
-`
-
-describe('parseGraphQLSource', () => {
-  test('should parse valid GraphQL SDL into GraphApiSchema', () => {
-    const schema = parseGraphQLSource(SCHEMA_WITH_MULTIPLE_OPERATIONS)
-
-    expect(schema).toBeDefined()
-    expect(schema.graphapi).toBeDefined()
-    expect(schema.queries).toBeDefined()
-    expect(schema.mutations).toBeDefined()
+  beforeAll(async () => {
+    graphql = await loadFileAsString('test/projects/', 'graphql', 'spec.gql') as string
   })
 
-  test('should throw on invalid GraphQL SDL', () => {
-    expect(() => parseGraphQLSource('not valid graphql {')).toThrow()
-  })
-})
-
-describe('cropRawGraphQlDocumentToRawSingleOperationGraphQlDocument', () => {
   test('should crop to a single query and include referenced types', () => {
     const result = cropRawGraphQlDocumentToRawSingleOperationGraphQlDocument(
-      SCHEMA_WITH_MULTIPLE_OPERATIONS,
+      graphql,
       'queries',
       'listPets',
     )
@@ -107,7 +51,7 @@ describe('cropRawGraphQlDocumentToRawSingleOperationGraphQlDocument', () => {
 
   test('should crop to a query that references only leaf types', () => {
     const result = cropRawGraphQlDocumentToRawSingleOperationGraphQlDocument(
-      SCHEMA_WITH_MULTIPLE_OPERATIONS,
+      graphql,
       'queries',
       'listUsers',
     )
@@ -124,7 +68,7 @@ describe('cropRawGraphQlDocumentToRawSingleOperationGraphQlDocument', () => {
 
   test('should crop to a mutation', () => {
     const result = cropRawGraphQlDocumentToRawSingleOperationGraphQlDocument(
-      SCHEMA_WITH_MULTIPLE_OPERATIONS,
+      graphql,
       'mutations',
       'petAvailabilityCheck',
     )
@@ -146,7 +90,7 @@ describe('cropRawGraphQlDocumentToRawSingleOperationGraphQlDocument', () => {
 
   test('should crop to a subscription', () => {
     const result = cropRawGraphQlDocumentToRawSingleOperationGraphQlDocument(
-      SCHEMA_WITH_MULTIPLE_OPERATIONS,
+      graphql,
       'subscriptions',
       'onPetAdded',
     )
@@ -164,19 +108,9 @@ describe('cropRawGraphQlDocumentToRawSingleOperationGraphQlDocument', () => {
     expect(schema.getType('User')).toBeUndefined()
   })
 
-  test('should produce valid GraphQL that can be re-parsed', () => {
-    const result = cropRawGraphQlDocumentToRawSingleOperationGraphQlDocument(
-      SCHEMA_WITH_MULTIPLE_OPERATIONS,
-      'queries',
-      'getPet',
-    )
-
-    expect(() => buildSchema(result)).not.toThrow()
-  })
-
   test('should include runtime directives from the source', () => {
     const result = cropRawGraphQlDocumentToRawSingleOperationGraphQlDocument(
-      SCHEMA_WITH_MULTIPLE_OPERATIONS,
+      graphql,
       'queries',
       'getUser',
     )

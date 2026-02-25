@@ -85,6 +85,7 @@ import {
   getDocumentTitle,
   getSplittedVersionKey,
   isNotEmpty,
+  isString,
   takeIfDefined,
   toBase64,
 } from '../../../src/utils'
@@ -329,9 +330,22 @@ export class LocalRegistry implements IRegistry {
         apiKind: document.apiKind,
         includedOperationIds: filterOperationIdsByGroup ? document.operationIds.filter(filterOperationIdsByGroup!) : document.operationIds,
         description: document.description,
-        data: toBase64(JSON.stringify(document.data || document.source)),
+        data: this.resolveDocumentData(document),
         ...takeIfDefined({ packageRef: refId }),
       }))
+  }
+
+  private resolveDocumentData(document: VersionDocument): string | undefined {
+    if (document.data) {
+      return toBase64(JSON.stringify(document.data))
+    }
+
+    const { source } = document
+    if (source && isString(source)) {
+      return toBase64(source)
+    }
+
+    return undefined
   }
 
   private getDocApiTypeGuard(apiType: OperationsApiType): (document: ZippableDocument | ResolvedVersionDocument) => void {

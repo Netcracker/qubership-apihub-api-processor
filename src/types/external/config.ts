@@ -120,7 +120,7 @@ export interface ExportOperationsGroupBuildConfig extends BuildConfigBase {
   buildType: typeof BUILD_TYPE.EXPORT_REST_OPERATIONS_GROUP | typeof BUILD_TYPE.EXPORT_GRAPHQL_OPERATIONS_GROUP
   packageId: PackageId
   version: VersionId
-  apiType?: OperationsApiType
+  apiType: OperationsApiType
   groupName: string
   operationsSpecTransformation: OperationsSpecTransformation
   format: ExportFormat

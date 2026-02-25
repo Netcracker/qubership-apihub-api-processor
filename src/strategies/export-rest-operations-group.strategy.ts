@@ -23,7 +23,8 @@ import {
   BuilderStrategy,
   BuildResult,
   BuildTypeContexts,
-  ExportDocument, ExportFormat,
+  ExportDocument,
+  ExportFormat,
   ExportOperationsGroupBuildConfig,
   OperationsApiType,
   TRANSFORMATION_KIND_MERGED,
@@ -51,13 +52,15 @@ export class ExportRestOperationsGroupStrategy implements BuilderStrategy {
     }
 
     if (apiType === GRAPHQL_API_TYPE) {
-      if (operationsSpecTransformation === TRANSFORMATION_KIND_MERGED) {
-        throw new Error(
-          'Merged specification is not supported for graphql apiType',
-        )
+      switch (operationsSpecTransformation) {
+        case TRANSFORMATION_KIND_REDUCED:
+          await exportReducedDocuments(config, buildResult, contexts)
+          break
+        default:
+          throw new Error(
+            'This transformation kind is not supported for graphql apiType',
+          )
       }
-
-      await exportReducedDocuments(config, buildResult, contexts)
     }
 
     const { packageId, version: versionWithRevision, format = FILE_FORMAT_JSON, groupName } = config

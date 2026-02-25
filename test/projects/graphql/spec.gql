@@ -22,6 +22,10 @@ type Mutation {
   petAvailabilityCheck(input: AvailabilityCheckRequest): [AvailabilityCheckResult!]
 }
 
+type Subscription {
+  onPetAdded: Pet
+}
+
 """Availability Check Request"""
 input AvailabilityCheckRequest {
 
