@@ -33,7 +33,7 @@ describe('Hash cache tests', () => {
         packageId: portal.packageId,
       })
 
-      expect(getHashWithCacheSpy).toHaveBeenCalledTimes(6)
+      expect(getHashWithCacheSpy).toHaveBeenCalledTimes(7)
       expect(calculateObjectHashSpy).toHaveBeenCalledTimes(4)
 
       const [operation1, operation2] = Array.from(result.operations.values())
