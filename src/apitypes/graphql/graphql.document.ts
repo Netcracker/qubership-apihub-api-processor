@@ -24,7 +24,7 @@ import type { GraphQLSchema, IntrospectionQuery } from 'graphql'
 
 import { _TemplateResolver, BuildConfigFile, DocumentDumper, ExportDocument, ExportFormat, TextFile, VersionDocument } from '../../types'
 import { FILE_FORMAT_HTML } from '../../consts'
-import { GRAPHQL_DOCUMENT_TYPE } from './graphql.consts'
+import { GRAPHQL_API_TYPE, GRAPHQL_DOCUMENT_TYPE } from './graphql.consts'
 import { createVersionInternalDocument, getDocumentTitle } from '../../utils'
 import { generateHtmlPage } from '../../utils/export'
 
@@ -73,7 +73,7 @@ export async function createGraphQLExportDocument(
   templateResolver: _TemplateResolver,
   generatedHtmlExportDocuments?: ExportDocument[],
 ): Promise<ExportDocument> {
-  const exportFilename = `${getDocumentTitle(filename)}.${format === FILE_FORMAT_HTML ? FILE_FORMAT_HTML : 'graphql'}`
+  const exportFilename = `${getDocumentTitle(filename)}.${format === FILE_FORMAT_HTML ? FILE_FORMAT_HTML : GRAPHQL_API_TYPE}`
 
   if (format === FILE_FORMAT_HTML) {
     const htmlExportDocument: ExportDocument = {

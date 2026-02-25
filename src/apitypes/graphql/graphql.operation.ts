@@ -16,8 +16,9 @@
 
 import { API_AUDIENCE_EXTERNAL, BuildConfig, DeprecateItem, NotificationMessage } from '../../types'
 import {
+  calculateGraphqlOperationId,
   getKeyValue,
-  getSplittedVersionKey,
+  getSplittedVersionKey, isObject,
   isOperationDeprecated,
   removeComponents,
   setValueByPath,
@@ -26,8 +27,7 @@ import {
 } from '../../utils'
 import { APIHUB_API_COMPATIBILITY_KIND_BWC, INLINE_REFS_FLAG, ORIGINS_SYMBOL, VERSION_STATUS } from '../../consts'
 import { GraphQLSchemaType, VersionGraphQLDocument, VersionGraphQLOperation } from './graphql.types'
-import { GRAPHQL_API_TYPE, GRAPHQL_TYPE, GRAPHQL_TYPE_KEYS } from './graphql.consts'
-import { calculateGraphqlOperationId } from '../../utils'
+import { GRAPHQL_API_TYPE, GRAPHQL_TYPE, GRAPHQL_TYPE_KEYS, RUNTIME_DIRECTIVE_LOCATIONS } from './graphql.consts'
 import { GraphApiDirectiveDefinition, GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
 import { toTitleCase } from '../../utils/strings'
 import {
@@ -43,7 +43,6 @@ import {
   resolveOrigins,
 } from '@netcracker/qubership-apihub-api-unifier'
 import { JsonPath, syncCrawl } from '@netcracker/qubership-apihub-json-crawl'
-import { DirectiveLocation } from 'graphql/language'
 import { DebugPerformanceContext, syncDebugPerformance } from '../../utils/logs'
 import { calculateHash, ObjectHashCache } from '../../utils/hashes'
 
@@ -171,24 +170,13 @@ export const calculateSpecRefs = (sourceSpec: unknown, normalizedSpec: unknown, 
   })
 }
 
-const RUNTIME_DIRECTIVE_LOCATIONS = new Set([
-  DirectiveLocation.QUERY,
-  DirectiveLocation.MUTATION,
-  DirectiveLocation.SUBSCRIPTION,
-  DirectiveLocation.FIELD,
-  DirectiveLocation.FRAGMENT_DEFINITION,
-  DirectiveLocation.FRAGMENT_SPREAD,
-  DirectiveLocation.INLINE_FRAGMENT,
-  DirectiveLocation.VARIABLE_DEFINITION,
-])
-
 const copyRuntimeDirectives = (source: GraphApiSchema, target: GraphApiSchema): void => {
   const directives = source.components?.directives
-  if (!directives || typeof directives !== 'object') { return }
+  if (!isObject(directives)) { return }
 
   const runtimeDirectives = Object.fromEntries(
     Object.entries(directives as Record<string, GraphApiDirectiveDefinition>)
-      .filter(([, d]) => d.locations.some(loc => RUNTIME_DIRECTIVE_LOCATIONS.has(loc))),
+      .filter(([, directive]) => directive.locations.some(location => RUNTIME_DIRECTIVE_LOCATIONS.has(location))),
   )
   if (Object.keys(runtimeDirectives).length === 0) { return }
 
