@@ -1,6 +1,7 @@
 #All Directives
 
 directive @deprecated( reason: String = "No longer supported" ) on OBJECT | INPUT_OBJECT | FIELD_DEFINITION | INPUT_FIELD_DEFINITION | ARGUMENT_DEFINITION | UNION | ENUM_VALUE
+directive @cached(maxAge: Int) on QUERY | FIELD
 
 type Query
 {

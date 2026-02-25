@@ -99,12 +99,12 @@ describe('GraphQL createSingleOperationSpec', () => {
       const result = createSingleOperationSpec(source, normalized, [opId])
 
       const components = result.components as Record<string, unknown> | undefined
-      expect(components?.types).toBeDefined()
-      if (components?.types) {
-        const types = components.types as Record<string, unknown>
-        expect(types['Pet']).toBeDefined()
-        expect(types['Category']).toBeDefined()
-        expect(types['User']).toBeUndefined()
+      expect(components?.objects).toBeDefined()
+      if (components?.objects) {
+        const objects = components.objects as Record<string, unknown>
+        expect(objects['Pet']).toBeDefined()
+        expect(objects['Category']).toBeDefined()
+        expect(objects['User']).toBeUndefined()
       }
     })
   })
@@ -181,7 +181,7 @@ describe('GraphQL createSingleOperationSpec', () => {
       const result = createSingleOperationSpec(source, normalized, [opId])
 
       const directives = (result.components as Record<string, unknown> | undefined)?.directives as Record<string, unknown> | undefined
-      expect(directives?.['deprecated']).toBeUndefined()
+      expect(directives?.['cached']).toBeUndefined()
     })
 
     test('should include runtime directives when flag is true', () => {
@@ -191,7 +191,7 @@ describe('GraphQL createSingleOperationSpec', () => {
       const result = createSingleOperationSpec(source, normalized, [opId], true)
 
       const directives = (result.components as Record<string, unknown> | undefined)?.directives as Record<string, unknown> | undefined
-      expect(directives?.['deprecated']).toBeDefined()
+      expect(directives?.['cached']).toBeDefined()
     })
   })
 

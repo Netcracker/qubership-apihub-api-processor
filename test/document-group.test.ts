@@ -19,6 +19,7 @@ import {
   BUILD_TYPE,
   BuildConfigAggregator,
   BuildResult,
+  FILE_FORMAT_GRAPHQL,
   GRAPHQL_API_TYPE,
   PACKAGE,
   PackageNotifications,
@@ -318,6 +319,7 @@ describe('Document Group test', () => {
       const graphqlOptions: Partial<BuildConfigAggregator> = {
         buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
         apiType: GRAPHQL_API_TYPE,
+        format: FILE_FORMAT_GRAPHQL,
       }
 
       test('should export produce valid GraphQL', async () => {

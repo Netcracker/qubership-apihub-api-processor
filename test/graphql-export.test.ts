@@ -125,7 +125,7 @@ describe('Export GraphQL Operations Group integration tests', () => {
 
     const result = await singleOpEditor.run({
       ...COMMON_GRAPHQL_GROUP_EXPORT_CONFIG,
-      format: FILE_FORMAT_JSON,
+      format: FILE_FORMAT_GRAPHQL,
     })
 
     const [exportDocument] = result.exportDocuments
@@ -152,7 +152,7 @@ describe('Export GraphQL Operations Group integration tests', () => {
 
     const result = await crossDocEditor.run({
       ...COMMON_GRAPHQL_GROUP_EXPORT_CONFIG,
-      format: FILE_FORMAT_JSON,
+      format: FILE_FORMAT_GRAPHQL,
     })
 
     expect(result.exportDocuments.length).toBe(2)
