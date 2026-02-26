@@ -1,46 +1,36 @@
 import { normalize } from '@netcracker/qubership-apihub-api-unifier'
 import { buildFromSchema, GraphApiSchema, printGraphApi } from '@netcracker/qubership-apihub-graphapi'
 import { buildSchema } from 'graphql'
-import { calculateSpecRefs, cropToSingleOperation } from '../apitypes/graphql/graphql.operation'
+import { GRAPHQL_TYPE } from '../apitypes/graphql/graphql.consts'
+import { createOperationSpec } from '../apitypes/graphql/graphql.operation'
 import { GraphQLSchemaType } from '../apitypes/graphql/graphql.types'
 import { INLINE_REFS_FLAG } from '../consts'
-import { removeComponents } from './operations.utils'
+import { calculateGraphqlOperationId } from './operations.utils'
+
+export function parseGraphQLSource(source: string): GraphApiSchema {
+  return buildFromSchema(
+    buildSchema(source, { noLocation: true }),
+  )
+}
 
 export function cropRawGraphQlDocumentToRawSingleOperationGraphQlDocument(
   rawGraphQlDocument: string,
   operationType: GraphQLSchemaType,
   operationKey: string,
 ): string {
-  const rawGraphApiSchema =
-    buildFromSchema(
-      buildSchema(
-        rawGraphQlDocument,
-        { noLocation: true },
-      ),
-    )
+  const sourceSchema = parseGraphQLSource(rawGraphQlDocument)
 
-  const rawGraphApiSchemaWithoutComponents = removeComponents(rawGraphApiSchema) as GraphApiSchema
-  const refsOnlyGraphApiSchema = normalize(
-    rawGraphApiSchemaWithoutComponents,
+  const normalizedSchema = normalize(
+    sourceSchema,
     {
       mergeAllOf: false,
       inlineRefsFlag: INLINE_REFS_FLAG,
-      source: rawGraphApiSchema,
+      source: sourceSchema,
     },
   ) as GraphApiSchema
 
-  const graphApiSchemaSingleOperation: GraphApiSchema =
-    cropToSingleOperation(rawGraphApiSchema, operationType, operationKey)
-  const refsOnlyGraphApiSchemaSingleOperation: GraphApiSchema =
-    cropToSingleOperation(refsOnlyGraphApiSchema, operationType, operationKey)
+  const operationId = calculateGraphqlOperationId(GRAPHQL_TYPE[operationType], operationKey)
+  const spec = createOperationSpec(sourceSchema, normalizedSchema, [operationId], true)
 
-  calculateSpecRefs(
-    rawGraphApiSchema,
-    refsOnlyGraphApiSchemaSingleOperation,
-    graphApiSchemaSingleOperation,
-  )
-
-  const truncatedGraphQl = printGraphApi(graphApiSchemaSingleOperation)
-
-  return truncatedGraphQl
+  return printGraphApi(spec)
 }

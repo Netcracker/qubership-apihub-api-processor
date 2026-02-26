@@ -91,12 +91,14 @@ export const BUILD_TYPE = {
   EXPORT_VERSION: 'exportVersion',
   EXPORT_REST_DOCUMENT: 'exportRestDocument',
   EXPORT_REST_OPERATIONS_GROUP: 'exportRestOperationsGroup',
+  EXPORT_GRAPHQL_OPERATIONS_GROUP: 'exportGraphqlOperationsGroup',
 } as const
 
 export const EXPORT_BUILD_TYPES = [
   BUILD_TYPE.EXPORT_VERSION,
   BUILD_TYPE.EXPORT_REST_DOCUMENT,
   BUILD_TYPE.EXPORT_REST_OPERATIONS_GROUP,
+  BUILD_TYPE.EXPORT_GRAPHQL_OPERATIONS_GROUP,
 ]
 
 export type ExportBuildType = typeof EXPORT_BUILD_TYPES[number]

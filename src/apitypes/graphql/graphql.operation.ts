@@ -16,18 +16,19 @@
 
 import { API_AUDIENCE_EXTERNAL, BuildConfig, DeprecateItem, NotificationMessage } from '../../types'
 import {
+  calculateGraphqlOperationId,
   getKeyValue,
   getSplittedVersionKey,
+  isObject,
   isOperationDeprecated,
-  removeComponents,
   setValueByPath,
   takeIf,
   takeIfDefined,
 } from '../../utils'
 import { APIHUB_API_COMPATIBILITY_KIND_BWC, INLINE_REFS_FLAG, ORIGINS_SYMBOL, VERSION_STATUS } from '../../consts'
 import { GraphQLSchemaType, VersionGraphQLDocument, VersionGraphQLOperation } from './graphql.types'
-import { GRAPHQL_API_TYPE, GRAPHQL_TYPE } from './graphql.consts'
-import { GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
+import { GRAPHQL_API_TYPE, GRAPHQL_TYPE, GRAPHQL_TYPE_KEYS, RUNTIME_DIRECTIVE_LOCATIONS } from './graphql.consts'
+import { GraphApiDirectiveDefinition, GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
 import { toTitleCase } from '../../utils/strings'
 import {
   calculateDeprecatedItems,
@@ -59,7 +60,7 @@ export const buildGraphQLOperation = (
   debugCtx?: DebugPerformanceContext,
 ): VersionGraphQLOperation => {
   const { apiKind: documentApiKind, slug: documentSlug, versionInternalDocument } = document
-  const singleOperationEffectiveSpec: GraphApiSchema = cropToSingleOperation(effectiveDocument, type, method)
+  const singleOperationEffectiveSpec: GraphApiSchema = createOperationSpec(effectiveDocument, refsOnlyDocument, [operationId])
 
   const deprecatedItems: DeprecateItem[] = syncDebugPerformance('[DeprecatedItems]', () => {
     const foundedDeprecatedItems = calculateDeprecatedItems(singleOperationEffectiveSpec, ORIGINS_SYMBOL)
@@ -112,24 +113,6 @@ const isOperationPaths = (paths: JsonPath[]): boolean => {
   )
 }
 
-// todo output of this method disrupts document normalization.
-//  origin symbols are not being transferred to the resulting spec.
-//  DO NOT pass output of this method to apiDiff
-export const cropToSingleOperation = (
-  specification: GraphApiSchema,
-  type: GraphQLSchemaType,
-  method: string,
-): GraphApiSchema => {
-  const onlyOperationsSpec = removeComponents(specification) as GraphApiSchema
-  const operationBody = onlyOperationsSpec[type]?.[method]
-  return {
-    graphapi: onlyOperationsSpec.graphapi,
-    ...takeIfDefined({ components: onlyOperationsSpec.components }),
-    [type]: {
-      [method]: operationBody,
-    },
-  }
-}
 
 export const calculateSpecRefs = (sourceSpec: unknown, normalizedSpec: unknown, operationOnlySpec: unknown): void => {
   const handledObjects = new Set<unknown>()
@@ -167,4 +150,105 @@ export const calculateSpecRefs = (sourceSpec: unknown, normalizedSpec: unknown, 
     }
     setValueByPath(operationOnlySpec, matchResult.path, component)
   })
+}
+
+const copyRuntimeDirectives = (source: GraphApiSchema, target: GraphApiSchema): void => {
+  const directives = source.components?.directives
+  if (!isObject(directives)) { return }
+
+  const runtimeDirectives = Object.fromEntries(
+    Object.entries(directives as Record<string, GraphApiDirectiveDefinition>)
+      .filter(([, directive]) => directive.locations.some(location => RUNTIME_DIRECTIVE_LOCATIONS.has(location))),
+  )
+  if (Object.keys(runtimeDirectives).length === 0) { return }
+
+  const targetRecord = target as unknown as Record<string, Record<string, unknown>>
+  if (!targetRecord.components) { targetRecord.components = {} }
+  targetRecord.components.directives = {
+    ...(targetRecord.components.directives as Record<string, unknown>),
+    ...runtimeDirectives,
+  }
+}
+
+/**
+ * Creates a GraphQL spec containing only the specified operations with resolved component references.
+ *
+ * @param sourceDocument The original GraphQL document (used as source for operation data and component values).
+ * @param normalizedDocument A normalized/refs-only document (used to detect inline refs that must be copied).
+ * @param operationsId Array of operation IDs (as produced by calculateGraphqlOperationId) to include.
+ * @param includeRuntimeDirectives When true, runtime directive definitions (QUERY, MUTATION, FIELD, etc.)
+ *   from source components are included in the result regardless of whether they are referenced by the operations.
+ *   This replicates the behavior of removeComponents + cropToSingleOperation.
+ * @throws Error when no operations are provided or when any requested operation is missing in the document.
+ */
+export const createOperationSpec = (
+  sourceDocument: GraphApiSchema,
+  normalizedDocument: GraphApiSchema,
+  operationsId: string[],
+  includeRuntimeDirectives = false,
+): GraphApiSchema => {
+  if (operationsId.length === 0) {
+    throw new Error(
+      'No operations provided. Pass a non-empty array of GraphQL operation IDs.',
+    )
+  }
+
+  const operationsIdSet = new Set(operationsId)
+  const matchedIds = new Set<string>()
+  const resultOperations: Partial<Pick<GraphApiSchema, typeof GRAPHQL_TYPE_KEYS[number]>> = {}
+
+  for (const type of GRAPHQL_TYPE_KEYS) {
+    const operationsByType = sourceDocument[type]
+    if (!operationsByType) { continue }
+    for (const method of Object.keys(operationsByType)) {
+      const operationId = calculateGraphqlOperationId(GRAPHQL_TYPE[type], method)
+      if (!operationsIdSet.has(operationId)) { continue }
+      matchedIds.add(operationId)
+      if (!resultOperations[type]) {
+        resultOperations[type] = {}
+      }
+      resultOperations[type]![method] = { ...operationsByType[method] }
+    }
+  }
+
+  const missingIds = operationsId.filter(id => !matchedIds.has(id))
+  if (missingIds.length > 0) {
+    throw new Error(
+      `Operations not found in document: ${missingIds.join(', ')}`,
+    )
+  }
+
+  const result: GraphApiSchema = {
+    graphapi: sourceDocument.graphapi,
+    ...takeIfDefined({ description: sourceDocument.description }),
+    ...takeIfDefined({ directives: sourceDocument.directives }),
+    ...resultOperations,
+    ...takeIfDefined(resultOperations.queries ? { queryTypeName: sourceDocument.queryTypeName } : {}),
+    ...takeIfDefined(resultOperations.mutations ? { mutationTypeName: sourceDocument.mutationTypeName } : {}),
+    ...takeIfDefined(resultOperations.subscriptions ? { subscriptionTypeName: sourceDocument.subscriptionTypeName } : {}),
+  }
+
+  // Build operation-only normalized spec for ref detection
+  const normalizedOperationSpec: Partial<GraphApiSchema> = {}
+  for (const type of GRAPHQL_TYPE_KEYS) {
+    const normalizedByType = normalizedDocument[type]
+    if (!normalizedByType) { continue }
+    for (const method of Object.keys(normalizedByType)) {
+      const operationId = calculateGraphqlOperationId(GRAPHQL_TYPE[type], method)
+      if (!operationsIdSet.has(operationId)) { continue }
+      if (!normalizedOperationSpec[type]) {
+        normalizedOperationSpec[type] = {}
+      }
+      normalizedOperationSpec[type]![method] = normalizedByType[method]
+    }
+  }
+
+  // Resolve component references from normalizedDocument into result
+  calculateSpecRefs(sourceDocument, normalizedOperationSpec, result)
+
+  if (includeRuntimeDirectives) {
+    copyRuntimeDirectives(sourceDocument, result)
+  }
+
+  return result
 }

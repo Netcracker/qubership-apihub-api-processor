@@ -24,6 +24,7 @@ import {
   FILE_KIND,
   FileFormat,
   FileId,
+  OperationsApiType,
   PackageDocument,
   ResolvedGroupDocument,
   VALIDATION_RULES_SEVERITY_LEVEL_ERROR,
@@ -32,6 +33,7 @@ import {
 } from '../types'
 import { bundle, Resolver } from 'api-ref-bundler'
 import {
+  FILE_FORMAT_GRAPHQL,
   FILE_FORMAT_HTML,
   FILE_FORMAT_JSON,
   FILE_FORMAT_YAML,
@@ -41,10 +43,22 @@ import {
 import { isNotEmpty } from './arrays'
 import { RefErrorType, RefErrorTypes, serialize } from '@netcracker/qubership-apihub-api-unifier'
 
-export const EXPORT_FORMAT_TO_FILE_FORMAT = new Map<ExportFormat, typeof FILE_FORMAT_YAML | typeof FILE_FORMAT_JSON>([
+type REST_FILE_FORMATS = typeof FILE_FORMAT_YAML | typeof FILE_FORMAT_JSON
+type GRAPHQL_FILE_FORMATS = typeof FILE_FORMAT_GRAPHQL
+
+export const EXPORT_FORMAT_TO_FILE_FORMAT = new Map<ExportFormat, REST_FILE_FORMATS>([
   [FILE_FORMAT_YAML, FILE_FORMAT_YAML],
   [FILE_FORMAT_JSON, FILE_FORMAT_JSON],
   [FILE_FORMAT_HTML, FILE_FORMAT_JSON],
+])
+
+export const EXPORT_GRAPHQL_FORMAT_TO_FILE_FORMAT = new Map<ExportFormat, GRAPHQL_FILE_FORMATS>([
+  [FILE_FORMAT_GRAPHQL, FILE_FORMAT_GRAPHQL],
+])
+
+export const EXPORT_API_TYPE_FORMATS = new Map<OperationsApiType, Map<ExportFormat, REST_FILE_FORMATS | GRAPHQL_FILE_FORMATS>>([
+  ['rest', EXPORT_FORMAT_TO_FILE_FORMAT],
+  ['graphql', EXPORT_GRAPHQL_FORMAT_TO_FILE_FORMAT],
 ])
 
 export function toVersionDocument(document: ResolvedGroupDocument, fileFormat: FileFormat): VersionDocument {
