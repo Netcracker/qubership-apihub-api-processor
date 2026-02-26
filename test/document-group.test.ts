@@ -355,6 +355,7 @@ describe('Document Group test', () => {
       expect(Object.keys(queries)).toEqual(['listPets'])
 
       expect(schema.mutations).toBeUndefined()
+      expect(schema.subscriptions).toBeUndefined()
     })
 
     test('should export include only requested operation from group', async () => {
