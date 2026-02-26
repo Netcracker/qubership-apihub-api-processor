@@ -116,8 +116,7 @@ export interface ExportRestDocumentBuildConfig extends BuildConfigBase {
   allowedOasExtensions?: OpenApiExtensionKey[]
 }
 
-export interface ExportOperationsGroupBuildConfig extends BuildConfigBase {
-  buildType: typeof BUILD_TYPE.EXPORT_REST_OPERATIONS_GROUP | typeof BUILD_TYPE.EXPORT_GRAPHQL_OPERATIONS_GROUP
+interface ExportOperationsGroupBuildConfig extends BuildConfigBase{
   packageId: PackageId
   version: VersionId
   apiType: OperationsApiType
@@ -125,6 +124,13 @@ export interface ExportOperationsGroupBuildConfig extends BuildConfigBase {
   operationsSpecTransformation: OperationsSpecTransformation
   format: ExportFormat
   allowedOasExtensions?: OpenApiExtensionKey[]
+}
+export interface ExportRestOperationsGroupBuildConfig extends ExportOperationsGroupBuildConfig {
+  buildType: typeof BUILD_TYPE.EXPORT_REST_OPERATIONS_GROUP
+}
+
+export interface ExportGraphQLOperationsGroupBuildConfig extends ExportOperationsGroupBuildConfig {
+  buildType: typeof BUILD_TYPE.EXPORT_GRAPHQL_OPERATIONS_GROUP
 }
 
 // deprecated

@@ -17,7 +17,7 @@
 import { Editor, exportDocumentMatcher, exportDocumentsMatcher, loadFileAsString, LocalRegistry } from './helpers'
 import {
   BUILD_TYPE,
-  ExportOperationsGroupBuildConfig,
+  ExportRestOperationsGroupBuildConfig,
   FILE_FORMAT_HTML,
   FILE_FORMAT_JSON,
   FILE_FORMAT_YAML,
@@ -59,13 +59,13 @@ const COMMON_GROUP_EXPORT_CONFIG = {
   groupName: GROUP_WITH_OPERATIONS_FROM_TWO_DOCUMENTS,
 }
 
-const COMMON_REDUCED_GROUP_EXPORT_CONFIG: Partial<ExportOperationsGroupBuildConfig> = {
+const COMMON_REDUCED_GROUP_EXPORT_CONFIG: Partial<ExportRestOperationsGroupBuildConfig> = {
   ...COMMON_GROUP_EXPORT_CONFIG,
   buildType: BUILD_TYPE.EXPORT_REST_OPERATIONS_GROUP,
   operationsSpecTransformation: TRANSFORMATION_KIND_REDUCED,
 }
 
-const COMMON_MERGED_GROUP_EXPORT_CONFIG: Partial<ExportOperationsGroupBuildConfig> = {
+const COMMON_MERGED_GROUP_EXPORT_CONFIG: Partial<ExportRestOperationsGroupBuildConfig> = {
   ...COMMON_GROUP_EXPORT_CONFIG,
   buildType: BUILD_TYPE.EXPORT_REST_OPERATIONS_GROUP,
   operationsSpecTransformation: TRANSFORMATION_KIND_MERGED,

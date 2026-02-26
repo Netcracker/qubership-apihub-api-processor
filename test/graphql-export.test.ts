@@ -16,11 +16,10 @@
 
 import { describe, expect, test } from '@jest/globals'
 import { FILE_FORMAT_GRAPHQL, FILE_FORMAT_HTML, FILE_FORMAT_JSON, FILE_FORMAT_YAML } from '../src/consts'
-import { OperationsApiType } from '../src/types'
+import { ExportGraphQLOperationsGroupBuildConfig, ExportRestOperationsGroupBuildConfig, OperationsApiType } from '../src/types'
 import { Editor, LocalRegistry } from './helpers'
 import {
   BUILD_TYPE,
-  ExportOperationsGroupBuildConfig,
   TRANSFORMATION_KIND_MERGED,
   TRANSFORMATION_KIND_REDUCED,
 } from '../src'
@@ -45,13 +44,13 @@ describe('Export GraphQL Operations Group integration tests', () => {
     apiType: 'graphql' as OperationsApiType,
   }
 
-  const COMMON_GRAPHQL_GROUP_EXPORT_CONFIG: Partial<ExportOperationsGroupBuildConfig> = {
+  const COMMON_GRAPHQL_GROUP_EXPORT_CONFIG: Partial<ExportGraphQLOperationsGroupBuildConfig> = {
     ...COMMON_GROUP_EXPORT_CONFIG,
     buildType: BUILD_TYPE.EXPORT_GRAPHQL_OPERATIONS_GROUP,
     operationsSpecTransformation: TRANSFORMATION_KIND_REDUCED,
   }
 
-  const COMMON_MERGED_GRAPHQL_GROUP_EXPORT_CONFIG: Partial<ExportOperationsGroupBuildConfig> = {
+  const COMMON_MERGED_GRAPHQL_GROUP_EXPORT_CONFIG: Partial<ExportGraphQLOperationsGroupBuildConfig> = {
     ...COMMON_GROUP_EXPORT_CONFIG,
     buildType: BUILD_TYPE.EXPORT_GRAPHQL_OPERATIONS_GROUP,
     operationsSpecTransformation: TRANSFORMATION_KIND_MERGED,
