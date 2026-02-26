@@ -116,17 +116,17 @@ export interface ExportRestDocumentBuildConfig extends BuildConfigBase {
   allowedOasExtensions?: OpenApiExtensionKey[]
 }
 
-interface ExportOperationsGroupBuildConfig extends BuildConfigBase{
+export interface ExportOperationsGroupBuildConfig extends BuildConfigBase {
   packageId: PackageId
   version: VersionId
   apiType: OperationsApiType
   groupName: string
   operationsSpecTransformation: OperationsSpecTransformation
   format: ExportFormat
-  allowedOasExtensions?: OpenApiExtensionKey[]
 }
 export interface ExportRestOperationsGroupBuildConfig extends ExportOperationsGroupBuildConfig {
   buildType: typeof BUILD_TYPE.EXPORT_REST_OPERATIONS_GROUP
+  allowedOasExtensions?: OpenApiExtensionKey[]
 }
 
 export interface ExportGraphQLOperationsGroupBuildConfig extends ExportOperationsGroupBuildConfig {

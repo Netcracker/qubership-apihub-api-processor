@@ -18,7 +18,6 @@ import { REST_API_TYPE } from '../apitypes'
 import { createRestExportDocument } from '../apitypes/rest/rest.document'
 import { BUILD_TYPE, FILE_FORMAT_HTML, FILE_FORMAT_JSON } from '../consts'
 import {
-  BuilderStrategy,
   BuildResult,
   BuildTypeContexts,
   ExportDocument,
@@ -26,145 +25,107 @@ import {
   TRANSFORMATION_KIND_MERGED,
   TRANSFORMATION_KIND_REDUCED,
 } from '../types'
-import { EXPORT_API_TYPE_FORMATS, EXPORT_FORMAT_TO_FILE_FORMAT, getSplittedVersionKey } from '../utils'
+import { EXPORT_FORMAT_TO_FILE_FORMAT, getSplittedVersionKey } from '../utils'
 import { createCommonStaticExportDocuments, createUnknownExportDocument, generateIndexHtmlPage } from '../utils/export'
-import { DocumentGroupStrategy } from './document-group.strategy'
 import { MergedDocumentGroupStrategy } from './merged-document-group.strategy'
+import { ExportOperationsGroupStrategy } from './export-operations-group.strategy'
 
-export class ExportRestOperationsGroupStrategy implements BuilderStrategy {
-  async execute(
+export class ExportRestOperationsGroupStrategy extends ExportOperationsGroupStrategy<ExportRestOperationsGroupBuildConfig> {
+  protected readonly supportedApiType = REST_API_TYPE
+
+  protected async exportDocuments(
     config: ExportRestOperationsGroupBuildConfig,
     buildResult: BuildResult,
     contexts: BuildTypeContexts,
-  ): Promise<BuildResult> {
-    const { apiType, operationsSpecTransformation } = config
-    if(apiType !== REST_API_TYPE){
-      throw new Error('This strategy is only supported for rest apiType')
-    }
-
-    switch (operationsSpecTransformation) {
+  ): Promise<void> {
+    switch (config.operationsSpecTransformation) {
       case TRANSFORMATION_KIND_MERGED:
-        await exportMergedDocument(config, buildResult, contexts)
+        await this.exportMergedDocument(config, buildResult, contexts)
         break
       case TRANSFORMATION_KIND_REDUCED:
-        await exportReducedDocuments(config, buildResult, contexts)
+        await this.exportReducedDocuments(config, buildResult, contexts)
         break
     }
+  }
 
-    const { packageId, version: versionWithRevision, format = FILE_FORMAT_JSON, groupName } = config
+  private async exportMergedDocument(
+    config: ExportRestOperationsGroupBuildConfig,
+    buildResult: BuildResult,
+    contexts: BuildTypeContexts,
+  ): Promise<void> {
+    const {
+      packageId,
+      version: versionWithRevision,
+      format = FILE_FORMAT_JSON,
+      allowedOasExtensions,
+    } = config
     const [version] = getSplittedVersionKey(versionWithRevision)
-    if (buildResult.exportDocuments.length > 1) {
-      buildResult.exportFileName = `${packageId}_${version}_${groupName}.zip`
-      return buildResult
+    const { templateResolver, packageResolver } = contexts.builderContext(config)
+    const { name: packageName } = await packageResolver(packageId)
+
+    await new MergedDocumentGroupStrategy().execute(
+      {
+        ...config,
+        buildType: BUILD_TYPE.MERGED_SPECIFICATION,
+        format: EXPORT_FORMAT_TO_FILE_FORMAT.get(format)!,
+      },
+      buildResult,
+      contexts,
+    )
+
+    if (!buildResult.merged) {
+      throw Error('No merged result')
     }
 
-    buildResult.exportFileName = `${packageId}_${version}_${groupName}.${format}`
-    return buildResult
-  }
-}
-
-async function exportMergedDocument(
-  config: ExportRestOperationsGroupBuildConfig,
-  buildResult: BuildResult,
-  contexts: BuildTypeContexts,
-): Promise<void> {
-  const {
-    packageId,
-    version: versionWithRevision,
-    format = FILE_FORMAT_JSON,
-    allowedOasExtensions,
-  } = config
-  const [version] = getSplittedVersionKey(versionWithRevision)
-  const { templateResolver, packageResolver } = contexts.builderContext(config)
-  const { name: packageName } = await packageResolver(packageId)
-
-  await new MergedDocumentGroupStrategy().execute(
-    {
-      ...config,
-      buildType: BUILD_TYPE.MERGED_SPECIFICATION,
-      format: EXPORT_FORMAT_TO_FILE_FORMAT.get(format)!,
-    },
-    buildResult,
-    contexts,
-  )
-
-  if (!buildResult.merged) {
-    throw Error('No merged result')
-  }
-
-  buildResult.exportDocuments.push(
-    await createRestExportDocument(
-      buildResult.merged.filename,
-      JSON.stringify(buildResult.merged?.data),
-      format,
-      packageName,
-      version,
-      templateResolver,
-      allowedOasExtensions,
-    ),
-  )
-
-  if (format === FILE_FORMAT_HTML) {
-    buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageName, version, templateResolver))
-  }
-}
-
-async function exportReducedDocuments(
-  config: ExportRestOperationsGroupBuildConfig,
-  buildResult: BuildResult,
-  contexts: BuildTypeContexts,
-): Promise<void> {
-  const {
-    packageId,
-    version: versionWithRevision,
-    format = FILE_FORMAT_JSON,
-    apiType,
-    allowedOasExtensions,
-  } = config
-  const [version] = getSplittedVersionKey(versionWithRevision)
-  const { templateResolver, packageResolver } = contexts.builderContext(config)
-  const { name: packageName } = await packageResolver(packageId)
-
-  const availableFormatsForApiType = EXPORT_API_TYPE_FORMATS.get(apiType)
-  const documentFormat = availableFormatsForApiType?.get(format)
-  if (!documentFormat) {
-    throw new Error(`Export format is not supported: ${format}`)
-  }
-
-  await new DocumentGroupStrategy().execute(
-    {
-      ...config,
-      buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
-      format: documentFormat,
-    },
-    buildResult,
-    contexts,
-  )
-
-  const generatedHtmlExportDocuments: ExportDocument[] = []
-  const transformedDocuments = await Promise.all([...buildResult.documents.values()].map(async document => {
-    return createRestExportDocument?.(
-      document.filename,
-      JSON.stringify(document.data),
-      format,
-      packageName,
-      version,
-      templateResolver,
-      allowedOasExtensions,
-      generatedHtmlExportDocuments,
-    )
-  }))
-
-  buildResult.exportDocuments.push(...transformedDocuments)
-
-  if (format === FILE_FORMAT_HTML) {
-    buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageName, version, templateResolver))
-
     buildResult.exportDocuments.push(
-      createUnknownExportDocument(
-        'index.html',
-        await generateIndexHtmlPage(packageName, version, generatedHtmlExportDocuments, templateResolver),
+      await createRestExportDocument(
+        buildResult.merged.filename,
+        JSON.stringify(buildResult.merged?.data),
+        format,
+        packageName,
+        version,
+        templateResolver,
+        allowedOasExtensions,
       ),
     )
+
+    if (format === FILE_FORMAT_HTML) {
+      buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageName, version, templateResolver))
+    }
+  }
+
+  private async exportReducedDocuments(
+    config: ExportRestOperationsGroupBuildConfig,
+    buildResult: BuildResult,
+    contexts: BuildTypeContexts,
+  ): Promise<void> {
+    const { version, packageName, templateResolver } = await this.resolveReducedDocuments(config, buildResult, contexts)
+
+    const generatedHtmlExportDocuments: ExportDocument[] = []
+    const transformedDocuments = await Promise.all([...buildResult.documents.values()].map(async document => {
+      return createRestExportDocument?.(
+        document.filename,
+        JSON.stringify(document.data),
+        config.format,
+        packageName,
+        version,
+        templateResolver,
+        config.allowedOasExtensions,
+        generatedHtmlExportDocuments,
+      )
+    }))
+
+    buildResult.exportDocuments.push(...transformedDocuments)
+
+    if (config.format === FILE_FORMAT_HTML) {
+      buildResult.exportDocuments.push(...await createCommonStaticExportDocuments(packageName, version, templateResolver))
+
+      buildResult.exportDocuments.push(
+        createUnknownExportDocument(
+          'index.html',
+          await generateIndexHtmlPage(packageName, version, generatedHtmlExportDocuments, templateResolver),
+        ),
+      )
+    }
   }
 }

@@ -22,15 +22,7 @@ import {
 } from '@netcracker/qubership-apihub-graphapi'
 import type { GraphQLSchema, IntrospectionQuery } from 'graphql'
 
-import {
-  _TemplateResolver,
-  BuildConfigFile,
-  DocumentDumper,
-  ExportDocument,
-  ExportFormat,
-  TextFile,
-  VersionDocument,
-} from '../../types'
+import { BuildConfigFile, DocumentDumper, ExportDocument, ExportFormat, TextFile, VersionDocument } from '../../types'
 import { GRAPHQL_API_TYPE, GRAPHQL_DOCUMENT_TYPE } from './graphql.consts'
 import { createVersionInternalDocument, getDocumentTitle } from '../../utils'
 
@@ -74,32 +66,11 @@ export async function createGraphQLExportDocument(
   filename: string,
   data: string,
   format: ExportFormat,
-  packageName: string,
-  version: string,
-  templateResolver: _TemplateResolver,
-  generatedHtmlExportDocuments?: ExportDocument[],
 ): Promise<ExportDocument> {
   if (format !== GRAPHQL_API_TYPE) {
     throw new Error('Unsupported format type')
   }
   const exportFilename = `${getDocumentTitle(filename)}.${GRAPHQL_API_TYPE}`
-
-  // TODO GraphQL HTML Export support
-  // const exportFilename = `${getDocumentTitle(filename)}.${format === FILE_FORMAT_HTML ? FILE_FORMAT_HTML : GRAPHQL_API_TYPE}`
-  // if (format === FILE_FORMAT_HTML) {
-  //   const htmlExportDocument: ExportDocument = {
-  //     data: await generateHtmlPage(
-  //       data,
-  //       getDocumentTitle(filename),
-  //       packageName,
-  //       version,
-  //       templateResolver,
-  //     ),
-  //     filename: exportFilename,
-  //   }
-  //   generatedHtmlExportDocuments?.push(htmlExportDocument)
-  //   return htmlExportDocument
-  // }
 
   return {
     data: new Blob([data], { type: 'application/graphql' }),
