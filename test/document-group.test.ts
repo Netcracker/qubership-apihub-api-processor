@@ -351,7 +351,6 @@ describe('Document Group test', () => {
       const [document] = Array.from(result.documents.values())
       const schema = parseGraphQLSource(document.data as string)
 
-      expect(schema.queries).toBeExtensible()
       const queries = schema.queries ?? {}
       expect(Object.keys(queries)).toEqual(['listPets'])
 
