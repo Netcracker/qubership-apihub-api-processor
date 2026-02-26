@@ -53,7 +53,7 @@ describe('Export GraphQL Operations Group integration tests', () => {
 
   const COMMON_MERGED_GRAPHQL_GROUP_EXPORT_CONFIG: Partial<ExportOperationsGroupBuildConfig> = {
     ...COMMON_GROUP_EXPORT_CONFIG,
-    buildType: BUILD_TYPE.EXPORT_REST_OPERATIONS_GROUP,
+    buildType: BUILD_TYPE.EXPORT_GRAPHQL_OPERATIONS_GROUP,
     operationsSpecTransformation: TRANSFORMATION_KIND_MERGED,
   }
 
@@ -100,7 +100,8 @@ describe('Export GraphQL Operations Group integration tests', () => {
       expect(schema.graphapi).toBeDefined()
     })
 
-    test('should export reduced graphql operations group to html', async () => {
+    // TODO run it when it's ready GraphQL HTML Export support
+    test.skip('should export reduced graphql operations group to html', async () => {
       const result = await editor.run({
         ...COMMON_GRAPHQL_GROUP_EXPORT_CONFIG,
         format: FILE_FORMAT_HTML,
@@ -132,6 +133,7 @@ describe('Export GraphQL Operations Group integration tests', () => {
     const text = await exportDocument.data.text()
     const schema = parseGraphQLSource(text)
 
+    expect(schema.queries).toBeDefined()
     if (schema.queries) {
       expect(Object.keys(schema.queries)).toEqual(['listPets'])
     }

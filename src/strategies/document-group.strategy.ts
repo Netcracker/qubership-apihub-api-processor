@@ -41,7 +41,7 @@ import { normalize } from '@netcracker/qubership-apihub-api-unifier'
 import { extractOperationBasePath } from '@netcracker/qubership-apihub-api-diff'
 import { calculateSpecRefs, extractCommonPathItemProperties } from '../apitypes/rest/rest.operation'
 import { GraphApiSchema, printGraphApi } from '@netcracker/qubership-apihub-graphapi'
-import { createSingleOperationSpec } from '../apitypes/graphql/graphql.operation'
+import { createOperationSpec } from '../apitypes/graphql/graphql.operation'
 import { parseGraphQLSource } from '../utils/graphql-transformer'
 
 const documentTransformers: Record<OperationsApiType, (document: ResolvedGroupDocument, format: FileFormat, packages: ResolvedReferenceMap) => VersionDocument> = {
@@ -87,7 +87,7 @@ function getGraphQLTransformedDocument(document: ResolvedGroupDocument, format: 
   return buildTransformedDocument<VersionDocument<string>>(document, format, packages, (versionDocument) => {
     const sourceDocument = extractGraphQLDocumentData(versionDocument)
     const refsOnlyDocument = normalizeGraphQL(sourceDocument)
-    const operationsSpec = createSingleOperationSpec(sourceDocument, refsOnlyDocument, versionDocument.operationIds)
+    const operationsSpec = createOperationSpec(sourceDocument, refsOnlyDocument, versionDocument.operationIds)
     versionDocument.data = printGraphApi(operationsSpec)
   })
 }
@@ -95,14 +95,14 @@ function getGraphQLTransformedDocument(document: ResolvedGroupDocument, format: 
 export class DocumentGroupStrategy implements BuilderStrategy {
   async execute(config: ReducedSourceSpecificationsBuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
     const { builderContext } = contexts
-    const { packageId, version, groupName, apiType, format = FILE_FORMAT_JSON } = config
+    const { packageId, version, groupName, apiType = REST_API_TYPE, format = FILE_FORMAT_JSON } = config
 
     if (!groupName) {
       throw new Error('No group to transform documents for provided')
     }
 
-    if (!apiType || ![REST_API_TYPE, GRAPHQL_API_TYPE].includes(apiType)) {
-      throw new Error(`API type is not supported: ${apiType}`)
+    if (![REST_API_TYPE, GRAPHQL_API_TYPE].includes(apiType)) {
+      throw new Error(`reducedSourceSpecifications transformation is not supported for API type: ${apiType}`)
     }
 
     const availableFormatsForApiType = EXPORT_API_TYPE_FORMATS.get(apiType)

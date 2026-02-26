@@ -18,9 +18,9 @@ import { API_AUDIENCE_EXTERNAL, BuildConfig, DeprecateItem, NotificationMessage 
 import {
   calculateGraphqlOperationId,
   getKeyValue,
-  getSplittedVersionKey, isObject,
+  getSplittedVersionKey,
+  isObject,
   isOperationDeprecated,
-  removeComponents,
   setValueByPath,
   takeIf,
   takeIfDefined,
@@ -60,7 +60,7 @@ export const buildGraphQLOperation = (
   debugCtx?: DebugPerformanceContext,
 ): VersionGraphQLOperation => {
   const { apiKind: documentApiKind, slug: documentSlug, versionInternalDocument } = document
-  const singleOperationEffectiveSpec: GraphApiSchema = cropToSingleOperation(effectiveDocument, type, method)
+  const singleOperationEffectiveSpec: GraphApiSchema = createOperationSpec(effectiveDocument, refsOnlyDocument, [operationId])
 
   const deprecatedItems: DeprecateItem[] = syncDebugPerformance('[DeprecatedItems]', () => {
     const foundedDeprecatedItems = calculateDeprecatedItems(singleOperationEffectiveSpec, ORIGINS_SYMBOL)
@@ -113,24 +113,6 @@ const isOperationPaths = (paths: JsonPath[]): boolean => {
   )
 }
 
-// todo output of this method disrupts document normalization.
-//  origin symbols are not being transferred to the resulting spec.
-//  DO NOT pass output of this method to apiDiff
-export const cropToSingleOperation = (
-  specification: GraphApiSchema,
-  type: GraphQLSchemaType,
-  method: string,
-): GraphApiSchema => {
-  const onlyOperationsSpec = removeComponents(specification) as GraphApiSchema
-  const operationBody = onlyOperationsSpec[type]?.[method]
-  return {
-    graphapi: onlyOperationsSpec.graphapi,
-    ...takeIfDefined({ components: onlyOperationsSpec.components }),
-    [type]: {
-      [method]: operationBody,
-    },
-  }
-}
 
 export const calculateSpecRefs = (sourceSpec: unknown, normalizedSpec: unknown, operationOnlySpec: unknown): void => {
   const handledObjects = new Set<unknown>()
@@ -199,7 +181,7 @@ const copyRuntimeDirectives = (source: GraphApiSchema, target: GraphApiSchema): 
  *   This replicates the behavior of removeComponents + cropToSingleOperation.
  * @throws Error when no operations are provided or when any requested operation is missing in the document.
  */
-export const createSingleOperationSpec = (
+export const createOperationSpec = (
   sourceDocument: GraphApiSchema,
   normalizedDocument: GraphApiSchema,
   operationsId: string[],

@@ -18,7 +18,7 @@ import { describe, expect, test } from '@jest/globals'
 import { normalize } from '@netcracker/qubership-apihub-api-unifier'
 import { buildFromSchema, GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
 import { buildSchema } from 'graphql'
-import { createSingleOperationSpec } from '../src/apitypes/graphql/graphql.operation'
+import { createOperationSpec } from '../src/apitypes/graphql/graphql.operation'
 import { calculateGraphqlOperationId } from '../src/utils'
 import { INLINE_REFS_FLAG } from '../src/consts'
 import { loadFileAsString } from './helpers'
@@ -40,7 +40,7 @@ function parseAndNormalize(sdl: string): { source: GraphApiSchema; normalized: G
   return { source, normalized }
 }
 
-describe('GraphQL createSingleOperationSpec', () => {
+describe('GraphQL create operation spec', () => {
   let graphql: string
 
   beforeAll(async () => {
@@ -51,7 +51,7 @@ describe('GraphQL createSingleOperationSpec', () => {
     test('should throw when operationsId array is empty', () => {
       const { source, normalized } = parseAndNormalize(SCHEMA_SIMPLE)
 
-      expect(() => createSingleOperationSpec(source, normalized, [])).toThrow(
+      expect(() => createOperationSpec(source, normalized, [])).toThrow(
         'No operations provided',
       )
     })
@@ -60,7 +60,7 @@ describe('GraphQL createSingleOperationSpec', () => {
       const { source, normalized } = parseAndNormalize(SCHEMA_SIMPLE)
 
       expect(() =>
-        createSingleOperationSpec(source, normalized, ['query-nonExistent']),
+        createOperationSpec(source, normalized, ['query-nonExistent']),
       ).toThrow('Operations not found in document: query-nonExistent')
     })
 
@@ -68,7 +68,7 @@ describe('GraphQL createSingleOperationSpec', () => {
       const { source, normalized } = parseAndNormalize(SCHEMA_SIMPLE)
 
       expect(() =>
-        createSingleOperationSpec(source, normalized, [
+        createOperationSpec(source, normalized, [
           'query-nonExistent1',
           'query-nonExistent2',
         ]),
@@ -83,7 +83,7 @@ describe('GraphQL createSingleOperationSpec', () => {
       const { source, normalized } = parseAndNormalize(graphql)
       const opId = calculateGraphqlOperationId('query', 'listPets')
 
-      const result = createSingleOperationSpec(source, normalized, [opId])
+      const result = createOperationSpec(source, normalized, [opId])
 
       expect(result.graphapi).toBeDefined()
       expect(result.queries).toBeDefined()
@@ -96,7 +96,7 @@ describe('GraphQL createSingleOperationSpec', () => {
       const { source, normalized } = parseAndNormalize(graphql)
       const opId = calculateGraphqlOperationId('query', 'listPets')
 
-      const result = createSingleOperationSpec(source, normalized, [opId])
+      const result = createOperationSpec(source, normalized, [opId])
 
       const components = result.components as Record<string, unknown> | undefined
       expect(components?.objects).toBeDefined()
@@ -114,7 +114,7 @@ describe('GraphQL createSingleOperationSpec', () => {
       const { source, normalized } = parseAndNormalize(graphql)
       const opId = calculateGraphqlOperationId('mutation', 'petAvailabilityCheck')
 
-      const result = createSingleOperationSpec(source, normalized, [opId])
+      const result = createOperationSpec(source, normalized, [opId])
 
       expect(result.mutations).toBeDefined()
       expect(Object.keys(result.mutations!)).toEqual(['petAvailabilityCheck'])
@@ -128,7 +128,7 @@ describe('GraphQL createSingleOperationSpec', () => {
       const { source, normalized } = parseAndNormalize(graphql)
       const opId = calculateGraphqlOperationId('subscription', 'onPetAdded')
 
-      const result = createSingleOperationSpec(source, normalized, [opId])
+      const result = createOperationSpec(source, normalized, [opId])
 
       expect(result.subscriptions).toBeDefined()
       expect(Object.keys(result.subscriptions!)).toEqual(['onPetAdded'])
@@ -145,13 +145,14 @@ describe('GraphQL createSingleOperationSpec', () => {
         calculateGraphqlOperationId('query', 'getPet'),
       ]
 
-      const result = createSingleOperationSpec(source, normalized, opIds)
+      const result = createOperationSpec(source, normalized, opIds)
 
       expect(result.queries).toBeDefined()
       expect(Object.keys(result.queries!)).toEqual(
         expect.arrayContaining(['listPets', 'getPet']),
       )
       expect(result.mutations).toBeUndefined()
+      expect(result.subscriptions).toBeUndefined()
     })
 
     test('should extract operations across different types', () => {
@@ -162,7 +163,7 @@ describe('GraphQL createSingleOperationSpec', () => {
         calculateGraphqlOperationId('subscription', 'onPetAdded'),
       ]
 
-      const result = createSingleOperationSpec(source, normalized, opIds)
+      const result = createOperationSpec(source, normalized, opIds)
 
       expect(result.queries).toBeDefined()
       expect(Object.keys(result.queries!)).toEqual(['listPets'])
@@ -178,7 +179,7 @@ describe('GraphQL createSingleOperationSpec', () => {
       const { source, normalized } = parseAndNormalize(graphql)
       const opId = calculateGraphqlOperationId('query', 'listPets')
 
-      const result = createSingleOperationSpec(source, normalized, [opId])
+      const result = createOperationSpec(source, normalized, [opId])
 
       const directives = (result.components as Record<string, unknown> | undefined)?.directives as Record<string, unknown> | undefined
       expect(directives?.['cached']).toBeUndefined()
@@ -188,7 +189,7 @@ describe('GraphQL createSingleOperationSpec', () => {
       const { source, normalized } = parseAndNormalize(graphql)
       const opId = calculateGraphqlOperationId('query', 'listPets')
 
-      const result = createSingleOperationSpec(source, normalized, [opId], true)
+      const result = createOperationSpec(source, normalized, [opId], true)
 
       const directives = (result.components as Record<string, unknown> | undefined)?.directives as Record<string, unknown> | undefined
       expect(directives?.['cached']).toBeDefined()
@@ -201,7 +202,7 @@ describe('GraphQL createSingleOperationSpec', () => {
       const originalQueryKeys = Object.keys(source.queries || {})
       const opId = calculateGraphqlOperationId('query', 'listPets')
 
-      createSingleOperationSpec(source, normalized, [opId])
+      createOperationSpec(source, normalized, [opId])
 
       expect(Object.keys(source.queries || {})).toEqual(originalQueryKeys)
     })
@@ -210,7 +211,7 @@ describe('GraphQL createSingleOperationSpec', () => {
       const { source, normalized } = parseAndNormalize(graphql)
       const opId = calculateGraphqlOperationId('query', 'listPets')
 
-      const result = createSingleOperationSpec(source, normalized, [opId])
+      const result = createOperationSpec(source, normalized, [opId])
 
       expect(result.queries!['listPets']).not.toBe(source.queries!['listPets'])
       expect(result.queries!['listPets']).toEqual(source.queries!['listPets'])

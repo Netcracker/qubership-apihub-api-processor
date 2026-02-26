@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Editor, loadFileAsString, LocalRegistry, VERSIONS_PATH } from './helpers'
+import { loadYaml } from '@netcracker/qubership-apihub-api-unifier'
 import {
   BUILD_TYPE,
   BuildConfigAggregator,
@@ -24,9 +24,11 @@ import {
   PACKAGE,
   PackageNotifications,
   REST_API_TYPE,
+  TRANSFORMATION_KIND_MERGED,
+  TRANSFORMATION_KIND_REDUCED,
 } from '../src'
 import { parseGraphQLSource } from '../src/utils/graphql-transformer'
-import { loadYaml } from '@netcracker/qubership-apihub-api-unifier'
+import { Editor, loadFileAsString, LocalRegistry, VERSIONS_PATH } from './helpers'
 
 const GROUP_NAME = 'manualGroup'
 const groupToOperationIdsMap = {
@@ -314,91 +316,91 @@ describe('Document Group test', () => {
 
       expect(result.merged?.data).toEqual(expectedResult)
     }
+  })
 
-    describe('GraphQL document group', () => {
-      const graphqlOptions: Partial<BuildConfigAggregator> = {
-        buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS,
-        apiType: GRAPHQL_API_TYPE,
-        format: FILE_FORMAT_GRAPHQL,
-      }
+  describe('GraphQL document group', () => {
+    const graphqlOptions: Partial<BuildConfigAggregator> = {
+      buildType: TRANSFORMATION_KIND_REDUCED,
+      apiType: GRAPHQL_API_TYPE,
+      format: FILE_FORMAT_GRAPHQL,
+    }
 
-      test('should export produce valid GraphQL', async () => {
-        const { result } = await runPublishPackage(
-          'graphql',
-          graphQLOperationIdMap,
-          graphqlOptions,
-        )
+    test('operation group export should produce a valid GraphQL document', async () => {
+      const { result } = await runPublishPackage(
+        'graphql',
+        graphQLOperationIdMap,
+        graphqlOptions,
+      )
 
-        expect(result.documents.size).toBeGreaterThan(0)
+      expect(result.documents.size).toBeGreaterThan(0)
 
-        const [document] = Array.from(result.documents.values())
-        expect(typeof document.data).toBe('string')
+      const [document] = Array.from(result.documents.values())
+      expect(typeof document.data).toBe('string')
 
-        const schema = parseGraphQLSource(document.data as string)
-        expect(schema.graphapi).toBeDefined()
-      })
-
-      test('should export include only one operation from group', async () => {
-        const { result } = await runPublishPackage(
-          'graphql',
-          graphQLOperationIdMap,
-          graphqlOptions,
-        )
-
-        const [document] = Array.from(result.documents.values())
-        const schema = parseGraphQLSource(document.data as string)
-
-        expect(schema.queries).toBeExtensible()
-        const queries = schema.queries ?? {}
-        expect(Object.keys(queries)).toEqual(['listPets'])
-
-        expect(schema.mutations).toBeUndefined()
-      })
-
-      test('should export include only requested operation from group', async () => {
-        const { result } = await runPublishPackage(
-          'graphql',
-          graphQLOperationIdsMap,
-          graphqlOptions,
-        )
-
-        expect(result.documents.size).toBeGreaterThan(0)
-
-        const [document] = Array.from(result.documents.values())
-        const schema = parseGraphQLSource(document.data as string)
-        const queries = schema.queries ?? {}
-        expect(Object.keys(queries)).toEqual(['listPets', 'listUsers'])
-      })
-
-      test('should not support merged specification', async () => {
-        await expect(runPublishPackage(
-          'graphql',
-          graphQLOperationIdsMap,
-          {
-            buildType: BUILD_TYPE.MERGED_SPECIFICATION,
-            apiType: GRAPHQL_API_TYPE,
-          },
-        )).rejects.toThrow('API type is not supported: graphql')
-      })
+      const schema = parseGraphQLSource(document.data as string)
+      expect(schema.graphapi).toBeDefined()
     })
 
-    async function runPublishPackage(
-      packageId: string,
-      groupOperationIds: Record<string, string[]>,
-      options: Partial<BuildConfigAggregator> = { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS },
-    ): Promise<{ pkg: LocalRegistry; result: BuildResult }> {
-      const pkg = LocalRegistry.openPackage(packageId, groupOperationIds)
-      const editor = await Editor.openProject(pkg.packageId, pkg)
-      await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+    test('should export only one operation from group', async () => {
+      const { result } = await runPublishPackage(
+        'graphql',
+        graphQLOperationIdMap,
+        graphqlOptions,
+      )
 
-      const result = await editor.run({
-        ...{
-          packageId: pkg.packageId,
-          groupName: GROUP_NAME,
+      const [document] = Array.from(result.documents.values())
+      const schema = parseGraphQLSource(document.data as string)
+
+      expect(schema.queries).toBeExtensible()
+      const queries = schema.queries ?? {}
+      expect(Object.keys(queries)).toEqual(['listPets'])
+
+      expect(schema.mutations).toBeUndefined()
+    })
+
+    test('should export include only requested operation from group', async () => {
+      const { result } = await runPublishPackage(
+        'graphql',
+        graphQLOperationIdsMap,
+        graphqlOptions,
+      )
+
+      expect(result.documents.size).toBeGreaterThan(0)
+
+      const [document] = Array.from(result.documents.values())
+      const schema = parseGraphQLSource(document.data as string)
+      const queries = schema.queries ?? {}
+      expect(Object.keys(queries)).toEqual(['listPets', 'listUsers'])
+    })
+
+    test('should not support merged specification', async () => {
+      await expect(runPublishPackage(
+        'graphql',
+        graphQLOperationIdsMap,
+        {
+          buildType: TRANSFORMATION_KIND_MERGED,
+          apiType: GRAPHQL_API_TYPE,
         },
-        ...options,
-      })
-      return { pkg, result }
-    }
+      )).rejects.toThrow('mergedSourceSpecifications transformation is not supported for API type: graphql')
+    })
   })
+
+  async function runPublishPackage(
+    packageId: string,
+    groupOperationIds: Record<string, string[]>,
+    options: Partial<BuildConfigAggregator> = { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS },
+  ): Promise<{ pkg: LocalRegistry; result: BuildResult }> {
+    const pkg = LocalRegistry.openPackage(packageId, groupOperationIds)
+    const editor = await Editor.openProject(pkg.packageId, pkg)
+    await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+
+    const result = await editor.run({
+      ...{
+        packageId: pkg.packageId,
+        groupName: GROUP_NAME,
+      },
+      ...options,
+    })
+    return { pkg, result }
+  }
 })
