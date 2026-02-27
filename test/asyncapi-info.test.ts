@@ -2,10 +2,11 @@ import { buildPackageDefaultConfig } from './helpers'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 
 describe('Info', () => {
+  // TODO add tag in channel, add tag in operation, remove tag from operation and so on
   describe('Tags', () => {
-    const TAGS_INLINE_PACKAGE_ID = 'asyncapi/info/tags/simple'
+    const TAGS_INLINE_PACKAGE_ID = 'asyncapi/info/tags/inline'
     const TAGS_FROM_REF_PACKAGE_ID = 'asyncapi/info/tags/refs'
-    const TAGS_MIXED_INLINE_AND_REF_PACKAGE_ID = 'asyncapi/info/tags/mixed'
+    const TAGS_MIXED_INLINE_AND_REF_PACKAGE_ID = 'asyncapi/info/tags/refs-and-inline'
 
     test('should extract tags from inline tag definitions', async () => {
       await runTagsTest(
@@ -62,7 +63,7 @@ describe('Info', () => {
   })
   
   describe('External documentation', () => {
-    const EXTERNAL_DOCS_INLINE_PACKAGE_ID = 'asyncapi/info/external-documentation/simple'
+    const EXTERNAL_DOCS_INLINE_PACKAGE_ID = 'asyncapi/info/external-documentation/inline'
     const EXTERNAL_DOCS_FROM_REF_PACKAGE_ID = 'asyncapi/info/external-documentation/refs'
 
     test('should extract external documentation from an inline externalDocs object', async () => {

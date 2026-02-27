@@ -71,7 +71,7 @@ describe('AsyncAPI 3.0 Deprecated tests', () => {
     })
   })
 
-  test('should mark apihub operation is deprecated if message deprecated', async () => {
+  test('should mark apihub operation as deprecated if message was deprecated', async () => {
     const result = await buildPackageDefaultConfig('asyncapi/deprecated/messages')
     const operations = Array.from(result.operations.values())
 
@@ -79,7 +79,7 @@ describe('AsyncAPI 3.0 Deprecated tests', () => {
     expect(operation.deprecated).toBe(true)
   })
 
-  test('should detect deprecated schemas (deprecated flag in payload schema)', async () => {
+  test('should detect deprecated schemas (flag "deprecated" in payload schema)', async () => {
     const result = await buildPackageDefaultConfig('asyncapi/deprecated/schemas')
     const deprecatedItems = Array.from(result.operations.values()).flatMap(operation => operation.deprecatedItems ?? [])
     expect(deprecatedItems.length).toBeGreaterThan(0)

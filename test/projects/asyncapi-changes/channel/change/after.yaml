@@ -3,19 +3,21 @@ info:
   title: Test AsyncAPI
   version: 1.0.0
 channels:
-  userSignup:
-    address: user/registration
+  channel1:
+    address: new-address1
     messages:
-      userSignedUp:
-        $ref: '#/components/messages/UserSignedUp'
+      message1:
+        $ref: '#/components/messages/message1'
 operations:
-  onUserSignup:
+  operation1:
     action: receive
     channel:
-      $ref: '#/channels/userSignup'
+      $ref: '#/channels/channel1'
+    messages:
+      - $ref: '#/channels/channel1/messages/message1'
 components:
   messages:
-    UserSignedUp:
+    message1:
       payload:
         type: object
         properties:

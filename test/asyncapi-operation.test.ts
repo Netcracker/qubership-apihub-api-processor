@@ -30,12 +30,12 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       expect(Array.from(result.operations.values())).toHaveLength(0)
     })
 
-    test('should extract single operation from package', async () => {
+    test('should build single operation from package', async () => {
       const result = await buildPackageDefaultConfig('asyncapi/operations/single-operation')
       expect(Array.from(result.operations.values())).toHaveLength(1)
     })
 
-    test('should extract multiple operations from package', async () => {
+    test('should build multiple operations from package', async () => {
       const result = await buildPackageDefaultConfig('asyncapi/operations/multiple-operations')
       expect(Array.from(result.operations.values())).toHaveLength(3)
     })
@@ -151,7 +151,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
 
   describe('Operation security tests', () => {
     it('should preserve operation-level security in built package', async () => {
-      const result = await buildPackageDefaultConfig('asyncapi/operations/security-operation')
+      const result = await buildPackageDefaultConfig('asyncapi/operations/operation-security')
       const [apiHubOperation] = Array.from(result.operations.values())
       const asyncApiDocument: AsyncAPIV3.AsyncAPIObject = apiHubOperation.data
       const operationEntries = Object.values(asyncApiDocument.operations ?? {}) as AsyncAPIV3.OperationObject[]
@@ -163,7 +163,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
     })
 
     it('should include securitySchemes in components when inlined', async () => {
-      const result = await buildPackageDefaultConfig('asyncapi/operations/security-operation')
+      const result = await buildPackageDefaultConfig('asyncapi/operations/operation-security')
       const [apiHubOperation] = Array.from(result.operations.values())
       const asyncApiDocument: AsyncAPIV3.AsyncAPIObject = apiHubOperation.data
 
@@ -183,7 +183,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
     })
 
     it('should have security in operations channel servers', async () => {
-      const result = await buildPackageDefaultConfig('asyncapi/operations/server-security-operation')
+      const result = await buildPackageDefaultConfig('asyncapi/operations/server-security')
       const operations = Array.from(result.operations.values())
       expect(operations).toHaveLength(1)
 

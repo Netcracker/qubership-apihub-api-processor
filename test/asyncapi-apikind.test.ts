@@ -29,8 +29,8 @@ describe('AsyncAPI apiKind calculation', () => {
 
   describe('AsyncAPI operation/channel compatibility apiKind application', () => {
     let operation: ApiOperation
-    let operationWithCannelBwc: ApiOperation
-    let operationWithCannelNoBwc: ApiOperation
+    let operationWithChannelBwc: ApiOperation
+    let operationWithChannelNoBwc: ApiOperation
     let operationBwc: ApiOperation
     let operationNoBwc: ApiOperation
     let operationBwcWithChannelBwc: ApiOperation
@@ -42,8 +42,8 @@ describe('AsyncAPI apiKind calculation', () => {
       const result = await buildPackageDefaultConfig('asyncapi/api-kind/base')
       ;[
         operation,
-        operationWithCannelBwc,
-        operationWithCannelNoBwc,
+        operationWithChannelBwc,
+        operationWithChannelNoBwc,
         operationBwc,
         operationNoBwc,
         operationBwcWithChannelBwc,
@@ -58,11 +58,11 @@ describe('AsyncAPI apiKind calculation', () => {
     })
 
     it('should apply BWC apiKind when channel apiKind is BWC and operation has no apiKind', () => {
-      expect(operationWithCannelBwc.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_BWC)
+      expect(operationWithChannelBwc.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_BWC)
     })
 
     it('should apply NO_BWC apiKind when channel apiKind is NO_BWC and operation has no apiKind', () => {
-      expect(operationWithCannelNoBwc.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
+      expect(operationWithChannelNoBwc.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
     })
 
     it('should apply BWC apiKind when operation apiKind is BWC and channel has no apiKind', () => {

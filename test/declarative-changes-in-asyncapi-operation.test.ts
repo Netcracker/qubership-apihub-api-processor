@@ -19,25 +19,25 @@ import { ASYNCAPI_API_TYPE, BREAKING_CHANGE_TYPE } from '../src'
 
 describe.skip('Number of declarative changes in asyncapi operation test', () => {
   test('Multiple use of one schema in a message payload', async () => {
-    const result = await buildChangelogPackage('declarative-changes-in-asyncapi-operation/case1')
+    const result = await buildChangelogPackage('declarative-changes-in-asyncapi-operation/shared-schema-in-payload')
     expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
   })
 
   test('Multiple use of one schema inside another schema used in a message payload', async () => {
-    const result = await buildChangelogPackage('declarative-changes-in-asyncapi-operation/case2')
+    const result = await buildChangelogPackage('declarative-changes-in-asyncapi-operation/shared-schema-in-nested-payload')
     expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
   })
 
   test('Multiple use of one schema in both message payload and headers', async () => {
-    const result = await buildChangelogPackage('declarative-changes-in-asyncapi-operation/case3')
+    const result = await buildChangelogPackage('declarative-changes-in-asyncapi-operation/shared-schema-in-payload-and-headers')
     expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
     expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
   })
 
   test('Circular reference in message payload with a schema type change', async () => {
-    const result = await buildChangelogPackage('declarative-changes-in-asyncapi-operation/case4')
+    const result = await buildChangelogPackage('declarative-changes-in-asyncapi-operation/circular-ref-in-payload')
     expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
   })

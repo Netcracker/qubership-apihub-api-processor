@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { isEmpty, isObject, SLUG_OPTIONS_OPERATION_ID, slugify } from '../../utils'
+import { calculateAsyncOperationId, isEmpty, isObject, SLUG_OPTIONS_OPERATION_ID, slugify } from '../../utils'
 import {
   aggregateDiffsWithRollup,
   apiDiff,
@@ -46,6 +46,7 @@ import {
   OperationsMap,
 } from '../../components'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
+import { getAsyncMessageId } from './async.utils'
 
 export const compareDocuments: DocumentsCompare = async (
   operationsMap: OperationsMap,
@@ -108,51 +109,58 @@ export const compareDocuments: DocumentsCompare = async (
         continue
       }
       const operationObject = operationData as AsyncAPIV3.OperationObject
+      const messages = operationData.messages as AsyncAPIV3.MessageObject[]
+
+      if (!Array.isArray(messages) || messages.length === 0) {
+        continue
+      }
       // Extract action and channel from operation
       const { action, channel: operationChannel } = operationObject
       if (!action || !operationChannel) {
         continue
       }
+      for (const message of messages) {
+        // Use simple operation ID (no normalization needed for AsyncAPI)
+        const messageId = getAsyncMessageId(message)
+        const operationId = calculateAsyncOperationId(operationKey, messageId)
 
-      // Use simple operation ID (no normalization needed for AsyncAPI)
-      const operationId = slugify(`${action}-${operationKey}`, SLUG_OPTIONS_OPERATION_ID)
-
-      const {
-        current,
-        previous ,
-      } = operationsMap[operationId] ?? {}
-      if (!current && !previous) {
-        throw new Error(`Can't find the ${operationId} operation from documents pair ${prevDoc?.fileId} and ${currDoc?.fileId}`)
-      }
-
-      const operationPotentiallyChanged = Boolean(current && previous)
-      const operationAddedOrRemoved = !operationPotentiallyChanged
-
-      let operationDiffs: Diff[] = []
-      if (operationPotentiallyChanged) {
-        operationDiffs = [
-          ...(operationObject as WithAggregatedDiffs<AsyncAPIV3.OperationObject>)[DIFFS_AGGREGATED_META_KEY] ?? [],
-          // TODO: check
-          // ...extractAsyncApiVersionDiff(merged),
-          // ...extractRootServersDiffs(merged),
-          // ...extractChannelsDiffs(merged, operationChannel),
-        ]
-      }
-      if (operationAddedOrRemoved) {
-        const operationAddedOrRemovedDiff = (operations as WithDiffMetaRecord<AsyncAPIV3.OperationsObject>)[DIFF_META_KEY]?.[operationKey]
-        if (operationAddedOrRemovedDiff) {
-          operationDiffs.push(operationAddedOrRemovedDiff)
+        const {
+          current,
+          previous,
+        } = operationsMap[operationId] ?? {}
+        if (!current && !previous) {
+          throw new Error(`Can't find the ${operationId} operation from documents pair ${prevDoc?.fileId} and ${currDoc?.fileId}`)
         }
+
+        const operationPotentiallyChanged = Boolean(current && previous)
+        const operationAddedOrRemoved = !operationPotentiallyChanged
+
+        let operationDiffs: Diff[] = []
+        if (operationPotentiallyChanged) {
+          operationDiffs = [
+            ...(operationObject as WithAggregatedDiffs<AsyncAPIV3.OperationObject>)[DIFFS_AGGREGATED_META_KEY] ?? [],
+            // TODO: check
+            // ...extractAsyncApiVersionDiff(merged),
+            // ...extractRootServersDiffs(merged),
+            // ...extractChannelsDiffs(merged, operationChannel),
+          ]
+        }
+        if (operationAddedOrRemoved) {
+          const operationAddedOrRemovedDiff = (operations as WithDiffMetaRecord<AsyncAPIV3.OperationsObject>)[DIFF_META_KEY]?.[operationKey]
+          if (operationAddedOrRemovedDiff) {
+            operationDiffs.push(operationAddedOrRemovedDiff)
+          }
+        }
+
+        if (isEmpty(operationDiffs)) {
+          continue
+        }
+
+        // Note: Skip breaking change reclassification for AsyncAPI (as per plan)
+
+        operationChanges.push(createOperationChange(apiType, operationDiffs, comparisonInternalDocumentId, previous, current, currentGroup, previousGroup))
+        getOperationTags(current ?? previous).forEach(tag => tags.add(tag))
       }
-
-      if (isEmpty(operationDiffs)) {
-        continue
-      }
-
-      // Note: Skip breaking change reclassification for AsyncAPI (as per plan)
-
-      operationChanges.push(createOperationChange(apiType, operationDiffs, comparisonInternalDocumentId, previous, current, currentGroup, previousGroup))
-      getOperationTags(current ?? previous).forEach(tag => tags.add(tag))
     }
   }
 

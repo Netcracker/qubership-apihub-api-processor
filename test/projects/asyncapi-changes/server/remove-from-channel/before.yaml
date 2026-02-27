@@ -4,25 +4,27 @@ info:
   version: 1.0.0
 servers:
   production:
-    host: example.com:9093
-    protocol: kafka
-    description: Updated server
+    protocol: amqp
+    host: api.example.com
 channels:
-  userSignup:
-    address: user/signup
+  channel1:
+    address: channel1
     messages:
-      userSignedUp:
-        $ref: '#/components/messages/UserSignedUp'
+      message1:
+        $ref: '#/components/messages/message1'
 operations:
-  onUserSignup:
+  operation1:
     action: receive
     channel:
-      $ref: '#/channels/userSignup'
+      $ref: '#/channels/channel1'
+    messages:
+      - $ref: '#/channels/channel1/messages/message1'
 components:
   messages:
-    UserSignedUp:
+    message1:
       payload:
         type: object
         properties:
           userId:
             type: string
+

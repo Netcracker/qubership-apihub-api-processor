@@ -6,18 +6,26 @@ channels:
   channel1:
     address: address1
     messages:
-      userData:
-        payload:
-          type: object
-          properties:
-            userId:
-              type: string
+      message1:
+        $ref: '#/components/messages/message1'
 operations:
-  onUserSignup:
+  operation1:
     action: receive
     channel:
       $ref: '#/channels/channel1'
-  onUserUpdate:
+    messages:
+      - $ref: '#/channels/channel1/messages/message1'
+  operation2:
     action: receive
     channel:
       $ref: '#/channels/channel1'
+    messages:
+      - $ref: '#/channels/channel1/messages/message1'
+components:
+  messages:
+    message1:
+      payload:
+        type: object
+        properties:
+          userId:
+            type: string

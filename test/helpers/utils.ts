@@ -296,6 +296,36 @@ export async function buildPackageDefaultConfig(
   return editor.run()
 }
 
+export async function buildChangelogPackageDefaultConfig(
+  packageId: string,
+  filesBefore: BuildConfigFile[] = [{ fileId: 'before.yaml', publish: true }],
+  filesAfter: BuildConfigFile[] = [{ fileId: 'after.yaml' }],
+): Promise<BuildResult> {
+  const portal = new LocalRegistry(packageId)
+
+  await portal.publish(packageId, {
+    packageId: packageId,
+    version: BEFORE_VERSION_ID,
+    files: filesBefore,
+  })
+  await portal.publish(packageId, {
+    packageId: packageId,
+    version: AFTER_VERSION_ID,
+    files: filesAfter,
+  })
+
+  const editor = new Editor(packageId, {
+    version: AFTER_VERSION_ID,
+    packageId: packageId,
+    previousVersionPackageId: packageId,
+    previousVersion: BEFORE_VERSION_ID,
+    buildType: BUILD_TYPE.CHANGELOG,
+    status: VERSION_STATUS.RELEASE,
+  })
+  return await editor.run()
+}
+
+
 const invertMap = <K, V>(map: Map<K, V>): Map<V, K> => {
   return new Map(
     [...map].map(([key, value]: [K, V]) => [value, key]),

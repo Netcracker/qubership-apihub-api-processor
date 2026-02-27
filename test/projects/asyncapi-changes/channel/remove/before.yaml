@@ -3,34 +3,32 @@ info:
   title: Test AsyncAPI
   version: 1.0.0
 channels:
-  userSignup:
-    address: user/signup
+  channel1:
+    address: address1
     messages:
-      userSignedUp:
-        $ref: '#/components/messages/UserSignedUp'
-  userDelete:
-    address: user/delete
+      message1:
+        $ref: '#/components/messages/message1'
+  channel2:
+    address: address2
     messages:
-      userDeleted:
-        $ref: '#/components/messages/UserDeleted'
+      message1:
+        $ref: '#/components/messages/message1'
 operations:
-  onUserSignup:
+  operation1:
     action: receive
     channel:
-      $ref: '#/channels/userSignup'
-  onUserDelete:
+      $ref: '#/channels/channel1'
+    messages:
+      - $ref: '#/channels/channel1/messages/message1'
+  operation2:
     action: receive
     channel:
-      $ref: '#/channels/userDelete'
+      $ref: '#/channels/channel2'
+    messages:
+      - $ref: '#/channels/channel2/messages/message1'
 components:
   messages:
-    UserSignedUp:
-      payload:
-        type: object
-        properties:
-          userId:
-            type: string
-    UserDeleted:
+    message1:
       payload:
         type: object
         properties:
