@@ -78,7 +78,7 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
   const operationIdMap = new Map<string, OperationInfo[]>()
 
   // Iterate through all operations in AsyncAPI 3.0 document
-  for (const [operationKey, operationData] of Object.entries(operations)) {
+  for (const [asyncOperationId, operationData] of Object.entries(operations)) {
     if (!isObject(operationData)) {
       continue
     }
@@ -97,7 +97,7 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
     const channelId = getAsyncChannelId(channel)
     for (const message of messages) {
       const messageId = getAsyncMessageId(message)
-      const operationId = calculateAsyncOperationId(operationKey, messageId)
+      const operationId = calculateAsyncOperationId(asyncOperationId, messageId)
 
       if (!operationIdMap.has(operationId)) {
         operationIdMap.set(operationId, [])
@@ -111,7 +111,7 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
                 operationId,
                 messageId,
                 channelId,
-                operationKey,
+                asyncOperationId,
                 action,
                 channel,
                 message,

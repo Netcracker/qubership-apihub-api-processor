@@ -104,7 +104,7 @@ export const compareDocuments: DocumentsCompare = async (
   // Iterate through operations in merged document
   const { operations } = merged
   if (operations && isObject(operations)) {
-    for (const [operationKey, operationData] of Object.entries(operations)) {
+    for (const [asyncOperationId, operationData] of Object.entries(operations)) {
       if (!operationData || !isObject(operationData)) {
         continue
       }
@@ -122,7 +122,7 @@ export const compareDocuments: DocumentsCompare = async (
       for (const message of messages) {
         // Use simple operation ID (no normalization needed for AsyncAPI)
         const messageId = getAsyncMessageId(message)
-        const operationId = calculateAsyncOperationId(operationKey, messageId)
+        const operationId = calculateAsyncOperationId(asyncOperationId, messageId)
 
         const {
           current,
@@ -146,7 +146,7 @@ export const compareDocuments: DocumentsCompare = async (
           ]
         }
         if (operationAddedOrRemoved) {
-          const operationAddedOrRemovedDiff = (operations as WithDiffMetaRecord<AsyncAPIV3.OperationsObject>)[DIFF_META_KEY]?.[operationKey]
+          const operationAddedOrRemovedDiff = (operations as WithDiffMetaRecord<AsyncAPIV3.OperationsObject>)[DIFF_META_KEY]?.[asyncOperationId]
           if (operationAddedOrRemovedDiff) {
             operationDiffs.push(operationAddedOrRemovedDiff)
           }

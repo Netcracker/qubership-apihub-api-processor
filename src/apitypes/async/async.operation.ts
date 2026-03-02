@@ -79,8 +79,8 @@ export const buildAsyncApiOperation = (
     versionInternalDocument,
     metadata: documentMetadata,
   } = document
-  const effectiveOperationObject: AsyncAPIV3.OperationObject = effectiveDocument.operations?.[operationKey] as AsyncAPIV3.OperationObject || {}
-  const effectiveSingleOperationSpec = createOperationSpec(effectiveDocument, operationKey)
+  const effectiveOperationObject: AsyncAPIV3.OperationObject = effectiveDocument.operations?.[asyncOperationId] as AsyncAPIV3.OperationObject || {}
+  const effectiveSingleOperationSpec = createOperationSpec(effectiveDocument, asyncOperationId)
 
   // TODO Out of scope
   const tags: string[] = effectiveOperationObject?.tags?.map(tag => (tag as AsyncAPIV3.TagObject)?.name) || []
@@ -116,14 +116,11 @@ export const buildAsyncApiOperation = (
 
   // TODO: Populate models when AsyncAPI model extraction is implemented
   const models: Record<string, string> = {}
-  const documentOperation = documentData.operations?.[asyncOperationId] as AsyncAPIV3.OperationObject || {}
-  const refsDoc = refsOnlyDocument.operations?.[asyncOperationId] ? refsOnlyDocument : undefined
   const specWithSingleOperation = syncDebugPerformance('[ModelsAndOperationHashing]', () => {
     return createOperationSpec(
       documentData,
-      operationId,
-      documentOperation,
-      refsDoc,
+      asyncOperationId,
+      refsOnlyDocument,
     )
   }, debugCtx)
 
@@ -251,14 +248,14 @@ const collectDeprecatedItems = (
  * will also inline referenced `channels`, `servers`, and `components` from the original `document`.
  *
  * @param document AsyncAPI 3.0 document to crop.
- * @param operationKey Operation key or an array of operation keys to include.
+ * @param asyncOperationId Operation key or an array of operation keys to include.
  * @param refsDocument Optional "refs-only" document used to detect inline refs that must be copied.
  * @throws Error when the document has no `operations`, when no operation keys are provided, or when any
  *         requested operation key is missing in the document.
  */
 export const createOperationSpec = (
   document: AsyncAPIV3.AsyncAPIObject,
-  operationKey: string | string[],
+  asyncOperationId: string | string[],
   refsDocument?: AsyncAPIV3.AsyncAPIObject,
 ): TYPE.AsyncOperationData => {
   const operations = document?.operations
@@ -268,32 +265,32 @@ export const createOperationSpec = (
     )
   }
 
-  const operationKeys = Array.isArray(operationKey) ? operationKey : [operationKey]
-  if (operationKeys.length === 0) {
+  const asyncOperationIds = Array.isArray(asyncOperationId) ? asyncOperationId : [asyncOperationId]
+  if (asyncOperationIds.length === 0) {
     throw new Error(
       'No operation keys provided. Pass a non-empty operation key string or a non-empty array of operation keys.',
     )
   }
 
-  const missingOperationKeys: string[] = []
+  const missingAsyncOperationIds: string[] = []
   const selectedOperations: Record<string, AsyncAPIV3.OperationObject> = {}
-  for (const key of operationKeys) {
+  for (const key of asyncOperationIds) {
     const operation = operations[key] as AsyncAPIV3.OperationObject | undefined
     if (!operation) {
-      missingOperationKeys.push(key)
+      missingAsyncOperationIds.push(key)
       continue
     }
     selectedOperations[key] = operation
   }
 
-  if (missingOperationKeys.length > 0) {
-    if (!Array.isArray(operationKey) && missingOperationKeys.length === 1) {
+  if (missingAsyncOperationIds.length > 0) {
+    if (!Array.isArray(asyncOperationId) && missingAsyncOperationIds.length === 1) {
       throw new Error(
-        `Operation "${missingOperationKeys[0]}" not found in document.operations`,
+        `Operation "${missingAsyncOperationIds[0]}" not found in document.operations`,
       )
     }
     throw new Error(
-      `Operations not found in document.operations: ${missingOperationKeys.join(', ')}`,
+      `Operations not found in document.operations: ${missingAsyncOperationIds.join(', ')}`,
     )
   }
 
@@ -309,7 +306,7 @@ export const createOperationSpec = (
   }
 
   // If there are not enough operations, we will get an incorrect result.
-  for (const key of operationKeys) {
+  for (const key of asyncOperationIds) {
     if (!refsOnlyOperations[key]) {
       return resultSpec
     }
