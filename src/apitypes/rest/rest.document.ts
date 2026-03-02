@@ -17,7 +17,7 @@
 import type { OpenAPIV2, OpenAPIV3 } from 'openapi-types'
 import { convertObj } from 'swagger2openapi'
 
-import { REST_DOCUMENT_TYPE } from './rest.consts'
+import { REST_DOCUMENT_TYPE, REST_KIND_KEY } from './rest.consts'
 import type { RestDocumentInfo } from './rest.types'
 
 import {
@@ -74,7 +74,7 @@ export const buildRestDocument: DocumentBuilder<OpenAPIV3.Document> = async (par
 
   let bundledFileData = data
 
-  const documentApiKind = getApiKindProperty(bundledFileData?.info) || apiKind
+  const documentApiKind = getApiKindProperty(bundledFileData?.info, REST_KIND_KEY) || apiKind
 
   if (parsedFile.type === REST_DOCUMENT_TYPE.SWAGGER) {
     try {

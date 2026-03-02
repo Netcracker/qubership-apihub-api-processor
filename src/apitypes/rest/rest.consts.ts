@@ -15,16 +15,17 @@
  */
 
 import {
+  API_KIND_SPECIFICATION_EXTENSION,
   FILE_FORMAT_JSON,
   FILE_FORMAT_YAML,
   FILE_FORMAT_YML,
   HASH_FLAG,
   NORMALIZE_OPTIONS,
   ORIGINS_SYMBOL,
+  DEPRECATED_META_KEY,
 } from '../../consts'
 import { KeyOfConstType, ResolvedVersionDocument, ZippableDocument } from '../../types'
 import { TEXT_DOCUMENT_TYPE, TextDocumentType } from '../text'
-import { API_KIND_KEY, DEPRECATED_META_KEY } from '../../utils/apihubSpecificationExtensions'
 
 export const REST_API_TYPE = 'rest' as const
 
@@ -53,7 +54,7 @@ export const REST_FILE_FORMAT = {
 
 // Re-export shared constants for backward compatibility
 // TODO: just use new constants for REST
-export const REST_KIND_KEY = API_KIND_KEY
+export const REST_KIND_KEY = API_KIND_SPECIFICATION_EXTENSION
 export { DEPRECATED_META_KEY }
 
 export function isRestDocument(document: ZippableDocument | ResolvedVersionDocument): boolean {

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { calculateAsyncOperationId, isEmpty, isObject, SLUG_OPTIONS_OPERATION_ID, slugify } from '../../utils'
+import { calculateAsyncOperationId, isEmpty, isObject } from '../../utils'
 import {
   aggregateDiffsWithRollup,
   apiDiff,

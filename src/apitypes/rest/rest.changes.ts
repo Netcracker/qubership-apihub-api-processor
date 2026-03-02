@@ -63,7 +63,7 @@ import {
 } from '@netcracker/qubership-apihub-api-unifier'
 import { findRequiredRemovedProperties } from './rest.required'
 import { calculateHash } from '../../utils/hashes'
-import { REST_API_TYPE } from './rest.consts'
+import { REST_API_TYPE, REST_KIND_KEY } from './rest.consts'
 import { OpenAPIV3 } from 'openapi-types'
 import {
   extractOpenapiVersionDiff,
@@ -128,7 +128,7 @@ export const compareDocuments: DocumentsCompare = async (
   const currDocumentApiKind = currDoc?.apiKind
   // ApiKind is not guaranteed for the previous document, since we are downloaded this data and ApiKind is not a required field.
   // In this case, we calculate ApiKind by labels in order of priority
-  const prevDocumentApiKind = prevDoc?.apiKind || getApiKindProperty(prevDocData?.info) || calculateApiKindFromLabels(prevDoc?.labels, previousVersionLabels)
+  const prevDocumentApiKind = prevDoc?.apiKind || getApiKindProperty(prevDocData?.info, REST_KIND_KEY) || calculateApiKindFromLabels(prevDoc?.labels, previousVersionLabels)
 
   const { merged, diffs } = apiDiff(
     prevDocData,
@@ -141,7 +141,7 @@ export const compareDocuments: DocumentsCompare = async (
       normalizedResult: false,
       afterValueNormalizedProperty: AFTER_VALUE_NORMALIZED_PROPERTY,
       beforeValueNormalizedProperty: BEFORE_VALUE_NORMALIZED_PROPERTY,
-      apiCompatibilityScopeFunction: createApihubApiCompatibilityScopeFunction(prevDocumentApiKind, currDocumentApiKind),
+      apiCompatibilityScopeFunction: createApihubApiCompatibilityScopeFunction(prevDocumentApiKind, currDocumentApiKind, REST_KIND_KEY),
       openApiPathItemPerOperationDiffs: true,
     },
   ) as { merged: OpenAPIV3.Document; diffs: Diff[] }

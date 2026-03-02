@@ -190,8 +190,14 @@ export const EMPTY_CHANGE_SUMMARY_DTO = {
   [UNCLASSIFIED_CHANGE_TYPE]: 0,
 }
 
-export const CUSTOM_PARAMETER_API_AUDIENCE = 'x-api-audience'
 export const HTTP_METHODS_SET = new Set(Object.values(OpenAPIV3.HttpMethods) as string[])
+export const CUSTOM_PARAMETER_API_AUDIENCE = 'x-api-audience'
 export const DEPRECATED_SPECIFICATION_EXTENSION = 'x-deprecated'
+export const DEPRECATED_META_KEY = 'x-deprecated-meta'
+
 // todo move to unifier
 export const DEPRECATED_MESSAGE_PREFIX = '[Deprecated]'
+
+// Extension constant keys (generic for all API types)
+export const API_KIND_SPECIFICATION_EXTENSION = 'x-api-kind'
+

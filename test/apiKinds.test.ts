@@ -21,9 +21,7 @@ import {
   BREAKING_CHANGE_TYPE,
   BUILD_TYPE,
   BuildResult,
-  EMPTY_CHANGE_SUMMARY,
   Labels,
-  NON_BREAKING_CHANGE_TYPE,
   RISKY_CHANGE_TYPE,
   UNCLASSIFIED_CHANGE_TYPE,
   VERSION_STATUS,
@@ -636,6 +634,7 @@ describe('Check Api Compatibility Function tests', () => {
         expect.objectContaining({
           responses: expect.anything(),
         }),
+        expect.any(String),
         expect.any(String),
         expect.any(String),
       )
