@@ -271,7 +271,7 @@ export async function prepareChangelogDashboard(
   })
 }
 
-export async function buildPackageDefaultConfig(
+export async function buildPackageWithDefaultConfig(
   packageId: string,
   fileLabels?: Labels,
   versionLabels?: Labels,

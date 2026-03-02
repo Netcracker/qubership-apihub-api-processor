@@ -19,6 +19,8 @@ import {
   calculateAsyncOperationId,
   createBundlingErrorHandler,
   createSerializedInternalDocument,
+  DuplicateEntry,
+  findDuplicates,
   isNotEmpty,
   isObject,
   removeComponents,
@@ -32,10 +34,9 @@ import { normalize, RefErrorType } from '@netcracker/qubership-apihub-api-unifie
 import { ASYNC_EFFECTIVE_NORMALIZE_OPTIONS } from './async.consts'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { buildAsyncApiOperation } from './async.operation'
-import { getAsyncMessageId } from './async.utils'
+import { getAsyncChannelId, getAsyncMessageId } from './async.utils'
 
-type OperationInfo = { operationKey: string; action: string }
-type DuplicateEntry = { operationId: string; operations: OperationInfo[] }
+type OperationInfo = { messageId: string; channelId: string }
 
 export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObject> = async (document, ctx, debugCtx) => {
   const { data: documentData, fileId: documentFileId } = document
@@ -93,7 +94,7 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
     if (!action || !channel) {
       continue
     }
-
+    const channelId = getAsyncChannelId(channel)
     for (const message of messages) {
       const messageId = getAsyncMessageId(message)
       const operationId = calculateAsyncOperationId(operationKey, messageId)
@@ -101,7 +102,7 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
       if (!operationIdMap.has(operationId)) {
         operationIdMap.set(operationId, [])
       }
-      operationIdMap.get(operationId)!.push({ operationKey, action })
+      operationIdMap.get(operationId)!.push({ messageId, channelId })
 
       await asyncFunction(() => {
         syncDebugPerformance('[Operation]', (innerDebugCtx) =>
@@ -109,6 +110,7 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
               const builtOperation = buildAsyncApiOperation(
                 operationId,
                 messageId,
+                channelId,
                 operationKey,
                 action,
                 channel,
@@ -141,17 +143,11 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
   return apihubOperations
 }
 
-function findDuplicates(operationIdMap: Map<string, OperationInfo[]>): DuplicateEntry[] {
-  return Array.from(operationIdMap.entries())
-    .filter(([, operations]) => operations.length > 1)
-    .map(([operationId, operations]) => ({ operationId, operations }))
-}
-
-function createDuplicatesError(fileId: string, duplicates: DuplicateEntry[]): Error {
+function createDuplicatesError(fileId: string, duplicates: DuplicateEntry<OperationInfo>[]): Error {
   const duplicatesList = duplicates
     .map(({ operationId, operations }) => {
       const operationsList = operations
-        .map((operation: OperationInfo) => `${operation.action.toUpperCase()} ${operation.operationKey}`)
+        .map((operation: OperationInfo) => `${operation.channelId} ${operation.messageId}`)
         .join(', ')
       return `- operationId '${operationId}': Found ${operations.length} operations: ${operationsList}`
     })

@@ -15,10 +15,10 @@
  */
 
 import { beforeAll, describe, expect, it, test } from '@jest/globals'
-import { v3 as AsyncAPIV3 } from '@asyncapi/parser/cjs/spec-types'
+import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { createOperationSpec } from '../src/apitypes/async/async.operation'
 import { calculateAsyncOperationId } from '../src/utils'
-import { buildPackageDefaultConfig, cloneDocument, loadYamlFile } from './helpers'
+import { buildPackageWithDefaultConfig, cloneDocument, loadYamlFile } from './helpers'
 import { extractProtocol } from '../src/apitypes/async/async.utils'
 import { INLINE_REFS_FLAG } from '../src/consts'
 
@@ -26,17 +26,17 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
 
   describe('Building Package with Operations', () => {
     test('should ignore operation without message', async () => {
-      const result = await buildPackageDefaultConfig('asyncapi/operations/broken-operation')
+      const result = await buildPackageWithDefaultConfig('asyncapi/operations/broken-operation')
       expect(Array.from(result.operations.values())).toHaveLength(0)
     })
 
     test('should build single operation from package', async () => {
-      const result = await buildPackageDefaultConfig('asyncapi/operations/single-operation')
+      const result = await buildPackageWithDefaultConfig('asyncapi/operations/single-operation')
       expect(Array.from(result.operations.values())).toHaveLength(1)
     })
 
     test('should build multiple operations from package', async () => {
-      const result = await buildPackageDefaultConfig('asyncapi/operations/multiple-operations')
+      const result = await buildPackageWithDefaultConfig('asyncapi/operations/multiple-operations')
       expect(Array.from(result.operations.values())).toHaveLength(3)
     })
   })
@@ -64,7 +64,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
         ['publish_user', 'user_created', 'publish_user-user_created'],
 
         // star preserved
-        ['publishEvent', 'event.created*internal', 'publishEvent-event.created*internal'],
+        ['publishEvent', 'event.created*internal', 'publishEvent-event.created.internal'],
 
         // spaces (slug replaces with dash)
         ['publish Order', 'order created', 'publish-Order-order-created'],
@@ -85,7 +85,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
     })
 
     it('should set operationId in built package (e2e)', async () => {
-      const result = await buildPackageDefaultConfig('asyncapi/operations/single-operation')
+      const result = await buildPackageWithDefaultConfig('asyncapi/operations/single-operation')
       const operations = Array.from(result.operations.values())
       const [operation] = operations
       expect(operation.operationId).toBe('sendUserSignedup-UserSignedUp')
@@ -94,14 +94,14 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
 
   describe('Operation title test', () => {
     it('should set operation title in built package (e2e) as message title', async () => {
-      const result = await buildPackageDefaultConfig('asyncapi/operations/single-operation')
+      const result = await buildPackageWithDefaultConfig('asyncapi/operations/single-operation')
       const operations = Array.from(result.operations.values())
       const [operation] = operations
       expect(operation.title).toBe('User Signed Up')
     })
 
     it('should set operation title as message id if message title doesn\'t exist', async () => {
-      const result = await buildPackageDefaultConfig('asyncapi/operations/single-operation')
+      const result = await buildPackageWithDefaultConfig('asyncapi/operations/single-operation')
       const operations = Array.from(result.operations.values())
       const [operation] = operations
       expect(operation.title).toBe('User Signed Up')
@@ -142,7 +142,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
     })
 
     it('should operation has protocol', async () => {
-      const result = await buildPackageDefaultConfig('asyncapi/operations/single-operation')
+      const result = await buildPackageWithDefaultConfig('asyncapi/operations/single-operation')
       const operations = Array.from(result.operations.values())
       const [operation] = operations
       expect(operation.metadata.protocol).toBeDefined()
@@ -151,7 +151,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
 
   describe('Operation security tests', () => {
     it('should preserve operation-level security in built package', async () => {
-      const result = await buildPackageDefaultConfig('asyncapi/operations/operation-security')
+      const result = await buildPackageWithDefaultConfig('asyncapi/operations/operation-security')
       const [apiHubOperation] = Array.from(result.operations.values())
       const asyncApiDocument: AsyncAPIV3.AsyncAPIObject = apiHubOperation.data
       const operationEntries = Object.values(asyncApiDocument.operations ?? {}) as AsyncAPIV3.OperationObject[]
@@ -163,7 +163,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
     })
 
     it('should include securitySchemes in components when inlined', async () => {
-      const result = await buildPackageDefaultConfig('asyncapi/operations/operation-security')
+      const result = await buildPackageWithDefaultConfig('asyncapi/operations/operation-security')
       const [apiHubOperation] = Array.from(result.operations.values())
       const asyncApiDocument: AsyncAPIV3.AsyncAPIObject = apiHubOperation.data
 
@@ -173,7 +173,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
     })
 
     it('should not have security when operation has no security defined', async () => {
-      const result = await buildPackageDefaultConfig('asyncapi/operations/single-operation')
+      const result = await buildPackageWithDefaultConfig('asyncapi/operations/single-operation')
       const [apiHubOperation] = Array.from(result.operations.values())
       const asyncApiDocument: AsyncAPIV3.AsyncAPIObject = apiHubOperation.data
 
@@ -183,7 +183,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
     })
 
     it('should have security in operations channel servers', async () => {
-      const result = await buildPackageDefaultConfig('asyncapi/operations/server-security')
+      const result = await buildPackageWithDefaultConfig('asyncapi/operations/server-security')
       const operations = Array.from(result.operations.values())
       expect(operations).toHaveLength(1)
 

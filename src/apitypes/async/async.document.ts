@@ -14,21 +14,15 @@
  * limitations under the License.
  */
 
-import {
-  _TemplateResolver,
-  DocumentBuilder,
-  DocumentDumper,
-  ExportDocument,
-  ExportFormat,
-  VersionDocument,
-} from '../../types'
+import { DocumentBuilder, DocumentDumper, ExportDocument, ExportFormat, VersionDocument } from '../../types'
 import { FILE_FORMAT, FILE_FORMAT_HTML } from '../../consts'
 import {
   createBundlingErrorHandler,
   createVersionInternalDocument,
   EXPORT_FORMAT_TO_FILE_FORMAT,
   getBundledFileDataWithDependencies,
-  getDocumentTitle, getStringValue,
+  getDocumentTitle,
+  getStringValue,
   isObject,
 } from '../../utils'
 import { dump } from '../../utils/apihubSpecificationExtensions'
@@ -36,7 +30,6 @@ import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { AsyncDocumentInfo } from './async.types'
 import { OpenApiExtensionKey } from '@netcracker/qubership-apihub-api-unifier'
 import { removeOasExtensions } from '../../utils/removeOasExtensions'
-import { generateHtmlPage } from '../../utils/export'
 import { toExternalDocumentationObject, toTagObjects } from './async.utils'
 
 const asyncApiDocumentMeta = (data: AsyncAPIV3.AsyncAPIObject): AsyncDocumentInfo => {
@@ -44,13 +37,13 @@ const asyncApiDocumentMeta = (data: AsyncAPIV3.AsyncAPIObject): AsyncDocumentInf
     return { title: '', description: '', version: '', tags: [] }
   }
 
-  const { title = '', version = '', description = '', externalDocs: _externalDocs, tags: _tags, ...restInfo } = data.info || {}
+  const { title = '', version = '', description = '', externalDocs: _externalDocs, tags: _tags, ...otherInfo  } = data.info || {}
 
   return {
     title: getStringValue(title),
     description: getStringValue(description),
     version: getStringValue(version),
-    info: Object.keys(restInfo).length ? restInfo : undefined,
+    info: Object.keys(otherInfo ).length ? otherInfo  : undefined,
     externalDocs: toExternalDocumentationObject(data),
     tags: toTagObjects(data),
   }
@@ -98,22 +91,16 @@ export const dumpAsyncApiDocument: DocumentDumper<AsyncAPIV3.AsyncAPIObject> = (
   return new Blob(...dump(document.data, format ?? FILE_FORMAT.JSON))
 }
 
-/**
- * Creates an export document from AsyncAPI data.
- *
- * Note: When `format` is HTML, the resulting document is also pushed into
- * `generatedHtmlExportDocuments` (if provided) as a side effect.
- */
-export async function createAsyncExportDocument(
+export function createAsyncExportDocument(
   filename: string,
   data: string,
   format: ExportFormat,
-  packageName: string,
-  version: string,
-  templateResolver: _TemplateResolver,
   allowedOasExtensions?: OpenApiExtensionKey[],
-  generatedHtmlExportDocuments?: ExportDocument[],
-): Promise<ExportDocument> {
+): ExportDocument {
+  if (format === FILE_FORMAT_HTML) {
+    throw new Error('HTML export is not supported for AsyncAPI documents')
+  }
+
   const exportFilename = `${getDocumentTitle(filename)}.${format}`
 
   let parsed: object
@@ -132,21 +119,6 @@ export async function createAsyncExportDocument(
     removeOasExtensions(parsed as Parameters<typeof removeOasExtensions>[0], allowedOasExtensions),
     fileFormat,
   )
-
-  if (format === FILE_FORMAT_HTML) {
-    const htmlExportDocument = {
-      data: await generateHtmlPage(
-        document,
-        getDocumentTitle(filename),
-        packageName,
-        version,
-        templateResolver,
-      ),
-      filename: exportFilename,
-    }
-    generatedHtmlExportDocuments?.push(htmlExportDocument)
-    return htmlExportDocument
-  }
 
   return {
     data: new Blob([document], blobProperties),

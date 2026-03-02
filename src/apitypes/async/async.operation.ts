@@ -27,13 +27,17 @@ import {
   setValueByPath,
   takeIf,
 } from '../../utils'
-import { ORIGINS_SYMBOL, VERSION_STATUS } from '../../consts'
+import {
+  DEPRECATED_MESSAGE_PREFIX,
+  DEPRECATED_SPECIFICATION_EXTENSION,
+  ORIGINS_SYMBOL,
+  VERSION_STATUS,
+} from '../../consts'
 import { getCustomTags, resolveApiAudience } from '../../utils/apihubSpecificationExtensions'
 import { DebugPerformanceContext, syncDebugPerformance } from '../../utils/logs'
 import {
   ASYNCAPI_PROPERTY_CHANNELS,
   ASYNCAPI_PROPERTY_COMPONENTS,
-  ASYNCAPI_PROPERTY_MESSAGES,
   ASYNCAPI_PROPERTY_SERVERS,
   calculateDeprecatedItems,
   grepValue,
@@ -47,15 +51,16 @@ import {
   resolveOrigins,
 } from '@netcracker/qubership-apihub-api-unifier'
 import { calculateHash, ObjectHashCache } from '../../utils/hashes'
-import { calculateAsyncApiKind, extractKeyAfterPrefix, extractProtocol, getAsyncChannelId } from './async.utils'
+import { calculateAsyncApiKind, extractProtocol } from './async.utils'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { getApiKindProperty } from '../../components/document'
 import { calculateTolerantHash } from '../../components/deprecated'
-import { ASYNCAPI_API_TYPE, ASYNCAPI_DEPRECATION_EXTENSION_KEY, DEPRECATED_MESSAGE_PREFIX } from './async.consts'
+import { ASYNCAPI_API_TYPE } from './async.consts'
 
 export const buildAsyncApiOperation = (
   operationId: string,
   messageId: string,
+  channelId: string,
   operationKey: string,
   action: AsyncOperationActionType,
   channel: AsyncAPIV3.ChannelObject,
@@ -80,7 +85,7 @@ export const buildAsyncApiOperation = (
   // TODO Out of scope
   const tags: string[] = effectiveOperationObject?.tags?.map(tag => (tag as AsyncAPIV3.TagObject)?.name) || []
 
-  // Extract search scopes (similar to REST)
+  // TODO Extract search scopes (similar to REST)
   const scopes: SearchScopes = {}
   syncDebugPerformance('[SearchScopes]', () => {
     const handledObject = new Set<unknown>()
@@ -106,12 +111,12 @@ export const buildAsyncApiOperation = (
     const deprecatedInPreviousVersions = config.status === VERSION_STATUS.RELEASE ? [version] : []
 
     const resolveDeclarationJsonPaths = (value: Jso): JsonPath[] => (
-      resolveOrigins(value, ASYNCAPI_DEPRECATION_EXTENSION_KEY, ORIGINS_SYMBOL)?.map(pathItemToFullPath) ?? []
+      resolveOrigins(value, DEPRECATED_SPECIFICATION_EXTENSION, ORIGINS_SYMBOL)?.map(pathItemToFullPath) ?? []
     )
 
-    if (message[ASYNCAPI_DEPRECATION_EXTENSION_KEY]) {
+    if (message[DEPRECATED_SPECIFICATION_EXTENSION]) {
       const declarationJsonPaths = resolveDeclarationJsonPaths(message as Jso)
-      const messageTitle = message.title || extractKeyAfterPrefix(declarationJsonPaths, [ASYNCAPI_PROPERTY_COMPONENTS, ASYNCAPI_PROPERTY_MESSAGES])
+      const messageTitle = message.title || messageId
 
       deprecatedItems.push({
         declarationJsonPaths,
@@ -121,9 +126,9 @@ export const buildAsyncApiOperation = (
       })
     }
 
-    if (channel[ASYNCAPI_DEPRECATION_EXTENSION_KEY]) {
+    if (channel[DEPRECATED_SPECIFICATION_EXTENSION]) {
       const declarationJsonPaths = resolveDeclarationJsonPaths(channel as Jso)
-      const channelTitle = channel.title || extractKeyAfterPrefix(declarationJsonPaths, [ASYNCAPI_PROPERTY_CHANNELS])
+      const channelTitle = channel.title || channelId
 
       deprecatedItems.push({
         declarationJsonPaths,
@@ -177,11 +182,11 @@ export const buildAsyncApiOperation = (
     documentId: documentSlug,
     apiType: ASYNCAPI_API_TYPE,
     apiKind: calculateAsyncApiKind(operationApiKind, channelApiKind),
-    deprecated: !!message[ASYNCAPI_DEPRECATION_EXTENSION_KEY],
+    deprecated: !!message[DEPRECATED_SPECIFICATION_EXTENSION],
     title: message.title || messageId,
     metadata: {
       action,
-      channel: channel.title || getAsyncChannelId(channel),
+      channel: channel.title || channelId,
       protocol,
       customTags,
     },

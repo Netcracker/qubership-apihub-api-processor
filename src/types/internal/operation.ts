@@ -19,7 +19,7 @@ import { ApiAudience } from '../package'
 import { OpenAPIV3 } from 'openapi-types'
 import { GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
 import { ApihubApiCompatibilityKind } from '../../consts'
-import { v3 as AsyncAPIV3 } from '@asyncapi/parser/cjs/spec-types'
+import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 
 export type SearchScopes<T extends string = string> = Record<T, Set<string>>
 

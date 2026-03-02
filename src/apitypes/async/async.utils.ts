@@ -17,7 +17,7 @@
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { isObject, isReferenceObject } from '../../utils'
 import { AsyncOperationActionType } from './async.types'
-import { normalize } from '@netcracker/qubership-apihub-api-unifier'
+import { grepValue, matchPaths, normalize, PREDICATE_UNCLOSED_END } from '@netcracker/qubership-apihub-api-unifier'
 import {
   APIHUB_API_COMPATIBILITY_KIND_BWC,
   ApihubApiCompatibilityKind,
@@ -112,24 +112,13 @@ export const calculateAsyncApiKind = (
 }
 
 export const extractKeyAfterPrefix = (paths: JsonPath[], prefix: PropertyKey[]): string | undefined => {
-  for (const path of paths) {
-    if (path.length <= prefix.length) {
-      continue
-    }
-    let matches = true
-    for (let i = 0; i < prefix.length; i++) {
-      if (path[i] !== prefix[i]) {
-        matches = false
-        break
-      }
-    }
-    if (!matches) {
-      continue
-    }
-    const key = path[prefix.length]
-    return key === undefined ? undefined : String(key)
+  const GREP_KEY = 'key'
+  const result = matchPaths(paths, [[...prefix, grepValue(GREP_KEY), PREDICATE_UNCLOSED_END]])
+  if (!result) {
+    return undefined
   }
-  return undefined
+  const key = result.grepValues[GREP_KEY]
+  return key === undefined ? undefined : String(key)
 }
 
 const getAsyncItemId = (item: AsyncAPIV3.ChannelObject | AsyncAPIV3.MessageObject): string => {

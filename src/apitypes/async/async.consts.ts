@@ -53,7 +53,3 @@ export const ASYNC_EFFECTIVE_NORMALIZE_OPTIONS: NormalizeOptions = {
   originsFlag: ORIGINS_SYMBOL,
   hashFlag: HASH_FLAG,
 }
-
-export const ASYNCAPI_DEPRECATION_EXTENSION_KEY = 'x-deprecated'
-// todo move to unifier
-export const DEPRECATED_MESSAGE_PREFIX = '[Deprecated]'

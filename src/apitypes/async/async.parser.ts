@@ -34,8 +34,6 @@ class AsyncApiValidationError extends Error {
   }
 }
 
-const YAML_EXTENSIONS = new Set<string>([ASYNC_FILE_FORMAT.YAML, 'yml'])
-
 const ASYNCAPI_3_JSON_PATTERN = /\s*?"asyncapi"\s*?:\s*?"3\..+?"/
 const ASYNCAPI_3_YAML_PATTERN = /\s*?'?"?asyncapi'?"?\s*?:\s*?\|?\s*'?"?3\..+?'?"?/
 
@@ -52,7 +50,7 @@ function detectFormat(extension: string, sourceString: string): FormatInfo | und
         parse: (s) => JSON.parse(s) as AsyncAPIV3.AsyncAPIObject,
       }
     }
-  } else if (YAML_EXTENSIONS.has(extension) || !extension) {
+  } else if (extension === ASYNC_FILE_FORMAT.YAML || extension === 'yml' || !extension) {
     if (ASYNCAPI_3_YAML_PATTERN.test(sourceString)) {
       return {
         format: ASYNC_FILE_FORMAT.YAML,
@@ -92,14 +90,6 @@ export const parseAsyncApiFile = async (fileId: string, source: Blob): Promise<T
   }
 }
 
-/**
- * Validates AsyncAPI document using official parser.
- * This provides spec validation while avoiding circular reference issues
- * by using the parser only for validation, not for the actual parsing.
- *
- * @throws AsyncApiValidationError when critical validation errors (severity 0) are found
- * @returns Non-critical diagnostics (warnings, info) to be collected as notifications
- */
 let cachedParserClass: typeof Parser | undefined
 
 async function getParserClass(): Promise<typeof Parser> {
@@ -123,6 +113,14 @@ async function getParserClass(): Promise<typeof Parser> {
   return ParserClass
 }
 
+/**
+ * Validates AsyncAPI document using official parser.
+ * This provides spec validation while avoiding circular reference issues
+ * by using the parser only for validation, not for the actual parsing.
+ *
+ * @throws AsyncApiValidationError when critical validation errors (severity 0) are found
+ * @returns Non-critical diagnostics (warnings, info) to be collected as notifications
+ */
 async function validateAsyncApiDocument(sourceString: string): Promise<ValidationError[] | undefined> {
   try {
     const ParserClass = await getParserClass()

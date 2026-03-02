@@ -192,3 +192,6 @@ export const EMPTY_CHANGE_SUMMARY_DTO = {
 
 export const CUSTOM_PARAMETER_API_AUDIENCE = 'x-api-audience'
 export const HTTP_METHODS_SET = new Set(Object.values(OpenAPIV3.HttpMethods) as string[])
+export const DEPRECATED_SPECIFICATION_EXTENSION = 'x-deprecated'
+// todo move to unifier
+export const DEPRECATED_MESSAGE_PREFIX = '[Deprecated]'

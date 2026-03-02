@@ -5,7 +5,7 @@ import {
   ApiOperation,
 } from '../src'
 import { calculateAsyncApiKind } from '../src/apitypes/async/async.utils'
-import { buildPackageDefaultConfig } from './helpers'
+import { buildPackageWithDefaultConfig } from './helpers'
 
 describe('AsyncAPI apiKind calculation', () => {
   describe('Unit tests', () => {
@@ -39,7 +39,7 @@ describe('AsyncAPI apiKind calculation', () => {
     let operationNoBwcWithChannelNoBwc: ApiOperation
 
     beforeAll(async () => {
-      const result = await buildPackageDefaultConfig('asyncapi/api-kind/base')
+      const result = await buildPackageWithDefaultConfig('asyncapi/api-kind/base')
       ;[
         operation,
         operationWithChannelBwc,
@@ -91,7 +91,7 @@ describe('AsyncAPI apiKind calculation', () => {
   })
 
   it('should apply channel apiKind to all operations using that channel', async () => {
-    const result = await buildPackageDefaultConfig('asyncapi/api-kind/share-channel-api-kind')
+    const result = await buildPackageWithDefaultConfig('asyncapi/api-kind/share-channel-api-kind')
     const operations = Array.from(result.operations.values())
 
     expect(operations.every(operation => operation.apiKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC)).toBeTrue()
@@ -99,13 +99,13 @@ describe('AsyncAPI apiKind calculation', () => {
 
   describe('Labels should not redefine AsyncAPI apiKind', () => {
     it('should not override default apiKind by Label', async () => {
-      const result = await buildPackageDefaultConfig('asyncapi/api-kind/base', ['apihub/x-api-kind: no-BWC'])
+      const result = await buildPackageWithDefaultConfig('asyncapi/api-kind/base', ['apihub/x-api-kind: no-BWC'])
       const [operation] = Array.from(result.operations.values())
       expect(operation.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_BWC)
     })
 
     it('should not override operation/channel apiKind by Label', async () => {
-      const result = await buildPackageDefaultConfig('asyncapi/api-kind/base', ['apihub/x-api-kind: no-BWC'])
+      const result = await buildPackageWithDefaultConfig('asyncapi/api-kind/base', ['apihub/x-api-kind: no-BWC'])
       const [operationWithCannelBwc] = Array.from(result.operations.values())
       expect(operationWithCannelBwc.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_BWC)
     })

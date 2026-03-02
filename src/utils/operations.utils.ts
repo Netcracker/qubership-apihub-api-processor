@@ -178,7 +178,7 @@ export const calculateAsyncOperationId = (
   operationId: string,
   messageId: string,
 ): string => {
-  return slugify(`${operationId}-${messageId}`, SLUG_OPTIONS_NORMALIZED_OPERATION_ID)
+  return slugify(`${operationId}-${messageId}`, SLUG_OPTIONS_OPERATION_ID)
 }
 
 export const getInlineRefsFomDocument = (document: RestOperationData | AsyncOperationData): Set<string> => {
@@ -208,4 +208,12 @@ export const getInlineRefsFomDocument = (document: RestOperationData | AsyncOper
 
 export const isReferenceObject = (obj: unknown): boolean => {
   return isObject(obj) && '$ref' in obj
+}
+
+export type DuplicateEntry<T> = { operationId: string; operations: T[] }
+
+export function findDuplicates<T>(operationIdMap: Map<string, T[]>): DuplicateEntry<T>[] {
+  return Array.from(operationIdMap.entries())
+    .filter(([, operations]) => operations.length > 1)
+    .map(([operationId, operations]) => ({ operationId, operations }))
 }
