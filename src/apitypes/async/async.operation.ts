@@ -55,13 +55,13 @@ import { calculateAsyncApiKind, extractProtocol } from './async.utils'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { getApiKindProperty } from '../../components/document'
 import { calculateTolerantHash } from '../../components/deprecated'
-import { ASYNCAPI_API_TYPE } from './async.consts'
+import { ASYNC_KIND_KEY, ASYNCAPI_API_TYPE } from './async.consts'
 
 export const buildAsyncApiOperation = (
   operationId: string,
   messageId: string,
   channelId: string,
-  operationKey: string,
+  asyncOperationId: string,
   action: AsyncOperationActionType,
   channel: AsyncAPIV3.ChannelObject,
   message: AsyncAPIV3.MessageObject,
@@ -105,65 +105,25 @@ export const buildAsyncApiOperation = (
     )
   }, debugCtx)
 
-  const deprecatedItems: DeprecateItem[] = []
-  syncDebugPerformance('[DeprecatedItems]', () => {
-    const [version] = getSplittedVersionKey(config.version)
-    const deprecatedInPreviousVersions = config.status === VERSION_STATUS.RELEASE ? [version] : []
+  const deprecatedItems = collectDeprecatedItems(
+    config, message, messageId, channel, channelId,
+    effectiveSingleOperationSpec, normalizedSpecFragmentsHashCache,
+    notifications, debugCtx,
+  )
 
-    const resolveDeclarationJsonPaths = (value: Jso): JsonPath[] => (
-      resolveOrigins(value, DEPRECATED_SPECIFICATION_EXTENSION, ORIGINS_SYMBOL)?.map(pathItemToFullPath) ?? []
-    )
-
-    if (message[DEPRECATED_SPECIFICATION_EXTENSION]) {
-      const declarationJsonPaths = resolveDeclarationJsonPaths(message as Jso)
-      const messageTitle = message.title || messageId
-
-      deprecatedItems.push({
-        declarationJsonPaths,
-        description: `${DEPRECATED_MESSAGE_PREFIX} message '${messageTitle}'`,
-        ...{ [isOperationDeprecated]: true },
-        deprecatedInPreviousVersions,
-      })
-    }
-
-    if (channel[DEPRECATED_SPECIFICATION_EXTENSION]) {
-      const declarationJsonPaths = resolveDeclarationJsonPaths(channel as Jso)
-      const channelTitle = channel.title || channelId
-
-      deprecatedItems.push({
-        declarationJsonPaths,
-        description: `${DEPRECATED_MESSAGE_PREFIX} channel '${channelTitle}'`,
-        deprecatedInPreviousVersions,
-        hash: calculateHash(channel, normalizedSpecFragmentsHashCache),
-        tolerantHash: calculateTolerantHash(channel as Jso, notifications),
-      })
-    }
-
-    const foundDeprecatedItems = calculateDeprecatedItems(effectiveSingleOperationSpec, ORIGINS_SYMBOL)
-    for (const item of foundDeprecatedItems) {
-      const { description, value } = item
-      const declarationJsonPaths = resolveOrigins(value, JSON_SCHEMA_PROPERTY_DEPRECATED, ORIGINS_SYMBOL)?.map(pathItemToFullPath) ?? []
-
-      deprecatedItems.push({
-        declarationJsonPaths,
-        description,
-        deprecatedInPreviousVersions,
-        hash: calculateHash(value, normalizedSpecFragmentsHashCache),
-        tolerantHash: calculateTolerantHash(value as Jso, notifications),
-      })
-    }
-  }, debugCtx)
-
-  const operationApiKind = getApiKindProperty(effectiveOperationObject)
-  const channelApiKind = getApiKindProperty(channel)
+  const operationApiKind = getApiKindProperty(effectiveOperationObject, ASYNC_KIND_KEY)
+  const channelApiKind = getApiKindProperty(channel, ASYNC_KIND_KEY)
 
   // TODO: Populate models when AsyncAPI model extraction is implemented
   const models: Record<string, string> = {}
+  const documentOperation = documentData.operations?.[asyncOperationId] as AsyncAPIV3.OperationObject || {}
+  const refsDoc = refsOnlyDocument.operations?.[asyncOperationId] ? refsOnlyDocument : undefined
   const specWithSingleOperation = syncDebugPerformance('[ModelsAndOperationHashing]', () => {
     return createOperationSpec(
       documentData,
-      operationKey,
-      refsOnlyDocument,
+      operationId,
+      documentOperation,
+      refsDoc,
     )
   }, debugCtx)
 
@@ -202,6 +162,85 @@ export const buildAsyncApiOperation = (
     apiAudience,
     versionInternalDocumentId: versionInternalDocument.versionDocumentId,
   }
+}
+
+/**
+ * Collects deprecation data for an AsyncAPI 3.0 operation.
+ *
+ * In AsyncAPI 3.0, native `deprecated: true` exists only on Schema Object (JSON Schema).
+ * For Message and Channel objects, deprecation is expressed via the custom `x-deprecated` extension.
+ *
+ * **Message deprecation** (`x-deprecated` on Message Object):
+ * If the resolved message has `x-deprecated: true`, the APIHUB operation is treated as
+ * deprecated.
+ *
+ * **Channel deprecation** (`x-deprecated` on Channel Object):
+ * If the channel has `x-deprecated: true`, the channel are treated as channel-deprecated.
+ */
+const collectDeprecatedItems = (
+  config: BuildConfig,
+  message: AsyncAPIV3.MessageObject,
+  messageId: string,
+  channel: AsyncAPIV3.ChannelObject,
+  channelId: string,
+  effectiveSingleOperationSpec: TYPE.AsyncOperationData,
+  normalizedSpecFragmentsHashCache: ObjectHashCache,
+  notifications: NotificationMessage[],
+  debugCtx?: DebugPerformanceContext,
+): DeprecateItem[] => {
+
+  const deprecatedItems: DeprecateItem[] = []
+  syncDebugPerformance('[DeprecatedItems]', () => {
+    const [version] = getSplittedVersionKey(config.version)
+    const deprecatedInPreviousVersions = config.status === VERSION_STATUS.RELEASE ? [version] : []
+
+    const resolveDeclarationJsonPaths = (value: Jso): JsonPath[] => (
+      resolveOrigins(value, DEPRECATED_SPECIFICATION_EXTENSION, ORIGINS_SYMBOL)?.map(pathItemToFullPath) ?? []
+    )
+
+    // Handled Custom extensions (x-deprecated) on Message
+    if (message[DEPRECATED_SPECIFICATION_EXTENSION]) {
+      const declarationJsonPaths = resolveDeclarationJsonPaths(message as Jso)
+      const messageTitle = message.title || messageId
+
+      deprecatedItems.push({
+        declarationJsonPaths,
+        description: `${DEPRECATED_MESSAGE_PREFIX} message '${messageTitle}'`,
+        ...{ [isOperationDeprecated]: true },
+        deprecatedInPreviousVersions,
+      })
+    }
+    // Handled Custom extensions (x-deprecated) on Channel
+    if (channel[DEPRECATED_SPECIFICATION_EXTENSION]) {
+      const declarationJsonPaths = resolveDeclarationJsonPaths(channel as Jso)
+      const channelTitle = channel.title || channelId
+
+      deprecatedItems.push({
+        declarationJsonPaths,
+        description: `${DEPRECATED_MESSAGE_PREFIX} channel '${channelTitle}'`,
+        deprecatedInPreviousVersions,
+        hash: calculateHash(channel, normalizedSpecFragmentsHashCache),
+        tolerantHash: calculateTolerantHash(channel as Jso, notifications),
+      })
+    }
+
+    // Native `deprecated: true` on Schema Objects in payload/headers — calculated by api-unifier
+    const foundDeprecatedItems = calculateDeprecatedItems(effectiveSingleOperationSpec, ORIGINS_SYMBOL)
+    for (const item of foundDeprecatedItems) {
+      const { description, value } = item
+      const declarationJsonPaths = resolveOrigins(value, JSON_SCHEMA_PROPERTY_DEPRECATED, ORIGINS_SYMBOL)?.map(pathItemToFullPath) ?? []
+
+      deprecatedItems.push({
+        declarationJsonPaths,
+        description,
+        deprecatedInPreviousVersions,
+        hash: calculateHash(value, normalizedSpecFragmentsHashCache),
+        tolerantHash: calculateTolerantHash(value as Jso, notifications),
+      })
+    }
+  }, debugCtx)
+
+  return deprecatedItems
 }
 
 /**
