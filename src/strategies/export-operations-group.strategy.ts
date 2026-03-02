@@ -22,6 +22,8 @@ import {
   BuildTypeContexts,
   ExportOperationsGroupBuildConfig,
   OperationsApiType,
+  TRANSFORMATION_KIND_MERGED,
+  TRANSFORMATION_KIND_REDUCED,
 } from '../types'
 import { EXPORT_API_TYPE_FORMATS, getSplittedVersionKey } from '../utils'
 import { DocumentGroupStrategy } from './document-group.strategy'
@@ -45,7 +47,14 @@ export abstract class ExportOperationsGroupStrategy<T extends ExportOperationsGr
       throw new Error(`This strategy is only supported for ${this.supportedApiType} apiType`)
     }
 
-    await this.exportDocuments(config, buildResult, contexts)
+    switch (config.operationsSpecTransformation) {
+      case TRANSFORMATION_KIND_MERGED:
+        await this.exportMergedDocument(config, buildResult, contexts)
+        break
+      case TRANSFORMATION_KIND_REDUCED:
+        await this.exportReducedDocuments(config, buildResult, contexts)
+        break
+    }
 
     const { packageId, version: versionWithRevision, format = FILE_FORMAT_JSON, groupName } = config
     const [version] = getSplittedVersionKey(versionWithRevision)
@@ -58,7 +67,13 @@ export abstract class ExportOperationsGroupStrategy<T extends ExportOperationsGr
     return buildResult
   }
 
-  protected abstract exportDocuments(
+  protected abstract exportMergedDocument(
+    config: T,
+    buildResult: BuildResult,
+    contexts: BuildTypeContexts,
+  ): Promise<void>
+
+  protected abstract exportReducedDocuments(
     config: T,
     buildResult: BuildResult,
     contexts: BuildTypeContexts,

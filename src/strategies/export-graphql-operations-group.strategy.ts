@@ -16,32 +16,13 @@
 
 import { GRAPHQL_API_TYPE } from '../apitypes'
 import { createGraphQLExportDocument } from '../apitypes/graphql/graphql.document'
-import {
-  BuildResult,
-  BuildTypeContexts,
-  ExportGraphQLOperationsGroupBuildConfig,
-  TRANSFORMATION_KIND_REDUCED,
-} from '../types'
+import { BuildResult, BuildTypeContexts, ExportGraphQLOperationsGroupBuildConfig } from '../types'
 import { ExportOperationsGroupStrategy } from './export-operations-group.strategy'
 
 export class ExportGraphQlOperationsGroupStrategy extends ExportOperationsGroupStrategy<ExportGraphQLOperationsGroupBuildConfig> {
   protected readonly supportedApiType = GRAPHQL_API_TYPE
 
-  protected async exportDocuments(
-    config: ExportGraphQLOperationsGroupBuildConfig,
-    buildResult: BuildResult,
-    contexts: BuildTypeContexts,
-  ): Promise<void> {
-    switch (config.operationsSpecTransformation) {
-      case TRANSFORMATION_KIND_REDUCED:
-        await this.exportReducedDocuments(config, buildResult, contexts)
-        break
-      default:
-        throw new Error('This transformation kind is not supported for graphql apiType')
-    }
-  }
-
-  private async exportReducedDocuments(
+  async exportReducedDocuments(
     config: ExportGraphQLOperationsGroupBuildConfig,
     buildResult: BuildResult,
     contexts: BuildTypeContexts,
@@ -57,5 +38,9 @@ export class ExportGraphQlOperationsGroupStrategy extends ExportOperationsGroupS
     }))
 
     buildResult.exportDocuments.push(...transformedDocuments)
+  }
+
+  protected exportMergedDocument(): Promise<void> {
+    throw new Error('This transformation kind is not supported for graphql apiType')
   }
 }

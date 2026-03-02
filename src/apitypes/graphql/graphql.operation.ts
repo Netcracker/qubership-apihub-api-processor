@@ -28,7 +28,7 @@ import {
 import { APIHUB_API_COMPATIBILITY_KIND_BWC, INLINE_REFS_FLAG, ORIGINS_SYMBOL, VERSION_STATUS } from '../../consts'
 import { GraphQLSchemaType, VersionGraphQLDocument, VersionGraphQLOperation } from './graphql.types'
 import { GRAPHQL_API_TYPE, GRAPHQL_TYPE, GRAPHQL_TYPE_KEYS, RUNTIME_DIRECTIVE_LOCATIONS } from './graphql.consts'
-import { GraphApiDirectiveDefinition, GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
+import { GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
 import { toTitleCase } from '../../utils/strings'
 import {
   calculateDeprecatedItems,
@@ -113,7 +113,6 @@ const isOperationPaths = (paths: JsonPath[]): boolean => {
   )
 }
 
-
 export const calculateSpecRefs = (sourceSpec: unknown, normalizedSpec: unknown, operationOnlySpec: unknown): void => {
   const handledObjects = new Set<unknown>()
   const inlineRefs = new Set<string>()
@@ -157,15 +156,16 @@ const copyRuntimeDirectives = (source: GraphApiSchema, target: GraphApiSchema): 
   if (!isObject(directives)) { return }
 
   const runtimeDirectives = Object.fromEntries(
-    Object.entries(directives as Record<string, GraphApiDirectiveDefinition>)
-      .filter(([, directive]) => directive.locations.some(location => RUNTIME_DIRECTIVE_LOCATIONS.has(location))),
+    Object.entries(directives).filter(([, directive]) => directive.locations.some(location => RUNTIME_DIRECTIVE_LOCATIONS.has(location))),
   )
   if (Object.keys(runtimeDirectives).length === 0) { return }
 
-  const targetRecord = target as unknown as Record<string, Record<string, unknown>>
-  if (!targetRecord.components) { targetRecord.components = {} }
+  const targetRecord = target
+  if (!targetRecord.components) {
+    targetRecord.components = {}
+  }
   targetRecord.components.directives = {
-    ...(targetRecord.components.directives as Record<string, unknown>),
+    ...(targetRecord.components.directives),
     ...runtimeDirectives,
   }
 }
@@ -193,23 +193,39 @@ export const createOperationSpec = (
     )
   }
 
+  const pickOperationsByIds = (
+    document: GraphApiSchema,
+    operationsIdSet: Set<string>,
+    matchedIds?: Set<string>,
+    shallowCopy = false,
+  ): Partial<Pick<GraphApiSchema, typeof GRAPHQL_TYPE_KEYS[number]>> => {
+    const result: Partial<Pick<GraphApiSchema, typeof GRAPHQL_TYPE_KEYS[number]>> = {}
+    for (const type of GRAPHQL_TYPE_KEYS) {
+      const operationsByType = document[type]
+      if (!operationsByType) { continue }
+      for (const method of Object.keys(operationsByType)) {
+        const operationId = calculateGraphqlOperationId(GRAPHQL_TYPE[type], method)
+        if (!operationsIdSet.has(operationId)) { continue }
+        matchedIds?.add(operationId)
+        if (!result[type]) {
+          result[type] = {}
+        }
+        result[type]![method] = shallowCopy
+          ? { ...operationsByType[method] }
+          : operationsByType[method]
+      }
+    }
+    return result
+  }
+
   const operationsIdSet = new Set(operationsId)
   const matchedIds = new Set<string>()
-  const resultOperations: Partial<Pick<GraphApiSchema, typeof GRAPHQL_TYPE_KEYS[number]>> = {}
-
-  for (const type of GRAPHQL_TYPE_KEYS) {
-    const operationsByType = sourceDocument[type]
-    if (!operationsByType) { continue }
-    for (const method of Object.keys(operationsByType)) {
-      const operationId = calculateGraphqlOperationId(GRAPHQL_TYPE[type], method)
-      if (!operationsIdSet.has(operationId)) { continue }
-      matchedIds.add(operationId)
-      if (!resultOperations[type]) {
-        resultOperations[type] = {}
-      }
-      resultOperations[type]![method] = { ...operationsByType[method] }
-    }
-  }
+  const resultOperations = pickOperationsByIds(
+    sourceDocument,
+    operationsIdSet,
+    matchedIds,
+    true,
+  )
 
   const missingIds = operationsId.filter(id => !matchedIds.has(id))
   if (missingIds.length > 0) {
@@ -228,20 +244,7 @@ export const createOperationSpec = (
     ...takeIfDefined(resultOperations.subscriptions ? { subscriptionTypeName: sourceDocument.subscriptionTypeName } : {}),
   }
 
-  // Build operation-only normalized spec for ref detection
-  const normalizedOperationSpec: Partial<GraphApiSchema> = {}
-  for (const type of GRAPHQL_TYPE_KEYS) {
-    const normalizedByType = normalizedDocument[type]
-    if (!normalizedByType) { continue }
-    for (const method of Object.keys(normalizedByType)) {
-      const operationId = calculateGraphqlOperationId(GRAPHQL_TYPE[type], method)
-      if (!operationsIdSet.has(operationId)) { continue }
-      if (!normalizedOperationSpec[type]) {
-        normalizedOperationSpec[type] = {}
-      }
-      normalizedOperationSpec[type]![method] = normalizedByType[method]
-    }
-  }
+  const normalizedOperationSpec = pickOperationsByIds(normalizedDocument, operationsIdSet)
 
   // Resolve component references from normalizedDocument into result
   calculateSpecRefs(sourceDocument, normalizedOperationSpec, result)

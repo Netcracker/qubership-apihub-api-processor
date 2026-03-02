@@ -17,14 +17,7 @@
 import { REST_API_TYPE } from '../apitypes'
 import { createRestExportDocument } from '../apitypes/rest/rest.document'
 import { BUILD_TYPE, FILE_FORMAT_HTML, FILE_FORMAT_JSON } from '../consts'
-import {
-  BuildResult,
-  BuildTypeContexts,
-  ExportDocument,
-  ExportRestOperationsGroupBuildConfig,
-  TRANSFORMATION_KIND_MERGED,
-  TRANSFORMATION_KIND_REDUCED,
-} from '../types'
+import { BuildResult, BuildTypeContexts, ExportDocument, ExportRestOperationsGroupBuildConfig } from '../types'
 import { EXPORT_FORMAT_TO_FILE_FORMAT, getSplittedVersionKey } from '../utils'
 import { createCommonStaticExportDocuments, createUnknownExportDocument, generateIndexHtmlPage } from '../utils/export'
 import { MergedDocumentGroupStrategy } from './merged-document-group.strategy'
@@ -33,22 +26,7 @@ import { ExportOperationsGroupStrategy } from './export-operations-group.strateg
 export class ExportRestOperationsGroupStrategy extends ExportOperationsGroupStrategy<ExportRestOperationsGroupBuildConfig> {
   protected readonly supportedApiType = REST_API_TYPE
 
-  protected async exportDocuments(
-    config: ExportRestOperationsGroupBuildConfig,
-    buildResult: BuildResult,
-    contexts: BuildTypeContexts,
-  ): Promise<void> {
-    switch (config.operationsSpecTransformation) {
-      case TRANSFORMATION_KIND_MERGED:
-        await this.exportMergedDocument(config, buildResult, contexts)
-        break
-      case TRANSFORMATION_KIND_REDUCED:
-        await this.exportReducedDocuments(config, buildResult, contexts)
-        break
-    }
-  }
-
-  private async exportMergedDocument(
+  async exportMergedDocument(
     config: ExportRestOperationsGroupBuildConfig,
     buildResult: BuildResult,
     contexts: BuildTypeContexts,
@@ -94,7 +72,7 @@ export class ExportRestOperationsGroupStrategy extends ExportOperationsGroupStra
     }
   }
 
-  private async exportReducedDocuments(
+  async exportReducedDocuments(
     config: ExportRestOperationsGroupBuildConfig,
     buildResult: BuildResult,
     contexts: BuildTypeContexts,

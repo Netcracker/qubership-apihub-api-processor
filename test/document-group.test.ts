@@ -52,13 +52,13 @@ const groupToOnePathOperationIdsMap = {
   ],
 }
 
-const graphQLOperationIdMap = {
+const operationIdsForGroupWithSingleOperation = {
   [GROUP_NAME]: [
     'query-listPets',
   ],
 }
 
-const graphQLOperationIdsMap = {
+const operationIdsForGroupWithMultipleOperations = {
   [GROUP_NAME]: [
     'query-listPets',
     'query-listUsers',
@@ -228,9 +228,12 @@ describe('Document Group test', () => {
         )
 
         for (const document of Array.from(result.documents.values())) {
-          folder === PATH_ITEMS_OPERATION_PATH
-            ? expect(Object.keys(document.data.components.pathItems['pathItem1']).length).toEqual(document.operationIds.length)
-            : expect(Object.keys(document.data.paths['/path1']).length).toEqual(document.operationIds.length)
+          const expectedResult =
+            folder === PATH_ITEMS_OPERATION_PATH
+              ? Object.keys(document.data.components.pathItems['pathItem1']).length
+              : Object.keys(document.data.paths['/path1']).length
+
+          expect(expectedResult).toEqual(document.operationIds.length)
         }
       })
 
@@ -252,9 +255,12 @@ describe('Document Group test', () => {
         )
 
         for (const document of Array.from(result.documents.values())) {
-          folder === PATH_ITEMS_OPERATION_PATH
-            ? expect(Object.keys(document.data.components.pathItems).length).toEqual(document.operationIds.length)
-            : expect(Object.keys(document.data.paths).length).toEqual(document.operationIds.length)
+          const expectedResult =
+            folder === PATH_ITEMS_OPERATION_PATH
+              ? Object.keys(document.data.components.pathItems).length
+              : Object.keys(document.data.paths).length
+
+          expect(expectedResult).toEqual(document.operationIds.length)
         }
       })
 
@@ -328,7 +334,7 @@ describe('Document Group test', () => {
     test('operation group export should produce a valid GraphQL document', async () => {
       const { result } = await runPublishPackage(
         'graphql',
-        graphQLOperationIdMap,
+        operationIdsForGroupWithSingleOperation,
         graphqlOptions,
       )
 
@@ -344,7 +350,7 @@ describe('Document Group test', () => {
     test('should export only one operation from group', async () => {
       const { result } = await runPublishPackage(
         'graphql',
-        graphQLOperationIdMap,
+        operationIdsForGroupWithSingleOperation,
         graphqlOptions,
       )
 
@@ -361,7 +367,7 @@ describe('Document Group test', () => {
     test('should export include only requested operation from group', async () => {
       const { result } = await runPublishPackage(
         'graphql',
-        graphQLOperationIdsMap,
+        operationIdsForGroupWithMultipleOperations,
         graphqlOptions,
       )
 
@@ -376,7 +382,7 @@ describe('Document Group test', () => {
     test('should not support merged specification', async () => {
       await expect(runPublishPackage(
         'graphql',
-        graphQLOperationIdsMap,
+        operationIdsForGroupWithMultipleOperations,
         {
           buildType: TRANSFORMATION_KIND_MERGED,
           apiType: GRAPHQL_API_TYPE,

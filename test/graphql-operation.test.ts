@@ -51,9 +51,9 @@ describe('GraphQL create operation spec', () => {
     test('should throw when operationsId array is empty', () => {
       const { source, normalized } = parseAndNormalize(SCHEMA_SIMPLE)
 
-      expect(() => createOperationSpec(source, normalized, [])).toThrow(
-        'No operations provided',
-      )
+      expect(() =>
+        createOperationSpec(source, normalized, []),
+      ).toThrow('No operations provided')
     })
 
     test('should throw when requested operation is not found', () => {
