@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 import { ResolvedVersionDocument, ZippableDocument } from '../../types'
-import { NORMALIZE_OPTIONS, ORIGINS_SYMBOL } from '../../consts'
+import { GRAPHQL_API_TYPE, NORMALIZE_OPTIONS, ORIGINS_SYMBOL } from '../../consts'
 import { DirectiveLocation } from 'graphql/language'
 
-export const GRAPHQL_API_TYPE = 'graphql' as const
+export { GRAPHQL_API_TYPE }
 
 export const GRAPHQL_DOCUMENT_TYPE = {
   SCHEMA: 'graphql-schema',

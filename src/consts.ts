@@ -193,3 +193,6 @@ export const EMPTY_CHANGE_SUMMARY_DTO = {
 
 export const CUSTOM_PARAMETER_API_AUDIENCE = 'x-api-audience'
 export const HTTP_METHODS_SET = new Set(Object.values(OpenAPIV3.HttpMethods) as string[])
+
+export const REST_API_TYPE = 'rest' as const
+export const GRAPHQL_API_TYPE = 'graphql' as const

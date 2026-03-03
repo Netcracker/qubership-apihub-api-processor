@@ -333,7 +333,7 @@ describe('Document Group test', () => {
 
     test('operation group export should produce a valid GraphQL document', async () => {
       const { result } = await runPublishPackage(
-        'graphql',
+        'graphql/document-group',
         operationIdsForGroupWithSingleOperation,
         graphqlOptions,
       )
@@ -349,7 +349,7 @@ describe('Document Group test', () => {
 
     test('should export only one operation from group', async () => {
       const { result } = await runPublishPackage(
-        'graphql',
+        'graphql/document-group',
         operationIdsForGroupWithSingleOperation,
         graphqlOptions,
       )
@@ -366,7 +366,7 @@ describe('Document Group test', () => {
 
     test('should export include only requested operation from group', async () => {
       const { result } = await runPublishPackage(
-        'graphql',
+        'graphql/document-group',
         operationIdsForGroupWithMultipleOperations,
         graphqlOptions,
       )
@@ -381,7 +381,7 @@ describe('Document Group test', () => {
 
     test('should not support merged specification', async () => {
       await expect(runPublishPackage(
-        'graphql',
+        'graphql/document-group',
         operationIdsForGroupWithMultipleOperations,
         {
           buildType: TRANSFORMATION_KIND_MERGED,

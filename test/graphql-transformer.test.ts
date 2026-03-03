@@ -22,7 +22,7 @@ describe('Crop raw graphql document to raw single operation document tests', () 
   let graphql: string
 
   beforeAll(async () => {
-    graphql = await loadFileAsString('test/projects/', 'graphql', 'spec.gql') as string
+    graphql = await loadFileAsString('test/projects/', 'graphql/operations', 'all-operation-kinds.gql') as string
   })
 
   test('should crop to a single query and include referenced types', () => {

@@ -44,7 +44,7 @@ describe('GraphQL create operation spec', () => {
   let graphql: string
 
   beforeAll(async () => {
-    graphql = await loadFileAsString('test/projects/', 'graphql', 'spec.gql') as string
+    graphql = await loadFileAsString('test/projects/', 'graphql/operations', 'all-operation-kinds.gql') as string
   })
 
   describe('Error handling', () => {
