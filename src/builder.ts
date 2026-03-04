@@ -53,7 +53,7 @@ import {
   VersionDocument,
 } from './types/internal'
 import type { NotificationMessage, PackageConfig } from './types/package'
-import { graphqlApiBuilder, REST_API_TYPE, restApiBuilder, textApiBuilder, unknownApiBuilder } from './apitypes'
+import { graphqlApiBuilder, restApiBuilder, textApiBuilder, unknownApiBuilder } from './apitypes'
 import { filesDiff, findSharedPath, getCompositeKey, getFileExtension, getOperationsList } from './utils'
 import {
   BUILD_TYPE,
@@ -61,6 +61,7 @@ import {
   DEFAULT_VALIDATION_RULES_SEVERITY_CONFIG,
   EXPORT_BUILD_TYPES,
   MESSAGE_SEVERITY,
+  REST_API_TYPE,
   SUPPORTED_FILE_FORMATS,
   VERSION_STATUS,
 } from './consts'
@@ -280,8 +281,8 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
 
     if (buildType === BUILD_TYPE.EXPORT_REST_OPERATIONS_GROUP) {
       builderStrategyContext.setStrategy(new ExportRestOperationsGroupStrategy())
-    }   
-    
+    }
+
     if (buildType === BUILD_TYPE.EXPORT_GRAPHQL_OPERATIONS_GROUP) {
       builderStrategyContext.setStrategy(new ExportGraphQlOperationsGroupStrategy())
     }

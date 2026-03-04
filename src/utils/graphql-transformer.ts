@@ -13,6 +13,17 @@ export function parseGraphQLSource(source: string): GraphApiSchema {
   )
 }
 
+export function normalizeGraphQL(sourceDocument: GraphApiSchema): GraphApiSchema {
+  return normalize(
+    sourceDocument,
+    {
+      mergeAllOf: false,
+      inlineRefsFlag: INLINE_REFS_FLAG,
+      source: sourceDocument,
+    },
+  ) as GraphApiSchema
+}
+
 export function cropRawGraphQlDocumentToRawSingleOperationGraphQlDocument(
   rawGraphQlDocument: string,
   operationType: GraphQLSchemaType,
@@ -20,14 +31,7 @@ export function cropRawGraphQlDocumentToRawSingleOperationGraphQlDocument(
 ): string {
   const sourceSchema = parseGraphQLSource(rawGraphQlDocument)
 
-  const normalizedSchema = normalize(
-    sourceSchema,
-    {
-      mergeAllOf: false,
-      inlineRefsFlag: INLINE_REFS_FLAG,
-      source: sourceSchema,
-    },
-  ) as GraphApiSchema
+  const normalizedSchema = normalizeGraphQL(sourceSchema)
 
   const operationId = calculateGraphqlOperationId(GRAPHQL_TYPE[operationType], operationKey)
   const spec = createOperationSpec(sourceSchema, normalizedSchema, [operationId], true)

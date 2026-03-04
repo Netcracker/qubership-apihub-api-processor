@@ -15,12 +15,9 @@
  */
 
 import { describe, expect, test } from '@jest/globals'
-import { normalize } from '@netcracker/qubership-apihub-api-unifier'
-import { buildFromSchema, GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
-import { buildSchema } from 'graphql'
+import { GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
 import { createOperationSpec } from '../src/apitypes/graphql/graphql.operation'
-import { calculateGraphqlOperationId } from '../src/utils'
-import { INLINE_REFS_FLAG } from '../src/consts'
+import { calculateGraphqlOperationId, normalizeGraphQL, parseGraphQLSource } from '../src/utils'
 import { loadFileAsString } from './helpers'
 
 const SCHEMA_SIMPLE = `
@@ -31,12 +28,8 @@ type Query {
 `
 
 function parseAndNormalize(sdl: string): { source: GraphApiSchema; normalized: GraphApiSchema } {
-  const source = buildFromSchema(buildSchema(sdl, { noLocation: true }))
-  const normalized = normalize(source, {
-    mergeAllOf: false,
-    inlineRefsFlag: INLINE_REFS_FLAG,
-    source: source,
-  }) as GraphApiSchema
+  const source = parseGraphQLSource(sdl)
+  const normalized = normalizeGraphQL(source)
   return { source, normalized }
 }
 

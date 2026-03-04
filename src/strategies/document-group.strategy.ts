@@ -25,18 +25,18 @@ import {
   ResolvedReferenceMap,
   VersionDocument,
 } from '../types'
-import { GRAPHQL_API_TYPE, REST_API_TYPE } from '../apitypes'
 import {
   calculateRestOperationId,
   EXPORT_API_TYPE_FORMATS,
   fromBase64,
   isValidHttpMethod,
+  normalizeGraphQL,
   takeIfDefined,
   toVersionDocument,
 } from '../utils'
 import { OpenAPIV3 } from 'openapi-types'
 import { VersionRestDocument } from '../apitypes/rest/rest.types'
-import { FILE_FORMAT_JSON, INLINE_REFS_FLAG, NORMALIZE_OPTIONS } from '../consts'
+import { FILE_FORMAT_JSON, GRAPHQL_API_TYPE, INLINE_REFS_FLAG, NORMALIZE_OPTIONS, REST_API_TYPE } from '../consts'
 import { normalize } from '@netcracker/qubership-apihub-api-unifier'
 import { extractOperationBasePath } from '@netcracker/qubership-apihub-api-diff'
 import { calculateSpecRefs, extractCommonPathItemProperties } from '../apitypes/rest/rest.operation'
@@ -218,17 +218,6 @@ function normalizeOpenApi(document: OpenAPIV3.Document, source?: OpenAPIV3.Docum
       ...(source ? { source } : {}),
     },
   ) as OpenAPIV3.Document
-}
-
-function normalizeGraphQL(sourceDocument: GraphApiSchema): GraphApiSchema {
-  return normalize(
-    sourceDocument,
-    {
-      mergeAllOf: false,
-      inlineRefsFlag: INLINE_REFS_FLAG,
-      source: sourceDocument,
-    },
-  ) as GraphApiSchema
 }
 
 function isNonNullObject(value: unknown): value is Record<string, unknown> {

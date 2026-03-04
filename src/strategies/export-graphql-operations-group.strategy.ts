@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-import { GRAPHQL_API_TYPE } from '../apitypes'
 import { createGraphQLExportDocument } from '../apitypes/graphql/graphql.document'
 import { BuildResult, BuildTypeContexts, ExportGraphQLOperationsGroupBuildConfig } from '../types'
 import { ExportOperationsGroupStrategy } from './export-operations-group.strategy'
+import { GRAPHQL_API_TYPE } from '../consts'
 
 export class ExportGraphQlOperationsGroupStrategy extends ExportOperationsGroupStrategy<ExportGraphQLOperationsGroupBuildConfig> {
   protected readonly supportedApiType = GRAPHQL_API_TYPE

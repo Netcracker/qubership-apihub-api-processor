@@ -21,12 +21,9 @@ import {
   HASH_FLAG,
   NORMALIZE_OPTIONS,
   ORIGINS_SYMBOL,
-  REST_API_TYPE,
 } from '../../consts'
 import { KeyOfConstType, ResolvedVersionDocument, ZippableDocument } from '../../types'
 import { TEXT_DOCUMENT_TYPE, TextDocumentType } from '../text'
-
-export { REST_API_TYPE }
 
 export const REST_SCOPES = {
   all: 'all',

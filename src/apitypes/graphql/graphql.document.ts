@@ -23,8 +23,9 @@ import {
 import type { GraphQLSchema, IntrospectionQuery } from 'graphql'
 
 import { BuildConfigFile, DocumentDumper, ExportDocument, ExportFormat, TextFile, VersionDocument } from '../../types'
-import { GRAPHQL_API_TYPE, GRAPHQL_DOCUMENT_TYPE } from './graphql.consts'
+import { GRAPHQL_DOCUMENT_TYPE } from './graphql.consts'
 import { createVersionInternalDocument, getDocumentTitle } from '../../utils'
+import { GRAPHQL_API_TYPE } from '../../consts'
 
 export const buildGraphQLDocument = async (parsedFile: TextFile, file: BuildConfigFile): Promise<VersionDocument<GraphApiSchema>> => {
   let graphapi: GraphApiSchema

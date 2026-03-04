@@ -25,9 +25,15 @@ import {
   takeIf,
   takeIfDefined,
 } from '../../utils'
-import { APIHUB_API_COMPATIBILITY_KIND_BWC, INLINE_REFS_FLAG, ORIGINS_SYMBOL, VERSION_STATUS } from '../../consts'
+import {
+  APIHUB_API_COMPATIBILITY_KIND_BWC,
+  GRAPHQL_API_TYPE,
+  INLINE_REFS_FLAG,
+  ORIGINS_SYMBOL,
+  VERSION_STATUS,
+} from '../../consts'
 import { GraphQLSchemaType, VersionGraphQLDocument, VersionGraphQLOperation } from './graphql.types'
-import { GRAPHQL_API_TYPE, GRAPHQL_TYPE, GRAPHQL_TYPE_KEYS, RUNTIME_DIRECTIVE_LOCATIONS } from './graphql.consts'
+import { GRAPHQL_TYPE, GRAPHQL_TYPE_KEYS, RUNTIME_DIRECTIVE_LOCATIONS } from './graphql.consts'
 import { GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
 import { toTitleCase } from '../../utils/strings'
 import {

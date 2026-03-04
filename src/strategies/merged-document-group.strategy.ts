@@ -16,8 +16,7 @@
 
 import { loadYaml } from '@netcracker/qubership-apihub-api-unifier'
 import { OpenAPIV3 } from 'openapi-types'
-import { REST_API_TYPE } from '../apitypes'
-import { BUILD_TYPE, FILE_FORMAT_JSON } from '../consts'
+import { BUILD_TYPE, FILE_FORMAT_JSON, REST_API_TYPE } from '../consts'
 import { BuilderStrategy, BuildResult, BuildTypeContexts, MergedSpecificationBuildConfig } from '../types'
 import {
   createVersionInternalDocument,

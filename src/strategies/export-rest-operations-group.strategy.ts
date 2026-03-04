@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import { REST_API_TYPE } from '../apitypes'
 import { createRestExportDocument } from '../apitypes/rest/rest.document'
-import { BUILD_TYPE, FILE_FORMAT_HTML, FILE_FORMAT_JSON } from '../consts'
+import { BUILD_TYPE, FILE_FORMAT_HTML, FILE_FORMAT_JSON, REST_API_TYPE } from '../consts'
 import { BuildResult, BuildTypeContexts, ExportDocument, ExportRestOperationsGroupBuildConfig } from '../types'
 import { EXPORT_FORMAT_TO_FILE_FORMAT, getSplittedVersionKey } from '../utils'
 import { createCommonStaticExportDocuments, createUnknownExportDocument, generateIndexHtmlPage } from '../utils/export'
