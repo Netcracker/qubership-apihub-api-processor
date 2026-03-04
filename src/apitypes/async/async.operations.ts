@@ -36,7 +36,7 @@ import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { buildAsyncApiOperation } from './async.operation'
 import { getAsyncChannelId, getAsyncMessageId } from './async.utils'
 
-type OperationInfo = { messageId: string; channelId: string }
+type OperationInfo = { messageId: string; channelId: string; asyncOperationId: string }
 
 export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObject> = async (document, ctx, debugCtx) => {
   const { data: documentData, fileId: documentFileId } = document
@@ -49,7 +49,6 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
         documentWithoutComponents,
         {
           ...ASYNC_EFFECTIVE_NORMALIZE_OPTIONS,
-          firstReferenceKeyProperty: FIRST_REFERENCE_KEY_PROPERTY,
           source: documentData,
           onRefResolveError: (message: string, _path: PropertyKey[], _ref: string, errorType: RefErrorType) =>
             bundlingErrorHandler([{ message, errorType }]),
@@ -103,7 +102,7 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
       if (!operationIdMap.has(operationId)) {
         operationIdMap.set(operationId, [])
       }
-      operationIdMap.get(operationId)!.push({ messageId, channelId })
+      operationIdMap.get(operationId)!.push({ asyncOperationId, channelId, messageId})
 
       await asyncFunction(() => {
         syncDebugPerformance('[Operation]', (innerDebugCtx) =>
@@ -148,7 +147,7 @@ function createDuplicatesError(fileId: string, duplicates: DuplicateEntry<Operat
   const duplicatesList = duplicates
     .map(({ operationId, operations }) => {
       const operationsList = operations
-        .map((operation: OperationInfo) => `${operation.channelId} ${operation.messageId}`)
+        .map((operation: OperationInfo) => `${operation.channelId} ${operation.asyncOperationId} ${operation.messageId}`)
         .join(', ')
       return `- operationId '${operationId}': Found ${operations.length} operations: ${operationsList}`
     })

@@ -22,7 +22,7 @@ import {
   getSymbolValueIfDefined,
   isObject,
   isReferenceObject,
-  setValueByPath,
+  setValueByPath, takeIfDefined,
 } from '../../utils'
 import type * as TYPE from './async.types'
 import {
@@ -117,15 +117,15 @@ export const calculateAsyncApiKind = (
   return operationApiKind || channelApiKind || APIHUB_API_COMPATIBILITY_KIND_BWC
 }
 
-const getAsyncItemId = (item: AsyncAPIV3.ChannelObject | AsyncAPIV3.MessageObject): string => {
+const getAsyncObjectId = (item: AsyncAPIV3.ChannelObject | AsyncAPIV3.MessageObject): string => {
   return (item as Record<symbol, string>)[FIRST_REFERENCE_KEY_PROPERTY]
 }
 
 export const getAsyncMessageId = (message: AsyncAPIV3.MessageObject): string => {
-  return getAsyncItemId(message)
+  return getAsyncObjectId(message)
 }
 export const getAsyncChannelId = (channel: AsyncAPIV3.ChannelObject): string => {
-  return getAsyncItemId(channel)
+  return getAsyncObjectId(channel)
 }
 
 export const checkHasAsyncApiOperations = (
@@ -146,6 +146,8 @@ export const createBaseAsyncApiSpec = (
 ): TYPE.AsyncOperationData => ({
   asyncapi: document.asyncapi || '3.0.0',
   info: document.info,
+  ...takeIfDefined({id: document.id}),
+  ...takeIfDefined({defaultContentType: document.defaultContentType}),
   operations,
 })
 
