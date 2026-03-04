@@ -19,12 +19,12 @@ import type * as TYPE from './async.types'
 import { AsyncOperationActionType, VersionAsyncOperation } from './async.types'
 import { BuildConfig, DeprecateItem, NotificationMessage, SearchScopes } from '../../types'
 import {
-  getInlineRefsFomDocument,
-  getKeyValue,
+  calculateAsyncOperationId,
   getSplittedVersionKey,
   isDeprecatedOperationItem,
+  isObject,
   isOperationDeprecated,
-  setValueByPath,
+  normalizeOperationIds,
   takeIf,
 } from '../../utils'
 import {
@@ -36,22 +36,24 @@ import {
 import { getCustomTags, resolveApiAudience } from '../../utils/apihubSpecificationExtensions'
 import { DebugPerformanceContext, syncDebugPerformance } from '../../utils/logs'
 import {
-  ASYNCAPI_PROPERTY_CHANNELS,
-  ASYNCAPI_PROPERTY_COMPONENTS,
-  ASYNCAPI_PROPERTY_SERVERS,
   calculateDeprecatedItems,
-  grepValue,
   Jso,
   JSON_SCHEMA_PROPERTY_DEPRECATED,
-  matchPaths,
-  parseRef,
   pathItemToFullPath,
-  PREDICATE_ANY_VALUE,
-  PREDICATE_UNCLOSED_END,
   resolveOrigins,
 } from '@netcracker/qubership-apihub-api-unifier'
 import { calculateHash, ObjectHashCache } from '../../utils/hashes'
-import { calculateAsyncApiKind, extractProtocol } from './async.utils'
+import {
+  buildAsyncApiSpecFromDocument,
+  calculateAsyncApiKind,
+  checkHasAsyncApiOperations,
+  createBaseAsyncApiSpec,
+  enrichAsyncApiWithInlineRefs,
+  extractProtocol,
+  getAsyncMessageId,
+  isMessageObject,
+  resolveAsyncApiOperationIdsFromRefs,
+} from './async.utils'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { getApiKindProperty } from '../../components/document'
 import { calculateTolerantHash } from '../../components/deprecated'
@@ -80,7 +82,7 @@ export const buildAsyncApiOperation = (
     metadata: documentMetadata,
   } = document
   const effectiveOperationObject: AsyncAPIV3.OperationObject = effectiveDocument.operations?.[asyncOperationId] as AsyncAPIV3.OperationObject || {}
-  const effectiveSingleOperationSpec = createOperationSpec(effectiveDocument, asyncOperationId)
+  const effectiveSingleOperationSpec = createOperationSpec(effectiveDocument, operationId)
 
   // TODO Out of scope
   const tags: string[] = effectiveOperationObject?.tags?.map(tag => (tag as AsyncAPIV3.TagObject)?.name) || []
@@ -117,9 +119,9 @@ export const buildAsyncApiOperation = (
   // TODO: Populate models when AsyncAPI model extraction is implemented
   const models: Record<string, string> = {}
   const specWithSingleOperation = syncDebugPerformance('[ModelsAndOperationHashing]', () => {
-    return createOperationSpec(
+    return createOperationSpecWithInlineRefs(
       documentData,
-      asyncOperationId,
+      operationId,
       refsOnlyDocument,
     )
   }, debugCtx)
@@ -241,100 +243,115 @@ const collectDeprecatedItems = (
 }
 
 /**
- * Creates an operation spec (a cropped AsyncAPI document) that contains only the requested operation(s).
+ * Creates an operation spec (a cropped normalized AsyncAPI document)
+ * that contains only the requested operation(s).
  *
- * By default, the returned object includes only `asyncapi`, `info`, and `operations`.
- * If `refsDocument` is provided and contains inline refs for all requested operations, the function
- * will also inline referenced `channels`, `servers`, and `components` from the original `document`.
+ * The returned document includes only:
+ * - `asyncapi`
+ * - `info`
+ * - `operations`
  *
- * @param document AsyncAPI 3.0 document to crop.
- * @param asyncOperationId Operation key or an array of operation keys to include.
- * @param refsDocument Optional "refs-only" document used to detect inline refs that must be copied.
- * @throws Error when the document has no `operations`, when no operation keys are provided, or when any
- *         requested operation key is missing in the document.
+ * @param normalizedDocument Normalized AsyncAPI document to crop.
+ * @param operationId Operation id or array of operation ids to include.
+ *
+ * @throws Error when:
+ * - document has no `operations`
+ * - no operation ids are provided
  */
 export const createOperationSpec = (
-  document: AsyncAPIV3.AsyncAPIObject,
-  asyncOperationId: string | string[],
-  refsDocument?: AsyncAPIV3.AsyncAPIObject,
+  normalizedDocument: AsyncAPIV3.AsyncAPIObject,
+  operationId: string | string[],
 ): TYPE.AsyncOperationData => {
-  const operations = document?.operations
-  if (!operations) {
-    throw new Error(
-      'AsyncAPI document has no operations. Expected a non-empty "operations" object at document.operations.',
-    )
-  }
+  const operations = checkHasAsyncApiOperations(normalizedDocument)
+  const operationIds = normalizeOperationIds(operationId)
+  const requestedIdsSet = new Set(operationIds)
 
-  const asyncOperationIds = Array.isArray(asyncOperationId) ? asyncOperationId : [asyncOperationId]
-  if (asyncOperationIds.length === 0) {
-    throw new Error(
-      'No operation keys provided. Pass a non-empty operation key string or a non-empty array of operation keys.',
-    )
-  }
-
-  const missingAsyncOperationIds: string[] = []
   const selectedOperations: Record<string, AsyncAPIV3.OperationObject> = {}
-  for (const key of asyncOperationIds) {
-    const operation = operations[key] as AsyncAPIV3.OperationObject | undefined
-    if (!operation) {
-      missingAsyncOperationIds.push(key)
+  for (const [asyncOperationId, operationData] of Object.entries(operations)) {
+    if (!isObject(operationData)) {
       continue
     }
-    selectedOperations[key] = operation
+
+    const operationObject = operationData as AsyncAPIV3.OperationObject
+    const { messages, action, channel } = operationObject
+
+    if (!Array.isArray(messages) || !messages.length) {
+      continue
+    }
+    if (!action || !channel) {
+      continue
+    }
+
+    for (const message of messages) {
+      if (!isMessageObject(message)) {
+        continue
+      }
+      const messageId = getAsyncMessageId(message)
+      if (!messageId) {
+        throw new Error(
+          `Unable to calculate operation ID for async operation "${asyncOperationId}"`,
+        )
+      }
+
+      const calculatedId = calculateAsyncOperationId(
+        asyncOperationId,
+        messageId,
+      )
+
+      if (requestedIdsSet.has(calculatedId)) {
+        selectedOperations[asyncOperationId] = operationObject
+        break
+      }
+    }
   }
 
-  if (missingAsyncOperationIds.length > 0) {
-    if (!Array.isArray(asyncOperationId) && missingAsyncOperationIds.length === 1) {
-      throw new Error(
-        `Operation "${missingAsyncOperationIds[0]}" not found in document.operations`,
-      )
-    }
+  return createBaseAsyncApiSpec(normalizedDocument, selectedOperations)
+}
+
+/**
+ * Creates an operation spec (a cropped AsyncAPI document)
+ * that contains only the requested operation(s) and additionally
+ * resolves inline references from the provided refsDocument.
+ *
+ * If refsDocument contains inline refs for the requested operations,
+ * the function will inline referenced:
+ * - `channels`
+ * - `servers`
+ * - `components`
+ *
+ * @param document Original AsyncAPI 3.0 document.
+ * @param operationId Operation id or array of operation ids to include.
+ * @param refsDocument Normalized AsyncAPI document containing inline refs metadata.
+ *
+ * @throws Error when:
+ * - no operation ids are provided
+ * - operations are missing in document
+ * - requested operations are not found
+ */
+export const createOperationSpecWithInlineRefs = (
+  document: AsyncAPIV3.AsyncAPIObject,
+  operationId: string | string[],
+  refsDocument: AsyncAPIV3.AsyncAPIObject,
+): TYPE.AsyncOperationData => {
+  const operations = checkHasAsyncApiOperations(refsDocument)
+  const operationIds = normalizeOperationIds(operationId)
+
+  const resolvedOperationKeys = resolveAsyncApiOperationIdsFromRefs(
+    operations,
+    operationIds,
+  )
+
+  if (resolvedOperationKeys.size === 0) {
     throw new Error(
-      `Operations not found in document.operations: ${missingAsyncOperationIds.join(', ')}`,
+      `Operations not found in document.operations: ${
+        Array.isArray(operationId) ? operationId.join(', ') : operationId
+      }`,
     )
   }
 
-  const resultSpec: TYPE.AsyncOperationData = {
-    asyncapi: document.asyncapi || '3.0.0',
-    info: document.info,
-    operations: selectedOperations,
-  }
+  const resultSpec = buildAsyncApiSpecFromDocument(document, resolvedOperationKeys)
 
-  const refsOnlyOperations = refsDocument?.operations
-  if (!refsOnlyOperations) {
-    return resultSpec
-  }
+  enrichAsyncApiWithInlineRefs(resultSpec, document, refsDocument)
 
-  // If there are not enough operations, we will get an incorrect result.
-  for (const key of asyncOperationIds) {
-    if (!refsOnlyOperations[key]) {
-      return resultSpec
-    }
-  }
-  const inlineRefs = getInlineRefsFomDocument(refsDocument)
-
-  const componentNameMatcher = grepValue('componentName')
-  const matchPatterns = [
-    [ASYNCAPI_PROPERTY_COMPONENTS, PREDICATE_ANY_VALUE, componentNameMatcher, PREDICATE_UNCLOSED_END],
-    [ASYNCAPI_PROPERTY_CHANNELS, componentNameMatcher, PREDICATE_UNCLOSED_END],
-    [ASYNCAPI_PROPERTY_SERVERS, componentNameMatcher, PREDICATE_UNCLOSED_END],
-  ]
-
-  inlineRefs.forEach(ref => {
-    const parsed = parseRef(ref)
-    const path = parsed?.jsonPath
-    if (!path) {
-      return
-    }
-    const matchResult = matchPaths([path], matchPatterns)
-    if (!matchResult) {
-      return
-    }
-    const component = getKeyValue(document, ...matchResult.path) as Record<string, unknown>
-    if (!component) {
-      return
-    }
-    setValueByPath(resultSpec, matchResult.path, component)
-  })
   return resultSpec
 }

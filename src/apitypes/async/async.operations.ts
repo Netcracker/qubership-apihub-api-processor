@@ -59,6 +59,7 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
         documentWithoutComponents,
         {
           mergeAllOf: false,
+          firstReferenceKeyProperty: FIRST_REFERENCE_KEY_PROPERTY,
           inlineRefsFlag: INLINE_REFS_FLAG,
           source: documentData,
         },

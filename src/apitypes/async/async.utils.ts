@@ -15,15 +15,33 @@
  */
 
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
-import { isObject, isReferenceObject } from '../../utils'
-import { AsyncOperationActionType } from './async.types'
-import { grepValue, matchPaths, normalize, PREDICATE_UNCLOSED_END } from '@netcracker/qubership-apihub-api-unifier'
+import {
+  calculateAsyncOperationId,
+  getInlineRefsFomDocument,
+  getKeyValue,
+  getSymbolValueIfDefined,
+  isObject,
+  isReferenceObject,
+  setValueByPath,
+} from '../../utils'
+import type * as TYPE from './async.types'
+import {
+  ASYNCAPI_PROPERTY_CHANNELS,
+  ASYNCAPI_PROPERTY_COMPONENTS,
+  ASYNCAPI_PROPERTY_SERVERS,
+  grepValue,
+  matchPaths,
+  normalize,
+  parseRef,
+  PREDICATE_ANY_VALUE,
+  PREDICATE_UNCLOSED_END,
+} from '@netcracker/qubership-apihub-api-unifier'
 import {
   APIHUB_API_COMPATIBILITY_KIND_BWC,
   ApihubApiCompatibilityKind,
   FIRST_REFERENCE_KEY_PROPERTY,
+  INLINE_REFS_FLAG,
 } from '../../consts'
-import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 
 // Re-export shared utilities
 export { dump, getCustomTags, resolveApiAudience } from '../../utils/apihubSpecificationExtensions'
@@ -47,27 +65,15 @@ export function extractProtocol(channel: AsyncAPIV3.ChannelObject): string {
   return 'unknown'
 }
 
-/**
- * Determines the operation action (send/receive) from operation data
- * @param operationData - Operation object
- * @returns 'send' or 'receive'
- */
-export function determineOperationAction(operationData: any): AsyncOperationActionType {
-  if (operationData && typeof operationData === 'object') {
-    const { action } = operationData
-    if (action === 'send' || action === 'receive') {
-      return action
-    }
-  }
-  // Default to 'send' if not specified
-  return 'send'
-}
-
 function isServerObject(obj: AsyncAPIV3.ServerObject | AsyncAPIV3.ReferenceObject): obj is AsyncAPIV3.ServerObject {
   return isObject(obj) && !isReferenceObject(obj)
 }
 
 function isTagObject(obj: AsyncAPIV3.TagObject | AsyncAPIV3.ReferenceObject): obj is AsyncAPIV3.TagObject {
+  return isObject(obj) && !isReferenceObject(obj)
+}
+
+export function isMessageObject(obj: AsyncAPIV3.MessageObject | AsyncAPIV3.ReferenceObject): obj is AsyncAPIV3.MessageObject {
   return isObject(obj) && !isReferenceObject(obj)
 }
 
@@ -111,16 +117,6 @@ export const calculateAsyncApiKind = (
   return operationApiKind || channelApiKind || APIHUB_API_COMPATIBILITY_KIND_BWC
 }
 
-export const extractKeyAfterPrefix = (paths: JsonPath[], prefix: PropertyKey[]): string | undefined => {
-  const GREP_KEY = 'key'
-  const result = matchPaths(paths, [[...prefix, grepValue(GREP_KEY), PREDICATE_UNCLOSED_END]])
-  if (!result) {
-    return undefined
-  }
-  const key = result.grepValues[GREP_KEY]
-  return key === undefined ? undefined : String(key)
-}
-
 const getAsyncItemId = (item: AsyncAPIV3.ChannelObject | AsyncAPIV3.MessageObject): string => {
   return (item as Record<symbol, string>)[FIRST_REFERENCE_KEY_PROPERTY]
 }
@@ -130,4 +126,142 @@ export const getAsyncMessageId = (message: AsyncAPIV3.MessageObject): string => 
 }
 export const getAsyncChannelId = (channel: AsyncAPIV3.ChannelObject): string => {
   return getAsyncItemId(channel)
+}
+
+export const checkHasAsyncApiOperations = (
+  document: AsyncAPIV3.AsyncAPIObject,
+): Record<string, AsyncAPIV3.OperationObject> => {
+  const operations = document?.operations
+  if (!operations) {
+    throw new Error(
+      'AsyncAPI document has no operations. Expected non-empty "operations".',
+    )
+  }
+  return operations as Record<string, AsyncAPIV3.OperationObject>
+}
+
+export const createBaseAsyncApiSpec = (
+  document: AsyncAPIV3.AsyncAPIObject,
+  operations: Record<string, AsyncAPIV3.OperationObject>,
+): TYPE.AsyncOperationData => ({
+  asyncapi: document.asyncapi || '3.0.0',
+  info: document.info,
+  operations,
+})
+
+export const enrichAsyncApiWithInlineRefs = (
+  resultSpec: TYPE.AsyncOperationData,
+  document: AsyncAPIV3.AsyncAPIObject,
+  refsDocument: AsyncAPIV3.AsyncAPIObject,
+): void => {
+  const inlineRefs = getInlineRefsFomDocument(refsDocument)
+
+  const componentNameMatcher = grepValue('componentName')
+  const matchPatterns = [
+    [ASYNCAPI_PROPERTY_COMPONENTS, PREDICATE_ANY_VALUE, componentNameMatcher, PREDICATE_UNCLOSED_END],
+    [ASYNCAPI_PROPERTY_CHANNELS, componentNameMatcher, PREDICATE_UNCLOSED_END],
+    [ASYNCAPI_PROPERTY_SERVERS, componentNameMatcher, PREDICATE_UNCLOSED_END],
+  ]
+
+  inlineRefs.forEach(ref => {
+    const parsed = parseRef(ref)
+    const path = parsed?.jsonPath
+    if (!path) {
+      return
+    }
+
+    const matchResult = matchPaths([path], matchPatterns)
+    if (!matchResult) {
+      return
+    }
+
+    const component = getKeyValue(document, ...matchResult.path)
+    if (!component) {
+      return
+    }
+
+    setValueByPath(resultSpec, matchResult.path, component)
+  })
+}
+
+export const buildAsyncApiSpecFromDocument = (
+  sourceDocument: AsyncAPIV3.AsyncAPIObject,
+  resolved: Map<string, Set<string>>,
+): TYPE.AsyncOperationData => {
+  const operations = checkHasAsyncApiOperations(sourceDocument)
+
+  const selectedOperations: Record<string, AsyncAPIV3.OperationObject> = {}
+  for (const [asyncOperationId, matchedRefs] of resolved.entries()) {
+    const sourceOperation = operations[asyncOperationId]
+
+    if (!sourceOperation || isReferenceObject(sourceOperation)) {
+      continue
+    }
+
+    const sourceMessages = sourceOperation.messages || []
+    const filteredMessages = sourceMessages.filter(
+      message => isReferenceObject(message) && matchedRefs.has(message.$ref),
+    )
+
+    if (filteredMessages.length === 0) {
+      continue
+    }
+
+    selectedOperations[asyncOperationId] = {
+      ...sourceOperation,
+      messages: filteredMessages,
+    }
+  }
+
+  return createBaseAsyncApiSpec(sourceDocument, selectedOperations)
+}
+
+export const resolveAsyncApiOperationIdsFromRefs = (
+  refOperations: Record<string, AsyncAPIV3.OperationObject>,
+  requestedOperationIds: string[],
+): Map<string, Set<string>> => {
+  const requestedIdsSet = new Set(requestedOperationIds)
+  const resolved = new Map<string, Set<string>>()
+
+  for (const [asyncOperationId, operationData] of Object.entries(refOperations)) {
+    if (!isObject(operationData)) {
+      continue
+    }
+
+    const { messages } = (operationData as AsyncAPIV3.OperationObject)
+    if (!Array.isArray(messages)) {
+      continue
+    }
+
+    for (const message of messages) {
+      if(!isMessageObject(message)){
+        continue
+      }
+      const inlineRefs = getSymbolValueIfDefined(message, INLINE_REFS_FLAG) as string[] | undefined
+      if (!inlineRefs || inlineRefs.length === 0){
+        continue
+      }
+      const lastInlineRef = inlineRefs.at(-1)
+      if (!lastInlineRef) {
+        continue
+      }
+
+      const messageId = getAsyncMessageId(message)
+      const calculatedId = calculateAsyncOperationId(asyncOperationId, messageId)
+
+      if (!requestedIdsSet.has(calculatedId)) {
+        continue
+      }
+
+      let messageRefsForOperation = resolved.get(asyncOperationId)
+      if (!messageRefsForOperation) {
+        messageRefsForOperation = new Set()
+        resolved.set(asyncOperationId, messageRefsForOperation)
+      }
+
+      messageRefsForOperation.add(lastInlineRef)
+    }
+  }
+
+  return resolved
 }

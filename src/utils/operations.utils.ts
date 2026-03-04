@@ -206,7 +206,7 @@ export const getInlineRefsFomDocument = (document: RestOperationData | AsyncOper
   return inlineRefs
 }
 
-export const isReferenceObject = (obj: unknown): boolean => {
+export const isReferenceObject = <T extends object = { $ref: string }>(obj: unknown): obj is T & { $ref: string } => {
   return isObject(obj) && '$ref' in obj
 }
 
@@ -216,4 +216,16 @@ export function findDuplicates<T>(operationIdMap: Map<string, T[]>): DuplicateEn
   return Array.from(operationIdMap.entries())
     .filter(([, operations]) => operations.length > 1)
     .map(([operationId, operations]) => ({ operationId, operations }))
+}
+
+export const normalizeOperationIds = (operationId: string | string[]): string[] => {
+  const normalizedIds = Array.isArray(operationId) ? operationId : [operationId]
+
+  if (!normalizedIds.length) {
+    throw new Error(
+      'No operation ids provided.',
+    )
+  }
+
+  return normalizedIds
 }

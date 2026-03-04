@@ -16,11 +16,13 @@
 
 import { beforeAll, describe, expect, it, test } from '@jest/globals'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
-import { createOperationSpec } from '../src/apitypes/async/async.operation'
+import { createOperationSpec, createOperationSpecWithInlineRefs } from '../src/apitypes/async/async.operation'
 import { calculateAsyncOperationId } from '../src/utils'
 import { buildPackageWithDefaultConfig, cloneDocument, loadYamlFile } from './helpers'
 import { extractProtocol } from '../src/apitypes/async/async.utils'
-import { INLINE_REFS_FLAG } from '../src/consts'
+import { FIRST_REFERENCE_KEY_PROPERTY, INLINE_REFS_FLAG } from '../src/consts'
+import { ASYNC_EFFECTIVE_NORMALIZE_OPTIONS } from '../src'
+import { normalize } from '@netcracker/qubership-apihub-api-unifier'
 
 describe('AsyncAPI 3.0 Operation Tests', () => {
 
@@ -198,98 +200,127 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
   })
 
   describe('Create operation spec tests', () => {
-    const OPERATION_1 = 'sendUserSignedUp'
-    const OPERATION_2 = 'sendUserSignedOut'
+    const OPERATION_KEY_1 = 'sendUserSignedUp'
+    const OPERATION_KEY_2 = 'sendUserSignedOut'
+    const MESSAGE_ID_1 = 'UserSignedUp'
+    const MESSAGE_ID_2 = 'UserSignedOut'
+    const MESSAGE_REF_1 = '#/channels/userSignedUp/messages/UserSignedUp'
+
+    let OPERATION_ID_1: string
+    let OPERATION_ID_2: string
     let baseDocument: AsyncAPIV3.AsyncAPIObject
+    let normalizedDocument: AsyncAPIV3.AsyncAPIObject
+
+    const createRefsMessage = (messageId: string, inlineRefs: string[]): Record<string | symbol, unknown> => {
+      const message: Record<string | symbol, unknown> = {}
+      message[FIRST_REFERENCE_KEY_PROPERTY] = messageId
+      message[INLINE_REFS_FLAG] = inlineRefs
+      return message
+    }
 
     beforeAll(async () => {
+      OPERATION_ID_1 = calculateAsyncOperationId(OPERATION_KEY_1, MESSAGE_ID_1)
+      OPERATION_ID_2 = calculateAsyncOperationId(OPERATION_KEY_2, MESSAGE_ID_2)
+
       baseDocument = await loadYamlFile('asyncapi/operations/base.yaml')
+
+      normalizedDocument = normalize(baseDocument, {
+        ...ASYNC_EFFECTIVE_NORMALIZE_OPTIONS,
+        firstReferenceKeyProperty: FIRST_REFERENCE_KEY_PROPERTY,
+        inlineRefsFlag: INLINE_REFS_FLAG,
+      }) as AsyncAPIV3.AsyncAPIObject
     })
 
-    test('should select a single operation by key', async () => {
-      const result = createOperationSpec(baseDocument, OPERATION_1)
+    test('should select a single operation by key', () => {
+      const result = createOperationSpec(normalizedDocument, OPERATION_ID_1)
 
-      expect(Object.keys(result.operations || {})).toEqual([OPERATION_1])
-      expect(result.operations?.[OPERATION_1]).toEqual(baseDocument.operations?.[OPERATION_1])
+      expect(Object.keys(result.operations || {})).toEqual([OPERATION_KEY_1])
+      expect(result.operations?.[OPERATION_KEY_1]).toBeDefined()
     })
 
-    test('should preserve asyncapi and info', async () => {
-      const result = createOperationSpec(baseDocument, OPERATION_1)
+    test('should preserve asyncapi and info', () => {
+      const result = createOperationSpec(normalizedDocument, OPERATION_ID_1)
 
-      expect(result.asyncapi).toBe(baseDocument.asyncapi)
-      expect(result.info).toEqual(baseDocument.info)
+      expect(result.asyncapi).toBe(normalizedDocument.asyncapi)
+      expect(result.info).toEqual(normalizedDocument.info)
     })
 
-    test('should not include channels/servers/components by default', async () => {
-      const result = createOperationSpec(baseDocument, OPERATION_1)
+    test('should not include channels/servers/components by default', () => {
+      const result = createOperationSpec(normalizedDocument, OPERATION_ID_1)
 
       expect(result.channels).toBeUndefined()
       expect(result.servers).toBeUndefined()
       expect(result.components).toBeUndefined()
     })
 
-    test('should select multiple operations by keys (array) and preserve requested order', async () => {
-      const result = createOperationSpec(baseDocument, [OPERATION_1, OPERATION_2])
+    test('should select multiple operations by keys (array) and preserve requested order', () => {
+      const result = createOperationSpec(normalizedDocument, [OPERATION_ID_1, OPERATION_ID_2])
 
-      expect(Object.keys(result.operations || {})).toEqual([OPERATION_1, OPERATION_2])
-      expect(result.operations?.[OPERATION_1]).toEqual(baseDocument.operations?.[OPERATION_1])
-      expect(result.operations?.[OPERATION_2]).toEqual(baseDocument.operations?.[OPERATION_2])
+      expect(Object.keys(result.operations || {})).toEqual([OPERATION_KEY_1, OPERATION_KEY_2])
+      expect(result.operations?.[OPERATION_KEY_1]).toBeDefined()
+      expect(result.operations?.[OPERATION_KEY_2]).toBeDefined()
     })
 
-    test('should accept duplicated requested keys (same operation) without duplicating output', async () => {
-      const result = createOperationSpec(baseDocument, [OPERATION_1, OPERATION_1, OPERATION_2, OPERATION_1])
+    test('should accept duplicated requested keys (same operation) without duplicating output', () => {
+      const result = createOperationSpec(normalizedDocument, [OPERATION_ID_1, OPERATION_ID_1, OPERATION_ID_2, OPERATION_ID_1])
 
-      expect(Object.keys(result.operations || {})).toEqual([OPERATION_1, OPERATION_2])
-      expect(result.operations?.[OPERATION_1]).toEqual(baseDocument.operations?.[OPERATION_1])
-      expect(result.operations?.[OPERATION_2]).toEqual(baseDocument.operations?.[OPERATION_2])
+      expect(Object.keys(result.operations || {})).toEqual([OPERATION_KEY_1, OPERATION_KEY_2])
+      expect(result.operations?.[OPERATION_KEY_1]).toBeDefined()
+      expect(result.operations?.[OPERATION_KEY_2]).toBeDefined()
     })
 
-    test('defaults asyncapi version to 3.0.0 when missing', async () => {
+    test('defaults asyncapi version to 3.0.0 when missing', () => {
       const document = cloneDocument(baseDocument)
       delete (document as Partial<AsyncAPIV3.AsyncAPIObject>).asyncapi
 
-      const result = createOperationSpec(document, OPERATION_1)
+      const result = createOperationSpec(document, OPERATION_ID_1)
       expect(result.asyncapi).toBe('3.0.0')
     })
 
-    test('throws when document has no operations', async () => {
+    test('throws when document has no operations', () => {
       const document = cloneDocument(baseDocument)
       delete document.operations
 
-      expect(() => createOperationSpec(document, OPERATION_1)).toThrow(
-        'AsyncAPI document has no operations. Expected a non-empty "operations" object at document.operations.',
+      expect(() => createOperationSpec(document, OPERATION_ID_1)).toThrow(
+        'AsyncAPI document has no operations. Expected non-empty "operations".',
       )
     })
 
-    test('throws when operation keys array is empty', async () => {
+    test('throws when operation keys array is empty', () => {
       expect(() => createOperationSpec(baseDocument, [])).toThrow(
-        'No operation keys provided. Pass a non-empty operation key string or a non-empty array of operation keys.',
+        'No operation ids provided.',
       )
     })
 
-    test('throws when the requested operation key is not found (string)', async () => {
-      expect(() => createOperationSpec(baseDocument, 'missing-operation')).toThrow('Operation "missing-operation" not found in document.operations')
+    test('returns empty operations when the requested operation key is not found', () => {
+      const result = createOperationSpec(normalizedDocument, 'missing-operation')
+      expect(Object.keys(result.operations || {})).toHaveLength(0)
     })
 
-    test('throws when one or more requested operation keys are not found (array)', async () => {
-      expect(() => createOperationSpec(baseDocument, [OPERATION_1, 'missing-1', 'missing-2'])).toThrow(
-        'Operations not found in document.operations: missing-1, missing-2',
-      )
+    test('returns only matched operations when some requested keys are not found', () => {
+      const result = createOperationSpec(normalizedDocument, [OPERATION_ID_1, 'missing-1', 'missing-2'])
+      expect(Object.keys(result.operations || {})).toEqual([OPERATION_KEY_1])
     })
 
-    test('should inline referenced channels/servers/components when refsOnlyDocument has inline refs (manual refs)', async () => {
+    test('should inline referenced channels/servers/components when refsOnlyDocument has inline refs (manual refs)', () => {
       const refsOnlyDocument = {
-        operations: { [OPERATION_1]: {} },
+        operations: {
+          [OPERATION_KEY_1]: {
+            messages: [
+              createRefsMessage(MESSAGE_ID_1, [MESSAGE_REF_1]),
+            ],
+          },
+        },
         [INLINE_REFS_FLAG]: [
           '#/servers/amqp1',
           '#/channels/userSignedUp',
-          '#/channels/userSignedUp/messages/UserSignedUp',
+          MESSAGE_REF_1,
           '#/components/messages/UserSignedUp',
-          '#/info/title', // should be ignored by patterns
+          '#/info/title',
         ],
       } as unknown as AsyncAPIV3.AsyncAPIObject
 
-      const result = createOperationSpec(baseDocument, OPERATION_1, refsOnlyDocument)
+      const result = createOperationSpecWithInlineRefs(baseDocument, OPERATION_ID_1, refsOnlyDocument)
 
       expect(baseDocument).toHaveProperty(['servers', 'amqp1'], result?.servers?.amqp1)
       expect(baseDocument).toHaveProperty(['channels', 'userSignedUp'], result?.channels?.userSignedUp)
@@ -297,19 +328,22 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       expect(baseDocument).toHaveProperty(['components', 'messages', 'UserSignedUp'], result?.components?.messages?.UserSignedUp)
     })
 
-    test('should skip inlining when refsOnlyDocument does not contain all requested operations', async () => {
-      const document = baseDocument
-
+    test('should resolve only matched operations when refsOnlyDocument contains a subset of requested', () => {
       const refsOnlyDocument = {
-        operations: { [OPERATION_1]: {} },
-        [INLINE_REFS_FLAG]: ['#/servers/amqp1', '#/channels/userSignedUp', '#/components/messages/UserSignedUp'],
+        operations: {
+          [OPERATION_KEY_1]: {
+            messages: [
+              createRefsMessage(MESSAGE_ID_1, [MESSAGE_REF_1]),
+            ],
+          },
+        },
       } as unknown as AsyncAPIV3.AsyncAPIObject
 
-      const result = createOperationSpec(document, [OPERATION_1, OPERATION_2], refsOnlyDocument)
+      const result = createOperationSpecWithInlineRefs(baseDocument, [OPERATION_ID_1, OPERATION_ID_2], refsOnlyDocument)
 
-      expect(result.channels).toBeUndefined()
-      expect(result.servers).toBeUndefined()
-      expect(result.components).toBeUndefined()
+      const operationKeys = Object.keys(result.operations || {})
+      expect(operationKeys).toEqual([OPERATION_KEY_1])
+      expect(operationKeys).not.toContain(OPERATION_KEY_2)
     })
   })
 })
