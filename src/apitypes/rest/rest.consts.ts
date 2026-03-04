@@ -26,6 +26,7 @@ import {
 } from '../../consts'
 import { KeyOfConstType, ResolvedVersionDocument, ZippableDocument } from '../../types'
 import { TEXT_DOCUMENT_TYPE, TextDocumentType } from '../text'
+import { NormalizeOptions } from '@netcracker/qubership-apihub-api-unifier'
 
 export const REST_API_TYPE = 'rest' as const
 
@@ -65,7 +66,7 @@ export function isTextDocument(document: ResolvedVersionDocument): boolean {
   return Object.values(TEXT_DOCUMENT_TYPE).includes(document.type as TextDocumentType)
 }
 
-export const REST_EFFECTIVE_NORMALIZE_OPTIONS = {
+export const REST_EFFECTIVE_NORMALIZE_OPTIONS: NormalizeOptions = {
   ...NORMALIZE_OPTIONS,
   originsFlag: ORIGINS_SYMBOL,
   hashFlag: HASH_FLAG,
