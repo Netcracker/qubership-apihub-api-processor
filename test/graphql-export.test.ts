@@ -16,13 +16,9 @@
 
 import { describe, expect, test } from '@jest/globals'
 import { FILE_FORMAT_GRAPHQL, FILE_FORMAT_HTML, FILE_FORMAT_JSON, FILE_FORMAT_YAML } from '../src/consts'
-import { ExportGraphQLOperationsGroupBuildConfig, ExportRestOperationsGroupBuildConfig, OperationsApiType } from '../src/types'
+import { ExportGraphQLOperationsGroupBuildConfig, OperationsApiType } from '../src/types'
 import { Editor, LocalRegistry } from './helpers'
-import {
-  BUILD_TYPE,
-  TRANSFORMATION_KIND_MERGED,
-  TRANSFORMATION_KIND_REDUCED,
-} from '../src'
+import { BUILD_TYPE, TRANSFORMATION_KIND_MERGED, TRANSFORMATION_KIND_REDUCED } from '../src'
 import { parseGraphQLSource } from '../src/utils/graphql-transformer'
 
 describe('Export GraphQL Operations Group integration tests', () => {
