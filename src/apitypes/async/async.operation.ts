@@ -148,6 +148,8 @@ export const buildAsyncApiOperation = (
       channel: channel.title || channelId,
       protocol,
       customTags,
+      messageId,
+      asyncOperationId,
     },
     tags,
     data: specWithSingleOperation,

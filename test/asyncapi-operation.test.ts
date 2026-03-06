@@ -110,6 +110,32 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
     })
   })
 
+  describe('Operation metadata tests', () => {
+    it('should set action in metadata', async () => {
+      const result = await buildPackageWithDefaultConfig('asyncapi/operations/single-operation')
+      const [operation] = Array.from(result.operations.values())
+      expect(operation.metadata.action).toBe('send')
+    })
+
+    it('should set channel in metadata', async () => {
+      const result = await buildPackageWithDefaultConfig('asyncapi/operations/single-operation')
+      const [operation] = Array.from(result.operations.values())
+      expect(operation.metadata.channel).toBe('userSignedup')
+    })
+
+    it('should set messageId in metadata', async () => {
+      const result = await buildPackageWithDefaultConfig('asyncapi/operations/single-operation')
+      const [operation] = Array.from(result.operations.values())
+      expect(operation.metadata.messageId).toBe('UserSignedUp')
+    })
+
+    it('should set asyncOperationId in metadata', async () => {
+      const result = await buildPackageWithDefaultConfig('asyncapi/operations/single-operation')
+      const [operation] = Array.from(result.operations.values())
+      expect(operation.metadata.asyncOperationId).toBe('sendUserSignedup')
+    })
+  })
+
   describe('Operation protocol tests', () => {
     it('should uses the (first) server protocol', () => {
       const channel = {

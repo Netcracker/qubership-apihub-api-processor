@@ -31,6 +31,8 @@ export interface AsyncOperationMeta {
   channel: string                   // Channel name
   protocol: string                  // Protocol (e.g., 'kafka', 'amqp', 'mqtt')
   customTags: CustomTags            // Custom x-* extensions
+  messageId: string                 // Message key from the channel's messages map (e.g., 'UserSignedUp')
+  asyncOperationId: string          // Operation key from the AsyncAPI operations map (e.g., 'sendUserSignedup')
 }
 
 /**
