@@ -182,16 +182,12 @@ const copyRuntimeDirectives = (source: GraphApiSchema, target: GraphApiSchema): 
  * @param sourceDocument The original GraphQL document (used as source for operation data and component values).
  * @param normalizedDocument A normalized/refs-only document (used to detect inline refs that must be copied).
  * @param operationsId Array of operation IDs (as produced by calculateGraphqlOperationId) to include.
- * @param includeRuntimeDirectives When true, runtime directive definitions (QUERY, MUTATION, FIELD, etc.)
- *   from source components are included in the result regardless of whether they are referenced by the operations.
- *   This replicates the behavior of removeComponents + cropToSingleOperation.
  * @throws Error when no operations are provided or when any requested operation is missing in the document.
  */
 export const createOperationSpec = (
   sourceDocument: GraphApiSchema,
   normalizedDocument: GraphApiSchema,
   operationsId: string[],
-  includeRuntimeDirectives = false,
 ): GraphApiSchema => {
   if (operationsId.length === 0) {
     throw new Error(
@@ -255,9 +251,7 @@ export const createOperationSpec = (
   // Resolve component references from normalizedDocument into result
   calculateSpecRefs(sourceDocument, normalizedOperationSpec, result)
 
-  if (includeRuntimeDirectives) {
-    copyRuntimeDirectives(sourceDocument, result)
-  }
+  copyRuntimeDirectives(sourceDocument, result)
 
   return result
 }

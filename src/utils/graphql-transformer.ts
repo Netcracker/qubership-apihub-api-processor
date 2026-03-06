@@ -34,7 +34,7 @@ export function cropRawGraphQlDocumentToRawSingleOperationGraphQlDocument(
   const normalizedSchema = normalizeGraphQL(sourceSchema)
 
   const operationId = calculateGraphqlOperationId(GRAPHQL_TYPE[operationType], operationKey)
-  const spec = createOperationSpec(sourceSchema, normalizedSchema, [operationId], true)
+  const spec = createOperationSpec(sourceSchema, normalizedSchema, [operationId])
 
   return printGraphApi(spec)
 }

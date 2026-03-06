@@ -167,25 +167,49 @@ describe('GraphQL create operation spec', () => {
     })
   })
 
-  describe('Include RuntimeDirectives flag', () => {
-    test('should not include runtime directives by default', () => {
+  describe('Directive handling', () => {
+    test('should always include runtime directives', () => {
       const { source, normalized } = parseAndNormalize(graphql)
       const opId = calculateGraphqlOperationId('query', 'listPets')
 
       const result = createOperationSpec(source, normalized, [opId])
 
       const directives = (result.components as Record<string, unknown> | undefined)?.directives as Record<string, unknown> | undefined
-      expect(directives?.['cached']).toBeUndefined()
+      expect(directives?.['cached']).toBeDefined()
     })
 
-    test('should include runtime directives when flag is true', () => {
+    test('should include non-runtime directives only when referenced by operation', () => {
       const { source, normalized } = parseAndNormalize(graphql)
       const opId = calculateGraphqlOperationId('query', 'listPets')
 
-      const result = createOperationSpec(source, normalized, [opId], true)
+      const result = createOperationSpec(source, normalized, [opId])
+
+      const directives = (result.components as Record<string, unknown> | undefined)?.directives as Record<string, unknown> | undefined
+      // @deprecated is a non-runtime directive; listPets does not use it
+      expect(directives?.['deprecated']).toBeUndefined()
+    })
+
+    test('should include non-runtime directives when used by operation', () => {
+      const { source, normalized } = parseAndNormalize(graphql)
+      // getUser has @deprecated directive applied
+      const opId = calculateGraphqlOperationId('query', 'getUser')
+
+      const result = createOperationSpec(source, normalized, [opId])
+
+      const directives = (result.components as Record<string, unknown> | undefined)?.directives as Record<string, unknown> | undefined
+      expect(directives?.['deprecated']).toBeDefined()
+    })
+
+    test('should include both runtime and non-runtime directives together', () => {
+      const { source, normalized } = parseAndNormalize(graphql)
+      // getUser uses @deprecated (non-runtime), @cached is runtime
+      const opId = calculateGraphqlOperationId('query', 'getUser')
+
+      const result = createOperationSpec(source, normalized, [opId])
 
       const directives = (result.components as Record<string, unknown> | undefined)?.directives as Record<string, unknown> | undefined
       expect(directives?.['cached']).toBeDefined()
+      expect(directives?.['deprecated']).toBeDefined()
     })
   })
 
