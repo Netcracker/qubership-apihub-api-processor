@@ -16,7 +16,7 @@
 
 import { BuildConfigFile, BuilderContext, FILE_KIND, SourceFile, TextFile, VersionDocument } from '../types'
 import {
-  API_KIND_LABEL,
+  API_KIND_LABEL, API_KIND_SPECIFICATION_EXTENSION,
   APIHUB_API_COMPATIBILITY_KIND_BWC,
   ApihubApiCompatibilityKind,
   DOCUMENT_TYPE,
@@ -94,11 +94,10 @@ export const calculateApiKindFromLabels = (fileLabels: unknown, versionLabels: u
 
 export const getApiKindProperty = (
   obj: unknown,
-  kindKey: string,
   defaultApiKind?: ApihubApiCompatibilityKind,
 ): ApihubApiCompatibilityKind | undefined => {
   if (isObject(obj)) {
-    const apiKindLike = obj?.[kindKey]
+    const apiKindLike = obj?.[API_KIND_SPECIFICATION_EXTENSION]
     if (isString(apiKindLike)) {
       return rawToApiKind(apiKindLike, defaultApiKind)
     }

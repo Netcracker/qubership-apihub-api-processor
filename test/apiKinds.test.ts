@@ -636,7 +636,6 @@ describe('Check Api Compatibility Function tests', () => {
         }),
         expect.any(String),
         expect.any(String),
-        expect.any(String),
       )
 
       const [[before, after]] =

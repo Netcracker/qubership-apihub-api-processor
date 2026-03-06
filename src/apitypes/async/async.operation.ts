@@ -57,7 +57,7 @@ import {
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { getApiKindProperty } from '../../components/document'
 import { calculateTolerantHash } from '../../components/deprecated'
-import { ASYNC_KIND_KEY, ASYNCAPI_API_TYPE } from './async.consts'
+import { ASYNCAPI_API_TYPE } from './async.consts'
 
 export const buildAsyncApiOperation = (
   operationId: string,
@@ -113,8 +113,8 @@ export const buildAsyncApiOperation = (
     notifications, debugCtx,
   )
 
-  const operationApiKind = getApiKindProperty(effectiveOperationObject, ASYNC_KIND_KEY)
-  const channelApiKind = getApiKindProperty(channel, ASYNC_KIND_KEY)
+  const operationApiKind = getApiKindProperty(effectiveOperationObject)
+  const channelApiKind = getApiKindProperty(channel)
 
   // TODO: Populate models when AsyncAPI model extraction is implemented
   const models: Record<string, string> = {}

@@ -15,7 +15,6 @@
  */
 
 import {
-  API_KIND_SPECIFICATION_EXTENSION,
   FILE_FORMAT_JSON, FILE_FORMAT_YAML, HASH_FLAG, NORMALIZE_OPTIONS, ORIGINS_SYMBOL, DEPRECATED_META_KEY,
   FIRST_REFERENCE_KEY_PROPERTY,
 } from '../../consts'
@@ -44,7 +43,6 @@ export const ASYNC_FILE_FORMAT = {
 } as const
 
 // Re-export shared constants for AsyncAPI
-export const ASYNC_KIND_KEY = API_KIND_SPECIFICATION_EXTENSION
 export { DEPRECATED_META_KEY }
 
 export function isAsyncApiDocument(document: ZippableDocument | ResolvedVersionDocument): boolean {

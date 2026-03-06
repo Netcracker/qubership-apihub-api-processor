@@ -14,6 +14,7 @@ import {
   UNCLASSIFIED_CHANGE_TYPE,
 } from '../src'
 
+// TODO Enable tests when changes are added
 describe.skip('AsyncAPI 3.0 Changelog', () => {
 
   test('no changes', async () => {
