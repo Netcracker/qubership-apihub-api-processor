@@ -26,7 +26,7 @@ import { OperationChanges } from '../src'
 describe('Comparison Internal Documents tests', () => {
 
   describe('OAS tests', () => {
-    runCommonPreProcessedChangelogDocumentsTests('comparison-internal-documents/case2')
+    runCommonPreProcessedChangelogDocumentsTests('comparison-internal-documents/openapi')
 
     it('should have comparison internal document data for add operation', async () => {
       await checkComparisonInternalDocumentIdExist('changelog/add-operation')
@@ -46,7 +46,7 @@ describe('Comparison Internal Documents tests', () => {
   })
 
   describe('Graphql tests', () => {
-    runCommonPreProcessedChangelogDocumentsTests('comparison-internal-documents/case1', true)
+    runCommonPreProcessedChangelogDocumentsTests('comparison-internal-documents/graphql', true)
 
     it('should have comparison internal document data for add operation', async () => {
       await checkComparisonInternalDocumentIdExist('graphql-changes/add-operation', true)
