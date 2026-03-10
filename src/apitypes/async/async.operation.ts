@@ -28,6 +28,7 @@ import {
   takeIf,
 } from '../../utils'
 import {
+  ASYNCAPI_API_TYPE,
   DEPRECATED_MESSAGE_PREFIX,
   DEPRECATED_SPECIFICATION_EXTENSION,
   ORIGINS_SYMBOL,
@@ -57,7 +58,6 @@ import {
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { getApiKindProperty } from '../../components/document'
 import { calculateTolerantHash } from '../../components/deprecated'
-import { ASYNCAPI_API_TYPE } from './async.consts'
 
 export const buildAsyncApiOperation = (
   operationId: string,
