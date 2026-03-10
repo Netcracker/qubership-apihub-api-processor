@@ -21,8 +21,6 @@ import {
 import { NormalizeOptions } from '@netcracker/qubership-apihub-api-unifier'
 import { ResolvedVersionDocument, ZippableDocument } from '../../types'
 
-export const ASYNCAPI_API_TYPE = 'asyncapi' as const
-
 export const ASYNC_SCOPES = {
   all: 'all',
   annotation: 'annotation',

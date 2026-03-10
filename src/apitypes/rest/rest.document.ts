@@ -37,8 +37,7 @@ import {
   getDocumentTitle,
   getStringValue,
 } from '../../utils'
-import { dump } from './rest.utils'
-import { generateHtmlPage } from '../../utils/export'
+import { dump, generateHtmlPage } from '../../utils/export'
 import { removeOasExtensions } from '../../utils/removeOasExtensions'
 import { OpenApiExtensionKey } from '@netcracker/qubership-apihub-api-unifier'
 import { getApiKindProperty } from '../../components/document'

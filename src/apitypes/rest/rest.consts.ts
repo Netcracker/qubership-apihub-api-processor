@@ -15,19 +15,17 @@
  */
 
 import {
+  DEPRECATED_META_KEY,
   FILE_FORMAT_JSON,
   FILE_FORMAT_YAML,
   FILE_FORMAT_YML,
   HASH_FLAG,
   NORMALIZE_OPTIONS,
   ORIGINS_SYMBOL,
-  DEPRECATED_META_KEY,
 } from '../../consts'
 import { KeyOfConstType, ResolvedVersionDocument, ZippableDocument } from '../../types'
 import { TEXT_DOCUMENT_TYPE, TextDocumentType } from '../text'
 import { NormalizeOptions } from '@netcracker/qubership-apihub-api-unifier'
-
-export const REST_API_TYPE = 'rest' as const
 
 export const REST_SCOPES = {
   all: 'all',
