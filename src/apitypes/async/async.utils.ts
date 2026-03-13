@@ -43,6 +43,8 @@ import {
   FIRST_REFERENCE_KEY_PROPERTY,
   INLINE_REFS_FLAG,
 } from '../../consts'
+import { WithAggregatedDiffs, WithDiffMetaRecord } from '../../types'
+import { Diff, DIFF_META_KEY, DIFFS_AGGREGATED_META_KEY } from '@netcracker/qubership-apihub-api-diff'
 
 // Re-export shared utilities
 export { dump, getCustomTags, resolveApiAudience } from '../../utils/apihubSpecificationExtensions'
@@ -147,8 +149,8 @@ export const createBaseAsyncApiSpec = (
 ): TYPE.AsyncOperationData => ({
   asyncapi: document.asyncapi || '3.0.0',
   info: document.info,
-  ...takeIfDefined({id: document.id}),
-  ...takeIfDefined({defaultContentType: document.defaultContentType}),
+  ...takeIfDefined({ id: document.id }),
+  ...takeIfDefined({ defaultContentType: document.defaultContentType }),
   operations,
 })
 
@@ -237,11 +239,11 @@ export const resolveAsyncApiOperationIdsFromRefs = (
     }
 
     for (const message of messages) {
-      if(!isMessageObject(message)){
+      if (!isMessageObject(message)) {
         continue
       }
       const inlineRefs = getSymbolValueIfDefined(message, INLINE_REFS_FLAG) as string[] | undefined
-      if (!inlineRefs || inlineRefs.length === 0){
+      if (!inlineRefs || inlineRefs.length === 0) {
         continue
       }
       const lastInlineRef = inlineRefs.at(-1)
@@ -269,3 +271,16 @@ export const resolveAsyncApiOperationIdsFromRefs = (
   return resolved
 }
 
+export function extractAsyncApiVersionDiff(doc: AsyncAPIV3.AsyncAPIObject): Diff[] {
+  const diff = (doc as WithDiffMetaRecord<AsyncAPIV3.AsyncAPIObject>)[DIFF_META_KEY]?.asyncapi
+  return diff ? [diff] : []
+}
+
+export function extractInfoDiffs(doc: AsyncAPIV3.AsyncAPIObject): Diff[] {
+  const addOrRemoveInfoDiff = (doc as WithDiffMetaRecord<AsyncAPIV3.AsyncAPIObject>)[DIFF_META_KEY]?.info
+  const infoInternalDiffs = (doc.info as WithAggregatedDiffs<AsyncAPIV3.InfoObject>)?.[DIFFS_AGGREGATED_META_KEY] ?? []
+  return [
+    ...(addOrRemoveInfoDiff ? [addOrRemoveInfoDiff] : []),
+    ...infoInternalDiffs,
+  ]
+}

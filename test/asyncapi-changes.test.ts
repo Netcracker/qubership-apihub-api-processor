@@ -25,7 +25,7 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
     const result = await buildChangelogPackageDefaultConfig(
       'asyncapi-changes/no-changes',
       [{ fileId: 'before.yaml', publish: true }],
-      [{ fileId: 'before.yaml' }],
+      [{ fileId: 'before.yaml', publish: true }],
     )
 
     expectNoChanges(result)
@@ -79,6 +79,15 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
+    test('should not impact other operation when changing action type', async () => {
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/operation/change-action-no-impact-on-other')
+
+      // operation1 action changed (receive -> send), operation2 unchanged
+      // should only impact 1 apihub operation (operation1-message1)
+      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+    })
+
     test('should detect changed operation description with multiple messages', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/operation/change-description-with-multiple-messages')
 
@@ -124,6 +133,24 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
 
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+    })
+
+    test('should impact all operations on shared channel when changing address', async () => {
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/channel/change-address-shared-channel')
+
+      // operation1 and operation2 both reference channel1, address changed
+      // both apihub operations should be impacted
+      expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
+    })
+
+    test('should not impact operation on other channel when changing address', async () => {
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/channel/change-address-no-impact-on-other-channel')
+
+      // channel1 address changed, channel2 unchanged
+      // only operation1 (on channel1) should be impacted, not operation2 (on channel2)
+      expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
     test('should detect added message definition in channel with multiple apihub operations', async () => {
@@ -186,6 +213,15 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
     test('should detect changed message content type', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/message/change-content-type')
 
+      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+    })
+
+    test('should not impact other operation when adding message to one', async () => {
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/message/add-to-one-of-multiple-operations')
+
+      // message2 added to operation1, operation2 unchanged
+      // should only impact 1 new apihub operation (operation1-message2)
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
@@ -264,6 +300,24 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
 
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+    })
+  })
+
+  describe('Info tests', () => {
+    test('should detect changed info version', async () => {
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/info/change-version')
+
+      // info.version changed (1.0.0 -> 2.0.0) — should be detected as a change in every apihub operation
+      expect(result).toEqual(changesSummaryMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+    })
+
+    test('should detect changed info title', async () => {
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/info/change-title')
+
+      // info.title changed — should be detected as a change in every apihub operation
+      expect(result).toEqual(changesSummaryMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
   })
 

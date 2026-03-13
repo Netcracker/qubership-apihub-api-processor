@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { calculateAsyncOperationId, isEmpty, isObject } from '../../utils'
+import { isEmpty, isObject } from '../../utils'
 import {
   aggregateDiffsWithRollup,
   apiDiff,
@@ -47,7 +47,7 @@ import {
   OperationsMap,
 } from '../../components'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
-import { getAsyncMessageId } from './async.utils'
+import { extractAsyncApiVersionDiff, extractInfoDiffs, getAsyncMessageId } from './async.utils'
 
 export const compareDocuments: DocumentsCompare = async (
   operationsMap: OperationsMap,
@@ -87,7 +87,7 @@ export const compareDocuments: DocumentsCompare = async (
       ...NORMALIZE_OPTIONS,
       metaKey: DIFF_META_KEY,
       originsFlag: ORIGINS_SYMBOL,
-      normalizedResult: true,
+      normalizedResult: false,
       afterValueNormalizedProperty: AFTER_VALUE_NORMALIZED_PROPERTY,
       beforeValueNormalizedProperty: BEFORE_VALUE_NORMALIZED_PROPERTY,
       firstReferenceKeyProperty: FIRST_REFERENCE_KEY_PROPERTY,
@@ -141,7 +141,7 @@ export const compareDocuments: DocumentsCompare = async (
       const operation = operationsMap[key]
       return operation?.previous?.metadata?.asyncOperationId === asyncOperationId || operation?.current?.metadata?.asyncOperationId === asyncOperationId
     })
-    const operation = matchingOperations.find(matchingOperation=> matchingOperation.endsWith(String(index+1)))
+    const operation = matchingOperations.find(matchingOperation => matchingOperation.endsWith(String(index + 1)))
 
     return operation || matchingOperations[index]
   }
@@ -186,7 +186,11 @@ export const compareDocuments: DocumentsCompare = async (
           const allOperationDiffs = (operationObject as WithAggregatedDiffs<AsyncAPIV3.OperationObject>)[DIFFS_AGGREGATED_META_KEY] ?? []
 
           const otherMessageDiffs = collectOtherMessageDiffs(messages, messageIndex)
-          operationDiffs = [...allOperationDiffs].filter(d => !otherMessageDiffs.has(d))
+          operationDiffs = [
+            ...([...allOperationDiffs].filter(d => !otherMessageDiffs.has(d))),
+            ...extractAsyncApiVersionDiff(merged),
+            ...extractInfoDiffs(merged),
+          ]
         }
         if (operationAddedOrRemoved) {
           // Level 1: message added/removed within an existing operation (analogous to REST method within path)
