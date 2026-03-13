@@ -2,18 +2,14 @@ asyncapi: 3.0.0
 info:
   title: Test AsyncAPI
   version: 1.0.0
-servers:
-  production:
-    protocol: amqp
-    host: api.example.com
 channels:
   channel1:
     address: channel1
-    servers:
-      - $ref: '#/servers/production'
     messages:
       message1:
         $ref: '#/components/messages/message1'
+      message2:
+        $ref: '#/components/messages/message2'
 operations:
   operation1:
     action: receive
@@ -29,4 +25,9 @@ components:
         properties:
           userId:
             type: string
-
+    message2:
+      payload:
+        type: object
+        properties:
+          orderId:
+            type: string

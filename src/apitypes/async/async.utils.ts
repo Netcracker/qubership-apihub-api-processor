@@ -22,7 +22,8 @@ import {
   getSymbolValueIfDefined,
   isObject,
   isReferenceObject,
-  setValueByPath, takeIfDefined,
+  setValueByPath,
+  takeIfDefined,
 } from '../../utils'
 import type * as TYPE from './async.types'
 import {
@@ -267,3 +268,4 @@ export const resolveAsyncApiOperationIdsFromRefs = (
 
   return resolved
 }
+
