@@ -1,6 +1,7 @@
 asyncapi: 3.0.0
+id: urn:example:com:old
 info:
-  title: Test AsyncAPI
+  title: Test
   version: 1.0.0
 channels:
   channel1:
@@ -8,24 +9,13 @@ channels:
     messages:
       message1:
         $ref: '#/components/messages/message1'
-  channel2:
-    address: channel2
-    messages:
-      message2:
-        $ref: '#/components/messages/message2'
 operations:
   operation1:
-    action: send
+    action: receive
     channel:
       $ref: '#/channels/channel1'
     messages:
       - $ref: '#/channels/channel1/messages/message1'
-  operation2:
-    action: receive
-    channel:
-      $ref: '#/channels/channel2'
-    messages:
-      - $ref: '#/channels/channel2/messages/message2'
 components:
   messages:
     message1:
@@ -33,10 +23,4 @@ components:
         type: object
         properties:
           userId:
-            type: string
-    message2:
-      payload:
-        type: object
-        properties:
-          orderId:
             type: string

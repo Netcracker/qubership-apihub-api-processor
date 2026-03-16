@@ -10,8 +10,6 @@ channels:
         $ref: '#/components/messages/message1'
       message2:
         $ref: '#/components/messages/message2'
-      message3:
-        $ref: '#/components/messages/message3'
 operations:
   operation1:
     action: receive
@@ -20,24 +18,17 @@ operations:
     messages:
       - $ref: '#/channels/channel1/messages/message1'
       - $ref: '#/channels/channel1/messages/message2'
-      - $ref: '#/channels/channel1/messages/message3'
 components:
+  schemas:
+    SharedPayload:
+      type: object
+      properties:
+        userId:
+          type: string
   messages:
     message1:
       payload:
-        type: object
-        properties:
-          userId:
-            type: string
+        $ref: '#/components/schemas/SharedPayload'
     message2:
       payload:
-        type: object
-        properties:
-          orderId:
-            type: string
-    message3:
-      payload:
-        type: object
-        properties:
-          productId:
-            type: string
+        $ref: '#/components/schemas/SharedPayload'

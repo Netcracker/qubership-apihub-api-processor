@@ -284,3 +284,22 @@ export function extractInfoDiffs(doc: AsyncAPIV3.AsyncAPIObject): Diff[] {
     ...infoInternalDiffs,
   ]
 }
+
+export function extractIdDiff(doc: AsyncAPIV3.AsyncAPIObject): Diff[] {
+  const diff = (doc as WithDiffMetaRecord<AsyncAPIV3.AsyncAPIObject>)[DIFF_META_KEY]?.id
+  return diff ? [diff] : []
+}
+
+export function extractDefaultContentTypeDiff(doc: AsyncAPIV3.AsyncAPIObject): Diff[] {
+  const diff = (doc as WithDiffMetaRecord<AsyncAPIV3.AsyncAPIObject>)[DIFF_META_KEY]?.defaultContentType
+  return diff ? [diff] : []
+}
+
+export function extractRootServersDiffs(doc: AsyncAPIV3.AsyncAPIObject): Diff[] {
+  const addOrRemoveServersDiff = (doc as WithDiffMetaRecord<AsyncAPIV3.AsyncAPIObject>)[DIFF_META_KEY]?.servers
+  const serversInternalDiffs = (doc.servers as WithAggregatedDiffs<AsyncAPIV3.ServersObject> | undefined)?.[DIFFS_AGGREGATED_META_KEY] ?? []
+  return [
+    ...(addOrRemoveServersDiff ? [addOrRemoveServersDiff] : []),
+    ...serversInternalDiffs,
+  ]
+}

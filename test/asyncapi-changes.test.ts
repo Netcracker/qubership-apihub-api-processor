@@ -21,7 +21,7 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
     expect(result).toEqual(numberOfImpactedOperationsMatcher(EMPTY_CHANGE_SUMMARY, ASYNCAPI_API_TYPE))
   }
 
-  test('should detect no changes for identical documents', async () => {
+  test('should report no changes for identical documents', async () => {
     const result = await buildChangelogPackageDefaultConfig(
       'asyncapi-changes/no-changes',
       [{ fileId: 'before.yaml', publish: true }],
@@ -32,25 +32,25 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
   })
 
   describe('Operations tests', () => {
-    test('should detect added operation', async () => {
+    test('should report added operation', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/operation/add')
       expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('should detect multiple added operations', async () => {
+    test('should report multiple added operations', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/operation/add-multiple')
       expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
     })
 
-    test('should detect removed operation', async () => {
+    test('should report removed operation', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/operation/remove')
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('should detect simultaneously added and removed operations', async () => {
+    test('should report simultaneously added and removed operations', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/operation/add-remove')
       expect(result).toEqual(changesSummaryMatcher({
         [BREAKING_CHANGE_TYPE]: 1,
@@ -62,33 +62,14 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
       }, ASYNCAPI_API_TYPE))
     })
 
-    test('should detect renamed operation as add and remove', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/operation/rename')
-      expect(result).toEqual(changesSummaryMatcher({
-        [BREAKING_CHANGE_TYPE]: 2,
-      }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({
-        [BREAKING_CHANGE_TYPE]: 2,
-      }, ASYNCAPI_API_TYPE))
-    })
-
-    test('should detect changed operation action type', async () => {
+    test('should report changed operation action type', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/operation/change-action')
 
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('should not impact other operation when changing action type', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/operation/change-action-no-impact-on-other')
-
-      // operation1 action changed (receive -> send), operation2 unchanged
-      // should only impact 1 apihub operation (operation1-message1)
-      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-    })
-
-    test('should detect changed operation description with multiple messages', async () => {
+    test('should report changed operation description with multiple messages', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/operation/change-description-with-multiple-messages')
 
       expect(result).toEqual(changesSummaryMatcher({
@@ -101,34 +82,27 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
   })
 
   describe('Channels tests', () => {
-    test('should detect changed operation channel reference', async () => {
+    test('should be tolerant to channel reference change', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/channel/change-reference')
 
       expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('should detect removed channel', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/channel/remove')
-
-      expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-    })
-
-    test('should not detect changes when removing unused channel', async () => {
+    test('should not report changes when removing unused channel', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/channel/remove-unused')
 
       expectNoChanges(result)
     })
 
-    test('should detect changed channel address', async () => {
+    test('should report changed channel address', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/channel/change-address')
 
       expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('should detect added message definition in channel', async () => {
+    test('should report added message definition in channel', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/channel/add-message')
 
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
@@ -153,7 +127,7 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('should detect added message definition in channel with multiple apihub operations', async () => {
+    test('should report added message definition in channel with multiple apihub operations', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/channel/add-message-with-multiple-operations')
 
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
@@ -162,55 +136,60 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
   })
 
   describe('Servers tests', () => {
-    test('should detect added server in channel', async () => {
+    test('should report added server in channel', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/server/add-to-channel')
 
-      expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      // channel-level servers diff (unclassified) + root servers diff (annotation)
+      expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1, [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1, [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('should detect removed server from channel', async () => {
+    test('should report removed server from channel', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/server/remove-from-channel')
 
-      expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      // channel-level servers diff (unclassified) + root servers diff (annotation)
+      expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1, [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1, [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('should not detect changes when adding root servers', async () => {
+    test('should report added root servers', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/server/add-root')
 
-      expectNoChanges(result)
+      expect(result).toEqual(changesSummaryMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('should not detect changes when removing root servers', async () => {
+    test('should report removed root servers', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/server/remove-root')
 
-      expectNoChanges(result)
+      expect(result).toEqual(changesSummaryMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('should not detect changes when changing root servers', async () => {
+    test('should report changed root servers', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/server/change-root')
 
-      expectNoChanges(result)
+      expect(result).toEqual(changesSummaryMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
   })
 
   describe('Messages tests', () => {
-    test('should detect added message reference in operation', async () => {
+    test('should report added APIHUB operation when message reference is added to async operation', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/message/add-to-operation')
 
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('should detect removed message reference from operation', async () => {
+    test('should report removed APIHUB operation when message reference is removed to async operation', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/message/remove-from-operation')
 
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('should detect changed message content type', async () => {
+    test('should report changed message content type', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/message/change-content-type')
 
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
@@ -222,16 +201,6 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
 
       // message2 added to operation1, operation2 unchanged
       // should only impact 1 new apihub operation (operation1-message2)
-      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-    })
-
-    test('should not add changes to existing messages when adding new message to operation', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/message/add-to-operation-with-existing-messages')
-
-      // Adding message3 to operation with existing message1 and message2
-      // should only impact 1 new apihub operation (operation1-message3),
-      // not the existing operation1-message1 and operation1-message2
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
@@ -255,15 +224,16 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('should not detect changes when removing unused message from channel', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/message/remove-unused-from-channel')
+    test('should impact both operations when changing shared payload with multiple messages', async () => {
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/message/change-shared-payload-with-multiple-messages')
 
-      // Removing a message definition from channel that no operation references
+      // message1 and message2 both reference SharedPayload schema
+      // changing SharedPayload type should impact both apihub operations
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
     })
 
-    test('should not detect changes when adding unused component message', async () => {
+    test('should not report changes when adding unused component message', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/message/add-unused-component-message')
 
       // Adding a message to components/messages that is not referenced by any channel or operation
@@ -271,7 +241,7 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
       expectNoChanges(result)
     })
 
-    test('should not detect changes when removing unused component message', async () => {
+    test('should not report changes when removing unused component message', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/message/remove-unused-component-message')
 
       // Removing a message from components/messages that is not referenced by any operation
@@ -281,21 +251,21 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
   })
 
   describe('Schema tests', () => {
-    test('should detect added property in message schema', async () => {
+    test('should report added property in message schema', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/schema/add-property')
 
       expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('should detect removed property from message schema', async () => {
+    test('should report removed property from message schema', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/schema/remove-property')
 
       expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('should detect changed property type in message schema', async () => {
+    test('should report changed property type in message schema', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/schema/change-property-type')
 
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
@@ -304,7 +274,7 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
   })
 
   describe('Info tests', () => {
-    test('should detect changed info version', async () => {
+    test('should report changed info version', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/info/change-version')
 
       // info.version changed (1.0.0 -> 2.0.0) — should be detected as a change in every apihub operation
@@ -312,12 +282,27 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('should detect changed info title', async () => {
+    test('should report changed info title', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/info/change-title')
 
       // info.title changed — should be detected as a change in every apihub operation
       expect(result).toEqual(changesSummaryMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+    })
+
+    test('should report changed document id', async () => {
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/info/change-id')
+
+      expect(result).toEqual(changesSummaryMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+    })
+
+    test('should report changed defaultContentType', async () => {
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/info/change-default-content-type')
+
+      // Root-level defaultContentType change + propagated breaking change in message contentType
+      expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1, [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1, [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
   })
 

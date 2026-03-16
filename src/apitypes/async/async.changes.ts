@@ -48,7 +48,14 @@ import {
 } from '../../components'
 import { createAsyncApiCompatibilityScopeFunction } from '../../components/compare/bwc.validation'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
-import { extractAsyncApiVersionDiff, extractInfoDiffs, getAsyncMessageId } from './async.utils'
+import {
+  extractAsyncApiVersionDiff,
+  extractDefaultContentTypeDiff,
+  extractIdDiff,
+  extractInfoDiffs,
+  extractRootServersDiffs,
+  getAsyncMessageId,
+} from './async.utils'
 
 export const compareDocuments: DocumentsCompare = async (
   operationsMap: OperationsMap,
@@ -111,17 +118,27 @@ export const compareDocuments: DocumentsCompare = async (
    * diffs from sibling messages must be excluded to prevent them from leaking
    * into unrelated apihub operations.
    *
-   * Collects two kinds of diffs from other messages:
+   * Collects two kinds of diffs that belong exclusively to other messages:
    * 1. Aggregated content diffs from each sibling message object
    * 2. Array-level diffs for adding/removing sibling messages from the messages list
+   *
+   * Diffs shared between the current message and sibling messages (e.g. from a shared
+   * component schema) are NOT included, so they won't be incorrectly filtered out.
    */
-  function collectOtherMessageDiffs(messages: AsyncAPIV3.MessageObject[], currentMessageIndex: number): Set<Diff> {
+  function collectExclusiveOtherMessageDiffs(messages: AsyncAPIV3.MessageObject[], currentMessageIndex: number): Set<Diff> {
+    const currentMessageDiffsArr = (messages[currentMessageIndex] as WithAggregatedDiffs<AsyncAPIV3.MessageObject>)[DIFFS_AGGREGATED_META_KEY]
+    const currentMessageDiffs = new Set(currentMessageDiffsArr ?? [])
+
     const otherDiffs = new Set<Diff>()
-    for (const [idx, msg] of messages.entries()) {
-      if (idx === currentMessageIndex) continue
-      const msgDiffs = (msg as WithAggregatedDiffs<AsyncAPIV3.MessageObject>)[DIFFS_AGGREGATED_META_KEY]
-      if (msgDiffs) {
-        for (const d of msgDiffs) { otherDiffs.add(d) }
+    for (const [messageIndex, message] of messages.entries()) {
+      if (messageIndex === currentMessageIndex) continue
+      const messageDiffs = (message as WithAggregatedDiffs<AsyncAPIV3.MessageObject>)[DIFFS_AGGREGATED_META_KEY]
+      if (messageDiffs) {
+        for (const messageDiff of messageDiffs) {
+          if (!currentMessageDiffs.has(messageDiff)) {
+            otherDiffs.add(messageDiff)
+          }
+        }
       }
     }
     const messagesArrayMeta = (messages as WithDiffMetaRecord<AsyncAPIV3.MessageObject[]>)[DIFF_META_KEY]
@@ -149,9 +166,9 @@ export const compareDocuments: DocumentsCompare = async (
   }
 
   // Iterate through operations in merged document
-  const { operations } = merged
-  if (operations && isObject(operations)) {
-    for (const [asyncOperationId, operationData] of Object.entries(operations)) {
+  const { operations: asyncOperation} = merged
+  if (asyncOperation && isObject(asyncOperation)) {
+    for (const [asyncOperationId, operationData] of Object.entries(asyncOperation)) {
       if (!operationData || !isObject(operationData)) {
         continue
       }
@@ -187,18 +204,21 @@ export const compareDocuments: DocumentsCompare = async (
         if (operationPotentiallyChanged) {
           const allOperationDiffs = (operationObject as WithAggregatedDiffs<AsyncAPIV3.OperationObject>)[DIFFS_AGGREGATED_META_KEY] ?? []
 
-          const otherMessageDiffs = collectOtherMessageDiffs(messages, messageIndex)
+          const otherMessageDiffs = collectExclusiveOtherMessageDiffs(messages, messageIndex)
           operationDiffs = [
-            ...([...allOperationDiffs].filter(d => !otherMessageDiffs.has(d))),
+            ...([...allOperationDiffs].filter(diff => !otherMessageDiffs.has(diff))),
             ...extractAsyncApiVersionDiff(merged),
             ...extractInfoDiffs(merged),
+            ...extractIdDiff(merged),
+            ...extractDefaultContentTypeDiff(merged),
+            ...extractRootServersDiffs(merged),
           ]
         }
         if (operationAddedOrRemoved) {
           // Level 1: message added/removed within an existing operation (analogous to REST method within path)
           const messageAddedOrRemovedDiff = (messages as WithDiffMetaRecord<AsyncAPIV3.MessageObject[]>)[DIFF_META_KEY]?.[messageIndex]
           // Level 2: entire operation added/removed (analogous to REST entire path)
-          const operationAddedOrRemovedDiff = (operations as WithDiffMetaRecord<AsyncAPIV3.OperationsObject>)[DIFF_META_KEY]?.[asyncOperationId]
+          const operationAddedOrRemovedDiff = (asyncOperation as WithDiffMetaRecord<AsyncAPIV3.OperationsObject>)[DIFF_META_KEY]?.[asyncOperationId]
           const diff = messageAddedOrRemovedDiff ?? operationAddedOrRemovedDiff
           if (diff) {
             operationDiffs.push(diff)
