@@ -152,6 +152,15 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1, [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
+    test('should report changed server used in channel', async () => {
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/server/change-in-channel')
+
+      // Server host changed; server is at root level but referenced by channel
+      // root-level diff (annotation) + operation-level resolved diff (unclassified)
+      expect(result).toEqual(changesSummaryMatcher({ [ANNOTATION_CHANGE_TYPE]: 1, [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [ANNOTATION_CHANGE_TYPE]: 1, [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+    })
+
     test('should report added root servers', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/server/add-root')
 

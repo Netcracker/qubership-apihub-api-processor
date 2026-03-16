@@ -19,7 +19,10 @@ components:
   messages:
     message1:
       payload:
-        type: object
-        properties:
-          userId:
-            type: integer
+        $ref: '#/components/schemas/Message1Payload'
+  schemas:
+    Message1Payload:
+      type: object
+      properties:
+        userId:
+          type: integer
