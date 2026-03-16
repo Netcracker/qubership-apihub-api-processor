@@ -46,6 +46,7 @@ import {
   getOperationTags,
   OperationsMap,
 } from '../../components'
+import { createAsyncApiCompatibilityScopeFunction } from '../../components/compare/bwc.validation'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { extractAsyncApiVersionDiff, extractInfoDiffs, getAsyncMessageId } from './async.utils'
 
@@ -91,6 +92,7 @@ export const compareDocuments: DocumentsCompare = async (
       afterValueNormalizedProperty: AFTER_VALUE_NORMALIZED_PROPERTY,
       beforeValueNormalizedProperty: BEFORE_VALUE_NORMALIZED_PROPERTY,
       firstReferenceKeyProperty: FIRST_REFERENCE_KEY_PROPERTY,
+      apiCompatibilityScopeFunction: createAsyncApiCompatibilityScopeFunction(),
     },
   ) as { merged: AsyncAPIV3.AsyncAPIObject; diffs: Diff[] }
 
