@@ -8,6 +8,8 @@ channels:
     messages:
       message1:
         $ref: '#/components/messages/message1'
+      message2:
+        $ref: '#/components/messages/message2'
 operations:
   operation1:
     action: receive
@@ -15,6 +17,13 @@ operations:
       $ref: '#/channels/channel1'
     messages:
       - $ref: '#/channels/channel1/messages/message1'
+  operation2:
+    action: send
+    channel:
+      $ref: '#/channels/channel1'
+    messages:
+      - $ref: '#/channels/channel1/messages/message1'
+      - $ref: '#/channels/channel1/messages/message2'
 components:
   messages:
     message1:
@@ -23,3 +32,9 @@ components:
         properties:
           userId:
             type: string
+    message2:
+      payload:
+        type: object
+        properties:
+          orderId:
+            type: integer

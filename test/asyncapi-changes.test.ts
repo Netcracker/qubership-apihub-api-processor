@@ -44,6 +44,18 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
     })
 
+    test('should report added operation with multiple messages', async () => {
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/operation/add-with-multiple-messages')
+      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
+    })
+
+    test('should report added operation without message change diffs', async () => {
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/operation/add-with-changed-message')
+      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1, [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1, [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+    })
+
     test('should report removed operation', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/operation/remove')
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
@@ -107,6 +119,11 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
 
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+    })
+
+    test('should ignore message added to channel but not referenced in operation', async () => {
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/channel/add-message-not-in-operation')
+      expectNoChanges(result)
     })
 
     test('should impact all operations on shared channel when changing address', async () => {

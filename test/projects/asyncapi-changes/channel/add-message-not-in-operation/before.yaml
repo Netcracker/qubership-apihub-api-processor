@@ -19,7 +19,18 @@ components:
   messages:
     message1:
       payload:
-        type: object
-        properties:
-          userId:
-            type: string
+        $ref: '#/components/schemas/Message1Payload'
+    message2:
+      payload:
+        $ref: '#/components/schemas/Message2Payload'
+  schemas:
+    Message1Payload:
+      type: object
+      properties:
+        userId:
+          type: string
+    Message2Payload:
+      type: object
+      properties:
+        orderId:
+          type: integer
