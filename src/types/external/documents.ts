@@ -44,6 +44,7 @@ export type ResolvedVersionDocuments = {
 export type ResolvedVersionDocument = ResolvedDocument & {
   packageRef?: string
   apiKind?: ApihubApiCompatibilityKind
+  shareabilityStatus?: ShareabilityStatuses
 }
 
 export type Labels = string[]
@@ -76,3 +77,19 @@ export type RawDocumentResolver = (
 export type FileResolver = (fileId: FileId) => Promise<Blob | null>
 
 export type TemplateResolver = (templatePath: TemplatePath) => Promise<Blob | null>
+
+export const SHAREABILITY_STATUS_SHAREABLE = 'shareable' as const
+export const SHAREABILITY_STATUS_NON_SHAREABLE = 'non-shareable' as const
+export const SHAREABILITY_STATUS_UNKNOWN = 'unknown' as const
+
+export type ShareabilityStatuses =
+  | typeof SHAREABILITY_STATUS_SHAREABLE
+  | typeof SHAREABILITY_STATUS_NON_SHAREABLE
+  | typeof SHAREABILITY_STATUS_UNKNOWN
+
+export const SHAREABILITY_FILTER_VALUE_ALL = 'all' as const
+export const SHAREABILITY_FILTER_VALUE_SHAREABLE_ONLY = 'shareable_only' as const
+
+export type ShareabilityFilterValues =
+  | typeof SHAREABILITY_FILTER_VALUE_ALL
+  | typeof SHAREABILITY_FILTER_VALUE_SHAREABLE_ONLY

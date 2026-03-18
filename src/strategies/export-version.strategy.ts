@@ -14,7 +14,16 @@
  * limitations under the License.
  */
 
-import { BuilderStrategy, BuildResult, BuildTypeContexts, ExportDocument, ExportVersionBuildConfig } from '../types'
+import {
+  BuilderStrategy,
+  BuildResult,
+  BuildTypeContexts,
+  ExportDocument,
+  ExportVersionBuildConfig,
+  ResolvedVersionDocument,
+  SHAREABILITY_FILTER_VALUE_SHAREABLE_ONLY,
+  SHAREABILITY_STATUS_SHAREABLE,
+} from '../types'
 import { getDocumentTitle, getSplittedVersionKey } from '../utils'
 import {
   createCommonStaticExportDocuments,
@@ -60,11 +69,12 @@ async function exportToHTML(config: ExportVersionBuildConfig, buildResult: Build
   const [version] = getSplittedVersionKey(versionWithRevision)
   const { name: packageName } = await packageResolver(packageId)
   const { documents } = await versionDocumentsResolver(versionWithRevision, packageId) ?? { documents: [] }
+  const documentsFilteredByShareabilityStatus = filterDocumentsByShareabilityStatus(documents, config)
 
   const generatedHtmlExportDocuments: ExportDocument[] = []
-  const restDocuments = documents.filter(isRestDocument)
+  const restDocuments = documentsFilteredByShareabilityStatus.filter(isRestDocument)
   const shouldAddIndexPage = restDocuments.length > 0
-  const transformedDocuments = await Promise.all(documents.map(async document => {
+  const transformedDocuments = await Promise.all(documentsFilteredByShareabilityStatus.map(async document => {
     const { createExportDocument } = apiBuilders.find(({ types }) => types.includes(document.type)) || unknownApiBuilder
     const file = await rawDocumentResolver(versionWithRevision, packageId, document.slug)
     return await createExportDocument?.(file.name, await file.text(), format, packageName, version, templateResolver, allowedOasExtensions, generatedHtmlExportDocuments, shouldAddIndexPage) ?? createUnknownExportDocument(file.name, file)
@@ -93,12 +103,32 @@ async function defaultExport(config: ExportVersionBuildConfig, buildResult: Buil
   const [version] = getSplittedVersionKey(versionWithRevision)
   const { name: packageName } = await packageResolver(packageId)
   const { documents } = await versionDocumentsResolver(versionWithRevision, packageId) ?? { documents: [] }
+  const documentsFilteredByShareabilityStatus = filterDocumentsByShareabilityStatus(documents, config)
 
-  const transformedDocuments = await Promise.all(documents.map(async document => {
+  const transformedDocuments = await Promise.all(documentsFilteredByShareabilityStatus.map(async document => {
     const { createExportDocument } = apiBuilders.find(({ types }) => types.includes(document.type)) || unknownApiBuilder
     const file = await rawDocumentResolver(versionWithRevision, packageId, document.slug)
     return await createExportDocument?.(file.name, await file.text(), format, packageName, version, templateResolver, allowedOasExtensions) ?? createUnknownExportDocument(file.name, file)
   }))
 
   buildResult.exportDocuments.push(...transformedDocuments)
+}
+
+function filterDocumentsByShareabilityStatus(
+  documents: ReadonlyArray<ResolvedVersionDocument>,
+  config: ExportVersionBuildConfig,
+): ReadonlyArray<ResolvedVersionDocument> {
+  // DEBUG ONLY - remove after verifying export works correctly
+  console.log('[export-version] filterByShareability called:', {
+    shareabilityFilter: config.shareabilityFilter,
+    totalDocs: documents.length,
+    statuses: documents.map(d => ({ slug: d.slug, shareabilityStatus: d.shareabilityStatus })),
+  })
+  if (config.shareabilityFilter === SHAREABILITY_FILTER_VALUE_SHAREABLE_ONLY) {
+    const filtered = documents.filter(doc => doc.shareabilityStatus === SHAREABILITY_STATUS_SHAREABLE)
+    // DEBUG ONLY - remove after verifying export works correctly
+    console.log('[export-version] filtered to', filtered.length, 'shareable documents')
+    return filtered
+  }
+  return documents
 }
