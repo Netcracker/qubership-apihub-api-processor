@@ -51,6 +51,9 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
     })
 
     test('should report added operation without message change diffs', async () => {
+      // operation2 (send) added + message1 payload userId type changed (string → integer).
+      // The added operation should only produce "add" diff,
+      // not inherit the breaking payload change from message1.
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/operation/add-with-changed-message')
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1, [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1, [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
@@ -82,6 +85,9 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
     })
 
     test('should report changed operation description with multiple messages', async () => {
+      // operation1 has message1 and message2. Only operation description changed (test1 → test2).
+      // The annotation diff is counted once in changesSummary but impacts 2 apihub operations
+      // (one per message: operation1-message1, operation1-message2).
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/operation/change-description-with-multiple-messages')
 
       expect(result).toEqual(changesSummaryMatcher({
@@ -114,6 +120,15 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
+    test('should impact all operations on shared channel when changing address', async () => {
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/channel/change-address-shared-channel')
+
+      // operation1 and operation2 both reference channel1, address changed
+      // both apihub operations should be impacted
+      expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
+    })
+
     test('should not report changes when adding message definition in channel without referencing it in operation', async () => {
       // message2 added to channel1.messages but operation1.messages still only references message1
       // channel.messages add/remove diffs are filtered out — only operation.messages references matter
@@ -125,15 +140,6 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
     test('should ignore message added to channel but not referenced in operation', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/channel/add-message-not-in-operation')
       expectNoChanges(result)
-    })
-
-    test('should impact all operations on shared channel when changing address', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/channel/change-address-shared-channel')
-
-      // operation1 and operation2 both reference channel1, address changed
-      // both apihub operations should be impacted
-      expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
     })
 
     test('should not impact operation on other channel when changing address', async () => {
@@ -158,7 +164,7 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
     test('should report added server in channel', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/server/add-to-channel')
 
-      // channel-level servers diff (unclassified) + root servers diff (annotation)
+      // channel-level servers diff + root servers diff
       expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1, [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1, [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
@@ -166,7 +172,7 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
     test('should report removed server from channel', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/server/remove-from-channel')
 
-      // channel-level servers diff (unclassified) + root servers diff (annotation)
+      // channel-level servers diff + root servers diff
       expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1, [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1, [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
@@ -175,7 +181,7 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/server/change-in-channel')
 
       // Server host changed; server is at root level but referenced by channel
-      // root-level diff (annotation) + operation-level resolved diff (unclassified)
+      // root-level diff + operation-level resolved diff
       expect(result).toEqual(changesSummaryMatcher({ [ANNOTATION_CHANGE_TYPE]: 1, [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [ANNOTATION_CHANGE_TYPE]: 1, [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
