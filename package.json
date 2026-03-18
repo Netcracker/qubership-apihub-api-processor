@@ -32,7 +32,7 @@
   },
   "dependencies": {
     "@asyncapi/parser": "^3.0.0",
-    "@netcracker/qubership-apihub-api-diff": "feature-schema-rules",
+    "@netcracker/qubership-apihub-api-diff": "feature-first-reference-key-in-merged",
     "@netcracker/qubership-apihub-api-unifier": "feature-asyncapi-basic-e2e",
     "@netcracker/qubership-apihub-graphapi": "dev",
     "@netcracker/qubership-apihub-json-crawl": "dev",

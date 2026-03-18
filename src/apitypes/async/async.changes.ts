@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { isEmpty, isObject } from '../../utils'
+import { calculateAsyncOperationId, isEmpty, isObject } from '../../utils'
 import {
   aggregateDiffsWithRollup,
   apiDiff,
@@ -152,17 +152,25 @@ export const compareDocuments: DocumentsCompare = async (
     return otherDiffs
   }
 
-  // todo del after fix api-diff
-  function getOperationId(operationsMap: OperationsMap, asyncOperationId: string, index: number): string {
-    const keys = Object.keys(operationsMap)
-
-    const matchingOperations = keys.filter(key => {
-      const operation = operationsMap[key]
-      return operation?.previous?.metadata?.asyncOperationId === asyncOperationId || operation?.current?.metadata?.asyncOperationId === asyncOperationId
-    })
-    const operation = matchingOperations.find(matchingOperation => matchingOperation.endsWith(String(index + 1)))
-
-    return operation || matchingOperations[index]
+  /**
+   * Collects diffs for adding/removing message definitions in channel.messages.
+   * These are channel-level definition changes that should not propagate to operations,
+   * because what matters is whether the operation's own messages array references a message,
+   * not whether the channel defines it.
+   */
+  function collectChannelMessageDefinitionDiffs(operationChannel: AsyncAPIV3.ChannelObject): Set<Diff> {
+    const channelMessages = (operationChannel as Record<string, unknown>).messages
+    if (!channelMessages || !isObject(channelMessages)) {
+      return new Set()
+    }
+    const diffs = new Set<Diff>()
+    const messagesMeta = (channelMessages as WithDiffMetaRecord<object>)[DIFF_META_KEY]
+    if (messagesMeta) {
+      for (const key in messagesMeta) {
+        diffs.add(messagesMeta[key])
+      }
+    }
+    return diffs
   }
 
   // Iterate through operations in merged document
@@ -186,9 +194,7 @@ export const compareDocuments: DocumentsCompare = async (
 
       for (const [messageIndex, message] of messages.entries()) {
         const messageId = getAsyncMessageId(message)
-        // todo fix it
-        // const operationId = calculateAsyncOperationId(asyncOperationId, messageId)
-        const operationId = getOperationId(operationsMap, asyncOperationId, messageIndex)
+        const operationId = calculateAsyncOperationId(asyncOperationId, messageId)
         const {
           current,
           previous,
@@ -205,8 +211,9 @@ export const compareDocuments: DocumentsCompare = async (
           const allOperationDiffs = (operationObject as WithAggregatedDiffs<AsyncAPIV3.OperationObject>)[DIFFS_AGGREGATED_META_KEY] ?? []
 
           const otherMessageDiffs = collectExclusiveOtherMessageDiffs(messages, messageIndex)
+          const channelMessageDiffs = collectChannelMessageDefinitionDiffs(operationChannel as AsyncAPIV3.ChannelObject)
           operationDiffs = [
-            ...([...allOperationDiffs].filter(diff => !otherMessageDiffs.has(diff))),
+            ...([...allOperationDiffs].filter(diff => !otherMessageDiffs.has(diff) && !channelMessageDiffs.has(diff))),
             ...extractAsyncApiVersionDiff(merged),
             ...extractInfoDiffs(merged),
             ...extractIdDiff(merged),
