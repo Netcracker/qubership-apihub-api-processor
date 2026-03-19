@@ -8,19 +8,29 @@ channels:
     messages:
       message1:
         $ref: '#/components/messages/message1'
+      message2:
+        $ref: '#/components/messages/message2'
 operations:
-  new-operation1:
+  operation1:
     action: receive
     channel:
       $ref: '#/channels/channel1'
     messages:
       - $ref: '#/channels/channel1/messages/message1'
+      - $ref: '#/channels/channel1/messages/message2'
 components:
   messages:
     message1:
+      contentType: application/xml
       payload:
         type: object
         properties:
           userId:
             type: string
-
+    message2:
+      contentType: application/json
+      payload:
+        type: object
+        properties:
+          orderId:
+            type: string

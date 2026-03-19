@@ -4,12 +4,7 @@ info:
   version: 1.0.0
 channels:
   channel1:
-    address: address1
-    messages:
-      message1:
-        $ref: '#/components/messages/message1'
-  channel2:
-    address: address2
+    address: channel1
     messages:
       message1:
         $ref: '#/components/messages/message1'
@@ -20,15 +15,10 @@ operations:
       $ref: '#/channels/channel1'
     messages:
       - $ref: '#/channels/channel1/messages/message1'
-  operation2:
-    action: receive
-    channel:
-      $ref: '#/channels/channel2'
-    messages:
-      - $ref: '#/channels/channel2/messages/message1'
 components:
   messages:
     message1:
+      contentType: application/json
       payload:
         type: object
         properties:
