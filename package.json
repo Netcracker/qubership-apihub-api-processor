@@ -11,6 +11,7 @@
   ],
   "exports": {
     ".": {
+      "types": "./dist/cjs/src/index.d.ts",
       "import": "./dist/esm/apihub-builder.es.js",
       "require": "./dist/cjs/src/index.js"
     }
