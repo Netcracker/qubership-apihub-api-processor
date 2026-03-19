@@ -53,7 +53,6 @@ import {
   extractDefaultContentTypeDiff,
   extractIdDiff,
   extractInfoDiffs,
-  extractRootServersDiffs,
   getAsyncMessageId,
 } from './async.utils'
 
@@ -174,7 +173,7 @@ export const compareDocuments: DocumentsCompare = async (
   }
 
   // Iterate through operations in merged document
-  const { operations: asyncOperation} = merged
+  const { operations: asyncOperation } = merged
   if (asyncOperation && isObject(asyncOperation)) {
     for (const [asyncOperationId, operationData] of Object.entries(asyncOperation)) {
       if (!operationData || !isObject(operationData)) {
@@ -218,7 +217,6 @@ export const compareDocuments: DocumentsCompare = async (
             ...extractInfoDiffs(merged),
             ...extractIdDiff(merged),
             ...extractDefaultContentTypeDiff(merged),
-            ...extractRootServersDiffs(merged),
           ]
         }
         if (operationAddedOrRemoved) {

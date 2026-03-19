@@ -1,14 +1,9 @@
-
 import {
   buildChangelogPackageDefaultConfig,
   changesSummaryMatcher,
   numberOfImpactedOperationsMatcher,
 } from './helpers'
-import {
-  ANNOTATION_CHANGE_TYPE,
-  ASYNCAPI_API_TYPE,
-  BREAKING_CHANGE_TYPE,
-} from '../src'
+import { ANNOTATION_CHANGE_TYPE, ASYNCAPI_API_TYPE, BREAKING_CHANGE_TYPE, UNCLASSIFIED_CHANGE_TYPE } from '../src'
 
 /**
  * Tests for AsyncAPI diff deduplication.
@@ -78,13 +73,15 @@ describe('AsyncAPI deduplication tests', () => {
     })
 
     test('should count root server change once in changesSummary but impact all operations', async () => {
-      // Two operations. Root server host changed.
-      // Root-level server diff is extracted via extractRootServersDiffs() for every operation,
-      // but it's one unique change — changesSummary should count 1, impacted 2.
+      // Two operations on different channels, both channels reference servers.production.
+      // Root server host changed (old → new).
+      // Each scope (receive/send) gets its own unclassified diff via channel.servers aggregation.
+      // No root-level diffs — server diffs come only through channel aggregation.
+      // unclassified: 2 in summary (one per scope), impacted 2.
       const result = await buildChangelogPackageDefaultConfig('asyncapi-deduplication/root-server-change-multiple-operations')
 
-      expect(result).toEqual(changesSummaryMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [ANNOTATION_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
     })
   })
 

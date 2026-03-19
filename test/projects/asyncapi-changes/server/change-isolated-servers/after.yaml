@@ -3,21 +3,24 @@ info:
   title: Test AsyncAPI
   version: 1.0.0
 servers:
-  production:
-    host: new.example.com
+  server1:
+    protocol: amqp
+    host: new-api1.example.com
+  server2:
     protocol: kafka
+    host: api2.example.com
 channels:
   channel1:
     address: channel1
     servers:
-      - $ref: '#/servers/production'
+      - $ref: '#/servers/server1'
     messages:
       message1:
         $ref: '#/components/messages/message1'
   channel2:
     address: channel2
     servers:
-      - $ref: '#/servers/production'
+      - $ref: '#/servers/server2'
     messages:
       message2:
         $ref: '#/components/messages/message2'
