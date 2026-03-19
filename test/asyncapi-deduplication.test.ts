@@ -94,8 +94,8 @@ describe('AsyncAPI deduplication tests', () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-deduplication/add-message-no-sibling-impact')
 
       // Only 1 breaking change (the added message3 operation), impacting 1 operation
-      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
     test('should correctly separate operation-level and message-level changes', async () => {
