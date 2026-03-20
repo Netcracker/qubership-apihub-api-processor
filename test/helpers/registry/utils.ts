@@ -125,6 +125,19 @@ export async function saveEachOperation(
   }
 }
 
+export async function saveSearchTextFiles(
+  operations: Map<string, ApiOperation>,
+  basePath: string,
+): Promise<void> {
+  for (const operation of Array.from(operations.values())) {
+    if (!operation.searchText || !operation.search.searchTextFilePath) { continue }
+    const filePath = `${basePath}/${operation.search.searchTextFilePath}`
+    const dir = filePath.substring(0, filePath.lastIndexOf('/'))
+    await fs.mkdir(dir, { recursive: true })
+    await fs.writeFile(filePath, operation.searchText)
+  }
+}
+
 export async function saveInfo(
   config: BuildConfig,
   basePath: string,
@@ -216,17 +229,8 @@ export function getOperationsFileContent(
   updateHash = false,
 ): string {
   const result: PackageOperations = { operations: [] }
-  const SEARCH_SCOPES_MAP: Record<string, string> = {}
 
   for (const operation of operationsMap.values()) {
-    const searchScopes = Object
-      .entries(operation.searchScopes)
-      .reduce((acc, next) => {
-        const [key, value] = next
-        acc[key] = [...value.values()].join(' ')
-        return acc
-      }, { ...SEARCH_SCOPES_MAP })
-
     result.operations.push({
       operationId: operation.operationId,
       documentId: operation.documentId,
@@ -235,7 +239,7 @@ export function getOperationsFileContent(
       apiKind: operation.apiKind,
       apiType: operation.apiType,
       metadata: operation.metadata,
-      searchScopes: searchScopes,
+      search: operation.search,
       deprecatedItems: operation.deprecatedItems,
       deprecatedInfo: operation.deprecatedInfo,
       deprecatedInPreviousVersions: operation.deprecatedInPreviousVersions,

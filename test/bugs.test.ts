@@ -113,7 +113,7 @@ describe('Operation Bugs', () => {
     expect(result.notifications.length).toEqual(0)
   })
 
-  test('search scope should contain information from both properties', async () => {
+  test('should use operation data as search text for REST operations', async () => {
     const editor = await Editor.openProject('bugs', bugsPackage)
 
     await bugsPackage.publish('bugs', {
@@ -135,9 +135,8 @@ describe('Operation Bugs', () => {
         publish: true,
       }],
     })
-    const scope = result.operations.get('path1-get')?.searchScopes['response']
-    expect(scope?.has('prop1 description')).toBeTruthy()
-    expect(scope?.has('prop2 description')).toBeTruthy()
+    const search = result.operations.get('path1-get')?.search
+    expect(search).toEqual({ useOperationDataAsSearchText: true })
   })
 
   test('the final document should not have unused components', async () => {

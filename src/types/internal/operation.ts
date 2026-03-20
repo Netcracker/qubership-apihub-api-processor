@@ -23,6 +23,11 @@ import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 
 export type SearchScopes<T extends string = string> = Record<T, Set<string>>
 
+export interface OperationSearch {
+  useOperationDataAsSearchText: boolean
+  searchTextFilePath?: string
+}
+
 export interface ApiOperation<T = any, M = any> {
   operationId: string
   documentId: string
@@ -43,7 +48,8 @@ export interface ApiOperation<T = any, M = any> {
   // [key: string]: unknown
 
   title: string
-  searchScopes: SearchScopes
+  search: OperationSearch
+  searchText?: string
   // refPackage?: PackageRef
   // changes?: OperationChanges[]
   // changeSummary?: ChangeSummary
