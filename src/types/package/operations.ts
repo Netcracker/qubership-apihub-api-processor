@@ -31,6 +31,8 @@ export interface PackageOperation {
   deprecated: boolean
   apiKind: ApihubApiCompatibilityKind
   metadata: RestMetadata | GraphQLMetaData
+  // TODO: remove after search v4 is adopted irrevocably
+  searchScopes: Record<string, string>
   search: OperationSearch
   tags: string[]
 

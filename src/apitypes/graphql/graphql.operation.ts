@@ -109,6 +109,7 @@ export const buildGraphQLOperation = (
     },
     tags: [type],
     data: undefined,  // we do not want to save single-operation specs for GraphQL for performance reasons
+    searchScopes: {}, // TODO: remove after search v4 is adopted irrevocably
     search: {
       useOperationDataAsSearchText: false,
       searchTextFilePath,

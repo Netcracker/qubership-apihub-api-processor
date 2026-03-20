@@ -113,7 +113,7 @@ describe('Operation Bugs', () => {
     expect(result.notifications.length).toEqual(0)
   })
 
-  test('should use operation data as search text for REST operations', async () => {
+  test('should have searchScopes and search for REST operations', async () => {
     const editor = await Editor.openProject('bugs', bugsPackage)
 
     await bugsPackage.publish('bugs', {
@@ -135,8 +135,13 @@ describe('Operation Bugs', () => {
         publish: true,
       }],
     })
-    const search = result.operations.get('path1-get')?.search
-    expect(search).toEqual({ useOperationDataAsSearchText: true })
+    const operation = result.operations.get('path1-get')
+    // Legacy searchScopes
+    const scope = operation?.searchScopes['response']
+    expect(scope?.has('prop1 description')).toBeTruthy()
+    expect(scope?.has('prop2 description')).toBeTruthy()
+    // New search field
+    expect(operation?.search).toEqual({ useOperationDataAsSearchText: true })
   })
 
   test('the final document should not have unused components', async () => {

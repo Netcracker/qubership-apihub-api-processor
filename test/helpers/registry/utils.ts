@@ -229,8 +229,17 @@ export function getOperationsFileContent(
   updateHash = false,
 ): string {
   const result: PackageOperations = { operations: [] }
+  const SEARCH_SCOPES_MAP: Record<string, string> = {}
 
   for (const operation of operationsMap.values()) {
+    const searchScopes = Object
+      .entries(operation.searchScopes)
+      .reduce((acc, next) => {
+        const [key, value] = next
+        acc[key] = [...value.values()].join(' ')
+        return acc
+      }, { ...SEARCH_SCOPES_MAP })
+
     result.operations.push({
       operationId: operation.operationId,
       documentId: operation.documentId,
@@ -239,6 +248,7 @@ export function getOperationsFileContent(
       apiKind: operation.apiKind,
       apiType: operation.apiType,
       metadata: operation.metadata,
+      searchScopes: searchScopes,
       search: operation.search,
       deprecatedItems: operation.deprecatedItems,
       deprecatedInfo: operation.deprecatedInfo,

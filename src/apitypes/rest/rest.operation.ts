@@ -14,13 +14,23 @@
  * limitations under the License.
  */
 
-import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
+import { JsonPath, syncCrawl } from '@netcracker/qubership-apihub-json-crawl'
 import { OpenAPIV3 } from 'openapi-types'
+import { operationRules } from './rest.rules'
 import type * as TYPE from './rest.types'
 import { RestOperationData } from './rest.types'
-import { BuildConfig, DeprecateItem, NotificationMessage, OperationId } from '../../types'
+import {
+  BuildConfig,
+  CrawlRule,
+  DeprecateItem,
+  NotificationMessage,
+  OperationCrawlState,
+  OperationId,
+  SearchScopes,
+} from '../../types'
 import {
   _calculateRestOperationIdV1,
+  buildSearchScope,
   calculateRestOperationId,
   calculateRestOperationTitle,
   extractSymbolProperty,
@@ -87,6 +97,30 @@ export const buildRestOperation = (
   const effectiveSingleOperationSpec = createSingleOperationSpec(effectiveDocument, path, method, openapi)
   const refsOnlySingleOperationSpec = createSingleOperationSpec(refsOnlyDocument, path, method, openapi)
   const { tags = [] } = effectiveOperationObject
+
+  // TODO: remove after search v4 is adopted irrevocably
+  const scopes: SearchScopes = {}
+  syncDebugPerformance('[SearchScopes]', () => {
+    const handledObject = new Set<unknown>()
+    syncCrawl<OperationCrawlState, CrawlRule>(
+      effectiveOperationObject,
+      ({ key, value, rules }) => {
+        if (typeof key === 'symbol') {
+          return { done: true }
+        }
+        if (handledObject.has(value)) {
+          return { done: true }
+        }
+        handledObject.add(value)
+        if (!rules) {
+          return { done: true }
+        }
+
+        buildSearchScope(key, value, rules, scopes)
+      },
+      { rules: operationRules },
+    )
+  }, debugCtx)
 
   const deprecatedItems: DeprecateItem[] = []
 
@@ -157,6 +191,7 @@ export const buildRestOperation = (
     },
     tags: Array.isArray(tags) ? tags : [tags],
     data: specWithSingleOperation,
+    searchScopes: scopes, // TODO: remove after search v4 is adopted irrevocably
     search: { useOperationDataAsSearchText: true },
     deprecatedItems,
     models,
