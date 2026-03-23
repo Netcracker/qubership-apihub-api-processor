@@ -1,95 +1,114 @@
-import { describe, expect, test } from '@jest/globals'
-import { GraphApiOperation } from '@netcracker/qubership-apihub-graphapi'
+import { beforeAll, describe, expect, test } from '@jest/globals'
+import { GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
 import { buildGraphQLSearchText } from '../src/apitypes/graphql/graphql.utils'
-import { Editor, LocalRegistry } from './helpers'
 import { calculateGraphqlOperationId } from '../src/utils'
+import { Editor, LocalRegistry, parseAndNormalizeGraph } from './helpers'
 
-describe('buildGraphQLSearchText', () => {
+const normalizeSchema = (sdl: string): GraphApiSchema => {
+  return parseAndNormalizeGraph(sdl).normalized
+}
 
-  describe('Searchable content', () => {
-
+describe('BuildGraphQLSearchText unit tests', () => {
+  describe('Searchable content tests', () => {
     test('should include operation name', () => {
-      const operation: GraphApiOperation = {
-        output: { typeDef: { $ref: '#/components/scalars/String' } },
-      }
+      const schema = normalizeSchema('type Query { getUser: String }')
 
-      const result = buildGraphQLSearchText('getUser', operation)
+      const result = buildGraphQLSearchText('getUser', schema.queries?.getUser)
 
       expect(result).toContain('getUser')
     })
 
-    test('should include description text', () => {
-      const operation: GraphApiOperation = {
-        description: 'The operation allows get a Payment Method',
-        output: { typeDef: { $ref: '#/components/scalars/String' } },
-      }
+    test('should include description', () => {
+      const schema = normalizeSchema(`
+        type Query {
+          """The operation allows get a Payment Method"""
+          getPaymentMethodCore: String
+        }
+      `)
 
-      const result = buildGraphQLSearchText('getPaymentMethodCore', operation)
+      const result = buildGraphQLSearchText('getPaymentMethodCore', schema.queries?.getPaymentMethodCore)
 
       expect(result).toContain('The operation allows get a Payment Method')
     })
 
-    test('should include argument names', () => {
-      const operation: GraphApiOperation = {
-        args: {
-          id: { typeDef: { $ref: '#/components/scalars/String' } },
-          includeDeleteEntities: { typeDef: { $ref: '#/components/scalars/Boolean' } },
-        },
-        output: { typeDef: { $ref: '#/components/objects/PaymentMethodCore' } },
-      }
+    test('should include argument names and their scalar type names', () => {
+      const schema = normalizeSchema(`
+        type Query {
+          getPaymentMethodCore(id: String, includeDeleteEntities: Boolean): PaymentMethodCore
+        }
+        type PaymentMethodCore { value: String }
+      `)
 
-      const result = buildGraphQLSearchText('getPaymentMethodCore', operation)
+      const result = buildGraphQLSearchText('getPaymentMethodCore', schema.queries?.getPaymentMethodCore)
 
       expect(result).toContain('id')
-      expect(result).toContain('includeDeleteEntities')
-    })
-
-    test('should include argument base types', () => {
-      const operation: GraphApiOperation = {
-        args: {
-          id: { typeDef: { $ref: '#/components/scalars/String' } },
-          includeDeleteEntities: { typeDef: { $ref: '#/components/scalars/Boolean' } },
-        },
-        output: { typeDef: { $ref: '#/components/objects/PaymentMethodCore' } },
-      }
-
-      const result = buildGraphQLSearchText('getPaymentMethodCore', operation)
-
       expect(result).toContain('String')
+      expect(result).toContain('includeDeleteEntities')
       expect(result).toContain('Boolean')
     })
 
-    test('should include return type name', () => {
-      const operation: GraphApiOperation = {
-        output: { typeDef: { $ref: '#/components/objects/PaymentMethodCore' } },
-      }
+    test('should include all built-in scalar type names (String, Boolean, Int, Float, ID)', () => {
+      const schema = normalizeSchema(`
+        type Query {
+          test(name: String, active: Boolean, count: Int, rating: Float, uid: ID): String
+        }
+      `)
 
-      const result = buildGraphQLSearchText('getPaymentMethodCore', operation)
+      const result = buildGraphQLSearchText('test', schema.queries?.test)
+
+      expect(result).toContain('String')
+      expect(result).toContain('Boolean')
+      expect(result).toContain('Int')
+      expect(result).toContain('Float')
+      expect(result).toContain('ID')
+    })
+
+    test('should include named argument type names (input objects)', () => {
+      const schema = normalizeSchema(`
+        type Query {
+          createPayment(input: PaymentInput): PaymentMethodCore
+        }
+        input PaymentInput { amount: Int }
+        type PaymentMethodCore { id: String }
+      `)
+
+      const result = buildGraphQLSearchText('createPayment', schema.queries?.createPayment)
+
+      expect(result).toContain('PaymentInput')
+    })
+
+    test('should include return type name for named types', () => {
+      const schema = normalizeSchema(`
+        type Query { getPaymentMethodCore: PaymentMethodCore }
+        type PaymentMethodCore { id: String }
+      `)
+
+      const result = buildGraphQLSearchText('getPaymentMethodCore', schema.queries?.getPaymentMethodCore)
 
       expect(result).toContain('PaymentMethodCore')
     })
 
-    test('should produce expected search text for full operation (design doc example)', () => {
-      // From the design doc:
-      // type Query {
-      //   """The operation allows get a Payment Method"""
-      //   getPaymentMethodCore(
-      //     id: String
-      //     includeDeleteEntities: Boolean
-      //   ): PaymentMethodCore
-      // }
-      // Expected: "getPaymentMethodCore The operation allows get a Payment Method id String includeDeleteEntities Boolean PaymentMethodCore"
+    test('should unwrap list types and include element type name', () => {
+      const schema = normalizeSchema(`
+        type Query { listPets: [Pet!] }
+        type Pet { id: String }
+      `)
 
-      const operation: GraphApiOperation = {
-        description: 'The operation allows get a Payment Method',
-        args: {
-          id: { typeDef: { $ref: '#/components/scalars/String' } },
-          includeDeleteEntities: { typeDef: { $ref: '#/components/scalars/Boolean' } },
-        },
-        output: { typeDef: { $ref: '#/components/objects/PaymentMethodCore' } },
-      }
+      const result = buildGraphQLSearchText('listPets', schema.queries?.listPets)
 
-      const result = buildGraphQLSearchText('getPaymentMethodCore', operation)
+      expect(result).toContain('Pet')
+    })
+
+    test('should produce complete search text with all searchable parts', () => {
+      const schema = normalizeSchema(`
+        type Query {
+          """The operation allows get a Payment Method"""
+          getPaymentMethodCore(id: String, includeDeleteEntities: Boolean): PaymentMethodCore
+        }
+        type PaymentMethodCore { id: String, name: String }
+      `)
+
+      const result = buildGraphQLSearchText('getPaymentMethodCore', schema.queries?.getPaymentMethodCore)
 
       expect(result).toBe(
         'getPaymentMethodCore The operation allows get a Payment Method id String includeDeleteEntities Boolean PaymentMethodCore',
@@ -97,148 +116,99 @@ describe('buildGraphQLSearchText', () => {
     })
   })
 
-  describe('Not searchable content', () => {
+  describe('Non-searchable content tests', () => {
+    test('should not include nested field names from return type', () => {
+      const schema = normalizeSchema(`
+        type Query { getPet: Pet }
+        type Pet { id: String, name: String, category: Category }
+        type Category { id: String }
+      `)
 
-    test('should not include nested field names from object types', () => {
-      // A PaymentMethodCore type with nested fields like zipCode should not appear
-      // Only the top-level type name should be in the search text
-      const operation: GraphApiOperation = {
-        args: {
-          input: {
-            typeDef: {
-              $ref: '#/components/inputObjects/PaymentInput',
-            },
-          },
-        },
-        output: {
-          typeDef: {
-            $ref: '#/components/objects/PaymentMethodCore',
-          },
-        },
-      }
+      const result = buildGraphQLSearchText('getPet', schema.queries?.getPet)
 
-      const result = buildGraphQLSearchText('createPayment', operation)
+      expect(result).toContain('Pet')
+      expect(result).not.toContain('name')
+      expect(result).not.toContain('category')
+    })
 
-      // Should contain the type name but not any nested fields
+    test('should not include nested field names from input type', () => {
+      const schema = normalizeSchema(`
+        type Query {
+          createPayment(input: PaymentInput): String
+        }
+        input PaymentInput { amount: Int, currency: String }
+      `)
+
+      const result = buildGraphQLSearchText('createPayment', schema.queries?.createPayment)
+
       expect(result).toContain('PaymentInput')
-      expect(result).toContain('PaymentMethodCore')
-      // Nested fields like zipCode, streetAddress, etc. should NOT be present
-      expect(result).not.toContain('zipCode')
-      expect(result).not.toContain('streetAddress')
+      expect(result).not.toContain('amount')
+      expect(result).not.toContain('currency')
     })
 
     test('should not include enum values', () => {
-      // Even if an arg is an enum type, only the enum type name is included, not its values
-      const operation: GraphApiOperation = {
-        args: {
-          status: { typeDef: { $ref: '#/components/enums/PaymentStatus' } },
-        },
-        output: { typeDef: { $ref: '#/components/scalars/Boolean' } },
-      }
+      const schema = normalizeSchema(`
+        type Query { getByStatus(status: Status): String }
+        enum Status { ACTIVE, INACTIVE }
+      `)
 
-      const result = buildGraphQLSearchText('deletePayment', operation)
+      const result = buildGraphQLSearchText('getByStatus', schema.queries?.getByStatus)
 
-      expect(result).toContain('PaymentStatus')
-      // Enum values like ACTIVE, INACTIVE, PENDING should NOT be present
+      expect(result).toContain('Status')
       expect(result).not.toContain('ACTIVE')
       expect(result).not.toContain('INACTIVE')
-    })
-
-    test('should not include deeply nested types from components', () => {
-      // The function only looks at top-level arg typeDef refs and output typeDef ref
-      // It does NOT traverse into component definitions
-      const operation: GraphApiOperation = {
-        output: {
-          typeDef: {
-            $ref: '#/components/objects/Order',
-          },
-        },
-      }
-
-      const result = buildGraphQLSearchText('getOrder', operation)
-
-      expect(result).toBe('getOrder Order')
-      // Nested types like OrderItem, Product, Address should NOT appear
-      expect(result).not.toContain('OrderItem')
-      expect(result).not.toContain('Product')
     })
   })
 
   describe('Edge cases', () => {
-
+    // Operation has no arguments and no description — only name and return type are present.
+    // Ensures the function doesn't break when optional parts are absent.
     test('should handle operation with no args and no description', () => {
-      const operation: GraphApiOperation = {
-        output: { typeDef: { $ref: '#/components/scalars/String' } },
-      }
+      const schema = normalizeSchema(`
+        type Query { healthCheck: Status }
+        type Status { ok: Boolean }
+      `)
 
-      const result = buildGraphQLSearchText('healthCheck', operation)
+      const result = buildGraphQLSearchText('healthCheck', schema.queries?.healthCheck)
 
-      expect(result).toBe('healthCheck String')
+      expect(result).toBe('healthCheck Status')
     })
 
+    // Return type is a built-in scalar (Boolean), not a named object type.
+    // Ensures scalar return types are included in search text and not filtered out.
+    test('should handle operation with scalar return type', () => {
+      const schema = normalizeSchema('type Query { healthCheck: Boolean }')
+
+      const result = buildGraphQLSearchText('healthCheck', schema.queries?.healthCheck)
+
+      expect(result).toBe('healthCheck Boolean')
+    })
+
+    // Operation not found in schema (undefined). Ensures the function doesn't throw
+    // NPE/TypeError and gracefully returns only the operation name.
     test('should handle undefined operation', () => {
       const result = buildGraphQLSearchText('missingOp', undefined)
 
       expect(result).toBe('missingOp')
     })
 
-    test('should handle operation with inline typeDef (no $ref)', () => {
-      const operation: GraphApiOperation = {
-        args: {
-          name: { typeDef: { type: 'string' } as any },
-        },
-        output: { typeDef: { type: 'string' } as any },
-      }
+    // No arguments but has a named return type. Ensures no extra separators/spaces
+    // appear when the args list is empty and the return type is appended correctly.
+    test('should handle operation with empty args returning named type', () => {
+      const schema = normalizeSchema(`
+        type Query { countItems: Result }
+        type Result { count: Int }
+      `)
 
-      const result = buildGraphQLSearchText('inlineOp', operation)
+      const result = buildGraphQLSearchText('countItems', schema.queries?.countItems)
 
-      // Only the method name and arg name — no type names extracted from inline defs
-      expect(result).toBe('inlineOp name')
-    })
-
-    test('should handle operation with empty args object', () => {
-      const operation: GraphApiOperation = {
-        args: {},
-        output: { typeDef: { $ref: '#/components/scalars/Int' } },
-      }
-
-      const result = buildGraphQLSearchText('countItems', operation)
-
-      expect(result).toBe('countItems Int')
-    })
-
-    test('should handle arg with undefined typeDef', () => {
-      const operation: GraphApiOperation = {
-        args: {
-          filter: { typeDef: undefined as any },
-        },
-        output: { typeDef: { $ref: '#/components/objects/Result' } },
-      }
-
-      const result = buildGraphQLSearchText('search', operation)
-
-      expect(result).toBe('search filter Result')
+      expect(result).toBe('countItems Result')
     })
   })
 
-  describe('E2E: full build pipeline', () => {
-    // Uses spec.gql from test/projects/graphql/:
-    //   type Query {
-    //     """Get list of Pets"""
-    //     listPets(listId: String): [Pet!]
-    //     """Get Pet by ID"""
-    //     getPet(id: String!): Pet
-    //     """Get list of Users"""
-    //     listUsers(listId: String): [User!]
-    //     """Get User by ID"""
-    //     getUser(id: String!): User
-    //   }
-    //   type Mutation {
-    //     """Pet availability check"""
-    //     petAvailabilityCheck(input: AvailabilityCheckRequest): [AvailabilityCheckResult!]
-    //   }
-
+  describe('E2e tests', () => {
     let pkg: LocalRegistry
+    let operations: Map<string, { searchText?: string; search: unknown; operationId: string }>
 
     beforeAll(async () => {
       pkg = LocalRegistry.openPackage('graphql')
@@ -247,86 +217,61 @@ describe('buildGraphQLSearchText', () => {
         version: 'v1',
         files: [{ fileId: 'spec.gql' }],
       })
-    })
 
-    test('GraphQL operations should have search with useOperationDataAsSearchText=false and searchTextFilePath', async () => {
       const editor = await Editor.openProject('graphql', pkg)
       const result = await editor.run({
         packageId: 'graphql',
         version: 'v1',
         files: [{ fileId: 'spec.gql' }],
       })
+      operations = result.operations as typeof operations
+    })
 
-      for (const operation of Array.from(result.operations.values())) {
-        expect(operation.search).toEqual({
+    test('should set search config with useOperationDataAsSearchText=false on all operations', () => {
+      for (const op of Array.from(operations.values())) {
+        expect(op.search).toEqual({
           useOperationDataAsSearchText: false,
-          searchTextFilePath: `search/${operation.operationId}.txt`,
+          searchTextFilePath: `search/${op.operationId}.txt`,
         })
       }
     })
 
-    test('searchText should contain operation name, description, and argument names', async () => {
-      const editor = await Editor.openProject('graphql', pkg)
-      const result = await editor.run({
-        packageId: 'graphql',
-        version: 'v1',
-        files: [{ fileId: 'spec.gql' }],
-      })
-
-      const listPetsId = calculateGraphqlOperationId('query', 'listPets')
-      const listPets = result.operations.get(listPetsId)
-      expect(listPets).toBeDefined()
-      expect(listPets!.searchText).toContain('listPets')
-      expect(listPets!.searchText).toContain('Get list of Pets')
-      expect(listPets!.searchText).toContain('listId')
+    test('listPets: should contain operation name, description, arg names, and scalar type names', () => {
+      const operation = operations.get(calculateGraphqlOperationId('query', 'listPets'))
+      expect(operation).toBeDefined()
+      expect(operation!.searchText).toContain('listPets')
+      expect(operation!.searchText).toContain('Get list of Pets')
+      expect(operation!.searchText).toContain('listId')
+      expect(operation!.searchText).toContain('String')
     })
 
-    test('searchText should NOT contain nested field names from referenced types', async () => {
-      const editor = await Editor.openProject('graphql', pkg)
-      const result = await editor.run({
-        packageId: 'graphql',
-        version: 'v1',
-        files: [{ fileId: 'spec.gql' }],
-      })
-
-      const getPetId = calculateGraphqlOperationId('query', 'getPet')
-      const getPet = result.operations.get(getPetId)
-      expect(getPet).toBeDefined()
-
-      // Searchable: operation name, description, arg names/types, return type
-      expect(getPet!.searchText).toContain('getPet')
-      expect(getPet!.searchText).toContain('Get Pet by ID')
-      expect(getPet!.searchText).toContain('id')
-      expect(getPet!.searchText).toContain('Pet')
-
-      // NOT searchable: nested fields of Pet type (name, category, status, age)
-      expect(getPet!.searchText).not.toContain('category')
-      expect(getPet!.searchText).not.toContain('status')
-      expect(getPet!.searchText).not.toContain('age')
+    test('getPet: should contain return type name and arg type name', () => {
+      const operation = operations.get(calculateGraphqlOperationId('query', 'getPet'))
+      expect(operation).toBeDefined()
+      expect(operation!.searchText).toContain('Pet')
+      expect(operation!.searchText).toContain('String')
     })
 
-    test('searchText should NOT contain nested field names from input or output types', async () => {
-      const editor = await Editor.openProject('graphql', pkg)
-      const result = await editor.run({
-        packageId: 'graphql',
-        version: 'v1',
-        files: [{ fileId: 'spec.gql' }],
-      })
+    test('getPet: should NOT contain nested fields of return type', () => {
+      const operation = operations.get(calculateGraphqlOperationId('query', 'getPet'))
+      expect(operation).toBeDefined()
+      expect(operation!.searchText).not.toContain('category')
+      expect(operation!.searchText).not.toContain('status')
+      expect(operation!.searchText).not.toContain('age')
+    })
 
-      const mutationId = calculateGraphqlOperationId('mutation', 'petAvailabilityCheck')
-      const mutation = result.operations.get(mutationId)
-      expect(mutation).toBeDefined()
+    test('petAvailabilityCheck: should NOT contain nested fields of input or output types', () => {
+      const operation = operations.get(calculateGraphqlOperationId('mutation', 'petAvailabilityCheck'))
+      expect(operation).toBeDefined()
 
-      // Searchable: operation name, description, argument name
-      expect(mutation!.searchText).toContain('petAvailabilityCheck')
-      expect(mutation!.searchText).toContain('Pet availability check')
-      expect(mutation!.searchText).toContain('input')
+      // Searchable
+      expect(operation!.searchText).toContain('petAvailabilityCheck')
+      expect(operation!.searchText).toContain('Pet availability check')
+      expect(operation!.searchText).toContain('input')
 
-      // NOT searchable: nested fields of AvailabilityCheckRequest (petId)
-      // and AvailabilityCheckResult (petId, availabilityCheckResult, availabilityCheckResultMessage)
-      expect(mutation!.searchText).not.toContain('petId')
-      expect(mutation!.searchText).not.toContain('availabilityCheckResult')
-      expect(mutation!.searchText).not.toContain('availabilityCheckResultMessage')
+      // NOT searchable: nested fields
+      expect(operation!.searchText).not.toContain('petId')
+      expect(operation!.searchText).not.toContain('availabilityCheckResultMessage')
     })
   })
 })

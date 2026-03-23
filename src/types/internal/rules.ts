@@ -20,7 +20,7 @@ import { SearchScopes } from './operation'
 //todo: change path type after deprecated items for graphql will be done
 export type DeprecatedAnnotateFunc = (source: object, path: JsonPath) => string
 
-// TODO: remove after search v4 is adopted irrevocably
+// TODO: remove after new search is adopted irrevocably
 export interface OperationCrawlState {
   scopes: SearchScopes    // search scopes
   parentRefs: string[]    // parent refs list

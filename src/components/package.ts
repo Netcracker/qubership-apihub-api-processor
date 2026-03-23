@@ -235,7 +235,7 @@ const createExportDocumentDataFiles = async (zip: ZipTool, documents: ExportDocu
 
 const createOperationsFile = (zip: ZipTool, operations: Map<string, ApiOperation>): void => {
   const data: PackageOperations = { operations: [] }
-  // TODO: remove searchScopes serialization after search v4 is adopted irrevocably
+  // TODO: remove searchScopes serialization after new search is adopted irrevocably
   const SEARCH_SCOPES_MAP: Record<string, string> = {}
 
   for (const operation of operations.values()) {

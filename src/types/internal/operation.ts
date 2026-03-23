@@ -21,7 +21,7 @@ import { GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
 import { ApihubApiCompatibilityKind } from '../../consts'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 
-// TODO: remove after search v4 is adopted irrevocably
+// TODO: remove after new search is adopted irrevocably
 export type SearchScopes<T extends string = string> = Record<T, Set<string>>
 
 export interface OperationSearch {
@@ -49,7 +49,7 @@ export interface ApiOperation<T = any, M = any> {
   // [key: string]: unknown
 
   title: string
-  // TODO: remove after search v4 is adopted irrevocably
+  // TODO: remove after new search is adopted irrevocably
   searchScopes: SearchScopes
   search: OperationSearch
   searchText?: string
