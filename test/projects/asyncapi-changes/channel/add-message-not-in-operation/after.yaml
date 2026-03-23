@@ -21,18 +21,13 @@ components:
   messages:
     message1:
       payload:
-        $ref: '#/components/schemas/Message1Payload'
+        type: object
+        properties:
+          userId:
+            type: string
     message2:
       payload:
-        $ref: '#/components/schemas/Message2Payload'
-  schemas:
-    Message1Payload:
-      type: object
-      properties:
-        userId:
-          type: string
-    Message2Payload:
-      type: object
-      properties:
-        orderId:
-          type: integer
+        type: object
+        properties:
+          orderId:
+            type: string

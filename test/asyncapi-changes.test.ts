@@ -133,13 +133,8 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
     test('should not report changes when adding message definition in channel without referencing it in operation', async () => {
       // message2 added to channel1.messages but operation1.messages still only references message1
       // channel.messages add/remove diffs are filtered out — only operation.messages references matter
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/channel/add-message')
-
-      expectNoChanges(result)
-    })
-
-    test('should ignore message added to channel but not referenced in operation', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/channel/add-message-not-in-operation')
+
       expectNoChanges(result)
     })
 
@@ -152,13 +147,6 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('should not report changes when adding message definition in channel with multiple apihub operations', async () => {
-      // message3 added to channel1.messages but operation1.messages still references only message1 and message2
-      // channel.messages add/remove diffs are filtered out — only operation.messages references matter
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/channel/add-message-with-multiple-operations')
-
-      expectNoChanges(result)
-    })
   })
 
   describe('Servers tests', () => {

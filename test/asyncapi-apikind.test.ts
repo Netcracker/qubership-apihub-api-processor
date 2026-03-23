@@ -6,7 +6,7 @@ import {
 } from '../src'
 import { calculateAsyncApiKind } from '../src/apitypes/async/async.utils'
 import { buildPackageWithDefaultConfig } from './helpers'
-import { createAsyncApiCompatibilityScopeFunction } from '../src/components/compare/bwc.validation'
+import { createAsyncApiCompatibilityScopeFunction } from '../src/components/compare/bwc.validation.async'
 import {
   API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE,
   API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE,

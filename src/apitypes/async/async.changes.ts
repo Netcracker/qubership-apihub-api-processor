@@ -46,7 +46,7 @@ import {
   getOperationTags,
   OperationsMap,
 } from '../../components'
-import { createAsyncApiCompatibilityScopeFunction } from '../../components/compare/bwc.validation'
+import { createAsyncApiCompatibilityScopeFunction } from '../../components/compare/bwc.validation.async'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import {
   extractAsyncApiVersionDiff,
@@ -173,9 +173,9 @@ export const compareDocuments: DocumentsCompare = async (
   }
 
   // Iterate through operations in merged document
-  const { operations: asyncOperation } = merged
-  if (asyncOperation && isObject(asyncOperation)) {
-    for (const [asyncOperationId, operationData] of Object.entries(asyncOperation)) {
+  const { operations: asyncOperations } = merged
+  if (asyncOperations && isObject(asyncOperations)) {
+    for (const [asyncOperationId, operationData] of Object.entries(asyncOperations)) {
       if (!operationData || !isObject(operationData)) {
         continue
       }
@@ -223,7 +223,7 @@ export const compareDocuments: DocumentsCompare = async (
           // Level 1: message added/removed within an existing operation (analogous to REST method within path)
           const messageAddedOrRemovedDiff = (messages as WithDiffMetaRecord<AsyncAPIV3.MessageObject[]>)[DIFF_META_KEY]?.[messageIndex]
           // Level 2: entire operation added/removed (analogous to REST entire path)
-          const operationAddedOrRemovedDiff = (asyncOperation as WithDiffMetaRecord<AsyncAPIV3.OperationsObject>)[DIFF_META_KEY]?.[asyncOperationId]
+          const operationAddedOrRemovedDiff = (asyncOperations as WithDiffMetaRecord<AsyncAPIV3.OperationsObject>)[DIFF_META_KEY]?.[asyncOperationId]
           const diff = messageAddedOrRemovedDiff ?? operationAddedOrRemovedDiff
           if (diff) {
             operationDiffs.push(diff)
