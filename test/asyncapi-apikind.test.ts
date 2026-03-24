@@ -1,4 +1,5 @@
 import {
+  API_KIND_SPECIFICATION_EXTENSION,
   APIHUB_API_COMPATIBILITY_KIND_BWC,
   APIHUB_API_COMPATIBILITY_KIND_NO_BWC,
   ApihubApiCompatibilityKind,
@@ -32,122 +33,141 @@ describe('AsyncAPI apiKind calculation', () => {
     })
 
     describe('Changelog backward compatibility scope function', () => {
-      const scopeFunction = createAsyncApiCompatibilityScopeFunction()
+      const createChannel = (apiKind: string | undefined): {
+        address: string
+        [API_KIND_SPECIFICATION_EXTENSION]?: ApihubApiCompatibilityKind
+      } => {
+        return apiKind
+          ? { address: 'channel1', [API_KIND_SPECIFICATION_EXTENSION]: apiKind as ApihubApiCompatibilityKind }
+          : { address: 'channel1' }
+      }
+
+      const createOperation = (apiKind: string | undefined): {
+        action: string
+        channel: unknown
+        [API_KIND_SPECIFICATION_EXTENSION]?: ApihubApiCompatibilityKind
+      } => {
+        return apiKind
+          ? {
+            action: 'receive',
+            [API_KIND_SPECIFICATION_EXTENSION]: apiKind as ApihubApiCompatibilityKind,
+            channel: {},
+          }
+          : { action: 'receive', channel: {} }
+      }
+
+      // short names
+      const BWC = API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
+      const NOT_BWC = API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
 
       describe('Root level', () => {
-        it('should return BWC for root path', () => {
-          expect(scopeFunction([], {}, {})).toBe(API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE)
-        })
-
-        it('should return BWC for undefined path', () => {
-          expect(scopeFunction(undefined, {}, {})).toBe(API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE)
+        it.each([
+          // prev    | curr    | expected
+          ['bwc',     'bwc',    BWC],
+          ['bwc',     'no-bwc', NOT_BWC],
+          ['no-bwc',  'bwc',    NOT_BWC],
+          ['no-bwc',  'no-bwc', NOT_BWC],
+        ])('prev: %s, curr: %s → should return %s', (prev, curr, expected) => {
+          const scopeFunction = createAsyncApiCompatibilityScopeFunction(
+            prev as ApihubApiCompatibilityKind,
+            curr as ApihubApiCompatibilityKind,
+          )
+          expect(scopeFunction([], {}, {})).toBe(expected)
         })
       })
 
       describe('Channels scope', () => {
-        it('should return undefined when channel has no x-api-kind', () => {
-          const before = { address: 'channel1' }
-          const after = { address: 'channel1' }
-          expect(scopeFunction(['channels', 'ch1'], before, after)).toBeUndefined()
-        })
-
-        it('should return no-BWC when before channel has x-api-kind no-BWC', () => {
-          const before = { address: 'channel1', 'x-api-kind': 'no-BWC' }
-          const after = { address: 'channel1' }
-          expect(scopeFunction(['channels', 'ch1'], before, after)).toBe(API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE)
-        })
-
-        it('should return no-BWC when after channel has x-api-kind no-BWC', () => {
-          const before = { address: 'channel1' }
-          const after = { address: 'channel1', 'x-api-kind': 'no-BWC' }
-          expect(scopeFunction(['channels', 'ch1'], before, after)).toBe(API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE)
-        })
-
-        it('should return no-BWC when before channel BWC and after channel no-BWC', () => {
-          const before = { address: 'channel1', 'x-api-kind': 'BWC'}
-          const after = { address: 'channel1', 'x-api-kind': 'no-BWC' }
-          expect(scopeFunction(['channels', 'ch1'], before, after)).toBe(API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE)
-        })
-
-        it('should return no-BWC when before channel no-BWC and after channel BWC', () => {
-          const before = { address: 'channel1', 'x-api-kind': 'no-BWC'}
-          const after = { address: 'channel1',  'x-api-kind': 'BWC'}
-          expect(scopeFunction(['channels', 'ch1'], before, after)).toBe(API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE)
-        })
-
-        it('should return undefined when both channels have x-api-kind BWC', () => {
-          const before = { address: 'channel1', 'x-api-kind': 'BWC'}
-          const after = { address: 'channel1',  'x-api-kind': 'BWC'}
-          expect(scopeFunction(['channels', 'ch1'], before, after)).toBeUndefined()
-        })
-
-        it('should return no-BWC when both channels have x-api-kind no-BWC', () => {
-          const before = { address: 'channel1', 'x-api-kind': 'no-BWC'}
-          const after = { address: 'channel1',  'x-api-kind': 'no-BWC'}
-          expect(scopeFunction(['channels', 'ch1'], before, after)).toBe(API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE)
+        it.each([
+          // default | before | after | expected
+          ['bwc', 'undefined', 'undefined', undefined],
+          ['bwc', 'undefined', 'bwc', undefined],
+          ['bwc', 'undefined', 'no-bwc', NOT_BWC],
+          ['bwc', 'bwc', 'undefined', undefined],
+          ['bwc', 'bwc', 'bwc', undefined],
+          ['bwc', 'bwc', 'no-bwc', NOT_BWC],
+          ['bwc', 'no-bwc', 'undefined', NOT_BWC],
+          ['bwc', 'no-bwc', 'bwc', NOT_BWC],
+          ['bwc', 'no-bwc', 'no-bwc', NOT_BWC],
+          ['no-bwc', 'undefined', 'undefined', undefined],
+          ['no-bwc', 'undefined', 'bwc', undefined],
+          ['no-bwc', 'undefined', 'no-bwc', NOT_BWC],
+          ['no-bwc', 'bwc', 'undefined', undefined],
+          ['no-bwc', 'bwc', 'bwc', undefined],
+          ['no-bwc', 'bwc', 'no-bwc', NOT_BWC],
+          ['no-bwc', 'no-bwc', 'undefined', NOT_BWC],
+          ['no-bwc', 'no-bwc', 'bwc', NOT_BWC],
+          ['no-bwc', 'no-bwc', 'no-bwc', NOT_BWC],
+        ] as const)('documentApiKind: %s, before: %s, after: %s', (
+          documentApiKind,
+          beforeKind,
+          afterKind,
+          expected,
+        ) => {
+          const scopeFunction = createAsyncApiCompatibilityScopeFunction(documentApiKind)
+          expect(scopeFunction(['channels', 'ch1'], createChannel(beforeKind), createChannel(afterKind))).toBe(expected)
         })
       })
 
       describe('Operations scope', () => {
-        it('should return undefined when operation and channel have no x-api-kind', () => {
-          const before = { action: 'receive', channel: {} }
+        it.each([
+          // default | before | after | expected
+          ['bwc', 'undefined', 'undefined', undefined],
+          ['bwc', 'undefined', 'bwc', undefined],
+          ['bwc', 'undefined', 'no-bwc', NOT_BWC],
+          ['bwc', 'bwc', 'undefined', undefined],
+          ['bwc', 'bwc', 'bwc', undefined],
+          ['bwc', 'bwc', 'no-bwc', NOT_BWC],
+          ['bwc', 'no-bwc', 'undefined', NOT_BWC],
+          ['bwc', 'no-bwc', 'bwc', NOT_BWC],
+          ['bwc', 'no-bwc', 'no-bwc', NOT_BWC],
+          ['no-bwc', 'undefined', 'undefined', undefined],
+          ['no-bwc', 'undefined', 'bwc', undefined],
+          ['no-bwc', 'undefined', 'no-bwc', NOT_BWC],
+          ['no-bwc', 'bwc', 'undefined', undefined],
+          ['no-bwc', 'bwc', 'bwc', undefined],
+          ['no-bwc', 'bwc', 'no-bwc', NOT_BWC],
+          ['no-bwc', 'no-bwc', 'undefined', NOT_BWC],
+          ['no-bwc', 'no-bwc', 'bwc', NOT_BWC],
+          ['no-bwc', 'no-bwc', 'no-bwc', NOT_BWC],
+        ] as const)('documentApiKind: %s, before: %s, after: %s', (
+          documentApiKind,
+          beforeKind,
+          afterKind,
+          expected,
+        ) => {
+          const scopeFunction = createAsyncApiCompatibilityScopeFunction(documentApiKind)
+          expect(scopeFunction(['operations', 'op1'], createOperation(beforeKind), createOperation(afterKind))).toBe(expected)
+        })
+
+        it('should use channel x-api-kind as fallback when operation has no x-api-kind', () => {
+          const scopeFunction = createAsyncApiCompatibilityScopeFunction()
+          const before = {
+            action: 'receive',
+            channel: { [API_KIND_SPECIFICATION_EXTENSION]: APIHUB_API_COMPATIBILITY_KIND_NO_BWC },
+          }
           const after = { action: 'receive', channel: {} }
+          expect(scopeFunction(['operations', 'op1'], before, after)).toBe(NOT_BWC)
+        })
+
+        it('should let operation x-api-kind override channel x-api-kind', () => {
+          const scopeFunction = createAsyncApiCompatibilityScopeFunction()
+          const before = {
+            action: 'receive',
+            [API_KIND_SPECIFICATION_EXTENSION]: APIHUB_API_COMPATIBILITY_KIND_BWC,
+            channel: { [API_KIND_SPECIFICATION_EXTENSION]: APIHUB_API_COMPATIBILITY_KIND_NO_BWC },
+          }
+          const after = {
+            action: 'receive',
+            [API_KIND_SPECIFICATION_EXTENSION]: APIHUB_API_COMPATIBILITY_KIND_BWC,
+            channel: { [API_KIND_SPECIFICATION_EXTENSION]: APIHUB_API_COMPATIBILITY_KIND_NO_BWC },
+          }
           expect(scopeFunction(['operations', 'op1'], before, after)).toBeUndefined()
-        })
-
-        it('should return no-BWC when before operation channel has x-api-kind no-BWC', () => {
-          const before = { action: 'receive', channel: { 'x-api-kind': 'no-BWC' } }
-          const after = { action: 'receive', channel: {} }
-          expect(scopeFunction(['operations', 'op1'], before, after)).toBe(API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE)
-        })
-
-        it('should return no-BWC when after operation channel has x-api-kind no-BWC', () => {
-          const before = { action: 'receive', channel: {} }
-          const after = { action: 'receive', channel: { 'x-api-kind': 'no-BWC' } }
-          expect(scopeFunction(['operations', 'op1'], before, after)).toBe(API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE)
-        })
-
-        it('should return no-BWC when before operation has x-api-kind no-BWC', () => {
-          const before = { action: 'receive', 'x-api-kind': 'no-BWC', channel: {} }
-          const after = { action: 'receive', channel: {} }
-          expect(scopeFunction(['operations', 'op1'], before, after)).toBe(API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE)
-        })
-
-        it('should return no-BWC when after operation has x-api-kind no-BWC', () => {
-          const before = { action: 'receive', channel: {} }
-          const after = { action: 'receive', 'x-api-kind': 'no-BWC', channel: {} }
-          expect(scopeFunction(['operations', 'op1'], before, after)).toBe(API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE)
-        })
-
-        it('should return undefined when operation x-api-kind BWC overrides channel x-api-kind no-BWC', () => {
-          const before = { action: 'receive', 'x-api-kind': 'BWC', channel: { 'x-api-kind': 'no-BWC' } }
-          const after = { action: 'receive', 'x-api-kind': 'BWC', channel: { 'x-api-kind': 'no-BWC' } }
-          expect(scopeFunction(['operations', 'op1'], before, after)).toBeUndefined()
-        })
-
-        it('should return no-BWC when operation x-api-kind no-BWC overrides channel x-api-kind BWC', () => {
-          const before = { action: 'receive', 'x-api-kind': 'no-BWC', channel: { 'x-api-kind': 'BWC' } }
-          const after = { action: 'receive', 'x-api-kind': 'no-BWC', channel: { 'x-api-kind': 'BWC' } }
-          expect(scopeFunction(['operations', 'op1'], before, after)).toBe(API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE)
-        })
-
-        it('should return undefined when removed operation has no x-api-kind', () => {
-          const before = { action: 'receive', channel: {} }
-          expect(scopeFunction(['operations', 'op1'], before, undefined)).toBeUndefined()
-        })
-
-        it('should return no-BWC when removed operation has x-api-kind no-BWC', () => {
-          const before = { action: 'receive', 'x-api-kind': 'no-BWC', channel: {} }
-          expect(scopeFunction(['operations', 'op1'], before, undefined)).toBe(API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE)
-        })
-
-        it('should return no-BWC when removed operation channel has x-api-kind no-BWC', () => {
-          const before = { action: 'receive', channel: { 'x-api-kind': 'no-BWC' } }
-          expect(scopeFunction(['operations', 'op1'], before, undefined)).toBe(API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE)
         })
       })
 
       describe('Other paths', () => {
+        const scopeFunction = createAsyncApiCompatibilityScopeFunction()
+
         it('should return undefined for non-operations/non-channels paths', () => {
           expect(scopeFunction(['components', 'messages'], {}, {})).toBeUndefined()
         })
