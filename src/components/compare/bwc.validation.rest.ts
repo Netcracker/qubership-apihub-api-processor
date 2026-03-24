@@ -26,10 +26,10 @@ import {
   API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE,
   API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE,
   ApiCompatibilityKind,
-  ApiCompatibilityScopeFunction,
 } from '@netcracker/qubership-apihub-api-diff'
 import { getApiKindProperty } from '../document'
 import { OpenAPIV3 } from 'openapi-types'
+import { ApiCompatibilityScopeFunctionFactory } from './bwc.validation.types'
 
 export const calculateOperationApiCompatibilityKind = (
   beforeOperationObject: OpenAPIV3.OperationObject | undefined,
@@ -94,10 +94,10 @@ const ROOT_PATH_LENGTH = 0
 const PATH_ITEM_PATH_LENGTH = 2
 const OPERATION_OBJECT_PATH_LENGTH = 3
 
-export const createRestApiCompatibilityScopeFunction = (
-  prevDocumentApiKind: ApihubApiCompatibilityKind = APIHUB_API_COMPATIBILITY_KIND_BWC,
-  currDocumentApiKind: ApihubApiCompatibilityKind = APIHUB_API_COMPATIBILITY_KIND_BWC,
-): ApiCompatibilityScopeFunction => {
+export const createRestApiCompatibilityScopeFunction: ApiCompatibilityScopeFunctionFactory = (
+  prevDocumentApiKind = APIHUB_API_COMPATIBILITY_KIND_BWC,
+  currDocumentApiKind = APIHUB_API_COMPATIBILITY_KIND_BWC,
+) => {
   const defaultApiCompatibilityKind = (prevDocumentApiKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC || currDocumentApiKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
     ? API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
     : API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
