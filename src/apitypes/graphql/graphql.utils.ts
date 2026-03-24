@@ -1,14 +1,8 @@
-import { GraphApiOperation } from '@netcracker/qubership-apihub-graphapi'
-
-// Maps normalized GraphAPI `type.kind` values to GraphQL type names for built-in scalars.
-// Named types (objects, inputs, enums, custom scalars) use `typeDef.title` instead.
-const SCALAR_KIND_TO_TYPE_NAME: Record<string, string> = {
-  string: 'String',
-  integer: 'Int',
-  float: 'Float',
-  boolean: 'Boolean',
-  ID: 'ID',
-}
+import {
+  GRAPH_API_KIND_TO_GRAPH_QL_TYPE,
+  GraphApiOperation,
+  isGraphApiListDefinition,
+} from '@netcracker/qubership-apihub-graphapi'
 
 /**
  * Extracts the base type name from a normalized GraphAPI typeDef.
@@ -22,21 +16,20 @@ const extractTypeName = (typeDef: Record<string, unknown> | undefined): string |
   if (!typeDef) return undefined
 
   // Named types carry a `title` field
-  const {title} = typeDef
+  const { title } = typeDef
   if (typeof title === 'string') return title
 
-  const type = typeDef.type as Record<string, unknown> | undefined
-  const kind = type?.kind
-
-  // Built-in scalars: map `type.kind` to GraphQL type name
-  if (typeof kind === 'string' && kind in SCALAR_KIND_TO_TYPE_NAME) {
-    return SCALAR_KIND_TO_TYPE_NAME[kind]
+  // List types: unwrap to get the element type name
+  if (isGraphApiListDefinition(typeDef)) {
+    return extractTypeName(typeDef.type.items?.typeDef as Record<string, unknown>)
   }
 
-  // List types: unwrap to get the element type name
-  if (kind === 'list') {
-    const items = type?.items as Record<string, unknown> | undefined
-    return extractTypeName(items?.typeDef as Record<string, unknown>)
+  // Built-in scalars: map `type.kind` to GraphQL type name via package constant
+  const type = typeDef.type as Record<string, unknown> | undefined
+  const kind = type?.kind
+  if (typeof kind === 'string') {
+    const mapped = GRAPH_API_KIND_TO_GRAPH_QL_TYPE[kind as keyof typeof GRAPH_API_KIND_TO_GRAPH_QL_TYPE]
+    if (typeof mapped === 'string') return mapped
   }
 
   return undefined

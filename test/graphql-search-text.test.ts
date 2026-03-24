@@ -77,6 +77,33 @@ describe('BuildGraphQLSearchText unit tests', () => {
       expect(result).toContain('PaymentInput')
     })
 
+    test('should include custom scalar type name in arguments', () => {
+      const schema = normalizeSchema(`
+        scalar DateTime
+        type Query {
+          getEvents(since: DateTime): String
+        }
+      `)
+
+      const result = buildGraphQLSearchText('getEvents', schema.queries?.getEvents)
+
+      expect(result).toContain('DateTime')
+    })
+
+    test('should include enum type name in arguments', () => {
+      const schema = normalizeSchema(`
+        type Query {
+          getByStatus(status: Status): String
+        }
+        enum Status { ACTIVE, INACTIVE }
+      `)
+
+      const result = buildGraphQLSearchText('getByStatus', schema.queries?.getByStatus)
+
+      expect(result).toContain('status')
+      expect(result).toContain('Status')
+    })
+
     test('should include return type name for named types', () => {
       const schema = normalizeSchema(`
         type Query { getPaymentMethodCore: PaymentMethodCore }
@@ -88,6 +115,28 @@ describe('BuildGraphQLSearchText unit tests', () => {
       expect(result).toContain('PaymentMethodCore')
     })
 
+    test('should include custom scalar return type name', () => {
+      const schema = normalizeSchema(`
+        scalar DateTime
+        type Query { getServerTime: DateTime }
+      `)
+
+      const result = buildGraphQLSearchText('getServerTime', schema.queries?.getServerTime)
+
+      expect(result).toContain('DateTime')
+    })
+
+    test('should include enum return type name', () => {
+      const schema = normalizeSchema(`
+        type Query { getStatus: Status }
+        enum Status { ACTIVE, INACTIVE }
+      `)
+
+      const result = buildGraphQLSearchText('getStatus', schema.queries?.getStatus)
+
+      expect(result).toContain('Status')
+    })
+
     test('should unwrap list types and include element type name', () => {
       const schema = normalizeSchema(`
         type Query { listPets: [Pet!] }
@@ -97,6 +146,19 @@ describe('BuildGraphQLSearchText unit tests', () => {
       const result = buildGraphQLSearchText('listPets', schema.queries?.listPets)
 
       expect(result).toContain('Pet')
+    })
+
+    test('should unwrap list argument type and include element type name', () => {
+      const schema = normalizeSchema(`
+        type Query {
+          getByIds(ids: [String!]!): String
+        }
+      `)
+
+      const result = buildGraphQLSearchText('getByIds', schema.queries?.getByIds)
+
+      expect(result).toContain('ids')
+      expect(result).toContain('String')
     })
 
     test('should produce complete search text with all searchable parts', () => {
