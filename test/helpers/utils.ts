@@ -348,7 +348,7 @@ export const loadYamlFile = async <T>(relativePath: string): Promise<T> => {
   return YAML.load(content) as T
 }
 
-export function parseAndNormalizeGraph(sdl: string): { source: GraphApiSchema; normalized: GraphApiSchema } {
+export function parseAndNormalizeGraphQLSchema(sdl: string): { source: GraphApiSchema; normalized: GraphApiSchema } {
   const source = parseGraphQLSource(sdl)
   const normalized = normalizeGraphQL(source)
   return { source, normalized }

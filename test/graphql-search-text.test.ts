@@ -1,45 +1,40 @@
 import { beforeAll, describe, expect, test } from '@jest/globals'
-import { GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
 import { buildGraphQLSearchText } from '../src/apitypes/graphql/graphql.utils'
 import { calculateGraphqlOperationId } from '../src/utils'
-import { Editor, LocalRegistry, parseAndNormalizeGraph } from './helpers'
-
-const normalizeSchema = (sdl: string): GraphApiSchema => {
-  return parseAndNormalizeGraph(sdl).normalized
-}
+import { Editor, LocalRegistry, parseAndNormalizeGraphQLSchema } from './helpers'
 
 describe('BuildGraphQLSearchText unit tests', () => {
   describe('Searchable content tests', () => {
     test('should include operation name', () => {
-      const schema = normalizeSchema('type Query { getUser: String }')
+      const { normalized: schema } = parseAndNormalizeGraphQLSchema('type Query { getUser: String }')
 
-      const result = buildGraphQLSearchText('getUser', schema.queries?.getUser)
+      const result = buildGraphQLSearchText(schema.queries?.getUser, 'getUser')
 
       expect(result).toContain('getUser')
     })
 
     test('should include description', () => {
-      const schema = normalizeSchema(`
+      const { normalized: schema } = parseAndNormalizeGraphQLSchema(`
         type Query {
           """The operation allows get a Payment Method"""
           getPaymentMethodCore: String
         }
       `)
 
-      const result = buildGraphQLSearchText('getPaymentMethodCore', schema.queries?.getPaymentMethodCore)
+      const result = buildGraphQLSearchText(schema.queries?.getPaymentMethodCore, 'getPaymentMethodCore')
 
       expect(result).toContain('The operation allows get a Payment Method')
     })
 
     test('should include argument names and their scalar type names', () => {
-      const schema = normalizeSchema(`
+      const { normalized: schema } = parseAndNormalizeGraphQLSchema(`
         type Query {
           getPaymentMethodCore(id: String, includeDeleteEntities: Boolean): PaymentMethodCore
         }
         type PaymentMethodCore { value: String }
       `)
 
-      const result = buildGraphQLSearchText('getPaymentMethodCore', schema.queries?.getPaymentMethodCore)
+      const result = buildGraphQLSearchText(schema.queries?.getPaymentMethodCore, 'getPaymentMethodCore')
 
       expect(result).toContain('id')
       expect(result).toContain('String')
@@ -48,13 +43,13 @@ describe('BuildGraphQLSearchText unit tests', () => {
     })
 
     test('should include all built-in scalar type names (String, Boolean, Int, Float, ID)', () => {
-      const schema = normalizeSchema(`
+      const { normalized: schema } = parseAndNormalizeGraphQLSchema(`
         type Query {
           test(name: String, active: Boolean, count: Int, rating: Float, uid: ID): String
         }
       `)
 
-      const result = buildGraphQLSearchText('test', schema.queries?.test)
+      const result = buildGraphQLSearchText(schema.queries?.test, 'test')
 
       expect(result).toContain('String')
       expect(result).toContain('Boolean')
@@ -64,7 +59,7 @@ describe('BuildGraphQLSearchText unit tests', () => {
     })
 
     test('should include named argument type names (input objects)', () => {
-      const schema = normalizeSchema(`
+      const { normalized: schema } = parseAndNormalizeGraphQLSchema(`
         type Query {
           createPayment(input: PaymentInput): PaymentMethodCore
         }
@@ -72,97 +67,97 @@ describe('BuildGraphQLSearchText unit tests', () => {
         type PaymentMethodCore { id: String }
       `)
 
-      const result = buildGraphQLSearchText('createPayment', schema.queries?.createPayment)
+      const result = buildGraphQLSearchText(schema.queries?.createPayment, 'createPayment')
 
       expect(result).toContain('PaymentInput')
     })
 
     test('should include custom scalar type name in arguments', () => {
-      const schema = normalizeSchema(`
+      const { normalized: schema } = parseAndNormalizeGraphQLSchema(`
         scalar DateTime
         type Query {
           getEvents(since: DateTime): String
         }
       `)
 
-      const result = buildGraphQLSearchText('getEvents', schema.queries?.getEvents)
+      const result = buildGraphQLSearchText(schema.queries?.getEvents, 'getEvents')
 
       expect(result).toContain('DateTime')
     })
 
     test('should include enum type name in arguments', () => {
-      const schema = normalizeSchema(`
+      const { normalized: schema } = parseAndNormalizeGraphQLSchema(`
         type Query {
           getByStatus(status: Status): String
         }
         enum Status { ACTIVE, INACTIVE }
       `)
 
-      const result = buildGraphQLSearchText('getByStatus', schema.queries?.getByStatus)
+      const result = buildGraphQLSearchText(schema.queries?.getByStatus, 'getByStatus')
 
       expect(result).toContain('status')
       expect(result).toContain('Status')
     })
 
     test('should include return type name for named types', () => {
-      const schema = normalizeSchema(`
-        type Query { getPaymentMethodCore: PaymentMethodCore }
-        type PaymentMethodCore { id: String }
+      const { normalized: schema } = parseAndNormalizeGraphQLSchema(`
+        type Query { findRecord: SearchResult }
+        type SearchResult { id: String }
       `)
 
-      const result = buildGraphQLSearchText('getPaymentMethodCore', schema.queries?.getPaymentMethodCore)
+      const result = buildGraphQLSearchText(schema.queries?.findRecord, 'findRecord')
 
-      expect(result).toContain('PaymentMethodCore')
+      expect(result).toContain('SearchResult')
     })
 
     test('should include custom scalar return type name', () => {
-      const schema = normalizeSchema(`
+      const { normalized: schema } = parseAndNormalizeGraphQLSchema(`
         scalar DateTime
         type Query { getServerTime: DateTime }
       `)
 
-      const result = buildGraphQLSearchText('getServerTime', schema.queries?.getServerTime)
+      const result = buildGraphQLSearchText(schema.queries?.getServerTime, 'getServerTime')
 
       expect(result).toContain('DateTime')
     })
 
     test('should include enum return type name', () => {
-      const schema = normalizeSchema(`
+      const { normalized: schema } = parseAndNormalizeGraphQLSchema(`
         type Query { getStatus: Status }
         enum Status { ACTIVE, INACTIVE }
       `)
 
-      const result = buildGraphQLSearchText('getStatus', schema.queries?.getStatus)
+      const result = buildGraphQLSearchText(schema.queries?.getStatus, 'getStatus')
 
       expect(result).toContain('Status')
     })
 
     test('should unwrap list types and include element type name', () => {
-      const schema = normalizeSchema(`
+      const { normalized: schema } = parseAndNormalizeGraphQLSchema(`
         type Query { listPets: [Pet!] }
         type Pet { id: String }
       `)
 
-      const result = buildGraphQLSearchText('listPets', schema.queries?.listPets)
+      const result = buildGraphQLSearchText(schema.queries?.listPets, 'listPets')
 
       expect(result).toContain('Pet')
     })
 
     test('should unwrap list argument type and include element type name', () => {
-      const schema = normalizeSchema(`
+      const { normalized: schema } = parseAndNormalizeGraphQLSchema(`
         type Query {
           getByIds(ids: [String!]!): String
         }
       `)
 
-      const result = buildGraphQLSearchText('getByIds', schema.queries?.getByIds)
+      const result = buildGraphQLSearchText(schema.queries?.getByIds, 'getByIds')
 
       expect(result).toContain('ids')
       expect(result).toContain('String')
     })
 
     test('should produce complete search text with all searchable parts', () => {
-      const schema = normalizeSchema(`
+      const { normalized: schema } = parseAndNormalizeGraphQLSchema(`
         type Query {
           """The operation allows get a Payment Method"""
           getPaymentMethodCore(id: String, includeDeleteEntities: Boolean): PaymentMethodCore
@@ -170,7 +165,7 @@ describe('BuildGraphQLSearchText unit tests', () => {
         type PaymentMethodCore { id: String, name: String }
       `)
 
-      const result = buildGraphQLSearchText('getPaymentMethodCore', schema.queries?.getPaymentMethodCore)
+      const result = buildGraphQLSearchText(schema.queries?.getPaymentMethodCore, 'getPaymentMethodCore')
 
       expect(result).toBe(
         'getPaymentMethodCore The operation allows get a Payment Method id String includeDeleteEntities Boolean PaymentMethodCore',
@@ -180,13 +175,13 @@ describe('BuildGraphQLSearchText unit tests', () => {
 
   describe('Non-searchable content tests', () => {
     test('should not include nested field names from return type', () => {
-      const schema = normalizeSchema(`
+      const { normalized: schema } = parseAndNormalizeGraphQLSchema(`
         type Query { getPet: Pet }
         type Pet { id: String, name: String, category: Category }
         type Category { id: String }
       `)
 
-      const result = buildGraphQLSearchText('getPet', schema.queries?.getPet)
+      const result = buildGraphQLSearchText(schema.queries?.getPet, 'getPet')
 
       expect(result).toContain('Pet')
       expect(result).not.toContain('name')
@@ -194,14 +189,14 @@ describe('BuildGraphQLSearchText unit tests', () => {
     })
 
     test('should not include nested field names from input type', () => {
-      const schema = normalizeSchema(`
+      const { normalized: schema } = parseAndNormalizeGraphQLSchema(`
         type Query {
           createPayment(input: PaymentInput): String
         }
         input PaymentInput { amount: Int, currency: String }
       `)
 
-      const result = buildGraphQLSearchText('createPayment', schema.queries?.createPayment)
+      const result = buildGraphQLSearchText(schema.queries?.createPayment, 'createPayment')
 
       expect(result).toContain('PaymentInput')
       expect(result).not.toContain('amount')
@@ -209,12 +204,12 @@ describe('BuildGraphQLSearchText unit tests', () => {
     })
 
     test('should not include enum values', () => {
-      const schema = normalizeSchema(`
+      const { normalized: schema } = parseAndNormalizeGraphQLSchema(`
         type Query { getByStatus(status: Status): String }
         enum Status { ACTIVE, INACTIVE }
       `)
 
-      const result = buildGraphQLSearchText('getByStatus', schema.queries?.getByStatus)
+      const result = buildGraphQLSearchText(schema.queries?.getByStatus, 'getByStatus')
 
       expect(result).toContain('Status')
       expect(result).not.toContain('ACTIVE')
@@ -226,12 +221,12 @@ describe('BuildGraphQLSearchText unit tests', () => {
     // Operation has no arguments and no description — only name and return type are present.
     // Ensures the function doesn't break when optional parts are absent.
     test('should handle operation with no args and no description', () => {
-      const schema = normalizeSchema(`
+      const { normalized: schema } = parseAndNormalizeGraphQLSchema(`
         type Query { healthCheck: Status }
         type Status { ok: Boolean }
       `)
 
-      const result = buildGraphQLSearchText('healthCheck', schema.queries?.healthCheck)
+      const result = buildGraphQLSearchText(schema.queries?.healthCheck, 'healthCheck')
 
       expect(result).toBe('healthCheck Status')
     })
@@ -239,9 +234,9 @@ describe('BuildGraphQLSearchText unit tests', () => {
     // Return type is a built-in scalar (Boolean), not a named object type.
     // Ensures scalar return types are included in search text and not filtered out.
     test('should handle operation with scalar return type', () => {
-      const schema = normalizeSchema('type Query { healthCheck: Boolean }')
+      const { normalized: schema } = parseAndNormalizeGraphQLSchema('type Query { healthCheck: Boolean }')
 
-      const result = buildGraphQLSearchText('healthCheck', schema.queries?.healthCheck)
+      const result = buildGraphQLSearchText(schema.queries?.healthCheck, 'healthCheck')
 
       expect(result).toBe('healthCheck Boolean')
     })
@@ -249,7 +244,7 @@ describe('BuildGraphQLSearchText unit tests', () => {
     // Operation not found in schema (undefined). Ensures the function doesn't throw
     // NPE/TypeError and gracefully returns only the operation name.
     test('should handle undefined operation', () => {
-      const result = buildGraphQLSearchText('missingOp', undefined)
+      const result = buildGraphQLSearchText(undefined, 'missingOp')
 
       expect(result).toBe('missingOp')
     })
@@ -257,12 +252,12 @@ describe('BuildGraphQLSearchText unit tests', () => {
     // No arguments but has a named return type. Ensures no extra separators/spaces
     // appear when the args list is empty and the return type is appended correctly.
     test('should handle operation with empty args returning named type', () => {
-      const schema = normalizeSchema(`
+      const { normalized: schema } = parseAndNormalizeGraphQLSchema(`
         type Query { countItems: Result }
         type Result { count: Int }
       `)
 
-      const result = buildGraphQLSearchText('countItems', schema.queries?.countItems)
+      const result = buildGraphQLSearchText(schema.queries?.countItems, 'countItems')
 
       expect(result).toBe('countItems Result')
     })

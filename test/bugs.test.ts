@@ -113,7 +113,7 @@ describe('Operation Bugs', () => {
     expect(result.notifications.length).toEqual(0)
   })
 
-  test('should have searchScopes and search for REST operations', async () => {
+  test('should have searchScopes and search text for REST operations', async () => {
     const editor = await Editor.openProject('bugs', bugsPackage)
 
     await bugsPackage.publish('bugs', {

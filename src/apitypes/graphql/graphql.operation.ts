@@ -93,8 +93,8 @@ export const buildGraphQLOperation = (
   }, debugCtx)
 
   const searchTextFilePath = `search/${operationId}.txt`
-  const operation = singleOperationEffectiveSpec[type]?.[method]
-  const searchText = buildGraphQLSearchText(method, operation)
+  const operation = effectiveDocument[type]?.[method]
+  const searchText = buildGraphQLSearchText(operation, method)
 
   return {
     operationId,

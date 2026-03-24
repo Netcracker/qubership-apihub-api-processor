@@ -51,8 +51,8 @@ const extractTypeName = (typeDef: Record<string, unknown> | undefined): string |
  *  - Enum values
  */
 export const buildGraphQLSearchText = (
-  method: string,
   operation: GraphApiOperation | undefined,
+  method: string,
 ): string => {
   // Always start with the operation name (e.g. "getPaymentMethodCore")
   const parts: string[] = [method]
