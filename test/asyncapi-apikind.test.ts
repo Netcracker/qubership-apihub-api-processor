@@ -184,65 +184,65 @@ describe('AsyncAPI apiKind calculation', () => {
   })
 
   describe('AsyncAPI operation/channel compatibility apiKind application', () => {
-    let operation: ApiOperation
-    let operationWithChannelBwc: ApiOperation
-    let operationWithChannelNoBwc: ApiOperation
-    let operationBwc: ApiOperation
-    let operationNoBwc: ApiOperation
-    let operationBwcWithChannelBwc: ApiOperation
-    let operationBwcWithChannelNoBwc: ApiOperation
-    let operationNoBwcWithChannelBwc: ApiOperation
-    let operationNoBwcWithChannelNoBwc: ApiOperation
+    let operationNoKindChannelNoKind: ApiOperation
+    let operationNoKindChannelBWC: ApiOperation
+    let operationNoKindChannelNoBWC: ApiOperation
+    let operationBWCChannelNoKind: ApiOperation
+    let operationNoBWCChannelNoKind: ApiOperation
+    let operationBWCChannelBWC: ApiOperation
+    let operationBWCChannelNoBWC: ApiOperation
+    let operationNoBWCChannelBWC: ApiOperation
+    let operationNoBWCChannelNoBWC: ApiOperation
 
     beforeAll(async () => {
       const result = await buildPackageWithDefaultConfig('asyncapi/api-kind/base')
       ;[
-        operation,
-        operationWithChannelBwc,
-        operationWithChannelNoBwc,
-        operationBwc,
-        operationNoBwc,
-        operationBwcWithChannelBwc,
-        operationBwcWithChannelNoBwc,
-        operationNoBwcWithChannelBwc,
-        operationNoBwcWithChannelNoBwc,
+        operationNoKindChannelNoKind,
+        operationNoKindChannelBWC,
+        operationNoKindChannelNoBWC,
+        operationBWCChannelNoKind,
+        operationNoBWCChannelNoKind,
+        operationBWCChannelBWC,
+        operationBWCChannelNoBWC,
+        operationNoBWCChannelBWC,
+        operationNoBWCChannelNoBWC,
       ] = Array.from(result.operations.values())
     })
 
-    it('should apply BWC apiKind when both operation and channel have no apiKind', () => {
-      expect(operation.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_BWC)
+    it('operationNoKindChannelNoKind → BWC', () => {
+      expect(operationNoKindChannelNoKind.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_BWC)
     })
 
-    it('should apply BWC apiKind when channel apiKind is BWC and operation has no apiKind', () => {
-      expect(operationWithChannelBwc.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_BWC)
+    it('operationNoKindChannelBWC → BWC', () => {
+      expect(operationNoKindChannelBWC.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_BWC)
     })
 
-    it('should apply NO_BWC apiKind when channel apiKind is NO_BWC and operation has no apiKind', () => {
-      expect(operationWithChannelNoBwc.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
+    it('operationNoKindChannelNoBWC → NoBWC', () => {
+      expect(operationNoKindChannelNoBWC.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
     })
 
-    it('should apply BWC apiKind when operation apiKind is BWC and channel has no apiKind', () => {
-      expect(operationBwc.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_BWC)
+    it('operationBWCChannelNoKind → BWC', () => {
+      expect(operationBWCChannelNoKind.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_BWC)
     })
 
-    it('should apply NO_BWC apiKind when operation apiKind is NO_BWC and channel has no apiKind', () => {
-      expect(operationNoBwc.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
+    it('operationNoBWCChannelNoKind → NoBWC', () => {
+      expect(operationNoBWCChannelNoKind.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
     })
 
-    it('should apply BWC apiKind when both operation and channel apiKind are BWC', () => {
-      expect(operationBwcWithChannelBwc.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_BWC)
+    it('operationBWCChannelBWC → BWC', () => {
+      expect(operationBWCChannelBWC.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_BWC)
     })
 
-    it('should apply BWC apiKind when operation apiKind is BWC and channel apiKind is NO_BWC', () => {
-      expect(operationBwcWithChannelNoBwc.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_BWC)
+    it('operationBWCChannelNoBWC → BWC', () => {
+      expect(operationBWCChannelNoBWC.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_BWC)
     })
 
-    it('should apply NO_BWC apiKind when operation apiKind is NO_BWC and channel apiKind is BWC', () => {
-      expect(operationNoBwcWithChannelBwc.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
+    it('operationNoBWCChannelBWC → NoBWC', () => {
+      expect(operationNoBWCChannelBWC.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
     })
 
-    it('should apply NO_BWC apiKind when both operation and channel apiKind are NO_BWC', () => {
-      expect(operationNoBwcWithChannelNoBwc.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
+    it('operationNoBWCChannelNoBWC → NoBWC', () => {
+      expect(operationNoBWCChannelNoBWC.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
     })
   })
 

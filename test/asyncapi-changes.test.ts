@@ -3,6 +3,7 @@ import {
   changesSummaryMatcher,
   noChangesMatcher,
   numberOfImpactedOperationsMatcher,
+  operationChangesMatcher,
   operationTypeMatcher,
 } from './helpers'
 import {
@@ -144,7 +145,12 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
       // channel1 address changed, channel2 unchanged
       // only operation1 (on channel1) should be impacted, not operation2 (on channel2)
       expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(operationChangesMatcher([
+        expect.objectContaining({
+          operationId: 'operation1-message1',
+          previousOperationId: 'operation1-message1',
+        }),
+      ]))
     })
 
   })
@@ -182,7 +188,12 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/server/change-isolated-servers')
 
       expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(operationChangesMatcher([
+        expect.objectContaining({
+          operationId: 'operation1-message1',
+          previousOperationId: 'operation1-message1',
+        }),
+      ]))
     })
 
     // TODO: unskip when root servers propagate to channel.servers during normalization
@@ -247,7 +258,11 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
       // message2 added to operation1, operation2 unchanged
       // should only impact 1 new apihub operation (operation1-message2)
       expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(operationChangesMatcher([
+        expect.objectContaining({
+          operationId: 'operation1-message2',
+        }),
+      ]))
     })
 
     test('should not add changes to remaining messages when removing message from operation', async () => {
@@ -257,7 +272,11 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
       // should only impact 1 removed apihub operation (operation1-message2),
       // not the remaining operation1-message1 and operation1-message3
       expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(operationChangesMatcher([
+        expect.objectContaining({
+          previousOperationId: 'operation1-message2',
+        }),
+      ]))
     })
 
     test('should only impact changed message when changing content type with multiple messages', async () => {
@@ -266,7 +285,12 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
       // Changing contentType of message1 in operation with message1 and message2
       // should only impact operation1-message1, not operation1-message2
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(operationChangesMatcher([
+        expect.objectContaining({
+          operationId: 'operation1-message1',
+          previousOperationId: 'operation1-message1',
+        }),
+      ]))
     })
 
     test('should impact both operations when changing shared payload with multiple messages', async () => {
@@ -275,7 +299,16 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
       // message1 and message2 both reference SharedPayload schema
       // changing SharedPayload type should impact both apihub operations
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(operationChangesMatcher([
+        expect.objectContaining({
+          operationId: 'operation1-message1',
+          previousOperationId: 'operation1-message1',
+        }),
+        expect.objectContaining({
+          operationId: 'operation1-message2',
+          previousOperationId: 'operation1-message2',
+        }),
+      ]))
     })
 
     test('should not report changes when adding unused component message', async () => {
