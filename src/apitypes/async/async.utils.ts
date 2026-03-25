@@ -271,6 +271,76 @@ export const resolveAsyncApiOperationIdsFromRefs = (
   return resolved
 }
 
+/**
+ * Checks whether a message has explicit `contentType` in the raw (pre-normalization) document.
+ * Messages without explicit contentType inherit from `defaultContentType`.
+ */
+export function hasExplicitContentType(doc: AsyncAPIV3.AsyncAPIObject | undefined | null, messageId: string): boolean {
+  const message = getKeyValue(doc, 'components', 'messages', messageId)
+  return isObject(message) && !isReferenceObject(message) && 'contentType' in message
+}
+
+/**
+ * Aggregated diffs on the operation level include diffs from ALL messages.
+ * Since each apihub operation maps to a specific operation + message pair,
+ * diffs from sibling messages must be excluded to prevent them from leaking
+ * into unrelated apihub operations.
+ *
+ * Collects two kinds of diffs that belong exclusively to other messages:
+ * 1. Aggregated content diffs from each sibling message object
+ * 2. Array-level diffs for adding/removing sibling messages from the messages list
+ *
+ * Diffs shared between the current message and sibling messages (e.g. from a shared
+ * component schema) are NOT included, so they won't be incorrectly filtered out.
+ */
+export function collectExclusiveOtherMessageDiffs(messages: AsyncAPIV3.MessageObject[], currentMessageIndex: number): Set<Diff> {
+  const currentMessageDiffsArr = (messages[currentMessageIndex] as WithAggregatedDiffs<AsyncAPIV3.MessageObject>)[DIFFS_AGGREGATED_META_KEY]
+  const currentMessageDiffs = new Set(currentMessageDiffsArr ?? [])
+
+  const otherDiffs = new Set<Diff>()
+  for (const [messageIndex, message] of messages.entries()) {
+    if (messageIndex === currentMessageIndex) continue
+    const messageDiffs = (message as WithAggregatedDiffs<AsyncAPIV3.MessageObject>)[DIFFS_AGGREGATED_META_KEY]
+    if (messageDiffs) {
+      for (const messageDiff of messageDiffs) {
+        if (!currentMessageDiffs.has(messageDiff)) {
+          otherDiffs.add(messageDiff)
+        }
+      }
+    }
+  }
+  const messagesArrayMeta = (messages as WithDiffMetaRecord<AsyncAPIV3.MessageObject[]>)[DIFF_META_KEY]
+  if (messagesArrayMeta) {
+    for (const key in messagesArrayMeta) {
+      if (Number(key) !== currentMessageIndex) {
+        otherDiffs.add(messagesArrayMeta[key])
+      }
+    }
+  }
+  return otherDiffs
+}
+
+/**
+ * Collects diffs for adding/removing message definitions in channel.messages.
+ * These are channel-level definition changes that should not propagate to operations,
+ * because what matters is whether the operation's own messages array references a message,
+ * not whether the channel defines it.
+ */
+export function collectChannelMessageDefinitionDiffs(operationChannel: AsyncAPIV3.ChannelObject): Set<Diff> {
+  const channelMessages = (operationChannel as Record<string, unknown>).messages
+  if (!isObject(channelMessages)) {
+    return new Set()
+  }
+  const diffs = new Set<Diff>()
+  const messagesMeta = (channelMessages as WithDiffMetaRecord<object>)[DIFF_META_KEY]
+  if (messagesMeta) {
+    for (const key in messagesMeta) {
+      diffs.add(messagesMeta[key])
+    }
+  }
+  return diffs
+}
+
 export function extractAsyncApiVersionDiff(doc: AsyncAPIV3.AsyncAPIObject): Diff[] {
   const diff = (doc as WithDiffMetaRecord<AsyncAPIV3.AsyncAPIObject>)[DIFF_META_KEY]?.asyncapi
   return diff ? [diff] : []
@@ -293,13 +363,4 @@ export function extractIdDiff(doc: AsyncAPIV3.AsyncAPIObject): Diff[] {
 export function extractDefaultContentTypeDiff(doc: AsyncAPIV3.AsyncAPIObject): Diff[] {
   const diff = (doc as WithDiffMetaRecord<AsyncAPIV3.AsyncAPIObject>)[DIFF_META_KEY]?.defaultContentType
   return diff ? [diff] : []
-}
-
-export function extractRootServersDiffs(doc: AsyncAPIV3.AsyncAPIObject): Diff[] {
-  const addOrRemoveServersDiff = (doc as WithDiffMetaRecord<AsyncAPIV3.AsyncAPIObject>)[DIFF_META_KEY]?.servers
-  const serversInternalDiffs = (doc.servers as WithAggregatedDiffs<AsyncAPIV3.ServersObject> | undefined)?.[DIFFS_AGGREGATED_META_KEY] ?? []
-  return [
-    ...(addOrRemoveServersDiff ? [addOrRemoveServersDiff] : []),
-    ...serversInternalDiffs,
-  ]
 }
