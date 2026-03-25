@@ -14,8 +14,6 @@ import { ANNOTATION_CHANGE_TYPE, ASYNCAPI_API_TYPE, BREAKING_CHANGE_TYPE, UNCLAS
  *   - `aggregateDiffsWithRollup` propagates diffs bottom-up via Set<Diff>
  *   - Same Diff instance can appear in multiple operations (e.g. shared component schema)
  *   - `comparePairedDocs` deduplicates via `new Set(allDiffs)` — reference identity
- *   - `collectExclusiveOtherMessageDiffs` filters sibling message diffs so they don't
- *     leak into unrelated (operation, message) pairs
  *
  * Across multiple document pairs (by content hash):
  *   - Rare case: one operation in multiple documents → multiple apiDiff() calls
@@ -112,42 +110,7 @@ describe('AsyncAPI deduplication tests', () => {
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
     })
-  })
 
-  describe('Message-level isolation', () => {
-    test('should not leak add-message diff to existing sibling message operations', async () => {
-      // operation1 has message1, message2. message3 is added.
-      // The array-level diff for adding message3 should only appear on the new operation1-message3,
-      // not on operation1-message1 or operation1-message2.
-      // collectExclusiveOtherMessageDiffs filters out the sibling's array-level diff.
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-deduplication/add-message-no-sibling-impact')
-
-      // Only 1 breaking change (the added message3 operation), impacting 1 operation
-      expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-    })
-
-    test('should correctly separate operation-level and message-level changes', async () => {
-      // operation1 with message1 and message2.
-      // Changes: operation description changed (annotation, shared by both messages)
-      //        + message1 contentType changed (breaking, specific to message1 only)
-      //
-      // Expected: annotation (description) = 1 in summary, impacted 2 (both messages)
-      //           breaking (contentType) = 1 in summary, impacted 1 (only message1)
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-deduplication/mixed-operation-and-message-changes')
-
-      expect(result).toEqual(changesSummaryMatcher({
-        [ANNOTATION_CHANGE_TYPE]: 1,
-        [BREAKING_CHANGE_TYPE]: 1,
-      }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({
-        [ANNOTATION_CHANGE_TYPE]: 2,
-        [BREAKING_CHANGE_TYPE]: 1,
-      }, ASYNCAPI_API_TYPE))
-    })
-  })
-
-  describe('Cross-document deduplication', () => {
     test('should deduplicate diffs when same operation appears in multiple document pairs', async () => {
       // Same operation (operation1-message1) described in two documents:
       // before1.yaml/after1.yaml and before2.yaml/after2.yaml.

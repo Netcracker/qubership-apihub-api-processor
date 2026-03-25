@@ -35,13 +35,15 @@ const ASYNC_CHANNEL_PATH_LENGTH = 2   // channels/<channelId>
 /**
  * Creates an ApiCompatibilityScopeFunction for AsyncAPI documents.
  *
- * The hierarchy is:
- *   Document (x-api-kind) → Channel (x-api-kind) → Operation (x-api-kind override) → Messages
+ * Resolution order:
+ *   Channel (x-api-kind) → Operation (x-api-kind override) → Messages
+ * Document-level x-api-kind is not supported for AsyncAPI yet;
+ * prevDocumentApiKind/currDocumentApiKind params are reserved for future use.
  *
  * The scope function receives normalized before/after objects where $refs are resolved,
  * so operation.channel is the resolved channel object with all its properties.
  *
- * - root: document-level api-kind (from params), defaults to bwc
+ * - root: defaults to bwc (document-level api-kind reserved for future use)
  * - operations/<operationId>: operation x-api-kind overrides channel x-api-kind
  * - channels/<channelId>: channel's own x-api-kind
  */

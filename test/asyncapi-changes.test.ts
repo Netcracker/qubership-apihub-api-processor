@@ -311,6 +311,42 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
       ]))
     })
 
+    test('should not leak add-message diff to existing sibling message operations', async () => {
+      // operation1 has message1, message2. message3 is added to operation1.
+      // The add diff should only appear on the new operation1-message3,
+      // not on existing operation1-message1 or operation1-message2.
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/message/add-message-no-sibling-impact')
+
+      expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(operationChangesMatcher([
+        expect.objectContaining({
+          operationId: 'operation1-message3',
+        }),
+      ]))
+    })
+
+    test('should correctly separate operation-level and message-level changes', async () => {
+      // operation1 with message1 and message2.
+      // Changes: operation description changed (annotation, shared by both messages)
+      //        + message1 contentType changed (breaking, specific to message1 only)
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/message/mixed-operation-and-message-changes')
+
+      expect(result).toEqual(changesSummaryMatcher({
+        [ANNOTATION_CHANGE_TYPE]: 1,
+        [BREAKING_CHANGE_TYPE]: 1,
+      }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(operationChangesMatcher([
+        expect.objectContaining({
+          operationId: 'operation1-message1',
+          previousOperationId: 'operation1-message1',
+        }),
+        expect.objectContaining({
+          operationId: 'operation1-message2',
+          previousOperationId: 'operation1-message2',
+        }),
+      ]))
+    })
+
     test('should not report changes when adding unused component message', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/message/add-unused-component-message')
 
