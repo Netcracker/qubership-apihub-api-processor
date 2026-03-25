@@ -25,7 +25,7 @@ import { ASYNCAPI_API_TYPE, MESSAGE_SEVERITY, REST_API_TYPE } from '../consts'
 /**
  * Handles duplicate operationIds found across different documents during build.
  * - AsyncAPI: throws an error, since duplicate operationIds across documents are not allowed.
- * - REST: adds a warning notification, since existing published specs may already have duplicates.
+ * - REST: adds an error notification (non-fatal), since existing published specs may already have duplicates.
  */
 const createDuplicateOperationHandler = (buildResult: BuildResult): DuplicateOperationHandler => (existing, duplicate) => {
   if (duplicate.apiType === ASYNCAPI_API_TYPE) {
@@ -35,7 +35,7 @@ const createDuplicateOperationHandler = (buildResult: BuildResult): DuplicateOpe
     )
   }
   buildResult.notifications.push({
-    severity: MESSAGE_SEVERITY.Warning,
+    severity: MESSAGE_SEVERITY.Error,
     message: `Duplicated operationId '${duplicate.operationId}' found in different documents: ` +
       `'${existing.documentId}' and '${duplicate.documentId}'`,
     operationId: duplicate.operationId,
