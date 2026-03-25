@@ -111,19 +111,14 @@ describe('AsyncAPI deduplication tests', () => {
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
     })
 
-    test('should deduplicate diffs when same operation appears in multiple document pairs', async () => {
-      // Same operation (operation1-message1) described in two documents:
-      // before1.yaml/after1.yaml and before2.yaml/after2.yaml.
-      // Both document pairs produce identical semantic changes (userId type: number → string).
-      // Level 2 dedup via calculateDiffId should ensure diffs are not counted twice.
-      const result = await buildChangelogPackageDefaultConfig(
+    test('should throw error when same operationId appears in multiple documents', async () => {
+      // Same operation (operation1-message1) described in two documents.
+      // AsyncAPI does not allow duplicate operationIds across documents — must throw.
+      await expect(buildChangelogPackageDefaultConfig(
         'asyncapi-deduplication/cross-document-dedup',
         [{ fileId: 'before1.yaml', publish: true }, { fileId: 'before2.yaml', publish: true }],
         [{ fileId: 'after1.yaml' }, { fileId: 'after2.yaml' }],
-      )
-
-      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      )).rejects.toThrow(/Duplicated operationId 'operation1-message1'/)
     })
   })
 })

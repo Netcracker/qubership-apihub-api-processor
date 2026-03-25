@@ -238,7 +238,7 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
-    test('should report removed APIHUB operation when message reference is removed to async operation', async () => {
+    test('should report removed APIHUB operation when message reference is removed from async operation', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/message/remove-from-operation')
 
       expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
