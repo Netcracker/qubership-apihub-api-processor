@@ -71,7 +71,7 @@ describe('AsyncAPI deduplication tests', () => {
       // Both specs define SharedPayload with same change (number → string).
       // Different scopes → separate apiDiff calls → separate diff instances.
       // Cross-document content-based dedup (calculateDiffId) applies per operation,
-      // but these are different operations so both changes are counted.
+      // but these operations have different scope, so both changes are counted.
       const result = await buildChangelogPackageDefaultConfig(
         'asyncapi-deduplication/shared-schema-cross-specs',
         [{ fileId: 'before1.yaml', publish: true }, { fileId: 'before2.yaml', publish: true }],
@@ -111,14 +111,5 @@ describe('AsyncAPI deduplication tests', () => {
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
     })
 
-    test('should throw error when same operationId appears in multiple documents', async () => {
-      // Same operation (operation1-message1) described in two documents.
-      // AsyncAPI does not allow duplicate operationIds across documents — must throw.
-      await expect(buildChangelogPackageDefaultConfig(
-        'asyncapi-deduplication/cross-document-dedup',
-        [{ fileId: 'before1.yaml', publish: true }, { fileId: 'before2.yaml', publish: true }],
-        [{ fileId: 'after1.yaml' }, { fileId: 'after2.yaml' }],
-      )).rejects.toThrow(/Duplicated operationId 'operation1-message1'/)
-    })
   })
 })

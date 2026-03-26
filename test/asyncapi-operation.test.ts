@@ -18,10 +18,10 @@ import { beforeAll, describe, expect, it, test } from '@jest/globals'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { createOperationSpec, createOperationSpecWithInlineRefs } from '../src/apitypes/async/async.operation'
 import { calculateAsyncOperationId } from '../src/utils'
-import { buildPackageWithDefaultConfig, cloneDocument, loadYamlFile } from './helpers'
+import { buildPackageWithDefaultConfig, cloneDocument, loadYamlFile, LocalRegistry } from './helpers'
 import { extractProtocol } from '../src/apitypes/async/async.utils'
 import { FIRST_REFERENCE_KEY_PROPERTY, INLINE_REFS_FLAG } from '../src/consts'
-import { ASYNC_EFFECTIVE_NORMALIZE_OPTIONS } from '../src'
+import { ASYNC_EFFECTIVE_NORMALIZE_OPTIONS, BUILD_TYPE, VERSION_STATUS } from '../src'
 import { normalize } from '@netcracker/qubership-apihub-api-unifier'
 
 const normalizeAsyncApiDocument = (doc: AsyncAPIV3.AsyncAPIObject): AsyncAPIV3.AsyncAPIObject =>
@@ -431,6 +431,24 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
 
       expect(result.servers).toBeDefined()
       expect(Object.keys(result.servers!)).toEqual(expect.arrayContaining(['production', 'staging']))
+    })
+  })
+
+  describe('Duplicate operationId validation', () => {
+    test('should throw error during build when same operationId appears in multiple documents', async () => {
+      const packageId = 'asyncapi-changes/operation/duplicate-cross-document'
+      const portal = new LocalRegistry(packageId)
+
+      await expect(portal.publish(packageId, {
+        packageId,
+        version: 'v1',
+        status: VERSION_STATUS.RELEASE,
+        buildType: BUILD_TYPE.BUILD,
+        files: [
+          { fileId: 'spec1.yaml', publish: true },
+          { fileId: 'spec2.yaml', publish: true },
+        ],
+      })).rejects.toThrow(/Duplicated operationId 'operation1-message1'/)
     })
   })
 })
