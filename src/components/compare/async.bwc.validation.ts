@@ -14,10 +14,8 @@
  * limitations under the License.
  */
 
-import {
-  APIHUB_API_COMPATIBILITY_KIND_BWC,
-  APIHUB_API_COMPATIBILITY_KIND_NO_BWC,
-} from '../../consts'
+import { APIHUB_API_COMPATIBILITY_KIND_BWC, APIHUB_API_COMPATIBILITY_KIND_NO_BWC } from '../../consts'
+import { isObject } from '../../utils'
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import {
   API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE,
@@ -67,6 +65,12 @@ export const createAsyncApiCompatibilityScopeFunction: ApiCompatibilityScopeFunc
     }
 
     const firstSegment = path?.[0]
+    const beforeExists = isObject(beforeJso)
+    const afterExists = isObject(afterJso)
+
+    if (!beforeExists && !afterExists) {
+      return undefined
+    }
 
     // operations/<operationId>: resolve api-kind from operation x-api-kind with channel fallback
     if (firstSegment === 'operations' && pathLength === ASYNC_OPERATION_PATH_LENGTH) {
@@ -82,7 +86,7 @@ export const createAsyncApiCompatibilityScopeFunction: ApiCompatibilityScopeFunc
         return API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
       }
 
-      return undefined
+      return API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
     }
 
     // channels/<channelId>: use channel's own x-api-kind
@@ -94,7 +98,7 @@ export const createAsyncApiCompatibilityScopeFunction: ApiCompatibilityScopeFunc
         return API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
       }
 
-      return undefined
+      return API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
     }
 
     return undefined

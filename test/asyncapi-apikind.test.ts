@@ -7,11 +7,12 @@ import {
 } from '../src'
 import { calculateAsyncApiKind } from '../src/apitypes/async/async.utils'
 import { buildPackageWithDefaultConfig } from './helpers'
-import { createAsyncApiCompatibilityScopeFunction } from '../src/components/compare/bwc.validation.async'
+import { createAsyncApiCompatibilityScopeFunction } from '../src/components/compare/async.bwc.validation'
 import {
   API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE,
   API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE,
 } from '@netcracker/qubership-apihub-api-diff'
+import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 
 describe('AsyncAPI apiKind calculation', () => {
   describe('Unit tests', () => {
@@ -33,32 +34,21 @@ describe('AsyncAPI apiKind calculation', () => {
     })
 
     describe('Changelog backward compatibility scope function', () => {
-      const createChannel = (apiKind: string | undefined): {
-        address: string
-        [API_KIND_SPECIFICATION_EXTENSION]?: ApihubApiCompatibilityKind
-      } => {
-        return apiKind
-          ? { address: 'channel1', [API_KIND_SPECIFICATION_EXTENSION]: apiKind as ApihubApiCompatibilityKind }
-          : { address: 'channel1' }
-      }
-
-      const createOperation = (apiKind: string | undefined): {
-        action: string
-        channel: unknown
-        [API_KIND_SPECIFICATION_EXTENSION]?: ApihubApiCompatibilityKind
-      } => {
-        return apiKind
-          ? {
-            action: 'receive',
-            [API_KIND_SPECIFICATION_EXTENSION]: apiKind as ApihubApiCompatibilityKind,
-            channel: {},
-          }
-          : { action: 'receive', channel: {} }
-      }
-
       // short names
       const BWC = API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
       const NOT_BWC = API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
+
+      // Factories return a fresh object each time so that before/after are distinct instances.
+      // Currently the scope function only reads properties and doesn't compare by reference,
+      // but unique instances prevent false positives if the implementation ever starts
+      // distinguishing "same object" from "equal objects" (e.g. identity checks or mutation).
+      const channel = (): AsyncAPIV3.ChannelObject => ({ address: 'channel1' })
+      const bwcChannel = (): AsyncAPIV3.ChannelObject => ({ ...channel(), [API_KIND_SPECIFICATION_EXTENSION]: APIHUB_API_COMPATIBILITY_KIND_BWC })
+      const noBwcChannel = (): AsyncAPIV3.ChannelObject => ({ ...channel(), [API_KIND_SPECIFICATION_EXTENSION]: APIHUB_API_COMPATIBILITY_KIND_NO_BWC })
+
+      const operation = (): AsyncAPIV3.OperationObject => ({ action: 'receive', channel: {} })
+      const bwcOperation = (): AsyncAPIV3.OperationObject => ({ ...operation(), [API_KIND_SPECIFICATION_EXTENSION]: APIHUB_API_COMPATIBILITY_KIND_BWC })
+      const noBwcOperation = (): AsyncAPIV3.OperationObject => ({ ...operation(), [API_KIND_SPECIFICATION_EXTENSION]: APIHUB_API_COMPATIBILITY_KIND_NO_BWC })
 
       describe('Root level', () => {
         it.each([
@@ -78,65 +68,86 @@ describe('AsyncAPI apiKind calculation', () => {
 
       describe('Channels scope', () => {
         it.each([
-          // default | before | after | expected
-          ['bwc', 'undefined', 'undefined', undefined],
-          ['bwc', 'undefined', 'bwc', undefined],
-          ['bwc', 'undefined', 'no-bwc', NOT_BWC],
-          ['bwc', 'bwc', 'undefined', undefined],
-          ['bwc', 'bwc', 'bwc', undefined],
-          ['bwc', 'bwc', 'no-bwc', NOT_BWC],
-          ['bwc', 'no-bwc', 'undefined', NOT_BWC],
-          ['bwc', 'no-bwc', 'bwc', NOT_BWC],
-          ['bwc', 'no-bwc', 'no-bwc', NOT_BWC],
-          ['no-bwc', 'undefined', 'undefined', undefined],
-          ['no-bwc', 'undefined', 'bwc', undefined],
-          ['no-bwc', 'undefined', 'no-bwc', NOT_BWC],
-          ['no-bwc', 'bwc', 'undefined', undefined],
-          ['no-bwc', 'bwc', 'bwc', undefined],
-          ['no-bwc', 'bwc', 'no-bwc', NOT_BWC],
-          ['no-bwc', 'no-bwc', 'undefined', NOT_BWC],
-          ['no-bwc', 'no-bwc', 'bwc', NOT_BWC],
-          ['no-bwc', 'no-bwc', 'no-bwc', NOT_BWC],
+          // default        | before           | after            | expected
+          // undefined JSO = channel added/removed
+          ['bwc', channel(), channel(), BWC],
+          ['bwc', channel(), bwcChannel(), BWC],
+          ['bwc', channel(), noBwcChannel(), NOT_BWC],
+          ['bwc', bwcChannel(), channel(), BWC],
+          ['bwc', bwcChannel(), bwcChannel(), BWC],
+          ['bwc', bwcChannel(), noBwcChannel(), NOT_BWC],
+          ['bwc', noBwcChannel(), channel(), NOT_BWC],
+          ['bwc', noBwcChannel(), bwcChannel(), NOT_BWC],
+          ['bwc', noBwcChannel(), noBwcChannel(), NOT_BWC],
+          ['bwc', undefined, channel(), BWC],
+          ['bwc', undefined, noBwcChannel(), NOT_BWC],
+          ['bwc', channel(), undefined, BWC],
+          ['bwc', noBwcChannel(), undefined, NOT_BWC],
+          ['bwc', undefined, undefined, undefined],
+          ['no-bwc', channel(), channel(), BWC],
+          ['no-bwc', channel(), bwcChannel(), BWC],
+          ['no-bwc', channel(), noBwcChannel(), NOT_BWC],
+          ['no-bwc', bwcChannel(), channel(), BWC],
+          ['no-bwc', bwcChannel(), bwcChannel(), BWC],
+          ['no-bwc', bwcChannel(), noBwcChannel(), NOT_BWC],
+          ['no-bwc', noBwcChannel(), channel(), NOT_BWC],
+          ['no-bwc', noBwcChannel(), bwcChannel(), NOT_BWC],
+          ['no-bwc', noBwcChannel(), noBwcChannel(), NOT_BWC],
+          ['no-bwc', undefined, channel(), BWC],
+          ['no-bwc', undefined, noBwcChannel(), NOT_BWC],
+          ['no-bwc', channel(), undefined, BWC],
+          ['no-bwc', noBwcChannel(), undefined, NOT_BWC],
+          ['no-bwc', undefined, undefined, undefined],
         ] as const)('documentApiKind: %s, before: %s, after: %s', (
           documentApiKind,
-          beforeKind,
-          afterKind,
+          beforeJso,
+          afterJso,
           expected,
         ) => {
           const scopeFunction = createAsyncApiCompatibilityScopeFunction(documentApiKind)
-          expect(scopeFunction(['channels', 'ch1'], createChannel(beforeKind), createChannel(afterKind))).toBe(expected)
+          expect(scopeFunction(['channels', 'ch1'], beforeJso, afterJso)).toBe(expected)
         })
       })
 
       describe('Operations scope', () => {
         it.each([
-          // default | before | after | expected
-          ['bwc', 'undefined', 'undefined', undefined],
-          ['bwc', 'undefined', 'bwc', undefined],
-          ['bwc', 'undefined', 'no-bwc', NOT_BWC],
-          ['bwc', 'bwc', 'undefined', undefined],
-          ['bwc', 'bwc', 'bwc', undefined],
-          ['bwc', 'bwc', 'no-bwc', NOT_BWC],
-          ['bwc', 'no-bwc', 'undefined', NOT_BWC],
-          ['bwc', 'no-bwc', 'bwc', NOT_BWC],
-          ['bwc', 'no-bwc', 'no-bwc', NOT_BWC],
-          ['no-bwc', 'undefined', 'undefined', undefined],
-          ['no-bwc', 'undefined', 'bwc', undefined],
-          ['no-bwc', 'undefined', 'no-bwc', NOT_BWC],
-          ['no-bwc', 'bwc', 'undefined', undefined],
-          ['no-bwc', 'bwc', 'bwc', undefined],
-          ['no-bwc', 'bwc', 'no-bwc', NOT_BWC],
-          ['no-bwc', 'no-bwc', 'undefined', NOT_BWC],
-          ['no-bwc', 'no-bwc', 'bwc', NOT_BWC],
-          ['no-bwc', 'no-bwc', 'no-bwc', NOT_BWC],
+          // default        | before              | after               | expected
+          ['bwc', operation(), operation(), BWC],
+          ['bwc', operation(), bwcOperation(), BWC],
+          ['bwc', operation(), noBwcOperation(), NOT_BWC],
+          ['bwc', bwcOperation(), operation(), BWC],
+          ['bwc', bwcOperation(), bwcOperation(), BWC],
+          ['bwc', bwcOperation(), noBwcOperation(), NOT_BWC],
+          ['bwc', noBwcOperation(), operation(), NOT_BWC],
+          ['bwc', noBwcOperation(), bwcOperation(), NOT_BWC],
+          ['bwc', noBwcOperation(), noBwcOperation(), NOT_BWC],
+          ['bwc', undefined, operation(), BWC],
+          ['bwc', undefined, noBwcOperation(), NOT_BWC],
+          ['bwc', operation(), undefined, BWC],
+          ['bwc', noBwcOperation(), undefined, NOT_BWC],
+          ['bwc', undefined, undefined, undefined],
+          ['no-bwc', operation(), operation(), BWC],
+          ['no-bwc', operation(), bwcOperation(), BWC],
+          ['no-bwc', operation(), noBwcOperation(), NOT_BWC],
+          ['no-bwc', bwcOperation(), operation(), BWC],
+          ['no-bwc', bwcOperation(), bwcOperation(), BWC],
+          ['no-bwc', bwcOperation(), noBwcOperation(), NOT_BWC],
+          ['no-bwc', noBwcOperation(), operation(), NOT_BWC],
+          ['no-bwc', noBwcOperation(), bwcOperation(), NOT_BWC],
+          ['no-bwc', noBwcOperation(), noBwcOperation(), NOT_BWC],
+          ['no-bwc', undefined, operation(), BWC],
+          ['no-bwc', undefined, noBwcOperation(), NOT_BWC],
+          ['no-bwc', operation(), undefined, BWC],
+          ['no-bwc', noBwcOperation(), undefined, NOT_BWC],
+          ['no-bwc', undefined, undefined, undefined],
         ] as const)('documentApiKind: %s, before: %s, after: %s', (
           documentApiKind,
-          beforeKind,
-          afterKind,
+          beforeJso,
+          afterJso,
           expected,
         ) => {
           const scopeFunction = createAsyncApiCompatibilityScopeFunction(documentApiKind)
-          expect(scopeFunction(['operations', 'op1'], createOperation(beforeKind), createOperation(afterKind))).toBe(expected)
+          expect(scopeFunction(['operations', 'op1'], beforeJso, afterJso)).toBe(expected)
         })
 
         it('should use channel x-api-kind as fallback when operation has no x-api-kind', () => {
@@ -161,7 +172,7 @@ describe('AsyncAPI apiKind calculation', () => {
             [API_KIND_SPECIFICATION_EXTENSION]: APIHUB_API_COMPATIBILITY_KIND_BWC,
             channel: { [API_KIND_SPECIFICATION_EXTENSION]: APIHUB_API_COMPATIBILITY_KIND_NO_BWC },
           }
-          expect(scopeFunction(['operations', 'op1'], before, after)).toBeUndefined()
+          expect(scopeFunction(['operations', 'op1'], before, after)).toBe(BWC)
         })
       })
 

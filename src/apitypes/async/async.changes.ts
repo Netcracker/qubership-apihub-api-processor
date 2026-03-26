@@ -46,7 +46,7 @@ import {
   getOperationTags,
   OperationsMap,
 } from '../../components'
-import { createAsyncApiCompatibilityScopeFunction } from '../../components/compare/bwc.validation.async'
+import { createAsyncApiCompatibilityScopeFunction } from '../../components/compare/async.bwc.validation'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import {
   collectChannelMessageDefinitionDiffs,

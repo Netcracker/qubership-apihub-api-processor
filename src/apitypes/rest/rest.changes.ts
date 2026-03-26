@@ -81,7 +81,7 @@ import {
   getOperationTags,
   OperationsMap,
 } from '../../components'
-import { createRestApiCompatibilityScopeFunction } from '../../components/compare/bwc.validation.rest'
+import { createRestApiCompatibilityScopeFunction } from '../../components/compare/rest.bwc.validation'
 import { calculateApiKindFromLabels, getApiKindProperty } from '../../components/document'
 
 export const compareDocuments: DocumentsCompare = async (
