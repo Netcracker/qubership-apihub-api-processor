@@ -78,7 +78,6 @@ export const createAsyncApiCompatibilityScopeFunction: ApiCompatibilityScopeFunc
       const beforeChannelKind = getApiKindProperty((beforeJso as AsyncAPIV3.OperationObject | undefined)?.channel)
       const afterChannelKind = getApiKindProperty((afterJso as AsyncAPIV3.OperationObject | undefined)?.channel)
 
-      // Operation's own x-api-kind takes priority, falls back to channel's x-api-kind
       const beforeOperationKind = getApiKindProperty(beforeJso)
       const afterOperationKind = getApiKindProperty(afterJso)
 
