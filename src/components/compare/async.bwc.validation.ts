@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-import { APIHUB_API_COMPATIBILITY_KIND_BWC, APIHUB_API_COMPATIBILITY_KIND_NO_BWC } from '../../consts'
-import { isObject } from '../../utils'
+import { APIHUB_API_COMPATIBILITY_KIND_BWC, APIHUB_API_COMPATIBILITY_KIND_NO_BWC, ApihubApiCompatibilityKind } from '../../consts'
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import {
   API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE,
@@ -29,6 +28,13 @@ import { ApiCompatibilityScopeFunctionFactory } from './bwc.validation.types'
 const ROOT_PATH_LENGTH = 0
 const ASYNC_OPERATION_PATH_LENGTH = 2 // operations/<operationId>
 const ASYNC_CHANNEL_PATH_LENGTH = 2   // channels/<channelId>
+
+const hasExplicitKind = (
+  beforeKind: ApihubApiCompatibilityKind | undefined,
+  afterKind: ApihubApiCompatibilityKind | undefined,
+  explicitKind: ApihubApiCompatibilityKind): boolean => {
+  return beforeKind === explicitKind || afterKind === explicitKind
+}
 
 /**
  * Creates an ApiCompatibilityScopeFunction for AsyncAPI documents.
@@ -49,7 +55,7 @@ export const createAsyncApiCompatibilityScopeFunction: ApiCompatibilityScopeFunc
   prevDocumentApiKind = APIHUB_API_COMPATIBILITY_KIND_BWC,
   currDocumentApiKind = APIHUB_API_COMPATIBILITY_KIND_BWC,
 ) => {
-  const defaultApiCompatibilityKind = (prevDocumentApiKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC || currDocumentApiKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
+  const defaultApiCompatibilityKind = hasExplicitKind(prevDocumentApiKind, currDocumentApiKind, APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
     ? API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
     : API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
 
@@ -65,12 +71,6 @@ export const createAsyncApiCompatibilityScopeFunction: ApiCompatibilityScopeFunc
     }
 
     const firstSegment = path?.[0]
-    const beforeExists = isObject(beforeJso)
-    const afterExists = isObject(afterJso)
-
-    if (!beforeExists && !afterExists) {
-      return undefined
-    }
 
     // operations/<operationId>: resolve api-kind from operation x-api-kind with channel fallback
     if (firstSegment === 'operations' && pathLength === ASYNC_OPERATION_PATH_LENGTH) {
@@ -79,14 +79,27 @@ export const createAsyncApiCompatibilityScopeFunction: ApiCompatibilityScopeFunc
       const afterChannelKind = getApiKindProperty((afterJso as AsyncAPIV3.OperationObject | undefined)?.channel)
 
       // Operation's own x-api-kind takes priority, falls back to channel's x-api-kind
-      const beforeOperationKind = getApiKindProperty(beforeJso, beforeChannelKind)
-      const afterOperationKind = getApiKindProperty(afterJso, afterChannelKind)
+      const beforeOperationKind = getApiKindProperty(beforeJso)
+      const afterOperationKind = getApiKindProperty(afterJso)
 
-      if (beforeOperationKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC || afterOperationKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC) {
+      // if before or after operation has explicit kind, return the explicit kind (no-bwc takes priority over bwc)
+      if (hasExplicitKind(beforeOperationKind, afterOperationKind, APIHUB_API_COMPATIBILITY_KIND_NO_BWC)) {
         return API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
       }
+      if (hasExplicitKind(beforeOperationKind, afterOperationKind, APIHUB_API_COMPATIBILITY_KIND_BWC)) {
+        return API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
+      }
 
-      return API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
+      // otherwise, if before or after channel has explicit kind, return the explicit kind (no-bwc takes priority over bwc)
+      if (hasExplicitKind(beforeChannelKind, afterChannelKind, APIHUB_API_COMPATIBILITY_KIND_NO_BWC)) {
+        return API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
+      }
+      if (hasExplicitKind(beforeChannelKind, afterChannelKind, APIHUB_API_COMPATIBILITY_KIND_BWC)) {
+        return API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
+      }
+
+      // neither operation nor channel has explicit kind, return undefined
+      return undefined
     }
 
     // channels/<channelId>: use channel's own x-api-kind
@@ -94,11 +107,16 @@ export const createAsyncApiCompatibilityScopeFunction: ApiCompatibilityScopeFunc
       const beforeChannelKind = getApiKindProperty(beforeJso)
       const afterChannelKind = getApiKindProperty(afterJso)
 
-      if (beforeChannelKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC || afterChannelKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC) {
+      // if before or after channel has explicit kind, return the explicit kind (no-bwc takes priority over bwc)
+      if (hasExplicitKind(beforeChannelKind, afterChannelKind, APIHUB_API_COMPATIBILITY_KIND_NO_BWC)) {
         return API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
       }
+      if (hasExplicitKind(beforeChannelKind, afterChannelKind, APIHUB_API_COMPATIBILITY_KIND_BWC)) {
+        return API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
+      }
 
-      return API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
+      // channel does not have explicit kind, return undefined
+      return undefined
     }
 
     return undefined
