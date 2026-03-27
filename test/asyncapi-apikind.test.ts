@@ -67,86 +67,78 @@ describe('AsyncAPI apiKind calculation', () => {
       })
 
       describe('Channels scope', () => {
-        it.each([
-          // default        | before           | after            | expected
-          // undefined JSO = channel added/removed
-          ['bwc', channel(), channel(), BWC],
-          ['bwc', channel(), bwcChannel(), BWC],
-          ['bwc', channel(), noBwcChannel(), NOT_BWC],
-          ['bwc', bwcChannel(), channel(), BWC],
-          ['bwc', bwcChannel(), bwcChannel(), BWC],
-          ['bwc', bwcChannel(), noBwcChannel(), NOT_BWC],
-          ['bwc', noBwcChannel(), channel(), NOT_BWC],
-          ['bwc', noBwcChannel(), bwcChannel(), NOT_BWC],
-          ['bwc', noBwcChannel(), noBwcChannel(), NOT_BWC],
-          ['bwc', undefined, channel(), BWC],
-          ['bwc', undefined, noBwcChannel(), NOT_BWC],
-          ['bwc', channel(), undefined, BWC],
-          ['bwc', noBwcChannel(), undefined, NOT_BWC],
-          ['bwc', undefined, undefined, undefined],
-          ['no-bwc', channel(), channel(), BWC],
-          ['no-bwc', channel(), bwcChannel(), BWC],
-          ['no-bwc', channel(), noBwcChannel(), NOT_BWC],
-          ['no-bwc', bwcChannel(), channel(), BWC],
-          ['no-bwc', bwcChannel(), bwcChannel(), BWC],
-          ['no-bwc', bwcChannel(), noBwcChannel(), NOT_BWC],
-          ['no-bwc', noBwcChannel(), channel(), NOT_BWC],
-          ['no-bwc', noBwcChannel(), bwcChannel(), NOT_BWC],
-          ['no-bwc', noBwcChannel(), noBwcChannel(), NOT_BWC],
-          ['no-bwc', undefined, channel(), BWC],
-          ['no-bwc', undefined, noBwcChannel(), NOT_BWC],
-          ['no-bwc', channel(), undefined, BWC],
-          ['no-bwc', noBwcChannel(), undefined, NOT_BWC],
-          ['no-bwc', undefined, undefined, undefined],
-        ] as const)('documentApiKind: %s, before: %s, after: %s', (
+        // before           | after            | expected
+        // undefined JSO = channel added/removed
+        const CHANNELS_TEST_DATA_SINGLE_SCOPE = [
+          [channel(), channel(), undefined],
+          [channel(), bwcChannel(), BWC],
+          [channel(), noBwcChannel(), NOT_BWC],
+          [channel(), undefined, undefined],
+          [bwcChannel(), channel(), BWC],
+          [bwcChannel(), bwcChannel(), BWC],
+          [bwcChannel(), noBwcChannel(), NOT_BWC],
+          [bwcChannel(), undefined, BWC],
+          [noBwcChannel(), channel(), NOT_BWC],
+          [noBwcChannel(), bwcChannel(), NOT_BWC],
+          [noBwcChannel(), noBwcChannel(), NOT_BWC],
+          [noBwcChannel(), undefined, NOT_BWC],
+          [undefined, channel(), undefined],
+          [undefined, bwcChannel(), BWC],
+          [undefined, noBwcChannel(), NOT_BWC],
+          [undefined, undefined, undefined],
+        ]
+        // Expected is the same for both documentApiKinds
+        const CHANNELS_TEST_DATA = [
+          ...['bwc', 'no-bwc'].flatMap(
+            documentApiKind =>
+              CHANNELS_TEST_DATA_SINGLE_SCOPE.map(testData => [documentApiKind, ...testData]),
+          ),
+        ]
+        it.each(CHANNELS_TEST_DATA)('documentApiKind: %s, before: %s, after: %s', (
           documentApiKind,
           beforeJso,
           afterJso,
           expected,
         ) => {
-          const scopeFunction = createAsyncApiCompatibilityScopeFunction(documentApiKind)
+          const scopeFunction = createAsyncApiCompatibilityScopeFunction(documentApiKind as ApihubApiCompatibilityKind, documentApiKind as ApihubApiCompatibilityKind)
           expect(scopeFunction(['channels', 'ch1'], beforeJso, afterJso)).toBe(expected)
         })
       })
 
       describe('Operations scope', () => {
-        it.each([
-          // default        | before              | after               | expected
-          ['bwc', operation(), operation(), BWC],
-          ['bwc', operation(), bwcOperation(), BWC],
-          ['bwc', operation(), noBwcOperation(), NOT_BWC],
-          ['bwc', bwcOperation(), operation(), BWC],
-          ['bwc', bwcOperation(), bwcOperation(), BWC],
-          ['bwc', bwcOperation(), noBwcOperation(), NOT_BWC],
-          ['bwc', noBwcOperation(), operation(), NOT_BWC],
-          ['bwc', noBwcOperation(), bwcOperation(), NOT_BWC],
-          ['bwc', noBwcOperation(), noBwcOperation(), NOT_BWC],
-          ['bwc', undefined, operation(), BWC],
-          ['bwc', undefined, noBwcOperation(), NOT_BWC],
-          ['bwc', operation(), undefined, BWC],
-          ['bwc', noBwcOperation(), undefined, NOT_BWC],
-          ['bwc', undefined, undefined, undefined],
-          ['no-bwc', operation(), operation(), BWC],
-          ['no-bwc', operation(), bwcOperation(), BWC],
-          ['no-bwc', operation(), noBwcOperation(), NOT_BWC],
-          ['no-bwc', bwcOperation(), operation(), BWC],
-          ['no-bwc', bwcOperation(), bwcOperation(), BWC],
-          ['no-bwc', bwcOperation(), noBwcOperation(), NOT_BWC],
-          ['no-bwc', noBwcOperation(), operation(), NOT_BWC],
-          ['no-bwc', noBwcOperation(), bwcOperation(), NOT_BWC],
-          ['no-bwc', noBwcOperation(), noBwcOperation(), NOT_BWC],
-          ['no-bwc', undefined, operation(), BWC],
-          ['no-bwc', undefined, noBwcOperation(), NOT_BWC],
-          ['no-bwc', operation(), undefined, BWC],
-          ['no-bwc', noBwcOperation(), undefined, NOT_BWC],
-          ['no-bwc', undefined, undefined, undefined],
-        ] as const)('documentApiKind: %s, before: %s, after: %s', (
+        const OPERATIONS_TEST_DATA_SINGLE_SCOPE = [
+          // before           | after            | expected
+          [operation(), operation(), undefined],
+          [operation(), bwcOperation(), BWC],
+          [operation(), noBwcOperation(), NOT_BWC],
+          [operation(), undefined, undefined],
+          [bwcOperation(), operation(), BWC],
+          [bwcOperation(), bwcOperation(), BWC],
+          [bwcOperation(), noBwcOperation(), NOT_BWC],
+          [bwcOperation(), undefined, BWC],
+          [noBwcOperation(), operation(), NOT_BWC],
+          [noBwcOperation(), bwcOperation(), NOT_BWC],
+          [noBwcOperation(), noBwcOperation(), NOT_BWC],
+          [noBwcOperation(), undefined, NOT_BWC],
+          [undefined, operation(), undefined],
+          [undefined, bwcOperation(), BWC],
+          [undefined, noBwcOperation(), NOT_BWC],
+          [undefined, undefined, undefined],
+        ]
+        // Expected is the same for both documentApiKinds
+        const OPERATIONS_TEST_DATA = [
+          ...['bwc', 'no-bwc'].flatMap(
+            documentApiKind =>
+              OPERATIONS_TEST_DATA_SINGLE_SCOPE.map(testData => [documentApiKind, ...testData]),
+          ),
+        ]
+        it.each(OPERATIONS_TEST_DATA)('documentApiKind: %s, before: %s, after: %s', (
           documentApiKind,
           beforeJso,
           afterJso,
           expected,
         ) => {
-          const scopeFunction = createAsyncApiCompatibilityScopeFunction(documentApiKind)
+          const scopeFunction = createAsyncApiCompatibilityScopeFunction(documentApiKind as ApihubApiCompatibilityKind, documentApiKind as ApihubApiCompatibilityKind)
           expect(scopeFunction(['operations', 'op1'], beforeJso, afterJso)).toBe(expected)
         })
 
