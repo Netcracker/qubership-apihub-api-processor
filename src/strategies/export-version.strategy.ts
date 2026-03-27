@@ -139,21 +139,10 @@ function filterDocumentsByShareabilityStatus(
 ): ReadonlyArray<ResolvedVersionDocument> {
   const { allowedShareabilityStatuses } = config
 
-  // DEBUG ONLY - remove after verifying export works correctly
-  console.log('[export-version] filterByShareability called:', {
-    allowedShareabilityStatuses: allowedShareabilityStatuses,
-    totalDocs: documents.length,
-    statuses: documents.map(d => ({ slug: d.slug, shareabilityStatus: d.shareabilityStatus })),
-  })
-
   if (!allowedShareabilityStatuses || allowedShareabilityStatuses.length === 0) {
     return documents
   }
   const allowedSet = new Set<ShareabilityStatus>(allowedShareabilityStatuses)
-  const filtered = documents.filter(doc => allowedSet.has(doc.shareabilityStatus ?? SHAREABILITY_STATUS_UNKNOWN))
 
-  // DEBUG ONLY - remove after verifying export works correctly
-  console.log('[export-version] filtered to', filtered.length, 'shareable documents')
-
-  return filtered
+  return documents.filter(doc => allowedSet.has(doc.shareabilityStatus ?? SHAREABILITY_STATUS_UNKNOWN))
 }
