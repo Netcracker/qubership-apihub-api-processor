@@ -477,7 +477,7 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
     test('should report changed info version', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/info/change-version')
 
-      // info.version changed (1.0.0 -> 2.0.0) — should be detected as a change in every apihub operation
+      // info.version changed (1.0.0 -> 2.0.0) — should be reported as a change in every apihub operation
       expect(result).toEqual(changesSummaryMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(operationChangesMatcher([
         expect.objectContaining({
@@ -490,7 +490,7 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
     test('should report changed info title', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/info/change-title')
 
-      // info.title changed — should be detected as a change in every apihub operation
+      // info.title changed — should be reported as a change in every apihub operation
       expect(result).toEqual(changesSummaryMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(operationChangesMatcher([
         expect.objectContaining({
