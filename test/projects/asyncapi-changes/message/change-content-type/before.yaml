@@ -9,7 +9,7 @@ channels:
       message1:
         $ref: '#/components/messages/message1'
 operations:
-  new-operation1:
+  operation1:
     action: receive
     channel:
       $ref: '#/channels/channel1'
@@ -18,9 +18,9 @@ operations:
 components:
   messages:
     message1:
+      contentType: application/json
       payload:
         type: object
         properties:
           userId:
             type: string
-

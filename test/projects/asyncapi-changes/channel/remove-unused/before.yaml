@@ -8,6 +8,11 @@ channels:
     messages:
       message1:
         $ref: '#/components/messages/message1'
+  unusedChannel:
+    address: unused
+    messages:
+      message1:
+        $ref: '#/components/messages/message1'
 operations:
   operation1:
     action: receive
@@ -23,4 +28,3 @@ components:
         properties:
           userId:
             type: string
-
