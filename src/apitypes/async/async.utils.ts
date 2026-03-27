@@ -44,7 +44,7 @@ import {
   INLINE_REFS_FLAG,
 } from '../../consts'
 import { WithAggregatedDiffs, WithDiffMetaRecord } from '../../types'
-import { Diff, DIFF_META_KEY, DIFFS_AGGREGATED_META_KEY } from '@netcracker/qubership-apihub-api-diff'
+import { Diff, DiffAction, DIFF_META_KEY, DIFFS_AGGREGATED_META_KEY } from '@netcracker/qubership-apihub-api-diff'
 
 // Re-export shared utilities
 export { dump, getCustomTags, resolveApiAudience } from '../../utils/apihubSpecificationExtensions'
@@ -269,15 +269,6 @@ export const resolveAsyncApiOperationIdsFromRefs = (
   }
 
   return resolved
-}
-
-/**
- * Checks whether a message has explicit `contentType` in the raw (pre-normalization) document.
- * Messages without explicit contentType inherit from `defaultContentType`.
- */
-export function hasExplicitContentType(doc: AsyncAPIV3.AsyncAPIObject | undefined | null, messageId: string): boolean {
-  const message = getKeyValue(doc, 'components', 'messages', messageId)
-  return isObject(message) && !isReferenceObject(message) && 'contentType' in message
 }
 
 /**

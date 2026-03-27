@@ -52,11 +52,9 @@ import {
   collectChannelMessageDefinitionDiffs,
   collectExclusiveOtherMessageDiffs,
   extractAsyncApiVersionDiff,
-  extractDefaultContentTypeDiff,
   extractIdDiff,
   extractInfoDiffs,
   getAsyncMessageId,
-  hasExplicitContentType,
 } from './async.utils'
 
 export const compareDocuments: DocumentsCompare = async (
@@ -118,7 +116,9 @@ export const compareDocuments: DocumentsCompare = async (
   const asyncApiVersionDiffs = extractAsyncApiVersionDiff(merged)
   const infoDiffs = extractInfoDiffs(merged)
   const idDiffs = extractIdDiff(merged)
-  const defaultContentTypeDiffs = extractDefaultContentTypeDiff(merged)
+  // Note: defaultContentType changes are handled by normalization inside apiDiff.
+  // Messages without explicit contentType inherit from defaultContentType during normalization,
+  // so changes to defaultContentType automatically appear in allOperationDiffs for affected messages.
 
   // Iterate through operations in merged document
   const { operations: asyncOperations } = merged
@@ -159,17 +159,12 @@ export const compareDocuments: DocumentsCompare = async (
 
           const otherMessageDiffs = collectExclusiveOtherMessageDiffs(messages, messageIndex)
           const channelMessageDiffs = collectChannelMessageDefinitionDiffs(operationChannel as AsyncAPIV3.ChannelObject)
-          // defaultContentType only affects messages without explicit contentType
-          const messageAffectedByDefaultContentType =
-            !hasExplicitContentType(prevDocData, messageId) ||
-            !hasExplicitContentType(currDocData, messageId)
 
           operationDiffs = [
             ...([...allOperationDiffs].filter(diff => !otherMessageDiffs.has(diff) && !channelMessageDiffs.has(diff))),
             ...asyncApiVersionDiffs,
             ...infoDiffs,
             ...idDiffs,
-            ...(messageAffectedByDefaultContentType ? defaultContentTypeDiffs : []),
           ]
         }
         if (operationAddedOrRemoved) {
