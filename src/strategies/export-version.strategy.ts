@@ -42,7 +42,7 @@ export class ExportVersionStrategy implements BuilderStrategy {
 
     const documentsToExport = filterDocumentsByShareabilityStatus(documents, config)
 
-    const isSingleNonRestDocument = documents.length === 1 && !isRestDocument(documents[0])
+    const isSingleNonRestDocument = documentsToExport.length === 1 && !isRestDocument(documentsToExport[0])
 
     switch (config.format) {
       case FILE_FORMAT_HTML:
