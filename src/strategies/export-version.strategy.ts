@@ -14,8 +14,17 @@
  * limitations under the License.
  */
 
-import { BuilderStrategy, BuildResult, BuildTypeContexts, ExportDocument, ExportVersionBuildConfig } from '../types'
-import { getDocumentTitle, getSplittedVersionKey } from '../utils'
+import {
+  BuilderStrategy,
+  BuildResult,
+  BuildTypeContexts,
+  ExportDocument,
+  ExportVersionBuildConfig,
+  ResolvedVersionDocument,
+  SHAREABILITY_STATUS_UNKNOWN,
+  ShareabilityStatus,
+} from '../types'
+import { getDocumentTitle, getFileExtension, getSplittedVersionKey } from '../utils'
 import {
   createCommonStaticExportDocuments,
   createSingleFileExportName,
@@ -27,44 +36,65 @@ import { FILE_FORMAT_HTML, FILE_FORMAT_JSON } from '../consts'
 
 export class ExportVersionStrategy implements BuilderStrategy {
   async execute(config: ExportVersionBuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
+    const { versionDocumentsResolver } = contexts.builderContext(config)
+    const { packageId, version: versionWithRevision } = config
+    const { documents } = await versionDocumentsResolver(versionWithRevision, packageId) ?? { documents: [] }
+
+    const documentsToExport = filterDocumentsByShareabilityStatus(documents, config)
+
+    const isSingleNonRestDocument = documentsToExport.length === 1 && !isRestDocument(documentsToExport[0])
+
     switch (config.format) {
       case FILE_FORMAT_HTML:
-        await exportToHTML(config, buildResult, contexts)
+        await exportToHTML(config, buildResult, contexts, documentsToExport)
         break
       default:
-        await defaultExport(config, buildResult, contexts)
+        await defaultExport(config, buildResult, contexts, documentsToExport)
         break
     }
 
-    const { packageId, version: versionWithRevision, format = FILE_FORMAT_JSON } = config
+    const { format = FILE_FORMAT_JSON } = config
     const [version] = getSplittedVersionKey(versionWithRevision)
     if (buildResult.exportDocuments.length > 1) {
       buildResult.exportFileName = `${packageId}_${version}.zip`
       return buildResult
     }
 
-    buildResult.exportFileName = createSingleFileExportName(packageId, version, getDocumentTitle(buildResult.exportDocuments[0].filename), format)
+    const singleExportDocument = buildResult.exportDocuments[0]
+    const singleExportDocumentExtension = isSingleNonRestDocument
+      ? getFileExtension(singleExportDocument.filename)
+      : format
+
+    buildResult.exportFileName = createSingleFileExportName(
+      packageId,
+      version,
+      getDocumentTitle(singleExportDocument.filename),
+      singleExportDocumentExtension,
+    )
     return buildResult
   }
 }
 
-async function exportToHTML(config: ExportVersionBuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<void> {
+async function exportToHTML(
+  config: ExportVersionBuildConfig,
+  buildResult: BuildResult,
+  contexts: BuildTypeContexts,
+  documentsToExport: ReadonlyArray<ResolvedVersionDocument>,
+): Promise<void> {
   const {
-    versionDocumentsResolver,
     rawDocumentResolver,
     templateResolver,
-    packageResolver,
     apiBuilders,
+    packageResolver,
   } = contexts.builderContext(config)
   const { packageId, version: versionWithRevision, format, allowedOasExtensions } = config
   const [version] = getSplittedVersionKey(versionWithRevision)
   const { name: packageName } = await packageResolver(packageId)
-  const { documents } = await versionDocumentsResolver(versionWithRevision, packageId) ?? { documents: [] }
 
   const generatedHtmlExportDocuments: ExportDocument[] = []
-  const restDocuments = documents.filter(isRestDocument)
+  const restDocuments = documentsToExport.filter(isRestDocument)
   const shouldAddIndexPage = restDocuments.length > 0
-  const transformedDocuments = await Promise.all(documents.map(async document => {
+  const transformedDocuments = await Promise.all(documentsToExport.map(async document => {
     const { createExportDocument } = apiBuilders.find(({ types }) => types.includes(document.type)) || unknownApiBuilder
     const file = await rawDocumentResolver(versionWithRevision, packageId, document.slug)
     return await createExportDocument?.(file.name, await file.text(), format, packageName, version, templateResolver, allowedOasExtensions, generatedHtmlExportDocuments, shouldAddIndexPage) ?? createUnknownExportDocument(file.name, file)
@@ -81,9 +111,13 @@ async function exportToHTML(config: ExportVersionBuildConfig, buildResult: Build
   }
 }
 
-async function defaultExport(config: ExportVersionBuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<void> {
+async function defaultExport(
+  config: ExportVersionBuildConfig,
+  buildResult: BuildResult,
+  contexts: BuildTypeContexts,
+  documentsToExport: ReadonlyArray<ResolvedVersionDocument>,
+): Promise<void> {
   const {
-    versionDocumentsResolver,
     rawDocumentResolver,
     templateResolver,
     packageResolver,
@@ -92,13 +126,26 @@ async function defaultExport(config: ExportVersionBuildConfig, buildResult: Buil
   const { packageId, version: versionWithRevision, format, allowedOasExtensions } = config
   const [version] = getSplittedVersionKey(versionWithRevision)
   const { name: packageName } = await packageResolver(packageId)
-  const { documents } = await versionDocumentsResolver(versionWithRevision, packageId) ?? { documents: [] }
 
-  const transformedDocuments = await Promise.all(documents.map(async document => {
+  const transformedDocuments = await Promise.all(documentsToExport.map(async document => {
     const { createExportDocument } = apiBuilders.find(({ types }) => types.includes(document.type)) || unknownApiBuilder
     const file = await rawDocumentResolver(versionWithRevision, packageId, document.slug)
     return await createExportDocument?.(file.name, await file.text(), format, packageName, version, templateResolver, allowedOasExtensions) ?? createUnknownExportDocument(file.name, file)
   }))
 
   buildResult.exportDocuments.push(...transformedDocuments)
+}
+
+function filterDocumentsByShareabilityStatus(
+  documents: ReadonlyArray<ResolvedVersionDocument>,
+  config: ExportVersionBuildConfig,
+): ReadonlyArray<ResolvedVersionDocument> {
+  const { allowedShareabilityStatuses } = config
+
+  if (!allowedShareabilityStatuses || allowedShareabilityStatuses.length === 0) {
+    return documents
+  }
+  const allowedSet = new Set<ShareabilityStatus>(allowedShareabilityStatuses)
+
+  return documents.filter(doc => allowedSet.has(doc.shareabilityStatus ?? SHAREABILITY_STATUS_UNKNOWN))
 }
