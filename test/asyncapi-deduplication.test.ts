@@ -63,6 +63,16 @@ describe('AsyncAPI deduplication tests', () => {
       expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
     })
+
+    test('should deduplicate defaultContentType diff across multiple messages without explicit contentType', async () => {
+      // One operation with two messages, both without explicit contentType.
+      // defaultContentType changed (json → xml) — both messages inherit it.
+      // The diff should be counted once in changesSummary but impact both apihub operations.
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-deduplication/default-content-type-multiple-messages')
+
+      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
+    })
   })
 
   describe('Shared entities across different specifications', () => {

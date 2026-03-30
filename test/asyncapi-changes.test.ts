@@ -527,22 +527,6 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
       ]))
     })
 
-    test('should not report defaultContentType change for message with explicit contentType', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/info/change-default-content-type-with-explicit-override')
-
-      // defaultContentType changed (json → xml).
-      // message1 has explicit contentType → not affected by defaultContentType change.
-      // message2 has no explicit contentType → affected via normalization.
-      // Only operation2-message2 should be impacted.
-      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(operationChangesMatcher([
-        expect.objectContaining({
-          operationId: 'operation2-message2',
-          previousOperationId: 'operation2-message2',
-        }),
-      ]))
-    })
-
     test('should only affect message without explicit contentType when defaultContentType changes in same operation', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/info/change-default-content-type-mixed-messages')
 
