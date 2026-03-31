@@ -31,7 +31,7 @@ import {
   createUnknownExportDocument,
   generateIndexHtmlPage,
 } from '../utils/export'
-import { isRestDocument, unknownApiBuilder } from '../apitypes'
+import { isAsyncApiDocument, isRestDocument, unknownApiBuilder } from '../apitypes'
 import { FILE_FORMAT_HTML, FILE_FORMAT_JSON } from '../consts'
 
 export class ExportVersionStrategy implements BuilderStrategy {
@@ -141,9 +141,12 @@ async function transformDocuments(
       const { createExportDocument } = apiBuilders.find(({ types }) => types.includes(document.type)) || unknownApiBuilder
       const file = await rawDocumentResolver(versionWithRevision, packageId, document.slug)
 
+      // TODO: Temporary workaround: AsyncAPI documents currently lack per-format export options, so force JSON output.
+      const filename = isAsyncApiDocument(document) ? `${getDocumentTitle(file.name)}.${FILE_FORMAT_JSON}` : file.name
+
       return (
         (await createExportDocument?.(
-          file.name,
+          filename,
           await file.text(),
           format,
           packageName,
@@ -153,7 +156,7 @@ async function transformDocuments(
           htmlExportOptions?.generatedHtmlExportDocuments,
           htmlExportOptions?.shouldAddIndexPage,
         )) ??
-        createUnknownExportDocument(file.name, file)
+        createUnknownExportDocument(filename, file)
       )
     }),
   )
