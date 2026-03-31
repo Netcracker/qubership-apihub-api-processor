@@ -42,8 +42,6 @@ export class ExportVersionStrategy implements BuilderStrategy {
 
     const documentsToExport = filterDocumentsByShareabilityStatus(documents, config)
 
-    const isSingleNonRestDocument = documentsToExport.length === 1 && !isRestDocument(documentsToExport[0])
-
     switch (config.format) {
       case FILE_FORMAT_HTML:
         await exportToHTML(config, buildResult, contexts, documentsToExport)
@@ -60,6 +58,7 @@ export class ExportVersionStrategy implements BuilderStrategy {
       return buildResult
     }
 
+    const isSingleNonRestDocument = documentsToExport.length === 1 && !isRestDocument(documentsToExport[0])
     const singleExportDocument = buildResult.exportDocuments[0]
     const singleExportDocumentExtension = isSingleNonRestDocument
       ? getFileExtension(singleExportDocument.filename)
@@ -81,24 +80,18 @@ async function exportToHTML(
   contexts: BuildTypeContexts,
   documentsToExport: ReadonlyArray<ResolvedVersionDocument>,
 ): Promise<void> {
-  const {
-    rawDocumentResolver,
-    templateResolver,
-    apiBuilders,
-    packageResolver,
-  } = contexts.builderContext(config)
-  const { packageId, version: versionWithRevision, format, allowedOasExtensions } = config
+  const { packageResolver, templateResolver } = contexts.builderContext(config)
+  const { packageId, version: versionWithRevision } = config
   const [version] = getSplittedVersionKey(versionWithRevision)
   const { name: packageName } = await packageResolver(packageId)
 
   const generatedHtmlExportDocuments: ExportDocument[] = []
   const restDocuments = documentsToExport.filter(isRestDocument)
   const shouldAddIndexPage = restDocuments.length > 0
-  const transformedDocuments = await Promise.all(documentsToExport.map(async document => {
-    const { createExportDocument } = apiBuilders.find(({ types }) => types.includes(document.type)) || unknownApiBuilder
-    const file = await rawDocumentResolver(versionWithRevision, packageId, document.slug)
-    return await createExportDocument?.(file.name, await file.text(), format, packageName, version, templateResolver, allowedOasExtensions, generatedHtmlExportDocuments, shouldAddIndexPage) ?? createUnknownExportDocument(file.name, file)
-  }))
+  const transformedDocuments = await transformDocuments(config, contexts, documentsToExport, version, packageName, {
+    generatedHtmlExportDocuments,
+    shouldAddIndexPage,
+  })
 
   buildResult.exportDocuments.push(...transformedDocuments)
 
@@ -117,23 +110,53 @@ async function defaultExport(
   contexts: BuildTypeContexts,
   documentsToExport: ReadonlyArray<ResolvedVersionDocument>,
 ): Promise<void> {
-  const {
-    rawDocumentResolver,
-    templateResolver,
-    packageResolver,
-    apiBuilders,
-  } = contexts.builderContext(config)
-  const { packageId, version: versionWithRevision, format, allowedOasExtensions } = config
+  const { packageResolver } = contexts.builderContext(config)
+  const { packageId, version: versionWithRevision } = config
   const [version] = getSplittedVersionKey(versionWithRevision)
   const { name: packageName } = await packageResolver(packageId)
 
-  const transformedDocuments = await Promise.all(documentsToExport.map(async document => {
-    const { createExportDocument } = apiBuilders.find(({ types }) => types.includes(document.type)) || unknownApiBuilder
-    const file = await rawDocumentResolver(versionWithRevision, packageId, document.slug)
-    return await createExportDocument?.(file.name, await file.text(), format, packageName, version, templateResolver, allowedOasExtensions) ?? createUnknownExportDocument(file.name, file)
-  }))
+  const transformedDocuments = await transformDocuments(config, contexts, documentsToExport, version, packageName)
 
   buildResult.exportDocuments.push(...transformedDocuments)
+}
+
+type HtmlExportOptions = {
+  generatedHtmlExportDocuments: ExportDocument[]
+  shouldAddIndexPage: boolean
+}
+
+async function transformDocuments(
+  config: ExportVersionBuildConfig,
+  contexts: BuildTypeContexts,
+  documentsToExport: ReadonlyArray<ResolvedVersionDocument>,
+  version: string,
+  packageName: string,
+  htmlExportOptions?: HtmlExportOptions,
+): Promise<ExportDocument[]> {
+  const { rawDocumentResolver, templateResolver, apiBuilders } = contexts.builderContext(config)
+  const { version: versionWithRevision, packageId, format, allowedOasExtensions } = config
+
+  return await Promise.all(
+    documentsToExport.map(async document => {
+      const { createExportDocument } = apiBuilders.find(({ types }) => types.includes(document.type)) || unknownApiBuilder
+      const file = await rawDocumentResolver(versionWithRevision, packageId, document.slug)
+
+      return (
+        (await createExportDocument?.(
+          file.name,
+          await file.text(),
+          format,
+          packageName,
+          version,
+          templateResolver,
+          allowedOasExtensions,
+          htmlExportOptions?.generatedHtmlExportDocuments,
+          htmlExportOptions?.shouldAddIndexPage,
+        )) ??
+        createUnknownExportDocument(file.name, file)
+      )
+    }),
+  )
 }
 
 function filterDocumentsByShareabilityStatus(
