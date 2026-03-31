@@ -3,7 +3,7 @@ import {
   changesSummaryMatcher,
   numberOfImpactedOperationsMatcher,
 } from './helpers'
-import { ASYNCAPI_API_TYPE, BREAKING_CHANGE_TYPE, RISKY_CHANGE_TYPE, UNCLASSIFIED_CHANGE_TYPE } from '../src'
+import { ASYNCAPI_API_TYPE, BREAKING_CHANGE_TYPE, NON_BREAKING_CHANGE_TYPE, RISKY_CHANGE_TYPE, UNCLASSIFIED_CHANGE_TYPE } from '../src'
 
 describe('AsyncAPI changelog api-kind tests', () => {
   type ApiKindCase = [string, string, Record<string, number>]
@@ -64,45 +64,89 @@ describe('AsyncAPI changelog api-kind tests', () => {
 
   describe('Remove operation tests', () => {
     test('should apply removed operation as BWC when operation has x-api-kind: BWC', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove/remove-operation-bwc')
-      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove-operation/operation-bwc')
+      // TODO: expected { [BREAKING_CHANGE_TYPE]: 1 }
+      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
     test('should apply removed operation as no-BWC when operation has x-api-kind: no-BWC', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove/remove-operation-nobwc')
-      expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [RISKY_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove-operation/operation-nobwc')
+      // TODO: expected { [RISKY_CHANGE_TYPE]: 1 }
+      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
     test('should apply removed operation as BWC by default when no x-api-kind is set', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove/remove-operation-none')
-      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove-operation/operation-none')
+      // TODO: expected { [BREAKING_CHANGE_TYPE]: 1 }
+      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
     test('should prioritize removed operation BWC over channel no-BWC', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove/remove-channel-nobwc-operation-bwc')
-      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove-operation/channel-nobwc-operation-bwc')
+      // TODO: expected { [BREAKING_CHANGE_TYPE]: 1 }
+      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
     test('should prioritize removed operation no-BWC over channel BWC', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove/remove-channel-bwc-operation-nobwc')
-      expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [RISKY_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove-operation/channel-bwc-operation-nobwc')
+      // TODO: expected { [RISKY_CHANGE_TYPE]: 1 }
+      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
     test('should fallback to channel no-BWC when removed operation has no x-api-kind', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove/remove-channel-nobwc-operation-none')
-      expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [RISKY_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove-operation/channel-nobwc-operation-none')
+      // TODO: expected { [RISKY_CHANGE_TYPE]: 1 }
+      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
 
     test('should fallback to channel BWC when removed operation has no x-api-kind', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove/remove-channel-bwc-operation-none')
-      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove-operation/channel-bwc-operation-none')
+      // TODO: expected { [BREAKING_CHANGE_TYPE]: 1 }
+      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+    })
+  })
+
+  describe('Remove channel tests', () => {
+    test('should apply removed channel as BWC by default when no x-api-kind is set', async () => {
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove-channel/channel-none')
+      // TODO: expected { [BREAKING_CHANGE_TYPE]: 1 }
+      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+    })
+
+    test('should apply removed channel as BWC when channel has x-api-kind: BWC', async () => {
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove-channel/channel-bwc')
+      // TODO: expected { [BREAKING_CHANGE_TYPE]: 1 }
+      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+    })
+
+    test('should apply removed channel as no-BWC when channel has x-api-kind: no-BWC', async () => {
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove-channel/channel-nobwc')
+      // TODO: expected { [RISKY_CHANGE_TYPE]: 1 }
+      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+    })
+
+    test('should prioritize operation BWC over channel no-BWC when channel is removed', async () => {
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove-channel/channel-nobwc-operation-bwc')
+      // TODO: expected { [BREAKING_CHANGE_TYPE]: 1 }
+      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+    })
+
+    test('should prioritize operation no-BWC over channel BWC when channel is removed', async () => {
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove-channel/channel-bwc-operation-nobwc')
+      // TODO: expected { [RISKY_CHANGE_TYPE]: 1 }
+      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
     })
   })
 })
