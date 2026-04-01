@@ -1,31 +1,27 @@
 import * as YAML from 'js-yaml'
-import { API_KIND_SPECIFICATION_EXTENSION } from '../../src'
+import { API_KIND_SPECIFICATION_EXTENSION, type ApihubApiCompatibilityKind } from '../../src'
 
-export type ApiKindValue = 'undefined' | 'BWC' | 'no-BWC'
-
-function applyApiKind(obj: Record<string, unknown>, apiKind: ApiKindValue): void {
-  if (apiKind !== 'undefined') {
-    obj[API_KIND_SPECIFICATION_EXTENSION] = apiKind
-  }
+function applyApiKind(obj: Record<string, unknown>, apiKind: ApihubApiCompatibilityKind): void {
+  obj[API_KIND_SPECIFICATION_EXTENSION] = apiKind
 }
 
 export function generateAsyncApiSpec(
-  channelApiKind: ApiKindValue = 'undefined',
-  operationApiKind: ApiKindValue = 'undefined',
   payloadType: string = 'number',
+  channelApiKind?: ApihubApiCompatibilityKind,
+  operationApiKind?: ApihubApiCompatibilityKind,
 ): string {
   const channel: Record<string, unknown> = {
     address: 'channel1',
     messages: { message1: { $ref: '#/components/messages/message1' } },
   }
-  applyApiKind(channel, channelApiKind)
+  channelApiKind && applyApiKind(channel, channelApiKind)
 
   const operation: Record<string, unknown> = {
     action: 'receive',
     channel: { $ref: '#/channels/channel1' },
     messages: [{ $ref: '#/channels/channel1/messages/message1' }],
   }
-  applyApiKind(operation, operationApiKind)
+  operationApiKind && applyApiKind(operation, operationApiKind)
 
   return YAML.dump({
     asyncapi: '3.0.0',
@@ -46,8 +42,8 @@ export function generateAsyncApiSpec(
 }
 
 export function generateAsyncApiTwoOperationsSpec(
-  channelApiKind: ApiKindValue,
-  operationApiKind: ApiKindValue,
+  channelApiKind?: ApihubApiCompatibilityKind,
+  operationApiKind?: ApihubApiCompatibilityKind,
 ): string {
   const channel: Record<string, unknown> = {
     address: 'channel1',
@@ -56,14 +52,14 @@ export function generateAsyncApiTwoOperationsSpec(
       message2: { $ref: '#/components/messages/message2' },
     },
   }
-  applyApiKind(channel, channelApiKind)
+  channelApiKind && applyApiKind(channel, channelApiKind)
 
   const operation2: Record<string, unknown> = {
     action: 'receive',
     channel: { $ref: '#/channels/channel1' },
     messages: [{ $ref: '#/channels/channel1/messages/message2' }],
   }
-  applyApiKind(operation2, operationApiKind)
+  operationApiKind && applyApiKind(operation2, operationApiKind)
 
   return YAML.dump({
     asyncapi: '3.0.0',
@@ -87,21 +83,21 @@ export function generateAsyncApiTwoOperationsSpec(
 }
 
 export function generateAsyncApiTwoChannelsSpec(
-  channelApiKind: ApiKindValue,
-  operationApiKind: ApiKindValue,
+  channelApiKind?: ApihubApiCompatibilityKind,
+  operationApiKind?: ApihubApiCompatibilityKind,
 ): string {
   const channel2: Record<string, unknown> = {
     address: 'channel2',
     messages: { message2: { $ref: '#/components/messages/message2' } },
   }
-  applyApiKind(channel2, channelApiKind)
+  channelApiKind && applyApiKind(channel2, channelApiKind)
 
   const operation2: Record<string, unknown> = {
     action: 'receive',
     channel: { $ref: '#/channels/channel2' },
     messages: [{ $ref: '#/channels/channel2/messages/message2' }],
   }
-  applyApiKind(operation2, operationApiKind)
+  operationApiKind && applyApiKind(operation2, operationApiKind)
 
   return YAML.dump({
     asyncapi: '3.0.0',
