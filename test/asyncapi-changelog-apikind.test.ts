@@ -1,152 +1,219 @@
 import {
-  buildChangelogPackageDefaultConfig,
+  buildChangelogFromContent,
   changesSummaryMatcher,
-  numberOfImpactedOperationsMatcher,
+  generateAsyncApiSpec,
+  generateAsyncApiTwoOperationsSpec,
+  generateAsyncApiTwoChannelsSpec,
 } from './helpers'
-import { ASYNCAPI_API_TYPE, BREAKING_CHANGE_TYPE, NON_BREAKING_CHANGE_TYPE, RISKY_CHANGE_TYPE, UNCLASSIFIED_CHANGE_TYPE } from '../src'
+import type { ApiKindValue } from './helpers'
+import { ASYNCAPI_API_TYPE, BREAKING_CHANGE_TYPE, RISKY_CHANGE_TYPE, UNCLASSIFIED_CHANGE_TYPE } from '../src'
+
+type ChangeType = 'breaking' | 'risky'
+
+const breaking: ChangeType = 'breaking'
+const risky: ChangeType = 'risky'
+
+function buildExpected(type: ChangeType, unclassified: number): Record<string, number> {
+  const changeType = type === 'breaking' ? BREAKING_CHANGE_TYPE : RISKY_CHANGE_TYPE
+  return {
+    [changeType]: 1,
+    ...(unclassified > 0 && { [UNCLASSIFIED_CHANGE_TYPE]: unclassified }),
+  }
+}
 
 describe('AsyncAPI changelog api-kind tests', () => {
-  type ApiKindCase = [string, string, Record<string, number>]
+  describe('Remove operation tests (all x-api-kind combinations)', () => {
 
-  const runApiKindCases = (scope: string, cases: ApiKindCase[]): void => {
-    test.each(cases)('%s (%s)', async (_description, caseName, expected) => {
-      const result = await buildChangelogPackageDefaultConfig(`asyncapi-changelog-apikind/${scope}/${caseName}`)
-      expect(result).toEqual(changesSummaryMatcher(expected, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher(expected, ASYNCAPI_API_TYPE))
-    })
-  }
+    // [beforeCh, beforeOp, afterCh, expectedType, unclassified]
+    // unclassified — number of UNCLASSIFIED changes caused by x-api-kind property itself being added/removed/changed
+    type RemoveOpCase = [ApiKindValue, ApiKindValue, ApiKindValue, ChangeType, number]
 
-  const apiKindTransitionCases: ApiKindCase[] = [
-    ['should apply BWC by default when no x-api-kind is set',                                      'none-to-none',   { [BREAKING_CHANGE_TYPE]: 1 }],
-    ['should apply BWC when x-api-kind: BWC added in current document',                            'none-to-bwc',    { [BREAKING_CHANGE_TYPE]: 1, [UNCLASSIFIED_CHANGE_TYPE]: 1 }],
-    ['should apply no-BWC when x-api-kind: no-BWC added in current document',                      'none-to-nobwc',  { [RISKY_CHANGE_TYPE]: 1, [UNCLASSIFIED_CHANGE_TYPE]: 1 }],
-    ['should apply BWC when x-api-kind: BWC removed in current document',                          'bwc-to-none',    { [BREAKING_CHANGE_TYPE]: 1, [UNCLASSIFIED_CHANGE_TYPE]: 1 }],
-    ['should apply BWC when x-api-kind: BWC in both documents',                                    'bwc-to-bwc',     { [BREAKING_CHANGE_TYPE]: 1 }],
-    ['should apply no-BWC when x-api-kind changed from BWC to no-BWC',                             'bwc-to-nobwc',   { [RISKY_CHANGE_TYPE]: 1, [UNCLASSIFIED_CHANGE_TYPE]: 1 }],
-    ['should apply no-BWC when x-api-kind: no-BWC in previous document and removed in current',    'nobwc-to-none',  { [RISKY_CHANGE_TYPE]: 1, [UNCLASSIFIED_CHANGE_TYPE]: 1 }],
-    ['should apply no-BWC when x-api-kind changed from no-BWC to BWC',                             'nobwc-to-bwc',   { [RISKY_CHANGE_TYPE]: 1, [UNCLASSIFIED_CHANGE_TYPE]: 1 }],
-    ['should apply no-BWC when x-api-kind: no-BWC in both documents',                              'nobwc-to-nobwc', { [RISKY_CHANGE_TYPE]: 1 }],
-  ]
+    const removeOperationCases: RemoveOpCase[] = [
+      // beforeCh=none
+      ['undefined',     'undefined',      'undefined',      breaking, 0],
+      ['undefined',     'undefined',      'BWC',            breaking, 1],
+      ['undefined',     'undefined',      'no-BWC',         breaking, 1],
+      ['undefined',     'BWC',            'undefined',      breaking, 0],
+      ['undefined',     'BWC',            'BWC',            breaking, 1],
+      ['undefined',     'BWC',            'no-BWC',         breaking, 1],
+      ['undefined',     'no-BWC',         'undefined',      risky, 0],
+      ['undefined',     'no-BWC',         'BWC',            risky, 1],
+      ['undefined',     'no-BWC',         'no-BWC',         risky, 1],
+      // beforeCh=BWC
+      ['BWC',     'undefined',      'undefined',      breaking, 1],
+      ['BWC',     'undefined',      'BWC',            breaking, 0],
+      ['BWC',     'undefined',      'no-BWC',         breaking, 1],
+      ['BWC',     'BWC',            'undefined',      breaking, 1],
+      ['BWC',     'BWC',            'BWC',            breaking, 0],
+      ['BWC',     'BWC',            'no-BWC',         breaking, 1],
+      ['BWC',     'no-BWC',         'undefined',      risky, 1],
+      ['BWC',     'no-BWC',         'BWC',            risky, 0],
+      ['BWC',     'no-BWC',         'no-BWC',         risky, 1],
+      // beforeCh=no-BWC
+      ['no-BWC',      'undefined',      'undefined',      risky, 1],
+      ['no-BWC',      'undefined',      'BWC',            risky, 1],
+      ['no-BWC',      'undefined',      'no-BWC',         risky, 0],
+      ['no-BWC',      'BWC',            'undefined',      breaking, 1],
+      ['no-BWC',      'BWC',            'BWC',            breaking, 1],
+      ['no-BWC',      'BWC',            'no-BWC',         breaking, 0],
+      ['no-BWC',      'no-BWC',         'undefined',      risky, 1],
+      ['no-BWC',      'no-BWC',         'BWC',            risky, 1],
+      ['no-BWC',      'no-BWC',         'no-BWC',         risky, 0],
+    ]
 
-  describe('Operation-level x-api-kind', () => {
-    runApiKindCases('operation', apiKindTransitionCases)
+    test.concurrent.each(removeOperationCases)(
+      'should classify removed operation before(channel:%s, operation:%s) after(channel:%s) as %s',
+      async (beforeCh, beforeOp, afterCh, expectedType, unclassified) => {
+        const beforeYaml = generateAsyncApiTwoOperationsSpec(beforeCh, beforeOp)
+        const afterYaml = generateAsyncApiSpec(afterCh)
+        const packageId = `asyncapi-apikind-remove-operation/channel-${beforeCh}-${afterCh}-operation-${beforeOp}`
+
+        const result = await buildChangelogFromContent(packageId, beforeYaml, afterYaml)
+        expect(result).toEqual(changesSummaryMatcher(buildExpected(expectedType, unclassified), ASYNCAPI_API_TYPE))
+      },
+    )
   })
 
-  describe('Channel-level x-api-kind', () => {
-    runApiKindCases('channel', apiKindTransitionCases)
+  describe('Remove channel tests (all x-api-kind combinations)', () => {
+    // [beforeCh, beforeOp, expectedType, unclassified]
+    // unclassified — number of UNCLASSIFIED changes caused by x-api-kind property itself being added/removed/changed
+    type RemoveChCase = [ApiKindValue, ApiKindValue, ChangeType, number]
+
+    const removeChannelCases: RemoveChCase[] = [
+      ['undefined',     'undefined',      breaking, 0],
+      ['undefined',     'BWC',            breaking, 0],
+      ['undefined',     'no-BWC',         risky, 0],
+      ['BWC',           'undefined',      breaking, 0],
+      ['BWC',           'BWC',            breaking, 0],
+      ['BWC',           'no-BWC',         risky, 0],
+      ['no-BWC',        'undefined',      risky, 0],
+      ['no-BWC',        'BWC',            breaking, 0],
+      ['no-BWC',        'no-BWC',         risky, 0],
+    ]
+
+    test.concurrent.each(removeChannelCases)(
+      'should classify removed channel before(channel:%s, operation:%s) as %s',
+      async (beforeCh, beforeOp, expectedType, unclassified) => {
+        const beforeYaml = generateAsyncApiTwoChannelsSpec(beforeCh, beforeOp)
+        const afterYaml = generateAsyncApiSpec()
+        const packageId = `asyncapi-apikind-remove-ch/channel-${beforeCh}-operation-${beforeOp}`
+
+        const result = await buildChangelogFromContent(packageId, beforeYaml, afterYaml)
+        expect(result).toEqual(changesSummaryMatcher(buildExpected(expectedType, unclassified), ASYNCAPI_API_TYPE))
+      },
+    )
   })
 
-  describe('Operation + Channel x-api-kind', () => {
-    test('should apply BWC from channel when operation has no x-api-kind', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/operation/channel-bwc-operation-none')
-      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-    })
+  describe('All x-api-kind combinations (channel + operation, before + after)', () => {
+    // [beforeCh, beforeOp, afterCh, afterOp, expectedType, unclassified]
+    // unclassified — number of UNCLASSIFIED changes caused by x-api-kind property itself being added/removed/changed
+    type ComboCase = [ApiKindValue, ApiKindValue, ApiKindValue, ApiKindValue, ChangeType, number]
 
-    test('should apply no-BWC from channel when operation has no x-api-kind', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/operation/channel-nobwc-operation-none')
-      expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [RISKY_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-    })
+    const allCombinations: ComboCase[] = [
+      // beforeCh=none, beforeOp=none
+      ['undefined',     'undefined',      'undefined',      'undefined',      breaking, 0],
+      ['undefined',     'undefined',      'undefined',      'BWC',            breaking, 1],
+      ['undefined',     'undefined',      'undefined',      'no-BWC',         risky, 1],
+      ['undefined',     'undefined',      'BWC',            'undefined',      breaking, 1],
+      ['undefined',     'undefined',      'BWC',            'BWC',            breaking, 2],
+      ['undefined',     'undefined',      'BWC',            'no-BWC',         risky, 2],
+      ['undefined',     'undefined',      'no-BWC',         'undefined',      risky, 1],
+      ['undefined',     'undefined',      'no-BWC',         'BWC',            breaking, 2],
+      ['undefined',     'undefined',      'no-BWC',         'no-BWC',         risky, 2],
+      // beforeCh=none, beforeOp=BWC
+      ['undefined',     'BWC',      'undefined',      'undefined',      breaking, 1],
+      ['undefined',     'BWC',      'undefined',      'BWC',            breaking, 0],
+      ['undefined',     'BWC',      'undefined',      'no-BWC',         risky, 1],
+      ['undefined',     'BWC',      'BWC',            'undefined',      breaking, 2],
+      ['undefined',     'BWC',      'BWC',            'BWC',            breaking, 1],
+      ['undefined',     'BWC',      'BWC',            'no-BWC',         risky, 2],
+      ['undefined',     'BWC',      'no-BWC',         'undefined',      risky, 2],
+      ['undefined',     'BWC',      'no-BWC',         'BWC',            breaking, 1],
+      ['undefined',     'BWC',      'no-BWC',         'no-BWC',         risky, 2],
+      // beforeCh=none, beforeOp=no-BWC
+      ['undefined',    'no-BWC',      'undefined',      'undefined',      risky, 1],
+      ['undefined',    'no-BWC',      'undefined',      'BWC',            risky, 1],
+      ['undefined',    'no-BWC',      'undefined',      'no-BWC',         risky, 0],
+      ['undefined',    'no-BWC',      'BWC',            'undefined',      risky, 2],
+      ['undefined',    'no-BWC',      'BWC',            'BWC',            risky, 2],
+      ['undefined',    'no-BWC',      'BWC',            'no-BWC',         risky, 1],
+      ['undefined',    'no-BWC',      'no-BWC',         'undefined',      risky, 2],
+      ['undefined',    'no-BWC',      'no-BWC',         'BWC',            risky, 2],
+      ['undefined',    'no-BWC',      'no-BWC',         'no-BWC',         risky, 1],
 
-    test('should prioritize operation no-BWC over channel BWC', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/operation/channel-bwc-operation-nobwc')
-      expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1, [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [RISKY_CHANGE_TYPE]: 1, [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-    })
+      // beforeCh=BWC, beforeOp=none
+      ['BWC',     'undefined',      'undefined',      'undefined',      breaking, 1],
+      ['BWC',     'undefined',      'undefined',      'BWC',            breaking, 2],
+      ['BWC',     'undefined',      'undefined',      'no-BWC',         risky, 2],
+      ['BWC',     'undefined',      'BWC',            'undefined',      breaking, 0],
+      ['BWC',     'undefined',      'BWC',            'BWC',            breaking, 1],
+      ['BWC',     'undefined',      'BWC',            'no-BWC',         risky, 1],
+      ['BWC',     'undefined',      'no-BWC',         'undefined',      risky, 1],
+      ['BWC',     'undefined',      'no-BWC',         'BWC',            breaking, 2],
+      ['BWC',     'undefined',      'no-BWC',         'no-BWC',         risky, 2],
+      // beforeCh=BWC, beforeOp=BWC
+      ['BWC',     'BWC',      'undefined',      'undefined',      breaking, 2],
+      ['BWC',     'BWC',      'undefined',      'BWC',            breaking, 1],
+      ['BWC',     'BWC',      'undefined',      'no-BWC',         risky, 2],
+      ['BWC',     'BWC',      'BWC',            'undefined',      breaking, 1],
+      ['BWC',     'BWC',      'BWC',            'BWC',            breaking, 0],
+      ['BWC',     'BWC',      'BWC',            'no-BWC',         risky, 1],
+      ['BWC',     'BWC',      'no-BWC',         'undefined',      risky, 2],
+      ['BWC',     'BWC',      'no-BWC',         'BWC',            breaking, 1],
+      ['BWC',     'BWC',      'no-BWC',         'no-BWC',         risky, 2],
+      // beforeCh=BWC, beforeOp=no-BWC
+      ['BWC',     'no-BWC',     'undefined',      'undefined',      risky, 2],
+      ['BWC',     'no-BWC',     'undefined',      'BWC',            risky, 2],
+      ['BWC',     'no-BWC',     'undefined',      'no-BWC',         risky, 1],
+      ['BWC',     'no-BWC',     'BWC',            'undefined',      risky, 1],
+      ['BWC',     'no-BWC',     'BWC',            'BWC',            risky, 1],
+      ['BWC',     'no-BWC',     'BWC',            'no-BWC',         risky, 0],
+      ['BWC',     'no-BWC',     'no-BWC',         'undefined',      risky, 2],
+      ['BWC',     'no-BWC',     'no-BWC',         'BWC',            risky, 2],
+      ['BWC',     'no-BWC',     'no-BWC',         'no-BWC',         risky, 1],
 
-    test('should prioritize operation BWC over channel no-BWC', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/operation/channel-nobwc-operation-bwc')
-      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1, [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1, [UNCLASSIFIED_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-    })
-  })
+      // beforeCh=no-BWC, beforeOp=none
+      ['no-BWC',      'undefined',      'undefined',      'undefined',      risky, 1],
+      ['no-BWC',      'undefined',      'undefined',      'BWC',            risky, 2],
+      ['no-BWC',      'undefined',      'undefined',      'no-BWC',         risky, 2],
+      ['no-BWC',      'undefined',      'BWC',            'undefined',      risky, 1],
+      ['no-BWC',      'undefined',      'BWC',            'BWC',            risky, 2],
+      ['no-BWC',      'undefined',      'BWC',            'no-BWC',         risky, 2],
+      ['no-BWC',      'undefined',      'no-BWC',         'undefined',      risky, 0],
+      ['no-BWC',      'undefined',      'no-BWC',         'BWC',            risky, 1],
+      ['no-BWC',      'undefined',      'no-BWC',         'no-BWC',         risky, 1],
+      // beforeCh=no-BWC, beforeOp=BWC
+      ['no-BWC',      'BWC',      'undefined',     'undefined',     breaking, 2],
+      ['no-BWC',      'BWC',      'undefined',     'BWC',           breaking, 1],
+      ['no-BWC',      'BWC',      'undefined',     'no-BWC',        risky, 2],
+      ['no-BWC',      'BWC',      'BWC',           'undefined',     breaking, 2],
+      ['no-BWC',      'BWC',      'BWC',           'BWC',           breaking, 1],
+      ['no-BWC',      'BWC',      'BWC',           'no-BWC',        risky, 2],
+      ['no-BWC',      'BWC',      'no-BWC',        'undefined',     risky, 1],
+      ['no-BWC',      'BWC',      'no-BWC',        'BWC',           breaking, 0],
+      ['no-BWC',      'BWC',      'no-BWC',        'no-BWC',        risky, 1],
+      // beforeCh=no-BWC, beforeOp=no-BWC
+      ['no-BWC',      'no-BWC',     'undefined',      'undefined',      risky, 2],
+      ['no-BWC',      'no-BWC',     'undefined',      'BWC',            risky, 2],
+      ['no-BWC',      'no-BWC',     'undefined',      'no-BWC',         risky, 1],
+      ['no-BWC',      'no-BWC',     'BWC',            'undefined',      risky, 2],
+      ['no-BWC',      'no-BWC',     'BWC',            'BWC',            risky, 2],
+      ['no-BWC',      'no-BWC',     'BWC',            'no-BWC',         risky, 1],
+      ['no-BWC',      'no-BWC',     'no-BWC',         'undefined',      risky, 1],
+      ['no-BWC',      'no-BWC',     'no-BWC',         'BWC',            risky, 1],
+      ['no-BWC',      'no-BWC',     'no-BWC',         'no-BWC',         risky, 0],
+    ]
 
-  describe('Remove operation tests', () => {
-    test('should apply removed operation as BWC when operation has x-api-kind: BWC', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove-operation/operation-bwc')
-      // TODO: expected { [BREAKING_CHANGE_TYPE]: 1 }
-      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-    })
+    test.concurrent.each(allCombinations)(
+      'should classify before(channel:%s, operation:%s) after(channel:%s, operation:%s) as %s',
+      async (beforeCh, beforeOp, afterCh, afterOp, expectedType, unclassified) => {
+        const beforeYaml = generateAsyncApiSpec(beforeCh, beforeOp, 'number')
+        const afterYaml = generateAsyncApiSpec(afterCh, afterOp, 'string')
+        const packageId = `asyncapi-apikind-combo/channel-${beforeCh}-${afterCh}-operation-${beforeOp}-${afterOp}`
 
-    test('should apply removed operation as no-BWC when operation has x-api-kind: no-BWC', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove-operation/operation-nobwc')
-      // TODO: expected { [RISKY_CHANGE_TYPE]: 1 }
-      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-    })
-
-    test('should apply removed operation as BWC by default when no x-api-kind is set', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove-operation/operation-none')
-      // TODO: expected { [BREAKING_CHANGE_TYPE]: 1 }
-      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-    })
-
-    test('should prioritize removed operation BWC over channel no-BWC', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove-operation/channel-nobwc-operation-bwc')
-      // TODO: expected { [BREAKING_CHANGE_TYPE]: 1 }
-      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-    })
-
-    test('should prioritize removed operation no-BWC over channel BWC', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove-operation/channel-bwc-operation-nobwc')
-      // TODO: expected { [RISKY_CHANGE_TYPE]: 1 }
-      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-    })
-
-    test('should fallback to channel no-BWC when removed operation has no x-api-kind', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove-operation/channel-nobwc-operation-none')
-      // TODO: expected { [RISKY_CHANGE_TYPE]: 1 }
-      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-    })
-
-    test('should fallback to channel BWC when removed operation has no x-api-kind', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove-operation/channel-bwc-operation-none')
-      // TODO: expected { [BREAKING_CHANGE_TYPE]: 1 }
-      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-    })
-  })
-
-  describe('Remove channel tests', () => {
-    test('should apply removed channel as BWC by default when no x-api-kind is set', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove-channel/channel-none')
-      // TODO: expected { [BREAKING_CHANGE_TYPE]: 1 }
-      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-    })
-
-    test('should apply removed channel as BWC when channel has x-api-kind: BWC', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove-channel/channel-bwc')
-      // TODO: expected { [BREAKING_CHANGE_TYPE]: 1 }
-      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-    })
-
-    test('should apply removed channel as no-BWC when channel has x-api-kind: no-BWC', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove-channel/channel-nobwc')
-      // TODO: expected { [RISKY_CHANGE_TYPE]: 1 }
-      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-    })
-
-    test('should prioritize operation BWC over channel no-BWC when channel is removed', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove-channel/channel-nobwc-operation-bwc')
-      // TODO: expected { [BREAKING_CHANGE_TYPE]: 1 }
-      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-    })
-
-    test('should prioritize operation no-BWC over channel BWC when channel is removed', async () => {
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-changelog-apikind/remove-channel/channel-bwc-operation-nobwc')
-      // TODO: expected { [RISKY_CHANGE_TYPE]: 1 }
-      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-    })
+        const result = await buildChangelogFromContent(packageId, beforeYaml, afterYaml)
+        expect(result).toEqual(changesSummaryMatcher(buildExpected(expectedType, unclassified), ASYNCAPI_API_TYPE))
+      },
+    )
   })
 })
