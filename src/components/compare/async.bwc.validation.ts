@@ -14,8 +14,11 @@
  * limitations under the License.
  */
 
-import { APIHUB_API_COMPATIBILITY_KIND_BWC, APIHUB_API_COMPATIBILITY_KIND_NO_BWC } from '../../consts'
-import { isObject } from '../../utils'
+import {
+  APIHUB_API_COMPATIBILITY_KIND_BWC,
+  APIHUB_API_COMPATIBILITY_KIND_NO_BWC,
+  ApihubApiCompatibilityKind,
+} from '../../consts'
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import {
   API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE,
@@ -31,27 +34,44 @@ const ASYNC_OPERATION_PATH_LENGTH = 2 // operations/<operationId>
 const ASYNC_CHANNEL_PATH_LENGTH = 2   // channels/<channelId>
 
 /**
+ * Resolve effective api-kind for one side (before or after): operation overrides channel, channel overrides default (bwc).
+ */
+const resolveEffectiveApiKind = (
+  operationKind: ApihubApiCompatibilityKind | undefined,
+  channelKind: ApihubApiCompatibilityKind | undefined,
+): ApihubApiCompatibilityKind => {
+  return operationKind ?? channelKind ?? APIHUB_API_COMPATIBILITY_KIND_BWC
+}
+
+const toApiCompatibilityKind = (
+  beforeKind: ApihubApiCompatibilityKind,
+  afterKind: ApihubApiCompatibilityKind,
+): ApiCompatibilityKind => {
+  return (beforeKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC || afterKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
+    ? API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
+    : API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
+}
+
+/**
  * Creates an ApiCompatibilityScopeFunction for AsyncAPI documents.
  *
- * Resolution order:
- *   Channel (x-api-kind) → Operation (x-api-kind override) → Messages
- * Document-level x-api-kind is not supported for AsyncAPI yet;
- * prevDocumentApiKind/currDocumentApiKind params are reserved for future use.
+ * For each side (before/after) the effective api-kind is resolved independently
+ * with priority: operation x-api-kind > channel x-api-kind > default (bwc).
+ * If at least one side's effective api-kind is no-bwc, the change is classified
+ * as not backward compatible (risky); otherwise as backward compatible (breaking).
  *
  * The scope function receives normalized before/after objects where $refs are resolved,
  * so operation.channel is the resolved channel object with all its properties.
  *
  * - root: defaults to bwc (document-level api-kind reserved for future use)
- * - operations/<operationId>: operation x-api-kind overrides channel x-api-kind
- * - channels/<channelId>: channel's own x-api-kind
+ * - operations/<operationId>: effective api-kind per side (operation overrides channel, channel overrides default)
+ * - channels/<channelId>: channel's own x-api-kind per side
  */
 export const createAsyncApiCompatibilityScopeFunction: ApiCompatibilityScopeFunctionFactory = (
   prevDocumentApiKind = APIHUB_API_COMPATIBILITY_KIND_BWC,
   currDocumentApiKind = APIHUB_API_COMPATIBILITY_KIND_BWC,
 ) => {
-  const defaultApiCompatibilityKind = (prevDocumentApiKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC || currDocumentApiKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
-    ? API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
-    : API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
+  const defaultApiCompatibilityKind = toApiCompatibilityKind(prevDocumentApiKind, currDocumentApiKind)
 
   return (
     path?: JsonPath,
@@ -65,40 +85,31 @@ export const createAsyncApiCompatibilityScopeFunction: ApiCompatibilityScopeFunc
     }
 
     const firstSegment = path?.[0]
-    const beforeExists = isObject(beforeJso)
-    const afterExists = isObject(afterJso)
 
-    if (!beforeExists && !afterExists) {
-      return undefined
-    }
-
-    // operations/<operationId>: resolve api-kind from operation x-api-kind with channel fallback
+    // operations/<operationId>: effective api-kind per side (operation overrides channel, channel overrides default bwc)
     if (firstSegment === 'operations' && pathLength === ASYNC_OPERATION_PATH_LENGTH) {
-      // In normalized documents, operation.channel is the resolved channel object
+      if (!beforeJso && !afterJso) { return undefined }
+
       const beforeChannelKind = getApiKindProperty((beforeJso as AsyncAPIV3.OperationObject | undefined)?.channel)
       const afterChannelKind = getApiKindProperty((afterJso as AsyncAPIV3.OperationObject | undefined)?.channel)
 
-      // Operation's own x-api-kind takes priority, falls back to channel's x-api-kind
-      const beforeOperationKind = getApiKindProperty(beforeJso, beforeChannelKind)
-      const afterOperationKind = getApiKindProperty(afterJso, afterChannelKind)
+      const beforeOperationKind = getApiKindProperty(beforeJso)
+      const afterOperationKind = getApiKindProperty(afterJso)
 
-      if (beforeOperationKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC || afterOperationKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC) {
-        return API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
-      }
+      const beforeEffective = resolveEffectiveApiKind(beforeOperationKind, beforeChannelKind)
+      const afterEffective = resolveEffectiveApiKind(afterOperationKind, afterChannelKind)
 
-      return API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
+      return toApiCompatibilityKind(beforeEffective, afterEffective)
     }
 
-    // channels/<channelId>: use channel's own x-api-kind
+    // channels/<channelId>: channel's own x-api-kind per side
     if (firstSegment === 'channels' && pathLength === ASYNC_CHANNEL_PATH_LENGTH) {
-      const beforeChannelKind = getApiKindProperty(beforeJso)
-      const afterChannelKind = getApiKindProperty(afterJso)
+      if (!beforeJso && !afterJso) { return undefined }
 
-      if (beforeChannelKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC || afterChannelKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC) {
-        return API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
-      }
+      const beforeChannelKind = getApiKindProperty(beforeJso) ?? APIHUB_API_COMPATIBILITY_KIND_BWC
+      const afterChannelKind = getApiKindProperty(afterJso) ?? APIHUB_API_COMPATIBILITY_KIND_BWC
 
-      return API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
+      return toApiCompatibilityKind(beforeChannelKind, afterChannelKind)
     }
 
     return undefined

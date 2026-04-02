@@ -26,7 +26,7 @@ type ApiKindValue = ApihubApiCompatibilityKind | undefined
 
 const isNoBwc = (value: ApiKindValue | null): value is typeof NO_BWC => value === NO_BWC
 
-// Priority: operation > channel > default(BWC)
+// Effective api-kind resolution: operation overrides channel, channel overrides default (BWC)
 function effectiveApiKind(channel: ApiKindValue, operation: ApiKindValue): typeof BWC | typeof NO_BWC {
   if (operation){
     return isNoBwc(operation) ? NO_BWC : BWC
@@ -60,13 +60,13 @@ function buildExpected(changeType: typeof BREAKING | typeof RISKY, unclassified:
 }
 
 describe('AsyncAPI changelog api-kind tests', () => {
-  describe('Remove operation tests (all x-api-kind combinations)', () => {
+  describe('Remove operation tests', () => {
 
     // [beforeCh, beforeOp, afterCh, expectedType, unclassified]
     // unclassified — number of UNCLASSIFIED changes caused by x-api-kind property itself being added/removed/changed
-    type RemoveOpCase = [ApiKindValue, ApiKindValue, ApiKindValue, ChangeType, number]
+    type RemoveOperationCase = [ApiKindValue, ApiKindValue, ApiKindValue, ChangeType, number]
 
-    const removeOperationCases: RemoveOpCase[] = [
+    const removeOperationCases: RemoveOperationCase[] = [
       // beforeCh=none
       [undefined,  undefined,  undefined,  BREAKING, 0],
       [undefined,  undefined,  BWC,        BREAKING, 1],
@@ -102,6 +102,7 @@ describe('AsyncAPI changelog api-kind tests', () => {
     test.concurrent.each(removeOperationCases)(
       'should classify removed operation before(channel:%s, operation:%s) after(channel:%s) as %s',
       async (beforeCh, beforeOp, afterCh, expectedType, unclassified) => {
+        // Guard: verify that the hardcoded ER in the table matches the computed value
         expect(expectedType).toBe(expectedRemoveType(beforeCh, beforeOp))
         const beforeYaml = generateAsyncApiTwoOperationsSpec(beforeCh, beforeOp)
         const afterYaml = generateAsyncApiSpec('number', afterCh)
@@ -113,12 +114,12 @@ describe('AsyncAPI changelog api-kind tests', () => {
     )
   })
 
-  describe('Remove channel tests (all x-api-kind combinations)', () => {
+  describe('Remove channel tests', () => {
     // [beforeCh, beforeOp, expectedType, unclassified]
     // unclassified — number of UNCLASSIFIED changes caused by x-api-kind property itself being added/removed/changed
-    type RemoveChCase = [ApiKindValue, ApiKindValue, ChangeType, number]
+    type RemoveChannelCase = [ApiKindValue, ApiKindValue, ChangeType, number]
 
-    const removeChannelCases: RemoveChCase[] = [
+    const removeChannelCases: RemoveChannelCase[] = [
       [undefined,  undefined,  BREAKING, 0],
       [undefined,  BWC,        BREAKING, 0],
       [undefined,  NO_BWC,     RISKY, 0],
@@ -133,6 +134,7 @@ describe('AsyncAPI changelog api-kind tests', () => {
     test.concurrent.each(removeChannelCases)(
       'should classify removed channel before(channel:%s, operation:%s) as %s',
       async (beforeChannel, beforeOperation, expectedType, unclassified) => {
+        // Guard: verify that the hardcoded ER in the table matches the computed value
         expect(expectedType).toBe(expectedRemoveType(beforeChannel, beforeOperation))
 
         const beforeYaml = generateAsyncApiTwoChannelsSpec(beforeChannel, beforeOperation)
@@ -248,6 +250,7 @@ describe('AsyncAPI changelog api-kind tests', () => {
     test.concurrent.each(allCombinations)(
       'should classify before(channel:%s, operation:%s) after(channel:%s, operation:%s) as %s',
       async (beforeChannel, beforeOperation, afterChannel, afterOperation, expectedType, unclassified) => {
+        // Guard: verify that the hardcoded ER in the table matches the computed value
         expect(expectedType).toBe(expectedModifyType(beforeChannel, beforeOperation, afterChannel, afterOperation))
 
         const beforeYaml = generateAsyncApiSpec('number', beforeChannel, beforeOperation)

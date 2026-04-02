@@ -17,7 +17,7 @@ export function generateAsyncApiSpec(
   channelApiKind && applyApiKind(channel, channelApiKind)
 
   const operation: Record<string, unknown> = {
-    action: 'receive',
+    action: 'send',
     channel: { $ref: '#/channels/channel1' },
     messages: [{ $ref: '#/channels/channel1/messages/message1' }],
   }
@@ -55,7 +55,7 @@ export function generateAsyncApiTwoOperationsSpec(
   channelApiKind && applyApiKind(channel, channelApiKind)
 
   const operation2: Record<string, unknown> = {
-    action: 'receive',
+    action: 'send',
     channel: { $ref: '#/channels/channel1' },
     messages: [{ $ref: '#/channels/channel1/messages/message2' }],
   }
@@ -67,7 +67,7 @@ export function generateAsyncApiTwoOperationsSpec(
     channels: { channel1: channel },
     operations: {
       operation1: {
-        action: 'receive',
+        action: 'send',
         channel: { $ref: '#/channels/channel1' },
         messages: [{ $ref: '#/channels/channel1/messages/message1' }],
       },
@@ -93,7 +93,7 @@ export function generateAsyncApiTwoChannelsSpec(
   channelApiKind && applyApiKind(channel2, channelApiKind)
 
   const operation2: Record<string, unknown> = {
-    action: 'receive',
+    action: 'send',
     channel: { $ref: '#/channels/channel2' },
     messages: [{ $ref: '#/channels/channel2/messages/message2' }],
   }
@@ -108,7 +108,7 @@ export function generateAsyncApiTwoChannelsSpec(
     },
     operations: {
       operation1: {
-        action: 'receive',
+        action: 'send',
         channel: { $ref: '#/channels/channel1' },
         messages: [{ $ref: '#/channels/channel1/messages/message1' }],
       },

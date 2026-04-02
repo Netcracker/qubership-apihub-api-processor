@@ -83,6 +83,7 @@ describe('AsyncAPI apiKind calculation', () => {
           ['bwc', undefined, noBwcChannel(), NOT_BWC],
           ['bwc', channel(), undefined, BWC],
           ['bwc', noBwcChannel(), undefined, NOT_BWC],
+          // Unrealistic: diff engine never calls scope for a path absent in both versions. Defensive guard.
           ['bwc', undefined, undefined, undefined],
           ['no-bwc', channel(), channel(), BWC],
           ['no-bwc', channel(), bwcChannel(), BWC],
@@ -97,6 +98,7 @@ describe('AsyncAPI apiKind calculation', () => {
           ['no-bwc', undefined, noBwcChannel(), NOT_BWC],
           ['no-bwc', channel(), undefined, BWC],
           ['no-bwc', noBwcChannel(), undefined, NOT_BWC],
+          // Unrealistic: diff engine never calls scope for a path absent in both versions. Defensive guard.
           ['no-bwc', undefined, undefined, undefined],
         ] as const)('documentApiKind: %s, before: %s, after: %s', (
           documentApiKind,
@@ -125,6 +127,7 @@ describe('AsyncAPI apiKind calculation', () => {
           ['bwc', undefined, noBwcOperation(), NOT_BWC],
           ['bwc', operation(), undefined, BWC],
           ['bwc', noBwcOperation(), undefined, NOT_BWC],
+          // Unrealistic: diff engine never calls scope for a path absent in both versions. Defensive guard.
           ['bwc', undefined, undefined, undefined],
           ['no-bwc', operation(), operation(), BWC],
           ['no-bwc', operation(), bwcOperation(), BWC],
@@ -139,6 +142,7 @@ describe('AsyncAPI apiKind calculation', () => {
           ['no-bwc', undefined, noBwcOperation(), NOT_BWC],
           ['no-bwc', operation(), undefined, BWC],
           ['no-bwc', noBwcOperation(), undefined, NOT_BWC],
+          // Unrealistic: diff engine never calls scope for a path absent in both versions. Defensive guard.
           ['no-bwc', undefined, undefined, undefined],
         ] as const)('documentApiKind: %s, before: %s, after: %s', (
           documentApiKind,
