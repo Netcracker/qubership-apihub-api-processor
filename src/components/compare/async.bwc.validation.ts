@@ -39,8 +39,9 @@ const ASYNC_CHANNEL_PATH_LENGTH = 2   // channels/<channelId>
 const resolveEffectiveApiKind = (
   operationKind: ApihubApiCompatibilityKind | undefined,
   channelKind: ApihubApiCompatibilityKind | undefined,
+  documentKind: ApihubApiCompatibilityKind,
 ): ApihubApiCompatibilityKind => {
-  return operationKind ?? channelKind ?? APIHUB_API_COMPATIBILITY_KIND_BWC
+  return operationKind ?? channelKind ?? documentKind
 }
 
 const toApiCompatibilityKind = (
@@ -96,8 +97,8 @@ export const createAsyncApiCompatibilityScopeFunction: ApiCompatibilityScopeFunc
       const beforeOperationKind = getApiKindProperty(beforeJso)
       const afterOperationKind = getApiKindProperty(afterJso)
 
-      const beforeEffective = resolveEffectiveApiKind(beforeOperationKind, beforeChannelKind)
-      const afterEffective = resolveEffectiveApiKind(afterOperationKind, afterChannelKind)
+      const beforeEffective = resolveEffectiveApiKind(beforeOperationKind, beforeChannelKind, prevDocumentApiKind)
+      const afterEffective = resolveEffectiveApiKind(afterOperationKind, afterChannelKind, currDocumentApiKind)
 
       return toApiCompatibilityKind(beforeEffective, afterEffective)
     }
