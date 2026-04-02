@@ -3,6 +3,7 @@ import {
   changesSummaryMatcher,
   generateAsyncApiSpec,
   generateAsyncApiTwoChannelsSpec,
+  generateAsyncApiTwoMessagesSpec,
   generateAsyncApiTwoOperationsSpec,
 } from './helpers'
 import {
@@ -140,6 +141,40 @@ describe('AsyncAPI changelog api-kind tests', () => {
         const beforeYaml = generateAsyncApiTwoChannelsSpec(beforeChannel, beforeOperation)
         const afterYaml = generateAsyncApiSpec()
         const packageId = `asyncapi-apikind-changelog-remove-channel/channel-${beforeChannel}-operation-${beforeOperation}`
+
+        const result = await buildChangelogFromContent(packageId, beforeYaml, afterYaml)
+        expect(result).toEqual(changesSummaryMatcher(buildExpected(expectedType, unclassified), ASYNCAPI_API_TYPE))
+      },
+    )
+  })
+
+  describe('Remove message tests', () => {
+    // before: 1 operation with 2 messages, after: same operation with 1 message (message2 removed)
+    // [beforeCh, beforeOp, afterCh, afterOp, expectedType, unclassified]
+    // unclassified — number of UNCLASSIFIED changes caused by x-api-kind property itself being added/removed/changed
+    type RemoveMessageCase = [ApiKindValue, ApiKindValue, ApiKindValue, ApiKindValue, ChangeType, number]
+
+    const removeMessageCases: RemoveMessageCase[] = [
+      [undefined,  undefined,  undefined,  undefined,  BREAKING, 0],
+      [undefined,  BWC,        undefined,  BWC,        BREAKING, 0],
+      [undefined,  NO_BWC,     undefined,  NO_BWC,     RISKY, 0],
+      [BWC,        undefined,  BWC,        undefined,  BREAKING, 0],
+      [BWC,        BWC,        BWC,        BWC,        BREAKING, 0],
+      [BWC,        NO_BWC,     BWC,        NO_BWC,     RISKY, 0],
+      [NO_BWC,     undefined,  NO_BWC,     undefined,  RISKY, 0],
+      [NO_BWC,     BWC,        NO_BWC,     BWC,        BREAKING, 0],
+      [NO_BWC,     NO_BWC,     NO_BWC,     NO_BWC,     RISKY, 0],
+    ]
+
+    test.concurrent.each(removeMessageCases)(
+      'should classify removed message before(channel:%s, operation:%s) after(channel:%s, operation:%s) as %s',
+      async (beforeCh, beforeOp, afterCh, afterOp, expectedType, unclassified) => {
+        // Guard: verify that the hardcoded ER in the table matches the computed value
+        expect(expectedType).toBe(expectedRemoveType(beforeCh, beforeOp))
+
+        const beforeYaml = generateAsyncApiTwoMessagesSpec(beforeCh, beforeOp)
+        const afterYaml = generateAsyncApiSpec('number', afterCh, afterOp)
+        const packageId = `asyncapi-apikind-changelog-remove-message/channel-${beforeCh}-${afterCh}-operation-${beforeOp}-${afterOp}`
 
         const result = await buildChangelogFromContent(packageId, beforeYaml, afterYaml)
         expect(result).toEqual(changesSummaryMatcher(buildExpected(expectedType, unclassified), ASYNCAPI_API_TYPE))

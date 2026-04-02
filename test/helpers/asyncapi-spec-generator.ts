@@ -82,6 +82,43 @@ export function generateAsyncApiTwoOperationsSpec(
   })
 }
 
+export function generateAsyncApiTwoMessagesSpec(
+  channelApiKind?: ApihubApiCompatibilityKind,
+  operationApiKind?: ApihubApiCompatibilityKind,
+): string {
+  const channel: Record<string, unknown> = {
+    address: 'channel1',
+    messages: {
+      message1: { $ref: '#/components/messages/message1' },
+      message2: { $ref: '#/components/messages/message2' },
+    },
+  }
+  channelApiKind && applyApiKind(channel, channelApiKind)
+
+  const operation: Record<string, unknown> = {
+    action: 'send',
+    channel: { $ref: '#/channels/channel1' },
+    messages: [
+      { $ref: '#/channels/channel1/messages/message1' },
+      { $ref: '#/channels/channel1/messages/message2' },
+    ],
+  }
+  operationApiKind && applyApiKind(operation, operationApiKind)
+
+  return YAML.dump({
+    asyncapi: '3.0.0',
+    info: { title: 'Test', version: '1.0.0' },
+    channels: { channel1: channel },
+    operations: { operation1: operation },
+    components: {
+      messages: {
+        message1: { payload: { type: 'object', properties: { userId: { type: 'number' } } } },
+        message2: { payload: { type: 'object', properties: { orderId: { type: 'number' } } } },
+      },
+    },
+  })
+}
+
 export function generateAsyncApiTwoChannelsSpec(
   channelApiKind?: ApihubApiCompatibilityKind,
   operationApiKind?: ApihubApiCompatibilityKind,
