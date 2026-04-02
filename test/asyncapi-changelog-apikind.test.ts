@@ -155,14 +155,97 @@ describe('AsyncAPI changelog api-kind tests', () => {
     type RemoveMessageCase = [ApiKindValue, ApiKindValue, ApiKindValue, ApiKindValue, ChangeType, number]
 
     const removeMessageCases: RemoveMessageCase[] = [
+      // beforeCh=none, beforeOp=none
       [undefined,  undefined,  undefined,  undefined,  BREAKING, 0],
+      [undefined,  undefined,  undefined,  BWC,        BREAKING, 1],
+      //[undefined,  undefined,  undefined,  NO_BWC,     BREAKING, 1],  //TODO: should be fixed in api-diff
+      [undefined,  undefined,  BWC,        undefined,  BREAKING, 1],
+      [undefined,  undefined,  BWC,        BWC,        BREAKING, 2],
+      //[undefined,  undefined,  BWC,        NO_BWC,     BREAKING, 2],  //TODO: should be fixed in api-diff
+      //[undefined,  undefined,  NO_BWC,     undefined,  BREAKING, 1],  //TODO: should be fixed in api-diff
+      [undefined,  undefined,  NO_BWC,     BWC,        BREAKING, 2],
+      //[undefined,  undefined,  NO_BWC,     NO_BWC,     BREAKING, 2],  //TODO: should be fixed in api-diff
+      // beforeCh=none, beforeOp=BWC
+      [undefined,  BWC,        undefined,  undefined,  BREAKING, 1],
       [undefined,  BWC,        undefined,  BWC,        BREAKING, 0],
+      //[undefined,  BWC,        undefined,  NO_BWC,     BREAKING, 1],  //TODO: should be fixed in api-diff
+      [undefined,  BWC,        BWC,        undefined,  BREAKING, 2],
+      [undefined,  BWC,        BWC,        BWC,        BREAKING, 1],
+      //[undefined,  BWC,        BWC,        NO_BWC,     BREAKING, 2],  //TODO: should be fixed in api-diff
+      //[undefined,  BWC,        NO_BWC,     undefined,  BREAKING, 2],  //TODO: should be fixed in api-diff
+      [undefined,  BWC,        NO_BWC,     BWC,        BREAKING, 1],
+      //[undefined,  BWC,        NO_BWC,     NO_BWC,     BREAKING, 2],  //TODO: should be fixed in api-diff
+      // beforeCh=none, beforeOp=no-BWC
+      [undefined,  NO_BWC,     undefined,  undefined,  RISKY, 1],
+      [undefined,  NO_BWC,     undefined,  BWC,        RISKY, 1],
       [undefined,  NO_BWC,     undefined,  NO_BWC,     RISKY, 0],
+      [undefined,  NO_BWC,     BWC,        undefined,  RISKY, 2],
+      [undefined,  NO_BWC,     BWC,        BWC,        RISKY, 2],
+      [undefined,  NO_BWC,     BWC,        NO_BWC,     RISKY, 1],
+      [undefined,  NO_BWC,     NO_BWC,     undefined,  RISKY, 2],
+      [undefined,  NO_BWC,     NO_BWC,     BWC,        RISKY, 2],
+      [undefined,  NO_BWC,     NO_BWC,     NO_BWC,     RISKY, 1],
+
+      // beforeCh=BWC, beforeOp=none
+      [BWC,        undefined,  undefined,  undefined,  BREAKING, 1],
+      [BWC,        undefined,  undefined,  BWC,        BREAKING, 2],
+      //[BWC,        undefined,  undefined,  NO_BWC,     BREAKING, 2],  //TODO: should be fixed in api-diff
       [BWC,        undefined,  BWC,        undefined,  BREAKING, 0],
+      [BWC,        undefined,  BWC,        BWC,        BREAKING, 1],
+      //[BWC,        undefined,  BWC,        NO_BWC,     BREAKING, 1],  //TODO: should be fixed in api-diff
+      //[BWC,        undefined,  NO_BWC,     undefined,  BREAKING, 1],  //TODO: should be fixed in api-diff
+      [BWC,        undefined,  NO_BWC,     BWC,        BREAKING, 2],
+      //[BWC,        undefined,  NO_BWC,     NO_BWC,     BREAKING, 2],  //TODO: should be fixed in api-diff
+      // beforeCh=BWC, beforeOp=BWC
+      [BWC,        BWC,        undefined,  undefined,  BREAKING, 2],
+      [BWC,        BWC,        undefined,  BWC,        BREAKING, 1],
+      //[BWC,        BWC,        undefined,  NO_BWC,     BREAKING, 2],  //TODO: should be fixed in api-diff
+      [BWC,        BWC,        BWC,        undefined,  BREAKING, 1],
       [BWC,        BWC,        BWC,        BWC,        BREAKING, 0],
+      //[BWC,        BWC,        BWC,        NO_BWC,     BREAKING, 1],  //TODO: should be fixed in api-diff
+      //[BWC,        BWC,        NO_BWC,     undefined,  BREAKING, 2],  //TODO: should be fixed in api-diff
+      [BWC,        BWC,        NO_BWC,     BWC,        BREAKING, 1],
+      //[BWC,        BWC,        NO_BWC,     NO_BWC,     BREAKING, 2],  //TODO: should be fixed in api-diff
+      // beforeCh=BWC, beforeOp=no-BWC
+      [BWC,        NO_BWC,     undefined,  undefined,  RISKY, 2],
+      [BWC,        NO_BWC,     undefined,  BWC,        RISKY, 2],
+      [BWC,        NO_BWC,     undefined,  NO_BWC,     RISKY, 1],
+      [BWC,        NO_BWC,     BWC,        undefined,  RISKY, 1],
+      [BWC,        NO_BWC,     BWC,        BWC,        RISKY, 1],
       [BWC,        NO_BWC,     BWC,        NO_BWC,     RISKY, 0],
+      [BWC,        NO_BWC,     NO_BWC,     undefined,  RISKY, 2],
+      [BWC,        NO_BWC,     NO_BWC,     BWC,        RISKY, 2],
+      [BWC,        NO_BWC,     NO_BWC,     NO_BWC,     RISKY, 1],
+
+      // beforeCh=no-BWC, beforeOp=none
+      [NO_BWC,     undefined,  undefined,  undefined,  RISKY, 1],
+      [NO_BWC,     undefined,  undefined,  BWC,        RISKY, 2],
+      [NO_BWC,     undefined,  undefined,  NO_BWC,     RISKY, 2],
+      [NO_BWC,     undefined,  BWC,        undefined,  RISKY, 1],
+      [NO_BWC,     undefined,  BWC,        BWC,        RISKY, 2],
+      [NO_BWC,     undefined,  BWC,        NO_BWC,     RISKY, 2],
       [NO_BWC,     undefined,  NO_BWC,     undefined,  RISKY, 0],
+      [NO_BWC,     undefined,  NO_BWC,     BWC,        RISKY, 1],
+      [NO_BWC,     undefined,  NO_BWC,     NO_BWC,     RISKY, 1],
+      // beforeCh=no-BWC, beforeOp=BWC
+      [NO_BWC,     BWC,        undefined,  undefined,  BREAKING, 2],
+      [NO_BWC,     BWC,        undefined,  BWC,        BREAKING, 1],
+      //[NO_BWC,     BWC,        undefined,  NO_BWC,     BREAKING, 2],  //TODO: should be fixed in api-diff
+      [NO_BWC,     BWC,        BWC,        undefined,  BREAKING, 2],
+      [NO_BWC,     BWC,        BWC,        BWC,        BREAKING, 1],
+      //[NO_BWC,     BWC,        BWC,        NO_BWC,     BREAKING, 2],  //TODO: should be fixed in api-diff
+      //[NO_BWC,     BWC,        NO_BWC,     undefined,  BREAKING, 1],  //TODO: should be fixed in api-diff
       [NO_BWC,     BWC,        NO_BWC,     BWC,        BREAKING, 0],
+      //[NO_BWC,     BWC,        NO_BWC,     NO_BWC,     BREAKING, 1],  //TODO: should be fixed in api-diff
+      // beforeCh=no-BWC, beforeOp=no-BWC
+      [NO_BWC,     NO_BWC,     undefined,  undefined,  RISKY, 2],
+      [NO_BWC,     NO_BWC,     undefined,  BWC,        RISKY, 2],
+      [NO_BWC,     NO_BWC,     undefined,  NO_BWC,     RISKY, 1],
+      [NO_BWC,     NO_BWC,     BWC,        undefined,  RISKY, 2],
+      [NO_BWC,     NO_BWC,     BWC,        BWC,        RISKY, 2],
+      [NO_BWC,     NO_BWC,     BWC,        NO_BWC,     RISKY, 1],
+      [NO_BWC,     NO_BWC,     NO_BWC,     undefined,  RISKY, 1],
+      [NO_BWC,     NO_BWC,     NO_BWC,     BWC,        RISKY, 1],
       [NO_BWC,     NO_BWC,     NO_BWC,     NO_BWC,     RISKY, 0],
     ]
 
@@ -182,7 +265,7 @@ describe('AsyncAPI changelog api-kind tests', () => {
     )
   })
 
-  describe('All x-api-kind combinations (channel + operation, before + after)', () => {
+  describe('Modify message payload tests', () => {
     // [beforeCh, beforeOp, afterCh, afterOp, expectedType, unclassified]
     // unclassified — number of UNCLASSIFIED changes caused by x-api-kind property itself being added/removed/changed
     type ComboCase = [ApiKindValue, ApiKindValue, ApiKindValue, ApiKindValue, ChangeType, number]
