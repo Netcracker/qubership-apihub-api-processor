@@ -111,7 +111,7 @@ describe('AsyncAPI apiKind calculation', () => {
           afterKind,
           expected,
         ) => {
-          const scopeFunction = createAsyncApiCompatibilityScopeFunction(documentApiKind)
+          const scopeFunction = createAsyncApiCompatibilityScopeFunction(documentApiKind, documentApiKind)
           expect(scopeFunction(['channels', 'ch1'], buildChannel(beforeKind), buildChannel(afterKind))).toBe(expected)
         })
       })
@@ -123,32 +123,36 @@ describe('AsyncAPI apiKind calculation', () => {
           [BWC, undefined, undefined, BACKWARD_COMPATIBLE],
           [BWC, undefined, BWC,       BACKWARD_COMPATIBLE],
           [BWC, undefined, NO_BWC,    NOT_BACKWARD_COMPATIBLE],
+          [BWC, undefined, null,      BACKWARD_COMPATIBLE],
           [BWC, BWC,       undefined, BACKWARD_COMPATIBLE],
           [BWC, BWC,       BWC,       BACKWARD_COMPATIBLE],
           [BWC, BWC,       NO_BWC,    NOT_BACKWARD_COMPATIBLE],
+          [BWC, BWC,       null,      BACKWARD_COMPATIBLE],
           [BWC, NO_BWC,    undefined, NOT_BACKWARD_COMPATIBLE],
           [BWC, NO_BWC,    BWC,       NOT_BACKWARD_COMPATIBLE],
           [BWC, NO_BWC,    NO_BWC,    NOT_BACKWARD_COMPATIBLE],
-          [BWC, null,      undefined, BACKWARD_COMPATIBLE],
-          [BWC, null,      NO_BWC,    NOT_BACKWARD_COMPATIBLE],
-          [BWC, undefined, null,      BACKWARD_COMPATIBLE],
           [BWC, NO_BWC,    null,      NOT_BACKWARD_COMPATIBLE],
+          [BWC, null,      undefined, BACKWARD_COMPATIBLE],
+          [BWC, null,      BWC,       BACKWARD_COMPATIBLE],
+          [BWC, null,      NO_BWC,    NOT_BACKWARD_COMPATIBLE],
           // Unrealistic: diff engine never calls scope for a path absent in both versions. Defensive guard.
           [BWC, null,      null,      undefined],
 
-          [NO_BWC, undefined, undefined, BACKWARD_COMPATIBLE],
-          [NO_BWC, undefined, BWC,       BACKWARD_COMPATIBLE],
+          [NO_BWC, undefined, undefined, NOT_BACKWARD_COMPATIBLE],
+          [NO_BWC, undefined, BWC,       NOT_BACKWARD_COMPATIBLE],
           [NO_BWC, undefined, NO_BWC,    NOT_BACKWARD_COMPATIBLE],
-          [NO_BWC, BWC,       undefined, BACKWARD_COMPATIBLE],
+          [NO_BWC, undefined, null,      NOT_BACKWARD_COMPATIBLE],
+          [NO_BWC, BWC,       undefined, NOT_BACKWARD_COMPATIBLE], //BACKWARD_COMPATIBLE
           [NO_BWC, BWC,       BWC,       BACKWARD_COMPATIBLE],
           [NO_BWC, BWC,       NO_BWC,    NOT_BACKWARD_COMPATIBLE],
+          [NO_BWC, BWC,       null,      NOT_BACKWARD_COMPATIBLE],//BACKWARD_COMPATIBLE
           [NO_BWC, NO_BWC,    undefined, NOT_BACKWARD_COMPATIBLE],
           [NO_BWC, NO_BWC,    BWC,       NOT_BACKWARD_COMPATIBLE],
           [NO_BWC, NO_BWC,    NO_BWC,    NOT_BACKWARD_COMPATIBLE],
-          [NO_BWC, null,      undefined, BACKWARD_COMPATIBLE],
-          [NO_BWC, null,      NO_BWC,    NOT_BACKWARD_COMPATIBLE],
-          [NO_BWC, undefined, null,      BACKWARD_COMPATIBLE],
           [NO_BWC, NO_BWC,    null,      NOT_BACKWARD_COMPATIBLE],
+          [NO_BWC, null,      undefined, NOT_BACKWARD_COMPATIBLE],
+          [NO_BWC, null,      BWC,       NOT_BACKWARD_COMPATIBLE],
+          [NO_BWC, null,      NO_BWC,    NOT_BACKWARD_COMPATIBLE],
           // Unrealistic: diff engine never calls scope for a path absent in both versions. Defensive guard.
           [NO_BWC, null,      null,      undefined],
         ] as const)('should classify operation scope document(%s) before(%s) after(%s) as %s', (
@@ -157,7 +161,7 @@ describe('AsyncAPI apiKind calculation', () => {
           afterKind,
           expected,
         ) => {
-          const scopeFunction = createAsyncApiCompatibilityScopeFunction(documentApiKind)
+          const scopeFunction = createAsyncApiCompatibilityScopeFunction(documentApiKind, documentApiKind)
           expect(scopeFunction(['operations', 'op1'], buildOperation(beforeKind), buildOperation(afterKind))).toBe(expected)
         })
 
