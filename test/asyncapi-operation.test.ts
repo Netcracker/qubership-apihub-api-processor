@@ -57,7 +57,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       }
     })
 
-    test('should build correct single-operation spec data when multiple operations share the same message', async () => {
+    test('single-operation spec data should include relevant operation when multiple operations share the same message', async () => {
       const result = await buildPackageWithDefaultConfig('asyncapi/operations/shared-message')
       const operations = Array.from(result.operations.values())
       expect(operations).toHaveLength(2)
