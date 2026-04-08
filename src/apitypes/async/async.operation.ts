@@ -50,6 +50,7 @@ import {
   createBaseAsyncApiSpec,
   enrichAsyncApiWithInlineRefs,
   extractProtocol,
+  filterChannelMessages,
   getAsyncMessageId,
   isMessageObject,
   resolveAsyncApiOperationIdsFromRefs,
@@ -275,7 +276,11 @@ export const createOperationSpec = (
       )
 
       if (requestedIdsSet.has(calculatedId)) {
-        selectedOperations[asyncOperationId] = operationObject
+        selectedOperations[asyncOperationId] = {
+          ...operationObject,
+          messages: [message],
+          channel: filterChannelMessages(channel as AsyncAPIV3.ChannelObject, messageId),
+        }
         break
       }
     }

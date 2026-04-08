@@ -358,6 +358,47 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       expect(Object.keys(result.operations || {})).toEqual([OPERATION_KEY_1])
     })
 
+    describe('shared channel message filtering', () => {
+      const SHARED_OP_KEY_A = 'operationA'
+      const SHARED_OP_KEY_B = 'operationB'
+      const SHARED_MSG_ID_A = 'MessageA'
+      const SHARED_MSG_ID_B = 'MessageB'
+
+      let sharedChannelDoc: AsyncAPIV3.AsyncAPIObject
+      let sharedChannelNormalized: AsyncAPIV3.AsyncAPIObject
+      let sharedOpIdA: string
+      let sharedOpIdB: string
+
+      beforeAll(async () => {
+        sharedOpIdA = calculateAsyncOperationId(SHARED_OP_KEY_A, SHARED_MSG_ID_A)
+        sharedOpIdB = calculateAsyncOperationId(SHARED_OP_KEY_B, SHARED_MSG_ID_B)
+        sharedChannelDoc = await loadYamlFile('asyncapi/operations/shared-channel/spec.yaml')
+        sharedChannelNormalized = normalizeAsyncApiDocument(sharedChannelDoc)
+      })
+
+      test('should include only the relevant message in the operation channel', () => {
+        const result = createOperationSpec(sharedChannelNormalized, sharedOpIdA)
+
+        const operationA = result.operations?.[SHARED_OP_KEY_A] as AsyncAPIV3.OperationObject
+        expect(operationA).toBeDefined()
+
+        const channel = operationA.channel as AsyncAPIV3.ChannelObject
+        const channelMessageKeys = Object.keys(channel.messages ?? {})
+        expect(channelMessageKeys).toEqual([SHARED_MSG_ID_A])
+      })
+
+      test('should filter channel messages independently per operation', () => {
+        const resultA = createOperationSpec(sharedChannelNormalized, sharedOpIdA)
+        const resultB = createOperationSpec(sharedChannelNormalized, sharedOpIdB)
+
+        const channelA = (resultA.operations?.[SHARED_OP_KEY_A] as AsyncAPIV3.OperationObject).channel as AsyncAPIV3.ChannelObject
+        const channelB = (resultB.operations?.[SHARED_OP_KEY_B] as AsyncAPIV3.OperationObject).channel as AsyncAPIV3.ChannelObject
+
+        expect(Object.keys(channelA.messages ?? {})).toEqual([SHARED_MSG_ID_A])
+        expect(Object.keys(channelB.messages ?? {})).toEqual([SHARED_MSG_ID_B])
+      })
+    })
+
     test('should inline referenced channels/servers/components when refsOnlyDocument has inline refs (manual refs)', () => {
       const refsOnlyDocument = {
         operations: {

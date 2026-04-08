@@ -131,6 +131,17 @@ export const getAsyncChannelId = (channel: AsyncAPIV3.ChannelObject): string => 
   return getAsyncObjectId(channel)
 }
 
+export const filterChannelMessages = (
+  channel: AsyncAPIV3.ChannelObject,
+  messageId: string,
+): AsyncAPIV3.ChannelObject => {
+  const channelMessages = (channel as AsyncAPIV3.ChannelObject).messages
+  if (!isObject(channelMessages)) {
+    return channel
+  }
+  return { ...channel, messages: { [messageId]: (channelMessages as AsyncAPIV3.MessagesObject)[messageId] } }
+}
+
 export const checkHasAsyncApiOperations = (
   document: AsyncAPIV3.AsyncAPIObject,
 ): Record<string, AsyncAPIV3.OperationObject> => {

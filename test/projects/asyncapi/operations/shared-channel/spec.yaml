@@ -1,0 +1,41 @@
+asyncapi: 3.0.0
+info:
+  title: Shared Channel Test
+  version: 1.0.0
+channels:
+  sharedChannel:
+    address: events/shared
+    messages:
+      MessageA:
+        $ref: '#/components/messages/MessageA'
+      MessageB:
+        $ref: '#/components/messages/MessageB'
+operations:
+  operationA:
+    action: send
+    channel:
+      $ref: '#/channels/sharedChannel'
+    messages:
+      - $ref: '#/channels/sharedChannel/messages/MessageA'
+  operationB:
+    action: send
+    channel:
+      $ref: '#/channels/sharedChannel'
+    messages:
+      - $ref: '#/channels/sharedChannel/messages/MessageB'
+components:
+  messages:
+    MessageA:
+      title: Message A
+      payload:
+        type: object
+        properties:
+          fieldA:
+            type: string
+    MessageB:
+      title: Message B
+      payload:
+        type: object
+        properties:
+          fieldB:
+            type: integer
