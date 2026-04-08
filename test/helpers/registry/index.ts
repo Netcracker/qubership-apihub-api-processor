@@ -16,3 +16,4 @@
 
 export * from './apihub'
 export * from './local'
+export { vfs, vfsLoadFileAsString } from './fs'
