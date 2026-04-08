@@ -1,4 +1,4 @@
- /**
+/**
  * Copyright 2024-2025 NetCracker Technology Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -66,7 +66,7 @@ describe('AsyncAPI 3.0 Deprecated tests', () => {
 
     test('should deprecated message has OperationDeprecated symbol with true', async () => {
       const [deprecatedItem] = deprecatedItems
-      const operationDeprecatedSymbol  = (deprecatedItem as unknown as Record<symbol, boolean>)[isOperationDeprecated]
+      const operationDeprecatedSymbol = (deprecatedItem as unknown as Record<symbol, boolean>)[isOperationDeprecated]
       expect(operationDeprecatedSymbol).toBeTruthy()
     })
   })
