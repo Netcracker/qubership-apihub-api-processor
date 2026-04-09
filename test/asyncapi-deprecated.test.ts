@@ -95,7 +95,7 @@ describe('AsyncAPI 3.0 Deprecated tests', () => {
       const operation2DeprecatedItems = operation2Entry![1].deprecatedItems ?? []
 
       expect(operation1DeprecatedItems.length).toBe(0)
-      expect(operation2DeprecatedItems.length).toBeGreaterThan(0)
+      expect(operation2DeprecatedItems.length).toBe(1)
     })
   })
 

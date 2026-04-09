@@ -44,7 +44,7 @@ import {
   INLINE_REFS_FLAG,
 } from '../../consts'
 import { WithAggregatedDiffs, WithDiffMetaRecord } from '../../types'
-import { Diff, DiffAction, DIFF_META_KEY, DIFFS_AGGREGATED_META_KEY } from '@netcracker/qubership-apihub-api-diff'
+import { Diff, DIFF_META_KEY, DIFFS_AGGREGATED_META_KEY } from '@netcracker/qubership-apihub-api-diff'
 
 // Re-export shared utilities
 export { dump, getCustomTags, resolveApiAudience } from '../../utils/apihubSpecificationExtensions'
@@ -131,15 +131,25 @@ export const getAsyncChannelId = (channel: AsyncAPIV3.ChannelObject): string => 
   return getAsyncObjectId(channel)
 }
 
-export const filterChannelMessages = (
+export const createOperationWithSingleMessage = (
+  operationObject: AsyncAPIV3.OperationObject,
   channel: AsyncAPIV3.ChannelObject,
+  message: AsyncAPIV3.MessageObject,
   messageId: string,
-): AsyncAPIV3.ChannelObject => {
-  const channelMessages = (channel as AsyncAPIV3.ChannelObject).messages
-  if (!isObject(channelMessages)) {
-    return channel
-  }
-  return { ...channel, messages: { [messageId]: (channelMessages as AsyncAPIV3.MessagesObject)[messageId] } }
+): AsyncAPIV3.OperationObject => {
+  const filteredChannel = { ...channel, messages: { [messageId]: channel.messages![messageId] } }
+  return { ...operationObject, messages: [message], channel: filteredChannel }
+}
+
+export const addMessageToOperation = (
+  operation: AsyncAPIV3.OperationObject,
+  sourceChannel: AsyncAPIV3.ChannelObject,
+  message: AsyncAPIV3.MessageObject,
+  messageId: string,
+): void => {
+  (operation.messages as AsyncAPIV3.MessageObject[]).push(message)
+  const operationChannel = operation.channel as AsyncAPIV3.ChannelObject
+  operationChannel.messages![messageId] = sourceChannel.messages![messageId]
 }
 
 export const checkHasAsyncApiOperations = (

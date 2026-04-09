@@ -44,13 +44,14 @@ import {
 } from '@netcracker/qubership-apihub-api-unifier'
 import { calculateHash, ObjectHashCache } from '../../utils/hashes'
 import {
+  addMessageToOperation,
   buildAsyncApiSpecFromDocument,
   calculateAsyncApiKind,
   checkHasAsyncApiOperations,
   createBaseAsyncApiSpec,
+  createOperationWithSingleMessage,
   enrichAsyncApiWithInlineRefs,
   extractProtocol,
-  filterChannelMessages,
   getAsyncMessageId,
   isMessageObject,
   resolveAsyncApiOperationIdsFromRefs,
@@ -258,6 +259,7 @@ export const createOperationSpec = (
     if (!action || !channel) {
       continue
     }
+    const channelObj = channel as AsyncAPIV3.ChannelObject
 
     for (const message of messages) {
       if (!isMessageObject(message)) {
@@ -276,12 +278,12 @@ export const createOperationSpec = (
       )
 
       if (requestedIdsSet.has(calculatedId)) {
-        selectedOperations[asyncOperationId] = {
-          ...operationObject,
-          messages: [message],
-          channel: filterChannelMessages(channel as AsyncAPIV3.ChannelObject, messageId),
+        const selectedOperation = selectedOperations[asyncOperationId]
+        if (selectedOperation) {
+          addMessageToOperation(selectedOperation, channelObj, message, messageId)
+        } else {
+          selectedOperations[asyncOperationId] = createOperationWithSingleMessage(operationObject, channelObj, message, messageId)
         }
-        break
       }
     }
   }

@@ -10,19 +10,17 @@ channels:
         $ref: '#/components/messages/MessageA'
       MessageB:
         $ref: '#/components/messages/MessageB'
+      MessageC:
+        $ref: '#/components/messages/MessageC'
 operations:
-  operationA:
+  multiMessageOp:
     action: send
     channel:
       $ref: '#/channels/sharedChannel'
     messages:
       - $ref: '#/channels/sharedChannel/messages/MessageA'
-  operationB:
-    action: send
-    channel:
-      $ref: '#/channels/sharedChannel'
-    messages:
       - $ref: '#/channels/sharedChannel/messages/MessageB'
+      - $ref: '#/channels/sharedChannel/messages/MessageC'
 components:
   messages:
     MessageA:
@@ -39,3 +37,10 @@ components:
         properties:
           fieldB:
             type: integer
+    MessageC:
+      title: Message C
+      payload:
+        type: object
+        properties:
+          fieldC:
+            type: boolean
