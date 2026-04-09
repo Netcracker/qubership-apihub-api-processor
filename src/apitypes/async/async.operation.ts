@@ -44,15 +44,14 @@ import {
 } from '@netcracker/qubership-apihub-api-unifier'
 import { calculateHash, ObjectHashCache } from '../../utils/hashes'
 import {
-  addMessageToOperation,
   buildAsyncApiSpecFromDocument,
   calculateAsyncApiKind,
   checkHasAsyncApiOperations,
   createBaseAsyncApiSpec,
-  createOperationWithSingleMessage,
   enrichAsyncApiWithInlineRefs,
   extractProtocol,
   getAsyncMessageId,
+  getOrCreateFilteredChannel,
   isMessageObject,
   resolveAsyncApiOperationIdsFromRefs,
 } from './async.utils'
@@ -245,6 +244,9 @@ export const createOperationSpec = (
   const requestedIdsSet = new Set(operationIds)
 
   const selectedOperations: Record<string, AsyncAPIV3.OperationObject> = {}
+  // Maps source channel → filtered copy with only requested messages.
+  const filteredChannels = new Map<AsyncAPIV3.ChannelObject, AsyncAPIV3.ChannelObject>()
+
   for (const [asyncOperationId, operationData] of Object.entries(operations)) {
     if (!isObject(operationData)) {
       continue
@@ -279,10 +281,12 @@ export const createOperationSpec = (
 
       if (requestedIdsSet.has(calculatedId)) {
         const selectedOperation = selectedOperations[asyncOperationId]
+        // Always update the shared filtered channel — both branches need the message registered
+        const filteredChannel = getOrCreateFilteredChannel(filteredChannels, channelObj, messageId)
         if (selectedOperation) {
-          addMessageToOperation(selectedOperation, channelObj, message, messageId)
+          (selectedOperation.messages as AsyncAPIV3.MessageObject[]).push(message)
         } else {
-          selectedOperations[asyncOperationId] = createOperationWithSingleMessage(operationObject, channelObj, message, messageId)
+          selectedOperations[asyncOperationId] = { ...operationObject, messages: [message], channel: filteredChannel }
         }
       }
     }

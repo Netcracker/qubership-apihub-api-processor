@@ -131,25 +131,24 @@ export const getAsyncChannelId = (channel: AsyncAPIV3.ChannelObject): string => 
   return getAsyncObjectId(channel)
 }
 
-export const createOperationWithSingleMessage = (
-  operationObject: AsyncAPIV3.OperationObject,
-  channel: AsyncAPIV3.ChannelObject,
-  message: AsyncAPIV3.MessageObject,
-  messageId: string,
-): AsyncAPIV3.OperationObject => {
-  const filteredChannel = { ...channel, messages: { [messageId]: channel.messages![messageId] } }
-  return { ...operationObject, messages: [message], channel: filteredChannel }
-}
-
-export const addMessageToOperation = (
-  operation: AsyncAPIV3.OperationObject,
+/**
+ * Returns a filtered copy of the channel, creating one if it doesn't exist yet.
+ * All operations that share the same source channel will get the same filtered instance,
+ * accumulating only the messages that are actually requested.
+ */
+export const getOrCreateFilteredChannel = (
+  channelCache: Map<AsyncAPIV3.ChannelObject, AsyncAPIV3.ChannelObject>,
   sourceChannel: AsyncAPIV3.ChannelObject,
-  message: AsyncAPIV3.MessageObject,
   messageId: string,
-): void => {
-  (operation.messages as AsyncAPIV3.MessageObject[]).push(message)
-  const operationChannel = operation.channel as AsyncAPIV3.ChannelObject
-  operationChannel.messages![messageId] = sourceChannel.messages![messageId]
+): AsyncAPIV3.ChannelObject => {
+  let filteredChannel = channelCache.get(sourceChannel)
+  if (!filteredChannel) {
+    filteredChannel = { ...sourceChannel, messages: { [messageId]: sourceChannel.messages![messageId] } }
+    channelCache.set(sourceChannel, filteredChannel)
+  } else {
+    filteredChannel.messages![messageId] = sourceChannel.messages![messageId]
+  }
+  return filteredChannel
 }
 
 export const checkHasAsyncApiOperations = (
