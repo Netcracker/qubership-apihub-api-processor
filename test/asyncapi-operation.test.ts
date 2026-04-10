@@ -301,10 +301,10 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       expect(result.info).toEqual(normalizedDocument.info)
     })
 
-    test('should not include channels/servers/components by default', () => {
+    test('should not include servers/components by default', () => {
       const result = createOperationSpec(normalizedDocument, OPERATION_ID_1)
 
-      expect(result.channels).toBeUndefined()
+      expect(result.channels).toBeDefined()
       expect(result.servers).toBeUndefined()
       expect(result.components).toBeUndefined()
     })
@@ -417,6 +417,10 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
 
         const channel = operation.channel as AsyncAPIV3.ChannelObject
         expect(Object.keys(channel.messages ?? {})).toEqual([MESSAGE_ID_A])
+
+        // Root channels must contain only the used channel and be the same instance
+        expect(Object.keys(result.channels!)).toEqual(['sharedChannel'])
+        expect(result.channels?.sharedChannel).toBe(channel)
       })
 
       test('should filter channel messages independently per single operationId', () => {
@@ -430,6 +434,12 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
 
         expect(Object.keys(channelA.messages ?? {})).toEqual([MESSAGE_ID_A])
         expect(Object.keys(channelB.messages ?? {})).toEqual([MESSAGE_ID_B])
+
+        // Root channels must contain only the used channel and be the same instance
+        expect(Object.keys(resultA.channels!)).toEqual(['sharedChannel'])
+        expect(Object.keys(resultB.channels!)).toEqual(['sharedChannel'])
+        expect(resultA.channels?.sharedChannel).toBe(channelA)
+        expect(resultB.channels?.sharedChannel).toBe(channelB)
       })
 
       test('should include only requested messages in channel when requesting multiple operationIds', () => {
@@ -450,6 +460,10 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
         const channelMessageKeys = Object.keys(multiMessageOperationChannel.messages ?? {})
         expect(channelMessageKeys).toEqual(expect.arrayContaining([MESSAGE_ID_A, MESSAGE_ID_C, MESSAGE_ID_D]))
         expect(channelMessageKeys).not.toContain(MESSAGE_ID_B)
+
+        // Root channels must contain only the used channel and be the same instance
+        expect(Object.keys(result.channels!)).toEqual(['sharedChannel'])
+        expect(result.channels?.sharedChannel).toBe(multiMessageOperationChannel)
       })
 
       test('should share same channel instance between operations referencing the same channel', () => {
@@ -461,6 +475,10 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
         const operationD = result.operations?.[OPERATION_D] as AsyncAPIV3.OperationObject
 
         expect(multiMessageOperation.channel).toBe(operationD.channel)
+
+        // Root channels must contain only the used channel and be the same instance
+        expect(Object.keys(result.channels!)).toEqual(['sharedChannel'])
+        expect(result.channels?.sharedChannel).toBe(multiMessageOperation.channel)
       })
 
       test('should have different channel instances for operations referencing different channels', () => {
@@ -472,6 +490,13 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
         const operationE = result.operations?.[OPERATION_E] as AsyncAPIV3.OperationObject
 
         expect(multiMessageOperation.channel).not.toBe(operationE.channel)
+
+        // Root channels must contain only the used channels and be the same instances
+        expect(Object.keys(result.channels!)).toEqual(expect.arrayContaining(['sharedChannel', 'otherChannel']))
+        expect(Object.keys(result.channels!)).toHaveLength(2)
+
+        expect(result.channels?.sharedChannel).toBe(multiMessageOperation.channel)
+        expect(result.channels?.otherChannel).toBe(operationE.channel)
       })
 
       test('should have different channel instances when different channels reference the same message', () => {
@@ -484,6 +509,13 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
         const operationF = result.operations?.[OPERATION_F] as AsyncAPIV3.OperationObject
 
         expect(multiMessageOperation.channel).not.toBe(operationF.channel)
+
+        // Root channels must contain only the used channels and be the same instances
+        expect(Object.keys(result.channels!)).toEqual(expect.arrayContaining(['sharedChannel', 'anotherChannelWithSameMessage']))
+        expect(Object.keys(result.channels!)).toHaveLength(2)
+
+        expect(result.channels?.sharedChannel).toBe(multiMessageOperation.channel)
+        expect(result.channels?.anotherChannelWithSameMessage).toBe(operationF.channel)
       })
     })
 

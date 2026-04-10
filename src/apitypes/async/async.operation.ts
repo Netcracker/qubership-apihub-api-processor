@@ -292,7 +292,19 @@ export const createOperationSpec = (
     }
   }
 
-  return createBaseAsyncApiSpec(normalizedDocument, selectedOperations)
+  // Build root channels record from filtered channels, keyed by their original name
+  let channels: Record<string, AsyncAPIV3.ChannelObject> | undefined
+  if (filteredChannels.size > 0 && normalizedDocument.channels) {
+    channels = {}
+    for (const [channelName, channelObj] of Object.entries(normalizedDocument.channels)) {
+      const filteredChannel = filteredChannels.get(channelObj as AsyncAPIV3.ChannelObject)
+      if (filteredChannel) {
+        channels[channelName] = filteredChannel
+      }
+    }
+  }
+
+  return createBaseAsyncApiSpec(normalizedDocument, selectedOperations, channels)
 }
 
 /**
