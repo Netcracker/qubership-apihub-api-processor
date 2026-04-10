@@ -165,7 +165,7 @@ export const checkHasAsyncApiOperations = (
 
 /**
  * Creates the base AsyncAPI operation spec containing only the essential
- * contract elements: version, info, operations, and optionally channels.
+ * contract elements: version, info, operations, and channels.
  */
 export const createBaseAsyncApiSpec = (
   document: AsyncAPIV3.AsyncAPIObject,
