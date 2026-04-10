@@ -166,12 +166,6 @@ export const checkHasAsyncApiOperations = (
 /**
  * Creates the base AsyncAPI operation spec containing only the essential
  * contract elements: version, info, operations, and optionally channels.
- *
- * Channels are a core part of the AsyncAPI contract — they define the
- * communication addresses and the messages available on each address.
- * When provided, channels are included at the root level so that the
- * resulting spec remains a valid, self-contained AsyncAPI document fragment
- * that accurately represents the operation's messaging contract.
  */
 export const createBaseAsyncApiSpec = (
   document: AsyncAPIV3.AsyncAPIObject,
