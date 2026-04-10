@@ -350,7 +350,13 @@ export const createOperationSpecWithInlineRefs = (
 
   const resultSpec = buildAsyncApiSpecFromDocument(document, resolvedOperationKeys)
 
-  enrichAsyncApiWithInlineRefs(resultSpec, document, refsDocument)
+  const filteredRefsOperations: Record<string, AsyncAPIV3.OperationObject> = {}
+  for (const asyncOperationId of resolvedOperationKeys.keys()) {
+    if (operations[asyncOperationId]) {
+      filteredRefsOperations[asyncOperationId] = operations[asyncOperationId]
+    }
+  }
+  enrichAsyncApiWithInlineRefs(resultSpec, document, { operations: filteredRefsOperations } as unknown as AsyncAPIV3.AsyncAPIObject)
 
   return resultSpec
 }
