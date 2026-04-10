@@ -75,6 +75,28 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
         expect(operationKeys).toEqual([operation.metadata.asyncOperationId])
       }
     })
+
+    test('each operation should contain only its relevant components (multi-channel spec)', async () => {
+      const result = await buildPackageWithDefaultConfig('asyncapi/operations/multi-channel-multi-operation')
+      const operations = Array.from(result.operations.values())
+      expect(operations).toHaveLength(2)
+
+      const expectedComponents: Record<string, { schemas: string[]; messages: string[] }> = {
+        publishUserSignedUp: { schemas: ['User'], messages: ['UserSignedUp'] },
+        receiveOrderCreated: { schemas: ['Order'], messages: ['OrderCreated'] },
+      }
+
+      for (const operation of operations) {
+        const asyncApiData = operation.data as AsyncAPIV3.AsyncAPIObject
+        const expected = expectedComponents[operation.metadata.asyncOperationId]
+
+        const schemaKeys = Object.keys(asyncApiData.components?.schemas ?? {}).sort()
+        expect(schemaKeys).toEqual(expected.schemas.sort())
+
+        const messageKeys = Object.keys(asyncApiData.components?.messages ?? {}).sort()
+        expect(messageKeys).toEqual(expected.messages.sort())
+      }
+    })
   })
 
   describe('OperationId Tests', () => {
@@ -519,22 +541,29 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       })
     })
 
-    test('should inline referenced channels/servers/components when refsOnlyDocument has inline refs (manual refs)', () => {
+    test('should inline referenced channels/servers/components when refsOnlyDocument has inline refs', () => {
+      // Simulates normalizer output: INLINE_REFS_FLAG is set on each resolved object,
+      // not on the document root. The recursive crawl discovers them.
+      const COMPONENT_MSG_REF_1 = '#/components/messages/UserSignedUp'
+      const serverObj: Record<string | symbol, unknown> = { host: 'broker-amqp.example.com', protocol: 'amqp' }
+      serverObj[INLINE_REFS_FLAG] = ['#/servers/amqp1']
+
+      const channelObj: Record<string | symbol, unknown> = {
+        address: 'user/signedup',
+        messages: { UserSignedUp: createRefsMessage(MESSAGE_ID_1, [COMPONENT_MSG_REF_1, MESSAGE_REF_1]) },
+        servers: [serverObj],
+      }
+      channelObj[INLINE_REFS_FLAG] = ['#/channels/userSignedUp']
+
       const refsOnlyDocument = {
         operations: {
           [OPERATION_KEY_1]: {
+            channel: channelObj,
             messages: [
-              createRefsMessage(MESSAGE_ID_1, [MESSAGE_REF_1]),
+              createRefsMessage(MESSAGE_ID_1, [COMPONENT_MSG_REF_1, MESSAGE_REF_1]),
             ],
           },
         },
-        [INLINE_REFS_FLAG]: [
-          '#/servers/amqp1',
-          '#/channels/userSignedUp',
-          MESSAGE_REF_1,
-          '#/components/messages/UserSignedUp',
-          '#/info/title',
-        ],
       } as unknown as AsyncAPIV3.AsyncAPIObject
 
       const result = createOperationSpecWithInlineRefs(baseDocument, OPERATION_ID_1, refsOnlyDocument)
@@ -598,21 +627,28 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
 
     test.skip('createOperationSpecWithInlineRefs should include root servers when channel has no explicit servers', () => {
       // Same as above but via createOperationSpecWithInlineRefs path.
+      // After normalization, the channel object should have servers propagated from root,
+      // and each resolved object should carry its own INLINE_REFS_FLAG.
+      const serverProd: Record<string | symbol, unknown> = { host: 'prod.example.com', protocol: 'amqp' }
+      serverProd[INLINE_REFS_FLAG] = ['#/servers/production']
+      const serverStaging: Record<string | symbol, unknown> = { host: 'staging.example.com', protocol: 'amqp' }
+      serverStaging[INLINE_REFS_FLAG] = ['#/servers/staging']
+
+      const channelObj: Record<string | symbol, unknown> = {
+        messages: { message1: createRefsMsg(MSG_ID, ['#/channels/channel1/messages/message1']) },
+        servers: [serverProd, serverStaging],
+      }
+      channelObj[INLINE_REFS_FLAG] = ['#/channels/channel1']
+
       const refsOnlyDocument = {
         operations: {
           [OP_KEY]: {
+            channel: channelObj,
             messages: [
               createRefsMsg(MSG_ID, ['#/channels/channel1/messages/message1']),
             ],
           },
         },
-        [INLINE_REFS_FLAG]: [
-          '#/servers/production',
-          '#/servers/staging',
-          '#/channels/channel1',
-          '#/channels/channel1/messages/message1',
-          '#/components/messages/message1',
-        ],
       } as unknown as AsyncAPIV3.AsyncAPIObject
 
       const result = createOperationSpecWithInlineRefs(rootServersDoc, rootServersOpId, refsOnlyDocument)

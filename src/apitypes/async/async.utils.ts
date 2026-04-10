@@ -183,9 +183,9 @@ export const createBaseAsyncApiSpec = (
 export const enrichAsyncApiWithInlineRefs = (
   resultSpec: TYPE.AsyncOperationData,
   document: AsyncAPIV3.AsyncAPIObject,
-  refsDocument: AsyncAPIV3.AsyncAPIObject,
+  refsSource: AsyncAPIV3.AsyncAPIObject,
 ): void => {
-  const inlineRefs = getInlineRefsFomDocument(refsDocument)
+  const inlineRefs = getInlineRefsFomDocument(refsSource)
 
   const componentNameMatcher = grepValue('componentName')
   const matchPatterns = [
