@@ -40,7 +40,7 @@ import {
 } from '../../../src'
 import { IRegistry } from './types'
 import AdmZip from 'adm-zip'
-import { vfs } from './fs'
+import { registryFs } from './fs'
 import {
   saveComparisonInternalDocuments,
   saveComparisonInternalDocumentsArray,
@@ -105,7 +105,7 @@ export class ApihubRegistry implements IRegistry {
 
     const basePath = `${VERSIONS_PATH}/${config.packageId}/${config.version}`
     try {
-      await vfs.rm(basePath, { recursive: true })
+      await registryFs.rm(basePath, { recursive: true })
     } catch (e) {
       // do nothing
     }
@@ -117,7 +117,7 @@ export class ApihubRegistry implements IRegistry {
       })
     }
 
-    await vfs.mkdir(basePath, { recursive: true })
+    await registryFs.mkdir(basePath, { recursive: true })
 
     await saveInfo(config, basePath)
 

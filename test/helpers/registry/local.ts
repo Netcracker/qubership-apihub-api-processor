@@ -15,7 +15,7 @@
  */
 
 import { loadConfig, loadFile } from '../utils'
-import { vfs, vfsLoadFile, vfsLoadFileAsString, vfsLoadConfig, vfsPath } from './fs'
+import { registryFs, loadFileFromRegistry, loadFileAsStringFromRegistry, loadConfigFromRegistry, registryPath } from './fs'
 import {
   ApiOperation,
   BuildConfig,
@@ -299,7 +299,7 @@ export class LocalRegistry implements IRegistry {
   }
 
   private async findFileNameBySlug(directory: string, slug: string): Promise<string> {
-    const files = await vfs.readdir(directory)
+    const files = await registryFs.readdir(directory)
     const fileName = files.find(file => getDocumentTitle(file).toLowerCase() === slug.toLowerCase())
     if (!fileName) {
       throw new Error(`File for slug ${slug} was not found in ${directory}`)
@@ -313,9 +313,9 @@ export class LocalRegistry implements IRegistry {
     slug: string,
   ): Promise<File | null> {
     const documentsPath = `${packageId}/${version}/documents`
-    const directory = vfsPath(VERSIONS_PATH, documentsPath)
+    const directory = registryPath(VERSIONS_PATH, documentsPath)
     const fileName = await this.findFileNameBySlug(directory, slug)
-    return vfsLoadFile(VERSIONS_PATH, documentsPath, fileName)
+    return loadFileFromRegistry(VERSIONS_PATH, documentsPath, fileName)
   }
 
   private filterOperationIdsByGroup(filterByOperationGroup: string): (id: string) => boolean {
@@ -514,11 +514,11 @@ export class LocalRegistry implements IRegistry {
 
     const basePath = `${VERSIONS_PATH}/${config.packageId}/${config.version}`
     try {
-      await vfs.rm(basePath, { recursive: true })
+      await registryFs.rm(basePath, { recursive: true })
     } catch (e) {
       // do nothing
     }
-    await vfs.mkdir(basePath, { recursive: true })
+    await registryFs.mkdir(basePath, { recursive: true })
 
     await saveInfo(config, basePath)
 
@@ -562,7 +562,7 @@ export class LocalRegistry implements IRegistry {
 
     const basePath = `${VERSIONS_PATH}/${loadedConfig.packageId}/${versionConfig.version}`
 
-    await vfs.writeFile(
+    await registryFs.writeFile(
       `${basePath}/${PACKAGE.OPERATIONS_FILE_NAME}`,
       getOperationsFileContent(operations, true),
     )
@@ -594,7 +594,7 @@ export class LocalRegistry implements IRegistry {
   }
 
   private async loadVersion(packageId: string, versionKey: string, compositeKey: string): Promise<PackageVersionCache | undefined> {
-    const versionConfig = await vfsLoadConfig(
+    const versionConfig = await loadConfigFromRegistry(
       VERSIONS_PATH,
       `${packageId}/${versionKey}`,
       PACKAGE.INFO_FILE_NAME,
@@ -611,7 +611,7 @@ export class LocalRegistry implements IRegistry {
       return
     }
 
-    const operationsFile = await vfsLoadFileAsString(
+    const operationsFile = await loadFileAsStringFromRegistry(
       VERSIONS_PATH,
       `${packageId}/${versionKey}`,
       PACKAGE.OPERATIONS_FILE_NAME,
@@ -624,7 +624,7 @@ export class LocalRegistry implements IRegistry {
         continue
       }
 
-      const data = await vfsLoadFileAsString(
+      const data = await loadFileAsStringFromRegistry(
         VERSIONS_PATH,
         `${packageId}/${versionKey}/${PACKAGE.OPERATIONS_DIR_NAME}`,
         `${operation.operationId}.json`,
@@ -638,14 +638,14 @@ export class LocalRegistry implements IRegistry {
       )
     }
 
-    const documentsFile = await vfsLoadFileAsString(
+    const documentsFile = await loadFileAsStringFromRegistry(
       VERSIONS_PATH,
       `${packageId}/${versionKey}`,
       PACKAGE.DOCUMENTS_FILE_NAME,
     )
     const { documents } = documentsFile ? JSON.parse(documentsFile) : null as VersionDocuments | null ?? { documents: [] }
     for (const document of documents) {
-      const data = await vfsLoadFileAsString(
+      const data = await loadFileAsStringFromRegistry(
         VERSIONS_PATH,
         `${packageId}/${versionKey}/${PACKAGE.DOCUMENTS_DIR_NAME}`,
         document.filename,
@@ -662,7 +662,7 @@ export class LocalRegistry implements IRegistry {
       }
     }
 
-    const comparisonsFile = await vfsLoadFileAsString(
+    const comparisonsFile = await loadFileAsStringFromRegistry(
       VERSIONS_PATH,
       `${packageId}/${versionKey}`,
       PACKAGE.COMPARISONS_FILE_NAME,
@@ -675,7 +675,7 @@ export class LocalRegistry implements IRegistry {
       versionCache.comparisons.push(...comparisons as VersionsComparison[])
     }
 
-    const notificationsFile = await vfsLoadFileAsString(
+    const notificationsFile = await loadFileAsStringFromRegistry(
       VERSIONS_PATH,
       `${packageId}/${versionKey}`,
       PACKAGE.NOTIFICATIONS_FILE_NAME,

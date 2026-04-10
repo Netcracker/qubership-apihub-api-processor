@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Editor, LocalRegistry, VERSIONS_PATH, vfs } from './helpers'
+import { Editor, LocalRegistry, VERSIONS_PATH, registryFs } from './helpers'
 import { DOCUMENT_TYPE } from '../src'
 
 const packageId = 'unsupported'
@@ -49,12 +49,12 @@ describe('Unsupported files test', () => {
   test('Pack unsupported files using js zip', async () => {
     await editor.run()
     const packageZip = await editor.createVersionPackage()
-    await vfs.writeFile(`${VERSIONS_PATH}/unsupported-files-jszip-result.zip`, packageZip)
+    await registryFs.writeFile(`${VERSIONS_PATH}/unsupported-files-jszip-result.zip`, packageZip)
   }, 100000)
 
   test('Pack unsupported files using admzip', async () => {
     await editor.run()
     const { packageVersion } = await editor.createNodeVersionPackage()
-    await vfs.writeFile(`${VERSIONS_PATH}/unsupported-files-admzip-result.zip`, packageVersion)
+    await registryFs.writeFile(`${VERSIONS_PATH}/unsupported-files-admzip-result.zip`, packageVersion)
   }, 100000)
 })

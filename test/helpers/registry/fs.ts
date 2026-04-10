@@ -31,24 +31,25 @@ const FS_MODE = process.env.FS_MODE ?? 'memory'
 const useDisk = FS_MODE === 'disk'
 
 if (useDisk) {
-  console.warn('[vfs] Running in DISK mode')
+  console.warn('[registryFs] Running in DISK mode')
 }
 
 type FsPromises = typeof realFs
 
-const vfs: FsPromises = useDisk
+const registryFs: FsPromises = useDisk
   ? realFs
   : memfsModule.promises as unknown as FsPromises
 
 /**
- * Read a file from versions storage (vfs).
- * Mirrors loadFile() from ../utils.ts but reads through vfs.
+ * Read a file from the build result stored in registry filesystem (memfs or disk).
+ * Use this to read files that were produced by the build process (e.g. operations, documents, configs).
+ * For reading source/input files from the real filesystem, use {@link loadFile} from `../utils.ts` instead.
  */
-export async function vfsLoadFile(filePath: string, folder: string, fileName: string): Promise<File | null> {
+export async function loadFileFromRegistry(filePath: string, folder: string, fileName: string): Promise<File | null> {
   try {
-    const fullPath = vfsPath(filePath, folder, fileName)
+    const fullPath = registryPath(filePath, folder, fileName)
     const mediaType = mime.lookup(fileName) || (['graphql', 'gql'].includes(getFileExtension(fileName)) ? 'text/plain' : false)
-    const buffer = await vfs.readFile(fullPath)
+    const buffer = await registryFs.readFile(fullPath)
     return new File([buffer], fileName, { type: mediaType || '' })
   } catch (error) {
     return null
@@ -56,19 +57,23 @@ export async function vfsLoadFile(filePath: string, folder: string, fileName: st
 }
 
 /**
- * Read a file as string from versions storage (vfs).
+ * Read a file as string from the build result stored in registry filesystem (memfs or disk).
+ * Use this to read build output files as text.
+ * For reading source/input files as string from the real filesystem, use {@link loadFileAsString} from `../utils.ts` instead.
  */
-export async function vfsLoadFileAsString(filePath: string, folder: string, fileName: string): Promise<string | null> {
-  return (await vfsLoadFile(filePath, folder, fileName))?.text() ?? null
+export async function loadFileAsStringFromRegistry(filePath: string, folder: string, fileName: string): Promise<string | null> {
+  return (await loadFileFromRegistry(filePath, folder, fileName))?.text() ?? null
 }
 
 /**
- * Read a JSON config from versions storage (vfs).
+ * Read a JSON config from the build result stored in registry filesystem (memfs or disk).
+ * Use this to read config files produced by the build process.
+ * For reading source/input configs from the real filesystem, use {@link loadConfig} from `../utils.ts` instead.
  */
-export async function vfsLoadConfig(filePath: string, folder: string, filename?: string): Promise<any | null> {
+export async function loadConfigFromRegistry(filePath: string, folder: string, filename?: string): Promise<any | null> {
   try {
-    const fullPath = vfsPath(filePath, folder, filename ?? 'config.json')
-    const file = await vfs.readFile(fullPath, 'utf8')
+    const fullPath = registryPath(filePath, folder, filename ?? 'config.json')
+    const file = await registryFs.readFile(fullPath, 'utf8')
     return JSON.parse(file.toString())
   } catch (error) {
     return null
@@ -76,12 +81,12 @@ export async function vfsLoadConfig(filePath: string, folder: string, filename?:
 }
 
 /**
- * Build a path through vfs — absolute on disk, posix in memory.
+ * Build a path within the registry filesystem — absolute on disk, posix in memory.
  */
-export function vfsPath(...segments: string[]): string {
+export function registryPath(...segments: string[]): string {
   return useDisk
     ? path.resolve(process.cwd(), ...segments)
     : path.posix.join(...segments)
 }
 
-export { vfs }
+export { registryFs }

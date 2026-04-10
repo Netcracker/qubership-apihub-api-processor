@@ -16,4 +16,4 @@
 
 export * from './apihub'
 export * from './local'
-export { vfs, vfsLoadFileAsString } from './fs'
+export { registryFs, loadFileAsStringFromRegistry } from './fs'
