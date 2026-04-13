@@ -50,6 +50,7 @@ import {
   createBaseAsyncApiSpec,
   enrichAsyncApiWithInlineRefs,
   extractProtocol,
+  filterOperationsByKeys,
   getAsyncMessageId,
   getOrCreateFilteredChannel,
   isMessageObject,
@@ -350,12 +351,7 @@ export const createOperationSpecWithInlineRefs = (
 
   const resultSpec = buildAsyncApiSpecFromDocument(document, resolvedOperationKeys)
 
-  const filteredRefsOperations: Record<string, AsyncAPIV3.OperationObject> = {}
-  for (const asyncOperationId of resolvedOperationKeys.keys()) {
-    if (operations[asyncOperationId]) {
-      filteredRefsOperations[asyncOperationId] = operations[asyncOperationId]
-    }
-  }
+  const filteredRefsOperations = filterOperationsByKeys(operations, resolvedOperationKeys)
   enrichAsyncApiWithInlineRefs(resultSpec, document, { operations: filteredRefsOperations } as unknown as AsyncAPIV3.AsyncAPIObject)
 
   return resultSpec

@@ -163,6 +163,19 @@ export const checkHasAsyncApiOperations = (
   return operations as Record<string, AsyncAPIV3.OperationObject>
 }
 
+export const filterOperationsByKeys = (
+  operations: Record<string, AsyncAPIV3.OperationObject>,
+  resolvedKeys: Map<string, Set<string>>,
+): Record<string, AsyncAPIV3.OperationObject> => {
+  const result: Record<string, AsyncAPIV3.OperationObject> = {}
+  for (const key of resolvedKeys.keys()) {
+    if (operations[key]) {
+      result[key] = operations[key]
+    }
+  }
+  return result
+}
+
 /**
  * Creates the base AsyncAPI operation spec containing only the essential
  * contract elements: version, info, operations, and channels.

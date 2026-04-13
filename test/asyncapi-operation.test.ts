@@ -77,6 +77,9 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
     })
 
     test('each operation should contain only its relevant components (multi-channel spec)', async () => {
+      // Builds the full package and verifies that each operation's data
+      // contains only its own schema and message in components —
+      // no cross-operation leakage.
       const result = await buildPackageWithDefaultConfig('asyncapi/operations/multi-channel-multi-operation')
       const operations = Array.from(result.operations.values())
       expect(operations).toHaveLength(2)
@@ -112,7 +115,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
         ['publishUser', 'com.company.user.created', 'publishUser-com.company.user.created'],
 
         // slash in messageId (channel-like)
-        ['publishUser', 'user/account/created','publishUser-user-account-created'],
+        ['publishUser', 'user/account/created', 'publishUser-user-account-created'],
 
         // brackets version
         ['publishOrder', 'orderCreated(v1)', 'publishOrder-orderCreated_v1_'],
@@ -542,8 +545,9 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
     })
 
     test('should inline referenced channels/servers/components when refsOnlyDocument has inline refs', () => {
-      // Simulates normalizer output: INLINE_REFS_FLAG is set on each resolved object,
-      // not on the document root. The recursive crawl discovers them.
+      // Verifies that per-object INLINE_REFS_FLAG symbols (as produced by the normalizer) cause the
+      // corresponding servers, channels and components.messages to be inlined
+      // from the original document into the result spec.
       const COMPONENT_MSG_REF_1 = '#/components/messages/UserSignedUp'
       const serverObj: Record<string | symbol, unknown> = { host: 'broker-amqp.example.com', protocol: 'amqp' }
       serverObj[INLINE_REFS_FLAG] = ['#/servers/amqp1']
