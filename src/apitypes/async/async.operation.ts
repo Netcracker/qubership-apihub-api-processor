@@ -50,7 +50,6 @@ import {
   createBaseAsyncApiSpec,
   enrichAsyncApiWithInlineRefs,
   extractProtocol,
-  filterOperationsByKeys,
   getAsyncMessageId,
   getOrCreateFilteredChannel,
   isMessageObject,
@@ -83,6 +82,7 @@ export const buildAsyncApiOperation = (
   } = document
   const effectiveOperationObject: AsyncAPIV3.OperationObject = effectiveDocument.operations?.[asyncOperationId] as AsyncAPIV3.OperationObject || {}
   const effectiveSingleOperationSpec = createOperationSpec(effectiveDocument, operationId)
+  const refsOnlySingleOperationSpec = createOperationSpec(refsOnlyDocument, operationId)
 
   // TODO Out of scope
   const tags: string[] = effectiveOperationObject?.tags?.map(tag => (tag as AsyncAPIV3.TagObject)?.name) || []
@@ -101,7 +101,7 @@ export const buildAsyncApiOperation = (
   const specWithSingleOperation = createOperationSpecWithInlineRefs(
     documentData,
     operationId,
-    refsOnlyDocument,
+    refsOnlySingleOperationSpec,
   )
 
   const deprecatedOperationItem = deprecatedItems.find(isDeprecatedOperationItem)
@@ -331,7 +331,7 @@ export const createOperationSpec = (
 export const createOperationSpecWithInlineRefs = (
   document: AsyncAPIV3.AsyncAPIObject,
   operationId: string | string[],
-  refsDocument: AsyncAPIV3.AsyncAPIObject,
+  refsDocument: TYPE.AsyncOperationData,
 ): TYPE.AsyncOperationData => {
   const operations = checkHasAsyncApiOperations(refsDocument)
   const operationIds = normalizeOperationIds(operationId)
@@ -350,9 +350,6 @@ export const createOperationSpecWithInlineRefs = (
   }
 
   const resultSpec = buildAsyncApiSpecFromDocument(document, resolvedOperationKeys)
-
-  const filteredRefsOperations = filterOperationsByKeys(operations, resolvedOperationKeys)
-  enrichAsyncApiWithInlineRefs(resultSpec, document, { operations: filteredRefsOperations } as unknown as AsyncAPIV3.AsyncAPIObject)
-
+  enrichAsyncApiWithInlineRefs(resultSpec, document, refsDocument)
   return resultSpec
 }

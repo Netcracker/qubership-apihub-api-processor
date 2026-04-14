@@ -26,6 +26,7 @@ import {
   takeIfDefined,
 } from '../../utils'
 import type * as TYPE from './async.types'
+import { AsyncOperationData } from './async.types'
 import {
   ASYNCAPI_PROPERTY_CHANNELS,
   ASYNCAPI_PROPERTY_COMPONENTS,
@@ -152,7 +153,7 @@ export const getOrCreateFilteredChannel = (
 }
 
 export const checkHasAsyncApiOperations = (
-  document: AsyncAPIV3.AsyncAPIObject,
+  document: AsyncAPIV3.AsyncAPIObject | TYPE.AsyncOperationData,
 ): Record<string, AsyncAPIV3.OperationObject> => {
   const operations = document?.operations
   if (!operations) {
@@ -161,19 +162,6 @@ export const checkHasAsyncApiOperations = (
     )
   }
   return operations as Record<string, AsyncAPIV3.OperationObject>
-}
-
-export const filterOperationsByKeys = (
-  operations: Record<string, AsyncAPIV3.OperationObject>,
-  resolvedKeys: Map<string, Set<string>>,
-): Record<string, AsyncAPIV3.OperationObject> => {
-  const result: Record<string, AsyncAPIV3.OperationObject> = {}
-  for (const key of resolvedKeys.keys()) {
-    if (operations[key]) {
-      result[key] = operations[key]
-    }
-  }
-  return result
 }
 
 /**
@@ -194,9 +182,9 @@ export const createBaseAsyncApiSpec = (
 })
 
 export const enrichAsyncApiWithInlineRefs = (
-  resultSpec: TYPE.AsyncOperationData,
+  resultSpec: AsyncOperationData,
   document: AsyncAPIV3.AsyncAPIObject,
-  refsSource: AsyncAPIV3.AsyncAPIObject,
+  refsSource: AsyncOperationData,
 ): void => {
   const inlineRefs = getInlineRefsFomDocument(refsSource)
 
