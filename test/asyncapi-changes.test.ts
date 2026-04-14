@@ -200,6 +200,20 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
       ]))
     })
 
+    test('should not leak diffs to other operation on shared channel', async () => {
+      // Two operations share channel1. Only message1 payload changes (userId type).
+      // The diff must appear only on operation1-message1, not on operation2-message2.
+      const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/channel/shared-channel-no-diff-leakage')
+
+      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(operationChangesMatcher([
+        expect.objectContaining({
+          operationId: 'operation1-message1',
+          previousOperationId: 'operation1-message1',
+        }),
+      ]))
+    })
+
   })
 
   describe('Servers tests', () => {
