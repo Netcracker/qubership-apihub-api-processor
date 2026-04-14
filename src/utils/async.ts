@@ -16,6 +16,7 @@
 import { normalize } from '@netcracker/qubership-apihub-api-unifier'
 import { INLINE_REFS_FLAG } from '../consts'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
+import { ASYNC_EFFECTIVE_NORMALIZE_OPTIONS } from '../apitypes'
 
 export async function asyncFunction(fun: () => void): Promise<null> {
   return new Promise((resolve, reject) =>
@@ -33,10 +34,6 @@ export async function asyncFunction(fun: () => void): Promise<null> {
 export function normalizeAsyncApi(sourceDocument: AsyncAPIV3.AsyncAPIObject): AsyncAPIV3.AsyncAPIObject {
   return normalize(
     sourceDocument,
-    {
-      mergeAllOf: false,
-      inlineRefsFlag: INLINE_REFS_FLAG,
-      source: sourceDocument,
-    },
+    ASYNC_EFFECTIVE_NORMALIZE_OPTIONS,
   ) as AsyncAPIV3.AsyncAPIObject
 }
