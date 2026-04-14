@@ -42,14 +42,17 @@ import { extractOperationBasePath } from '@netcracker/qubership-apihub-api-diff'
 import { calculateSpecRefs, extractCommonPathItemProperties } from '../apitypes/rest/rest.operation'
 import { GraphApiSchema, printGraphApi } from '@netcracker/qubership-apihub-graphapi'
 import { createOperationSpec } from '../apitypes/graphql/graphql.operation'
+import { createOperationSpec as createAsyncOperationSpec } from '../apitypes/async/async.operation'
 import { parseGraphQLSource } from '../utils/graphql-transformer'
+import { normalizeAsyncApi } from '../utils/async'
+import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 
 type ApiTypeDocumentTransformer = (document: ResolvedGroupDocument, format: FileFormat, packages: ResolvedReferenceMap) => VersionDocument
 
 const documentTransformers: Record<OperationsApiType, ApiTypeDocumentTransformer | null> = {
   [REST_API_TYPE]: getRestTransformedDocument,
   [GRAPHQL_API_TYPE]: getGraphQLTransformedDocument,
-  [ASYNCAPI_API_TYPE]: null,
+  [ASYNCAPI_API_TYPE]: getAsyncApiTransformedDocument,
 }
 
 function getTransformedDocument(apiType: OperationsApiType, document: ResolvedGroupDocument, format: FileFormat, packages: ResolvedReferenceMap): VersionDocument {
@@ -95,6 +98,15 @@ function getGraphQLTransformedDocument(document: ResolvedGroupDocument, format: 
   })
 }
 
+function getAsyncApiTransformedDocument(document: ResolvedGroupDocument, format: FileFormat, packages: ResolvedReferenceMap): VersionDocument<string> {
+  return buildTransformedDocument<VersionDocument<string>>(document, format, packages, (versionDocument) => {
+    const sourceDocument = extractAsyncDocumentData(versionDocument)
+    const refsOnlyDocument = normalizeAsyncApi(sourceDocument)
+    const operationsSpec = createAsyncOperationSpec(refsOnlyDocument, versionDocument.operationIds)
+    versionDocument.data = JSON.stringify(operationsSpec)
+  })
+}
+
 export class DocumentGroupStrategy implements BuilderStrategy {
   async execute(config: ReducedSourceSpecificationsBuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
     const { builderContext } = contexts
@@ -104,7 +116,7 @@ export class DocumentGroupStrategy implements BuilderStrategy {
       throw new Error('No group to transform documents for provided')
     }
 
-    if (![REST_API_TYPE, GRAPHQL_API_TYPE].some(type => type === apiType)) {
+    if (![REST_API_TYPE, GRAPHQL_API_TYPE, ASYNCAPI_API_TYPE].some(type => type === apiType)) {
       throw new Error(`reducedSourceSpecifications transformation is not supported for API type: ${apiType}`)
     }
 
@@ -149,6 +161,14 @@ function extractGraphQLDocumentData(versionDocument: VersionDocument): GraphApiS
     return parseGraphQLSource(fromBase64(versionDocument.data) as string)
   } catch (e) {
     throw new Error(`Cannot parse GraphQL data of ${versionDocument.slug}: ${e instanceof Error ? e.message : e}`)
+  }
+}
+
+function extractAsyncDocumentData(versionDocument: VersionDocument): AsyncAPIV3.AsyncAPIObject {
+  try {
+    return parseBase64String(versionDocument.data) as AsyncAPIV3.AsyncAPIObject
+  } catch (e) {
+    throw new Error(`Cannot parse AsyncAPI data of ${versionDocument.slug} from base64-encoded string`)
   }
 }
 
