@@ -163,20 +163,18 @@ export const compareDocuments: DocumentsCompare = async (
             ...extractOwnDiffs(channel),                     // siblings: channel.messages (shared channels)
             ...extractAggregatedDiffs(channel.servers),
             ...extractAggregatedDiffs(operationObject.tags),
-            // TODO: the subtrees below are not covered by current tests — verify
-            //       classification (exclusive vs shared) and add test coverage
-            //       before enabling.
             // exclusive-to-operation subtrees:
-            // ...extractAggregatedDiffs(operationObject.security),
-            // ...extractAggregatedDiffs(operationObject.externalDocs),
-            // ...extractAggregatedDiffs(operationObject.bindings),
-            // ...extractAggregatedDiffs(operationObject.reply),
-            // ...extractAggregatedDiffs(operationObject.traits),
+            ...extractAggregatedDiffs(operationObject.security),
+            ...extractAggregatedDiffs(operationObject.externalDocs),
+            ...extractAggregatedDiffs(operationObject.bindings),
+            ...extractAggregatedDiffs(operationObject.reply),
+            // traits are merged into operation's own properties by normalization,
+            // so trait diffs surface via extractOwnDiffs(operationObject) above.
             // channel subtrees (shared uniformly across operations on the channel):
-            // ...extractAggregatedDiffs(channel.parameters),
-            // ...extractAggregatedDiffs(channel.externalDocs),
-            // ...extractAggregatedDiffs(channel.bindings),
-            // ...extractAggregatedDiffs(channel.tags),
+            ...extractAggregatedDiffs(channel.parameters),
+            ...extractAggregatedDiffs(channel.externalDocs),
+            ...extractAggregatedDiffs(channel.bindings),
+            ...extractAggregatedDiffs(channel.tags),
             ...asyncApiVersionDiffs,
             ...infoDiffs,
             ...idDiffs,
