@@ -36,7 +36,14 @@ import {
 } from '../utils'
 import { OpenAPIV3 } from 'openapi-types'
 import { VersionRestDocument } from '../apitypes/rest/rest.types'
-import { ASYNCAPI_API_TYPE, FILE_FORMAT_JSON, GRAPHQL_API_TYPE, INLINE_REFS_FLAG, NORMALIZE_OPTIONS, REST_API_TYPE } from '../consts'
+import {
+  ASYNCAPI_API_TYPE,
+  FILE_FORMAT_JSON,
+  GRAPHQL_API_TYPE,
+  INLINE_REFS_FLAG,
+  NORMALIZE_OPTIONS,
+  REST_API_TYPE,
+} from '../consts'
 import { normalize } from '@netcracker/qubership-apihub-api-unifier'
 import { extractOperationBasePath } from '@netcracker/qubership-apihub-api-diff'
 import { calculateSpecRefs, extractCommonPathItemProperties } from '../apitypes/rest/rest.operation'
@@ -44,7 +51,7 @@ import { GraphApiSchema, printGraphApi } from '@netcracker/qubership-apihub-grap
 import { createOperationSpec } from '../apitypes/graphql/graphql.operation'
 import { createOperationSpec as createAsyncOperationSpec } from '../apitypes/async/async.operation'
 import { parseGraphQLSource } from '../utils/graphql-transformer'
-import { normalizeAsyncApi } from '../utils/async'
+import { normalizeAsyncApiToRefsDocument } from '../utils/async'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 
 type ApiTypeDocumentTransformer = (document: ResolvedGroupDocument, format: FileFormat, packages: ResolvedReferenceMap) => VersionDocument
@@ -101,7 +108,7 @@ function getGraphQLTransformedDocument(document: ResolvedGroupDocument, format: 
 function getAsyncApiTransformedDocument(document: ResolvedGroupDocument, format: FileFormat, packages: ResolvedReferenceMap): VersionDocument<string> {
   return buildTransformedDocument<VersionDocument<string>>(document, format, packages, (versionDocument) => {
     const sourceDocument = extractAsyncDocumentData(versionDocument)
-    const refsOnlyDocument = normalizeAsyncApi(sourceDocument)
+    const refsOnlyDocument = normalizeAsyncApiToRefsDocument(sourceDocument)
     const operationsSpec = createAsyncOperationSpec(refsOnlyDocument, versionDocument.operationIds)
     versionDocument.data = JSON.stringify(operationsSpec)
   })
