@@ -45,10 +45,11 @@ import {
 import { calculateHash, ObjectHashCache } from '../../utils/hashes'
 import {
   buildAsyncApiSpecFromDocument,
+  buildFilteredChannelsRecord,
   calculateAsyncApiKind,
   checkHasAsyncApiOperations,
   createBaseAsyncApiSpec,
-  enrichAsyncApiWithInlineRefs,
+  enrichAsyncApiDocumentWithRefs,
   extractProtocol,
   getAsyncMessageId,
   getOrCreateFilteredChannel,
@@ -98,7 +99,7 @@ export const buildAsyncApiOperation = (
 
   // TODO: Populate models when AsyncAPI model extraction is implemented
   const models: Record<string, string> = {}
-  const specWithSingleOperation = createOperationSpecWithInlineRefs(
+  const specWithSingleOperation = createOperationSpecEnrichedWithRefs(
     documentData,
     operationId,
     refsOnlySingleOperationSpec,
@@ -224,10 +225,16 @@ const collectDeprecatedItems = (
  * Creates an operation spec (a cropped normalized AsyncAPI document)
  * that contains only the requested operation(s).
  *
- * The returned document includes only:
- * - `asyncapi`
- * - `info`
- * - `operations`
+ * The returned document includes:
+ * - `asyncapi`, `info`, `id` (when present in source)
+ * - `operations` — only the requested ones
+ * - `channels` — only those referenced by the selected operations, with
+ *   `messages` filtered down to the requested ones (channels shared across
+ *   selected operations reuse the same filtered instance)
+ * - root-level `x-*` specification extensions
+ *
+ * `servers` and `components` are NOT included — use
+ * {@link createOperationSpecEnrichedWithRefs} to resolve them.
  *
  * @param normalizedDocument Normalized AsyncAPI document to crop.
  * @param operationId Operation id or array of operation ids to include.
@@ -235,6 +242,7 @@ const collectDeprecatedItems = (
  * @throws Error when:
  * - document has no `operations`
  * - no operation ids are provided
+ * - a message in source `operations` has no resolvable id
  */
 export const createOperationSpec = (
   normalizedDocument: AsyncAPIV3.AsyncAPIObject,
@@ -293,42 +301,38 @@ export const createOperationSpec = (
     }
   }
 
-  // Build root channels record from filtered channels, keyed by their original name
-  let channels: Record<string, AsyncAPIV3.ChannelObject> | undefined
-  if (filteredChannels.size > 0 && normalizedDocument.channels) {
-    channels = {}
-    for (const [channelName, channelObj] of Object.entries(normalizedDocument.channels)) {
-      const filteredChannel = filteredChannels.get(channelObj as AsyncAPIV3.ChannelObject)
-      if (filteredChannel) {
-        channels[channelName] = filteredChannel
-      }
-    }
-  }
+  const channels = buildFilteredChannelsRecord(normalizedDocument.channels, filteredChannels)
 
   return createBaseAsyncApiSpec(normalizedDocument, selectedOperations, channels)
 }
 
 /**
- * Creates an operation spec (a cropped AsyncAPI document)
- * that contains only the requested operation(s) and additionally
- * resolves inline references from the provided refsDocument.
+ * Creates an operation spec (a cropped AsyncAPI document) that contains only
+ * the requested operation(s) and additionally inlines referenced objects
+ * (`channels`, `servers`, `components`) from the source document based on the
+ * inline-refs metadata carried by `refsDocument`.
  *
- * If refsDocument contains inline refs for the requested operations,
- * the function will inline referenced:
- * - `channels`
- * - `servers`
- * - `components`
+ * The returned document includes:
+ * - `asyncapi`, `info`, `id` (when present in source)
+ * - `operations` — only the requested ones
+ * - `channels`, `servers`, `components` — only those referenced by the
+ *   selected operations (per `refsDocument` inline-refs metadata)
+ * - root `defaultContentType` — only when the source document defines it AND
+ *   at least one selected message lacks its own `contentType`; otherwise
+ *   omitted as redundant
+ * - root-level `x-*` specification extensions
  *
- * @param document Original AsyncAPI 3.0 document.
+ * @param document Original (non-cropped) AsyncAPI 3.0 document.
  * @param operationId Operation id or array of operation ids to include.
- * @param refsDocument Normalized AsyncAPI document containing inline refs metadata.
+ * @param refsDocument Normalized AsyncAPI document carrying inline-refs metadata
+ *   (produced via normalization with `INLINE_REFS_FLAG`).
  *
  * @throws Error when:
  * - no operation ids are provided
- * - operations are missing in document
- * - requested operations are not found
+ * - `refsDocument` has no `operations`
+ * - none of the requested operations are found in `refsDocument.operations`
  */
-export const createOperationSpecWithInlineRefs = (
+export const createOperationSpecEnrichedWithRefs = (
   document: AsyncAPIV3.AsyncAPIObject,
   operationId: string | string[],
   refsDocument: TYPE.AsyncOperationData,
@@ -349,7 +353,7 @@ export const createOperationSpecWithInlineRefs = (
     )
   }
 
-  const resultSpec = buildAsyncApiSpecFromDocument(document, resolvedOperationKeys)
-  enrichAsyncApiWithInlineRefs(resultSpec, document, refsDocument)
+  const resultSpec = buildAsyncApiSpecFromDocument(document, resolvedOperationKeys, refsDocument)
+  enrichAsyncApiDocumentWithRefs(resultSpec, document, refsDocument)
   return resultSpec
 }

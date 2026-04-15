@@ -16,22 +16,28 @@
 
 import { beforeAll, describe, expect, it, test } from '@jest/globals'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
-import { createOperationSpec, createOperationSpecWithInlineRefs } from '../src/apitypes/async/async.operation'
+import { createOperationSpec, createOperationSpecEnrichedWithRefs } from '../src/apitypes/async/async.operation'
 import { calculateAsyncOperationId } from '../src/utils'
 import { buildPackageWithDefaultConfig, cloneDocument, loadYamlFile, LocalRegistry } from './helpers'
-import { extractProtocol } from '../src/apitypes/async/async.utils'
+import { extractProtocol, getRequiredDefaultContentType } from '../src/apitypes/async/async.utils'
 import { FIRST_REFERENCE_KEY_PROPERTY, INLINE_REFS_FLAG } from '../src/consts'
 import { ASYNC_EFFECTIVE_NORMALIZE_OPTIONS, BUILD_TYPE, VERSION_STATUS } from '../src'
 import { normalize } from '@netcracker/qubership-apihub-api-unifier'
 
-const normalizeAsyncApiDocument = (doc: AsyncAPIV3.AsyncAPIObject): AsyncAPIV3.AsyncAPIObject =>
-  normalize(doc, {
-    ...ASYNC_EFFECTIVE_NORMALIZE_OPTIONS,
-    firstReferenceKeyProperty: FIRST_REFERENCE_KEY_PROPERTY,
-    inlineRefsFlag: INLINE_REFS_FLAG,
-  }) as AsyncAPIV3.AsyncAPIObject
-
 describe('AsyncAPI 3.0 Operation Tests', () => {
+  const normalizeAsyncApiDocument = (doc: AsyncAPIV3.AsyncAPIObject): AsyncAPIV3.AsyncAPIObject =>
+    normalize(doc, {
+      ...ASYNC_EFFECTIVE_NORMALIZE_OPTIONS,
+      firstReferenceKeyProperty: FIRST_REFERENCE_KEY_PROPERTY,
+      inlineRefsFlag: INLINE_REFS_FLAG,
+    }) as AsyncAPIV3.AsyncAPIObject
+
+  const createRefsMessage = (messageId: string, inlineRefs: string[]): Record<string | symbol, unknown> => {
+    const message: Record<string | symbol, unknown> = {}
+    message[FIRST_REFERENCE_KEY_PROPERTY] = messageId
+    message[INLINE_REFS_FLAG] = inlineRefs
+    return message
+  }
 
   describe('Building Package with Operations', () => {
     test('should ignore operation without message', async () => {
@@ -160,38 +166,28 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       const [operation] = operations
       expect(operation.title).toBe('User Signed Up')
     })
-
-    it('should set operation title as message id if message title doesn\'t exist', async () => {
-      const result = await buildPackageWithDefaultConfig('asyncapi/operations/single-operation')
-      const operations = Array.from(result.operations.values())
-      const [operation] = operations
-      expect(operation.title).toBe('User Signed Up')
-    })
   })
 
   describe('Operation metadata tests', () => {
-    it('should set action in metadata', async () => {
+    it('should set action, channel, messageId and asyncOperationId in metadata', async () => {
       const result = await buildPackageWithDefaultConfig('asyncapi/operations/single-operation')
       const [operation] = Array.from(result.operations.values())
       expect(operation.metadata.action).toBe('send')
-    })
-
-    it('should set channel in metadata', async () => {
-      const result = await buildPackageWithDefaultConfig('asyncapi/operations/single-operation')
-      const [operation] = Array.from(result.operations.values())
       expect(operation.metadata.channel).toBe('userSignedup')
-    })
-
-    it('should set messageId in metadata', async () => {
-      const result = await buildPackageWithDefaultConfig('asyncapi/operations/single-operation')
-      const [operation] = Array.from(result.operations.values())
       expect(operation.metadata.messageId).toBe('UserSignedUp')
-    })
-
-    it('should set asyncOperationId in metadata', async () => {
-      const result = await buildPackageWithDefaultConfig('asyncapi/operations/single-operation')
-      const [operation] = Array.from(result.operations.values())
       expect(operation.metadata.asyncOperationId).toBe('sendUserSignedup')
+    })
+  })
+
+  describe('Root fields propagation (e2e)', () => {
+    it('should propagate root defaultContentType and x-* extensions into operation data', async () => {
+      const result = await buildPackageWithDefaultConfig('asyncapi/operations/root-fields')
+      const [operation] = Array.from(result.operations.values())
+      const data = operation.data as AsyncAPIV3.AsyncAPIObject & Record<string, unknown>
+
+      expect(data.defaultContentType).toBe('application/json')
+      expect(data['x-apihub-custom']).toEqual({ foo: 'bar' })
+      expect(data['x-vendor-flag']).toBe(true)
     })
   })
 
@@ -284,6 +280,29 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
     })
   })
 
+  describe('Unit: getRequiredDefaultContentType tests', () => {
+    test('should return root default when a message lacks its own contentType', () => {
+      const doc = { defaultContentType: 'application/json' } as AsyncAPIV3.AsyncAPIObject
+      const messages = [{} as AsyncAPIV3.MessageObject]
+      expect(getRequiredDefaultContentType(doc, messages)).toBe('application/json')
+    })
+
+    test('should return undefined when all messages define contentType', () => {
+      const doc = { defaultContentType: 'application/json' } as AsyncAPIV3.AsyncAPIObject
+      const messages = [
+        { contentType: 'application/xml' } as AsyncAPIV3.MessageObject,
+        { contentType: 'application/json' } as AsyncAPIV3.MessageObject,
+      ]
+      expect(getRequiredDefaultContentType(doc, messages)).toBeUndefined()
+    })
+
+    test('should return undefined when root has no defaultContentType', () => {
+      const doc = {} as AsyncAPIV3.AsyncAPIObject
+      const messages = [{} as AsyncAPIV3.MessageObject]
+      expect(getRequiredDefaultContentType(doc, messages)).toBeUndefined()
+    })
+  })
+
   describe('Create operation spec tests', () => {
     const OPERATION_KEY_1 = 'sendUserSignedUp'
     const OPERATION_KEY_2 = 'sendUserSignedOut'
@@ -293,15 +312,18 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
 
     let OPERATION_ID_1: string
     let OPERATION_ID_2: string
+
+    const buildRefsOnlyDocForOp1 = (): AsyncAPIV3.AsyncAPIObject => ({
+      operations: {
+        [OPERATION_KEY_1]: {
+          messages: [
+            createRefsMessage(MESSAGE_ID_1, [MESSAGE_REF_1]),
+          ],
+        },
+      },
+    } as unknown as AsyncAPIV3.AsyncAPIObject)
     let baseDocument: AsyncAPIV3.AsyncAPIObject
     let normalizedDocument: AsyncAPIV3.AsyncAPIObject
-
-    const createRefsMessage = (messageId: string, inlineRefs: string[]): Record<string | symbol, unknown> => {
-      const message: Record<string | symbol, unknown> = {}
-      message[FIRST_REFERENCE_KEY_PROPERTY] = messageId
-      message[INLINE_REFS_FLAG] = inlineRefs
-      return message
-    }
 
     beforeAll(async () => {
       OPERATION_ID_1 = calculateAsyncOperationId(OPERATION_KEY_1, MESSAGE_ID_1)
@@ -350,7 +372,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       expect(result.operations?.[OPERATION_KEY_2]).toBeDefined()
     })
 
-    test('defaults asyncapi version to 3.0.0 when missing', () => {
+    test('should default asyncapi version to 3.0.0 when missing', () => {
       const document = cloneDocument(baseDocument)
       delete (document as Partial<AsyncAPIV3.AsyncAPIObject>).asyncapi
 
@@ -358,7 +380,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       expect(result.asyncapi).toBe('3.0.0')
     })
 
-    test('throws when document has no operations', () => {
+    test('should throw when document has no operations', () => {
       const document = cloneDocument(baseDocument)
       delete document.operations
 
@@ -367,20 +389,41 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       )
     })
 
-    test('throws when operation keys array is empty', () => {
+    test('should throw when operation keys array is empty', () => {
       expect(() => createOperationSpec(baseDocument, [])).toThrow(
         'No operation ids provided.',
       )
     })
 
-    test('returns empty operations when the requested operation key is not found', () => {
+    test('should return empty operations when the requested operation key is not found', () => {
       const result = createOperationSpec(normalizedDocument, 'missing-operation')
       expect(Object.keys(result.operations || {})).toHaveLength(0)
     })
 
-    test('returns only matched operations when some requested keys are not found', () => {
+    test('should return only matched operations when some requested keys are not found', () => {
       const result = createOperationSpec(normalizedDocument, [OPERATION_ID_1, 'missing-1', 'missing-2'])
       expect(Object.keys(result.operations || {})).toEqual([OPERATION_KEY_1])
+    })
+
+    describe('Root specification extensions propagation', () => {
+      test('should copy root-level x-* extensions into the result', () => {
+        const document = cloneDocument(baseDocument) as AsyncAPIV3.AsyncAPIObject & Record<string, unknown>
+        document['x-apihub-custom'] = { foo: 'bar' }
+        document['x-vendor-flag'] = true
+        const normalized = normalizeAsyncApiDocument(document)
+
+        const result = createOperationSpec(normalized, OPERATION_ID_1) as unknown as Record<string, unknown>
+        expect(result).toMatchObject({
+          'x-apihub-custom': { foo: 'bar' },
+          'x-vendor-flag': true,
+        })
+      })
+
+      test('should not add empty extension keys when source has none', () => {
+        const result = createOperationSpec(normalizedDocument, OPERATION_ID_1) as unknown as Record<string, unknown>
+        const extensionKeys = Object.keys(result).filter(k => k.startsWith('x-'))
+        expect(extensionKeys).toEqual([])
+      })
     })
 
     /**
@@ -544,7 +587,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       })
     })
 
-    test('should inline referenced channels/servers/components when refsOnlyDocument has inline refs', () => {
+    test('should add referenced channels/servers/components when refsOnlyDocument has inline refs', () => {
       // Verifies that per-object INLINE_REFS_FLAG symbols (as produced by the normalizer) cause the
       // corresponding servers, channels and components.messages to be inlined
       // from the original document into the result spec.
@@ -570,12 +613,58 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
         },
       } as unknown as AsyncAPIV3.AsyncAPIObject
 
-      const result = createOperationSpecWithInlineRefs(baseDocument, OPERATION_ID_1, refsOnlyDocument)
+      const result = createOperationSpecEnrichedWithRefs(baseDocument, OPERATION_ID_1, refsOnlyDocument)
 
       expect(baseDocument).toHaveProperty(['servers', 'amqp1'], result?.servers?.amqp1)
       expect(baseDocument).toHaveProperty(['channels', 'userSignedUp'], result?.channels?.userSignedUp)
       expect(baseDocument).toHaveProperty(['channels', 'userSignedUp', 'messages', 'UserSignedUp'], (result?.channels?.userSignedUp as AsyncAPIV3.ChannelObject)?.messages?.UserSignedUp)
       expect(baseDocument).toHaveProperty(['components', 'messages', 'UserSignedUp'], result?.components?.messages?.UserSignedUp)
+    })
+
+    describe('Unit: createOperationSpecEnrichedWithRefs: defaultContentType propagation', () => {
+      test('should include root defaultContentType when the selected message has no explicit contentType', () => {
+        const document = cloneDocument(baseDocument)
+        document.defaultContentType = 'application/json'
+
+        const result = createOperationSpecEnrichedWithRefs(document, OPERATION_ID_1, buildRefsOnlyDocForOp1())
+        expect(result.defaultContentType).toBe('application/json')
+      })
+
+      test('should omit root defaultContentType when the selected message has its own contentType', () => {
+        const document = cloneDocument(baseDocument)
+        document.defaultContentType = 'application/json';
+        (document.components!.messages!.UserSignedUp as AsyncAPIV3.MessageObject).contentType = 'application/xml'
+
+        const refsOnlyDoc = buildRefsOnlyDocForOp1()
+        const resolvedMessage = (refsOnlyDoc.operations![OPERATION_KEY_1] as AsyncAPIV3.OperationObject).messages![0] as Record<string, unknown>
+        resolvedMessage.contentType = 'application/xml'
+
+        const result = createOperationSpecEnrichedWithRefs(document, OPERATION_ID_1, refsOnlyDoc)
+        expect(result.defaultContentType).toBeUndefined()
+      })
+
+      test('should omit defaultContentType when source document has none', () => {
+        const result = createOperationSpecEnrichedWithRefs(baseDocument, OPERATION_ID_1, buildRefsOnlyDocForOp1())
+        expect(result.defaultContentType).toBeUndefined()
+      })
+    })
+
+    describe('createOperationSpecEnrichedWithRefs: root specification extensions', () => {
+      test('should copy root-level x-* extensions into the result', () => {
+        const document = cloneDocument(baseDocument) as AsyncAPIV3.AsyncAPIObject & Record<string, unknown>
+        document['x-apihub-custom'] = { foo: 'bar' }
+        document['x-vendor-flag'] = true
+
+        const result = createOperationSpecEnrichedWithRefs(document, OPERATION_ID_1, buildRefsOnlyDocForOp1()) as unknown as Record<string, unknown>
+        expect(result['x-apihub-custom']).toEqual({ foo: 'bar' })
+        expect(result['x-vendor-flag']).toBe(true)
+      })
+
+      test('should not add extension keys when source has none', () => {
+        const result = createOperationSpecEnrichedWithRefs(baseDocument, OPERATION_ID_1, buildRefsOnlyDocForOp1()) as unknown as Record<string, unknown>
+        const extensionKeys = Object.keys(result).filter(k => k.startsWith('x-'))
+        expect(extensionKeys).toEqual([])
+      })
     })
 
     test('should resolve only matched operations when refsOnlyDocument contains a subset of requested', () => {
@@ -589,7 +678,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
         },
       } as unknown as AsyncAPIV3.AsyncAPIObject
 
-      const result = createOperationSpecWithInlineRefs(baseDocument, [OPERATION_ID_1, OPERATION_ID_2], refsOnlyDocument)
+      const result = createOperationSpecEnrichedWithRefs(baseDocument, [OPERATION_ID_1, OPERATION_ID_2], refsOnlyDocument)
 
       const operationKeys = Object.keys(result.operations || {})
       expect(operationKeys).toEqual([OPERATION_KEY_1])
@@ -605,13 +694,6 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
     let rootServersDoc: AsyncAPIV3.AsyncAPIObject
     let rootServersNormalizedDoc: AsyncAPIV3.AsyncAPIObject
     let rootServersOpId: string
-
-    const createRefsMsg = (messageId: string, inlineRefs: string[]): Record<string | symbol, unknown> => {
-      const message: Record<string | symbol, unknown> = {}
-      message[FIRST_REFERENCE_KEY_PROPERTY] = messageId
-      message[INLINE_REFS_FLAG] = inlineRefs
-      return message
-    }
 
     beforeAll(async () => {
       rootServersOpId = calculateAsyncOperationId(OP_KEY, MSG_ID)
@@ -639,7 +721,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       serverStaging[INLINE_REFS_FLAG] = ['#/servers/staging']
 
       const channelObj: Record<string | symbol, unknown> = {
-        messages: { message1: createRefsMsg(MSG_ID, ['#/channels/channel1/messages/message1']) },
+        messages: { message1: createRefsMessage(MSG_ID, ['#/channels/channel1/messages/message1']) },
         servers: [serverProd, serverStaging],
       }
       channelObj[INLINE_REFS_FLAG] = ['#/channels/channel1']
@@ -649,13 +731,13 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
           [OP_KEY]: {
             channel: channelObj,
             messages: [
-              createRefsMsg(MSG_ID, ['#/channels/channel1/messages/message1']),
+              createRefsMessage(MSG_ID, ['#/channels/channel1/messages/message1']),
             ],
           },
         },
       } as unknown as AsyncAPIV3.AsyncAPIObject
 
-      const result = createOperationSpecWithInlineRefs(rootServersDoc, rootServersOpId, refsOnlyDocument)
+      const result = createOperationSpecEnrichedWithRefs(rootServersDoc, rootServersOpId, refsOnlyDocument)
 
       expect(result.servers).toBeDefined()
       expect(Object.keys(result.servers!)).toEqual(expect.arrayContaining(['production', 'staging']))
