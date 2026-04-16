@@ -16,7 +16,7 @@
 
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import type * as TYPE from './async.types'
-import { AsyncOperationActionType, VersionAsyncOperation } from './async.types'
+import { AsyncOperationActionType, AsyncOperationData, VersionAsyncOperation } from './async.types'
 import { BuildConfig, DeprecateItem, NotificationMessage } from '../../types'
 import {
   calculateAsyncOperationId,
@@ -47,14 +47,14 @@ import {
   buildAsyncApiSpecFromDocument,
   buildFilteredChannelsRecord,
   calculateAsyncApiKind,
-  checkHasAsyncApiOperations,
+  getAsyncApiOperations,
   createBaseAsyncApiSpec,
   enrichAsyncApiDocumentWithRefs,
   extractProtocol,
   getAsyncMessageId,
   getOrCreateFilteredChannel,
   isMessageObject,
-  resolveAsyncApiOperationIdsFromRefs,
+  matchMessageRefsByOperations,
 } from './async.utils'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { getApiKindProperty } from '../../components/document'
@@ -99,11 +99,7 @@ export const buildAsyncApiOperation = (
 
   // TODO: Populate models when AsyncAPI model extraction is implemented
   const models: Record<string, string> = {}
-  const specWithSingleOperation = createOperationSpecEnrichedWithRefs(
-    documentData,
-    operationId,
-    refsOnlySingleOperationSpec,
-  )
+  const specWithSingleOperation = createOperationSpecEnrichedWithRefs(operationId, documentData, refsOnlySingleOperationSpec)
 
   const deprecatedOperationItem = deprecatedItems.find(isDeprecatedOperationItem)
 
@@ -248,7 +244,7 @@ export const createOperationSpec = (
   normalizedDocument: AsyncAPIV3.AsyncAPIObject,
   operationId: string | string[],
 ): TYPE.AsyncOperationData => {
-  const operations = checkHasAsyncApiOperations(normalizedDocument)
+  const operations = getAsyncApiOperations(normalizedDocument)
   const operationIds = normalizeOperationIds(operationId)
   const requestedIdsSet = new Set(operationIds)
 
@@ -308,7 +304,7 @@ export const createOperationSpec = (
 
 /**
  * Creates an operation spec (a cropped AsyncAPI document) that contains only
- * the requested operation(s) and additionally inlines referenced objects
+ * the requested operation(s) and additionally adds referenced objects
  * (`channels`, `servers`, `components`) from the source document based on the
  * inline-refs metadata carried by `refsDocument`.
  *
@@ -322,30 +318,31 @@ export const createOperationSpec = (
  *   omitted as redundant
  * - root-level `x-*` specification extensions
  *
- * @param document Original (non-cropped) AsyncAPI 3.0 document.
  * @param operationId Operation id or array of operation ids to include.
- * @param refsDocument Normalized AsyncAPI document carrying inline-refs metadata
  *   (produced via normalization with `INLINE_REFS_FLAG`).
  *
+ * @param document Original (non-cropped) AsyncAPI 3.0 document.
+ * @param refsDocument Normalized AsyncAPI document carrying inline-refs metadata
+ *   (produced via normalization with `INLINE_REFS_FLAG`).
  * @throws Error when:
  * - no operation ids are provided
  * - `refsDocument` has no `operations`
  * - none of the requested operations are found in `refsDocument.operations`
  */
 export const createOperationSpecEnrichedWithRefs = (
-  document: AsyncAPIV3.AsyncAPIObject,
   operationId: string | string[],
-  refsDocument: TYPE.AsyncOperationData,
-): TYPE.AsyncOperationData => {
-  const operations = checkHasAsyncApiOperations(refsDocument)
+  document: AsyncAPIV3.AsyncAPIObject,
+  refsDocument: AsyncOperationData,
+): AsyncOperationData => {
+  const operations = getAsyncApiOperations(refsDocument)
   const operationIds = normalizeOperationIds(operationId)
 
-  const resolvedOperationKeys = resolveAsyncApiOperationIdsFromRefs(
+  const matchedMessageRefsByOperation = matchMessageRefsByOperations(
     operations,
     operationIds,
   )
 
-  if (resolvedOperationKeys.size === 0) {
+  if (matchedMessageRefsByOperation.size === 0) {
     throw new Error(
       `Operations not found in document.operations: ${
         Array.isArray(operationId) ? operationId.join(', ') : operationId
@@ -353,7 +350,7 @@ export const createOperationSpecEnrichedWithRefs = (
     )
   }
 
-  const resultSpec = buildAsyncApiSpecFromDocument(document, resolvedOperationKeys, refsDocument)
+  const resultSpec = buildAsyncApiSpecFromDocument(document, matchedMessageRefsByOperation, refsDocument)
   enrichAsyncApiDocumentWithRefs(resultSpec, document, refsDocument)
   return resultSpec
 }

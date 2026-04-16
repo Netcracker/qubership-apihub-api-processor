@@ -613,7 +613,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
         },
       } as unknown as AsyncAPIV3.AsyncAPIObject
 
-      const result = createOperationSpecEnrichedWithRefs(baseDocument, OPERATION_ID_1, refsOnlyDocument)
+      const result = createOperationSpecEnrichedWithRefs(OPERATION_ID_1, baseDocument, refsOnlyDocument)
 
       expect(baseDocument).toHaveProperty(['servers', 'amqp1'], result?.servers?.amqp1)
       expect(baseDocument).toHaveProperty(['channels', 'userSignedUp'], result?.channels?.userSignedUp)
@@ -626,7 +626,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
         const document = cloneDocument(baseDocument)
         document.defaultContentType = 'application/json'
 
-        const result = createOperationSpecEnrichedWithRefs(document, OPERATION_ID_1, buildRefsOnlyDocForOp1())
+        const result = createOperationSpecEnrichedWithRefs(OPERATION_ID_1, document, buildRefsOnlyDocForOp1())
         expect(result.defaultContentType).toBe('application/json')
       })
 
@@ -639,12 +639,12 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
         const resolvedMessage = (refsOnlyDoc.operations![OPERATION_KEY_1] as AsyncAPIV3.OperationObject).messages![0] as Record<string, unknown>
         resolvedMessage.contentType = 'application/xml'
 
-        const result = createOperationSpecEnrichedWithRefs(document, OPERATION_ID_1, refsOnlyDoc)
+        const result = createOperationSpecEnrichedWithRefs(OPERATION_ID_1, document, refsOnlyDoc)
         expect(result.defaultContentType).toBeUndefined()
       })
 
       test('should omit defaultContentType when source document has none', () => {
-        const result = createOperationSpecEnrichedWithRefs(baseDocument, OPERATION_ID_1, buildRefsOnlyDocForOp1())
+        const result = createOperationSpecEnrichedWithRefs(OPERATION_ID_1, baseDocument, buildRefsOnlyDocForOp1())
         expect(result.defaultContentType).toBeUndefined()
       })
     })
@@ -655,13 +655,13 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
         document['x-apihub-custom'] = { foo: 'bar' }
         document['x-vendor-flag'] = true
 
-        const result = createOperationSpecEnrichedWithRefs(document, OPERATION_ID_1, buildRefsOnlyDocForOp1()) as unknown as Record<string, unknown>
+        const result = createOperationSpecEnrichedWithRefs(OPERATION_ID_1, document, buildRefsOnlyDocForOp1()) as unknown as Record<string, unknown>
         expect(result['x-apihub-custom']).toEqual({ foo: 'bar' })
         expect(result['x-vendor-flag']).toBe(true)
       })
 
       test('should not add extension keys when source has none', () => {
-        const result = createOperationSpecEnrichedWithRefs(baseDocument, OPERATION_ID_1, buildRefsOnlyDocForOp1()) as unknown as Record<string, unknown>
+        const result = createOperationSpecEnrichedWithRefs(OPERATION_ID_1, baseDocument, buildRefsOnlyDocForOp1()) as unknown as Record<string, unknown>
         const extensionKeys = Object.keys(result).filter(k => k.startsWith('x-'))
         expect(extensionKeys).toEqual([])
       })
@@ -678,7 +678,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
         },
       } as unknown as AsyncAPIV3.AsyncAPIObject
 
-      const result = createOperationSpecEnrichedWithRefs(baseDocument, [OPERATION_ID_1, OPERATION_ID_2], refsOnlyDocument)
+      const result = createOperationSpecEnrichedWithRefs([OPERATION_ID_1, OPERATION_ID_2], baseDocument, refsOnlyDocument)
 
       const operationKeys = Object.keys(result.operations || {})
       expect(operationKeys).toEqual([OPERATION_KEY_1])
@@ -737,7 +737,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
         },
       } as unknown as AsyncAPIV3.AsyncAPIObject
 
-      const result = createOperationSpecEnrichedWithRefs(rootServersDoc, rootServersOpId, refsOnlyDocument)
+      const result = createOperationSpecEnrichedWithRefs(rootServersOpId, rootServersDoc, refsOnlyDocument)
 
       expect(result.servers).toBeDefined()
       expect(Object.keys(result.servers!)).toEqual(expect.arrayContaining(['production', 'staging']))

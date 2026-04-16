@@ -175,7 +175,7 @@ export const buildFilteredChannelsRecord = (
   return channels
 }
 
-export const checkHasAsyncApiOperations = (
+export const getAsyncApiOperations = (
   document: AsyncAPIV3.AsyncAPIObject | TYPE.AsyncOperationData,
 ): Record<string, AsyncAPIV3.OperationObject> => {
   const operations = document?.operations
@@ -215,7 +215,7 @@ export const createBaseAsyncApiSpec = (
 /**
  * Computes the effective root `defaultContentType` for a composed operation spec.
  *
- * Rule (per design): include the source document's `defaultContentType` only when
+ * Rule: include the source document's `defaultContentType` only when
  * at least one of the selected messages does not specify its own `contentType`.
  * If every selected message already carries an explicit `contentType`, the root
  * value would be redundant and is omitted.
@@ -265,19 +265,35 @@ export const enrichAsyncApiDocumentWithRefs = (
   })
 }
 
+/**
+ * Builds a cropped AsyncAPI spec from the original (non-normalized) source
+ * document, keeping only the operations and messages that match the provided
+ * refs.
+ *
+ * For each matched operation, source messages are filtered to those whose
+ * `$ref` appears in the matched set. The corresponding resolved messages from
+ * `refsDocument` are used to determine whether root `defaultContentType`
+ * should be preserved (via {@link getRequiredDefaultContentType}).
+ *
+ * @param sourceDocument Original AsyncAPI document (non-normalized).
+ * @param matchedMessageRefsByOperation Map of asyncOperationId → set of
+ *   matched message `$ref` strings (produced by {@link matchMessageRefsByOperations}).
+ * @param refsDocument Normalized document carrying resolved (non-ref) messages
+ *   aligned positionally with `sourceDocument` messages.
+ */
 export const buildAsyncApiSpecFromDocument = (
   sourceDocument: AsyncAPIV3.AsyncAPIObject,
-  resolved: Map<string, Set<string>>,
+  matchedMessageRefsByOperation: Map<string, Set<string>>,
   refsDocument: TYPE.AsyncOperationData,
 ): TYPE.AsyncOperationData => {
-  const sourceOperations = checkHasAsyncApiOperations(sourceDocument)
-  const refsOperations = checkHasAsyncApiOperations(refsDocument)
+  const sourceOperations = getAsyncApiOperations(sourceDocument)
+  const refsOperations = getAsyncApiOperations(refsDocument)
 
   const selectedOperations: Record<string, AsyncAPIV3.OperationObject> = {}
   // Resolved messages are collected to decide whether root defaultContentType is needed
   const resolvedMessages: AsyncAPIV3.MessageObject[] = []
 
-  for (const [asyncOperationId, matchedRefs] of resolved.entries()) {
+  for (const [asyncOperationId, matchedRefs] of matchedMessageRefsByOperation.entries()) {
     const sourceOperation = sourceOperations[asyncOperationId]
     if (!sourceOperation || isReferenceObject(sourceOperation)) {
       continue
@@ -308,12 +324,12 @@ export const buildAsyncApiSpecFromDocument = (
   return createBaseAsyncApiSpec(sourceDocument, selectedOperations, undefined, defaultContentType)
 }
 
-export const resolveAsyncApiOperationIdsFromRefs = (
+export const matchMessageRefsByOperations = (
   refOperations: Record<string, AsyncAPIV3.OperationObject>,
   requestedOperationIds: string[],
 ): Map<string, Set<string>> => {
   const requestedIdsSet = new Set(requestedOperationIds)
-  const resolved = new Map<string, Set<string>>()
+  const matchedMessageRefsByOperation = new Map<string, Set<string>>()
 
   for (const [asyncOperationId, operationData] of Object.entries(refOperations)) {
     if (!isObject(operationData)) {
@@ -345,17 +361,17 @@ export const resolveAsyncApiOperationIdsFromRefs = (
         continue
       }
 
-      let messageRefsForOperation = resolved.get(asyncOperationId)
+      let messageRefsForOperation = matchedMessageRefsByOperation.get(asyncOperationId)
       if (!messageRefsForOperation) {
         messageRefsForOperation = new Set()
-        resolved.set(asyncOperationId, messageRefsForOperation)
+        matchedMessageRefsByOperation.set(asyncOperationId, messageRefsForOperation)
       }
 
       messageRefsForOperation.add(lastInlineRef)
     }
   }
 
-  return resolved
+  return matchedMessageRefsByOperation
 }
 
 /**
