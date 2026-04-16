@@ -270,40 +270,40 @@ export const buildAsyncApiSpecFromDocument = (
   resolved: Map<string, Set<string>>,
   refsDocument: TYPE.AsyncOperationData,
 ): TYPE.AsyncOperationData => {
-  const operations = checkHasAsyncApiOperations(sourceDocument)
-  const resolvedOperations = checkHasAsyncApiOperations(refsDocument)
+  const sourceOperations = checkHasAsyncApiOperations(sourceDocument)
+  const refsOperations = checkHasAsyncApiOperations(refsDocument)
 
   const selectedOperations: Record<string, AsyncAPIV3.OperationObject> = {}
-  const resolvedSelectedMessages: AsyncAPIV3.MessageObject[] = []
-  for (const [asyncOperationId, matchedRefs] of resolved.entries()) {
-    const sourceOperation = operations[asyncOperationId]
+  // Resolved messages are collected to decide whether root defaultContentType is needed
+  const resolvedMessages: AsyncAPIV3.MessageObject[] = []
 
+  for (const [asyncOperationId, matchedRefs] of resolved.entries()) {
+    const sourceOperation = sourceOperations[asyncOperationId]
     if (!sourceOperation || isReferenceObject(sourceOperation)) {
       continue
     }
 
     const sourceMessages = sourceOperation.messages || []
-    const resolvedMessages = (resolvedOperations[asyncOperationId]?.messages as AsyncAPIV3.MessageObject[] | undefined) ?? []
+    const refsMessages = (refsOperations[asyncOperationId]?.messages as AsyncAPIV3.MessageObject[] | undefined) ?? []
     const filteredMessages: (AsyncAPIV3.MessageObject | AsyncAPIV3.ReferenceObject)[] = []
+
     sourceMessages.forEach((message, index) => {
       if (isReferenceObject(message) && matchedRefs.has(message.$ref)) {
         filteredMessages.push(message)
-        const resolvedMessage = resolvedMessages[index]
-        if (resolvedMessage) { resolvedSelectedMessages.push(resolvedMessage) }
+        const resolvedMessage = refsMessages[index]
+        if (resolvedMessage) { resolvedMessages.push(resolvedMessage) }
       }
     })
 
-    if (filteredMessages.length === 0) {
-      continue
-    }
-
-    selectedOperations[asyncOperationId] = {
-      ...sourceOperation,
-      messages: filteredMessages,
+    if (filteredMessages.length > 0) {
+      selectedOperations[asyncOperationId] = {
+        ...sourceOperation,
+        messages: filteredMessages,
+      }
     }
   }
 
-  const defaultContentType = getRequiredDefaultContentType(sourceDocument, resolvedSelectedMessages)
+  const defaultContentType = getRequiredDefaultContentType(sourceDocument, resolvedMessages)
 
   return createBaseAsyncApiSpec(sourceDocument, selectedOperations, undefined, defaultContentType)
 }
