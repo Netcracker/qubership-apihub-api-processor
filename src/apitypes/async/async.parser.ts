@@ -43,15 +43,22 @@ type FormatInfo = {
 }
 
 function detectFormat(extension: string, sourceString: string): FormatInfo | undefined {
+
+  console.log('detectFormat----->', extension, sourceString)
   if (extension === ASYNC_FILE_FORMAT.JSON || sourceString.trimStart().startsWith('{')) {
+    console.log('detectFormat----->ASYNC_FILE_FORMAT.JSON', extension === ASYNC_FILE_FORMAT.JSON, sourceString.trimStart().startsWith('{'))
     if (ASYNCAPI_3_JSON_PATTERN.test(sourceString)) {
+      console.log('detectFormat----->ASYNC_FILE_FORMAT.JSON---->ASYNCAPI_3_JSON_PATTERN.test', ASYNCAPI_3_JSON_PATTERN.test(sourceString))
       return {
         format: ASYNC_FILE_FORMAT.JSON,
         parse: (s) => JSON.parse(s) as AsyncAPIV3.AsyncAPIObject,
       }
     }
   } else if (extension === ASYNC_FILE_FORMAT.YAML || extension === 'yml' || !extension) {
+    console.log('detectFormat----->ASYNC_FILE_FORMAT.YAML', extension === ASYNC_FILE_FORMAT.YAML, extension === 'yml', !extension)
+
     if (ASYNCAPI_3_YAML_PATTERN.test(sourceString)) {
+      console.log('detectFormat----->ASYNC_FILE_FORMAT.YAML--->ASYNCAPI_3_YAML_PATTERN.test', ASYNCAPI_3_YAML_PATTERN.test(sourceString))
       return {
         format: ASYNC_FILE_FORMAT.YAML,
         parse: (s) => YAML.load(s) as AsyncAPIV3.AsyncAPIObject,

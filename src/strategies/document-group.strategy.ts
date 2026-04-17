@@ -107,6 +107,7 @@ function getGraphQLTransformedDocument(document: ResolvedGroupDocument, format: 
 
 function getAsyncApiTransformedDocument(document: ResolvedGroupDocument, format: FileFormat, packages: ResolvedReferenceMap): VersionDocument<string> {
   return buildTransformedDocument<VersionDocument<string>>(document, format, packages, (versionDocument) => {
+    console.log('getAsyncApiTransformedDocument, buildTransformedDocument', document, format, packages)
     const sourceDocument = extractAsyncDocumentData(versionDocument)
     const refsOnlyDocument = normalizeAsyncApiToRefsDocument(sourceDocument)
     const operationsSpec = createOperationSpecWithInlineRefs(sourceDocument, versionDocument.operationIds, refsOnlyDocument)

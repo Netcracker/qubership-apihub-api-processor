@@ -696,6 +696,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
         try {
           // todo check source.type
           const result = await parser(fileId, source)
+          console.log('result------------->', result)
 
           if (result) {
             // add errors to notifications
