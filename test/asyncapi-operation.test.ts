@@ -39,10 +39,6 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
     message[INLINE_REFS_FLAG] = inlineRefs
     return message
   }
-
-  // ---------------------------------------------------------------------------
-  // Unit: utilities
-  // ---------------------------------------------------------------------------
   describe('Unit: utilities', () => {
     describe('calculateAsyncOperationId', () => {
       it('should generate unique operationIds', () => {
@@ -146,9 +142,6 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
     })
   })
 
-  // ---------------------------------------------------------------------------
-  // Unit: createOperationSpec & createOperationSpecEnrichedWithRefs
-  // ---------------------------------------------------------------------------
   describe('Unit: operation spec composition', () => {
     const OPERATION_KEY_1 = 'sendUserSignedUp'
     const OPERATION_KEY_2 = 'sendUserSignedOut'
@@ -180,9 +173,6 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       normalizedDocument = normalizeAsyncApiDocument(baseDocument)
     })
 
-    // -------------------------------------------------------------------------
-    // createOperationSpec
-    // -------------------------------------------------------------------------
     describe('createOperationSpec', () => {
       test('should select a single operation by key', () => {
         const result = createOperationSpec(normalizedDocument, OPERATION_ID_1)
@@ -204,6 +194,27 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
         expect(result.channels).toBeDefined()
         expect(result.servers).toBeUndefined()
         expect(result.components).toBeUndefined()
+      })
+
+      describe('root specification extensions', () => {
+        test('should copy root-level x-* extensions into the result', () => {
+          const document = cloneDocument(baseDocument) as AsyncAPIV3.AsyncAPIObject & Record<string, unknown>
+          document['x-apihub-custom'] = { foo: 'bar' }
+          document['x-vendor-flag'] = true
+          const normalized = normalizeAsyncApiDocument(document)
+
+          const result = createOperationSpec(normalized, OPERATION_ID_1) as unknown as Record<string, unknown>
+          expect(result).toMatchObject({
+            'x-apihub-custom': { foo: 'bar' },
+            'x-vendor-flag': true,
+          })
+        })
+
+        test('should not add empty extension keys when source has none', () => {
+          const result = createOperationSpec(normalizedDocument, OPERATION_ID_1) as unknown as Record<string, unknown>
+          const extensionKeys = Object.keys(result).filter(k => k.startsWith('x-'))
+          expect(extensionKeys).toEqual([])
+        })
       })
 
       test('should select multiple operations by keys (array) and preserve requested order', () => {
@@ -253,27 +264,6 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       test('should return only matched operations when some requested keys are not found', () => {
         const result = createOperationSpec(normalizedDocument, [OPERATION_ID_1, 'missing-1', 'missing-2'])
         expect(Object.keys(result.operations || {})).toEqual([OPERATION_KEY_1])
-      })
-
-      describe('root specification extensions', () => {
-        test('should copy root-level x-* extensions into the result', () => {
-          const document = cloneDocument(baseDocument) as AsyncAPIV3.AsyncAPIObject & Record<string, unknown>
-          document['x-apihub-custom'] = { foo: 'bar' }
-          document['x-vendor-flag'] = true
-          const normalized = normalizeAsyncApiDocument(document)
-
-          const result = createOperationSpec(normalized, OPERATION_ID_1) as unknown as Record<string, unknown>
-          expect(result).toMatchObject({
-            'x-apihub-custom': { foo: 'bar' },
-            'x-vendor-flag': true,
-          })
-        })
-
-        test('should not add empty extension keys when source has none', () => {
-          const result = createOperationSpec(normalizedDocument, OPERATION_ID_1) as unknown as Record<string, unknown>
-          const extensionKeys = Object.keys(result).filter(k => k.startsWith('x-'))
-          expect(extensionKeys).toEqual([])
-        })
       })
 
       /**
@@ -418,9 +408,6 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       })
     })
 
-    // -------------------------------------------------------------------------
-    // createOperationSpecEnrichedWithRefs
-    // -------------------------------------------------------------------------
     describe('createOperationSpecEnrichedWithRefs', () => {
       test('should add referenced channels/servers/components when refsOnlyDocument has inline refs', () => {
         const COMPONENT_MSG_REF_1 = '#/components/messages/UserSignedUp'
@@ -447,10 +434,10 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
 
         const result = createOperationSpecEnrichedWithRefs(OPERATION_ID_1, baseDocument, refsOnlyDocument)
 
-        expect(baseDocument).toHaveProperty(['servers', 'amqp1'], result?.servers?.amqp1)
-        expect(baseDocument).toHaveProperty(['channels', 'userSignedUp'], result?.channels?.userSignedUp)
-        expect(baseDocument).toHaveProperty(['channels', 'userSignedUp', 'messages', 'UserSignedUp'], (result?.channels?.userSignedUp as AsyncAPIV3.ChannelObject)?.messages?.UserSignedUp)
-        expect(baseDocument).toHaveProperty(['components', 'messages', 'UserSignedUp'], result?.components?.messages?.UserSignedUp)
+        expect(result).toHaveProperty(['servers', 'amqp1'], baseDocument.servers?.amqp1)
+        expect(result).toHaveProperty(['channels', 'userSignedUp'], baseDocument.channels?.userSignedUp)
+        expect(result).toHaveProperty(['channels', 'userSignedUp', 'messages', 'UserSignedUp'], (baseDocument.channels?.userSignedUp as AsyncAPIV3.ChannelObject)?.messages?.UserSignedUp)
+        expect(result).toHaveProperty(['components', 'messages', 'UserSignedUp'], baseDocument.components?.messages?.UserSignedUp)
       })
 
       test('should resolve only matched operations when refsOnlyDocument contains a subset of requested', () => {
@@ -519,7 +506,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
     })
 
     // TODO: unskip after api-unifier propagates root servers to channels during normalization.
-    describe('root servers propagation to channels without explicit servers', () => {
+    describe.skip('root servers propagation to channels without explicit servers', () => {
       const ROOT_SERVERS_DOC_PATH = 'asyncapi/operations/root-servers-no-channel-servers.yaml'
       const OP_KEY = 'operation1'
       const MSG_ID = 'message1'
@@ -533,14 +520,14 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
         rootServersNormalizedDoc = normalizeAsyncApiDocument(rootServersDoc)
       })
 
-      test.skip('should include root servers via createOperationSpec when channel has no explicit servers', () => {
+      test('should include root servers via createOperationSpec when channel has no explicit servers', () => {
         const result = createOperationSpec(rootServersNormalizedDoc, rootServersOpId)
 
         expect(result.servers).toBeDefined()
         expect(Object.keys(result.servers!)).toEqual(expect.arrayContaining(['production', 'staging']))
       })
 
-      test.skip('should include root servers via createOperationSpecEnrichedWithRefs when channel has no explicit servers', () => {
+      test('should include root servers via createOperationSpecEnrichedWithRefs when channel has no explicit servers', () => {
         const serverProd: Record<string | symbol, unknown> = { host: 'prod.example.com', protocol: 'amqp' }
         serverProd[INLINE_REFS_FLAG] = ['#/servers/production']
         const serverStaging: Record<string | symbol, unknown> = { host: 'staging.example.com', protocol: 'amqp' }
@@ -571,9 +558,6 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
     })
   })
 
-  // ---------------------------------------------------------------------------
-  // E2E: build pipeline
-  // ---------------------------------------------------------------------------
   describe('E2E: build pipeline', () => {
     describe('operation count', () => {
       test('should ignore operation without message', async () => {
@@ -592,11 +576,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       })
     })
 
-    /**
-     * Tests for operationId, title, metadata, protocol and absence of security
-     * all share a single build of the `single-operation` fixture.
-     */
-    describe('single-operation package', () => {
+    describe('basic operation data', () => {
       let operation: VersionAsyncOperation
       let asyncApiDocument: AsyncOperationData
 
@@ -637,7 +617,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
      * Search config tests share a single build of the `multiple-operations`
      * fixture to verify that every operation receives the expected search fields.
      */
-    describe('multiple-operations package (search config)', () => {
+    describe('search text', () => {
       let operations: VersionAsyncOperation[]
 
       beforeAll(async () => {
@@ -659,13 +639,28 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       })
     })
 
-    describe('root fields propagation (defaultContentType + x-*)', () => {
-      it('should propagate root defaultContentType and x-* extensions into operation data', async () => {
+    describe('root fields propagation', () => {
+      let data: AsyncOperationData & Record<string, unknown>
+
+      beforeAll(async () => {
         const result = await buildPackageWithDefaultConfig('asyncapi/operations/root-fields')
         const [operation] = Array.from(result.operations.values())
-        const data = operation.data as AsyncOperationData & Record<string, unknown>
+        data = operation.data as AsyncOperationData & Record<string, unknown>
+      })
 
+      it('should preserve asyncapi version', () => {
+        expect(data.asyncapi).toBe('3.0.0')
+      })
+
+      it('should preserve info', () => {
+        expect(data.info).toEqual({ title: 'Root Fields Service', version: '1.0.0' })
+      })
+
+      it('should propagate root defaultContentType', () => {
         expect(data.defaultContentType).toBe('application/json')
+      })
+
+      it('should propagate root x-* extensions', () => {
         expect(data['x-apihub-custom']).toEqual({ foo: 'bar' })
         expect(data['x-vendor-flag']).toBe(true)
       })
