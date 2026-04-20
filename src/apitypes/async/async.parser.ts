@@ -93,8 +93,8 @@ export const parseAsyncApiFile = async (fileId: string, source: Blob): Promise<T
     throw new Error(`Failed to parse AsyncAPI file '${fileId}': ${error instanceof Error ? error.message : 'Unknown parse error'}`)
   }
 
-  const errors = await validateAsyncApiDocument(sourceString)
-  //const errors = undefined
+  // const errors = await validateAsyncApiDocument(sourceString)
+  const errors = undefined
 
   return {
     fileId,
