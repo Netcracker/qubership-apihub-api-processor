@@ -89,12 +89,10 @@ export const parseAsyncApiFile = async (fileId: string, source: Blob): Promise<T
 
     data = formatInfo.parse(sourceString)
   } catch (error) {
-    console.log('parseAsyncApiFile ERROR----------------------------->', fileId, formatInfo, sourceString, source)
     throw new Error(`Failed to parse AsyncAPI file '${fileId}': ${error instanceof Error ? error.message : 'Unknown parse error'}`)
   }
 
-  // const errors = await validateAsyncApiDocument(sourceString)
-  const errors = undefined
+  const errors = await validateAsyncApiDocument(sourceString)
 
   return {
     fileId,
@@ -171,6 +169,13 @@ async function validateAsyncApiDocument(sourceString: string): Promise<Validatio
   } catch (error) {
     if (error instanceof AsyncApiValidationError) {
       throw error
+    }
+
+    // SyntaxError может возникнуть из-за бага генерации кода в ajv (внутри @asyncapi/parser).
+    // Документ уже успешно разобран через JSON.parse/YAML.load, поэтому валидацию пропускаем.
+    if (error instanceof SyntaxError) {
+      console.warn(`AsyncAPI schema validation skipped due to internal parser error: ${error.message}`)
+      return undefined
     }
 
     throw new Error(`AsyncAPI validation error: ${error instanceof Error ? error.message : 'Unknown error'}`)
