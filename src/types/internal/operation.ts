@@ -20,6 +20,7 @@ import { OpenAPIV3 } from 'openapi-types'
 import { GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
 import { ApihubApiCompatibilityKind } from '../../consts'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
+import { McpDocument } from '../../apitypes/mcp/mcp.types'
 
 // TODO: remove after new search is adopted irrevocably
 export type SearchScopes<T extends string = string> = Record<T, Set<string>>
@@ -61,4 +62,4 @@ export interface ApiOperation<T = any, M = any> {
   versionInternalDocumentId: string
 }
 
-export type ApiDocument = OpenAPIV3.Document | GraphApiSchema | AsyncAPIV3.AsyncAPIObject
+export type ApiDocument = OpenAPIV3.Document | GraphApiSchema | AsyncAPIV3.AsyncAPIObject | McpDocument

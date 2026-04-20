@@ -1,0 +1,22 @@
+{
+  "$comment": "Based on MCP specification schema version 2025-11-25: https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/schema/2025-11-25/schema.json",
+  "type": "object",
+  "required": ["resources"],
+  "additionalProperties": true,
+  "properties": {
+    "resources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["uri", "name"],
+        "additionalProperties": true,
+        "properties": {
+          "uri": { "type": "string", "format": "uri" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "mimeType": { "type": "string" }
+        }
+      }
+    }
+  }
+}

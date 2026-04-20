@@ -208,3 +208,4 @@ export const API_KIND_SPECIFICATION_EXTENSION = 'x-api-kind'
 export const REST_API_TYPE = 'rest' as const
 export const GRAPHQL_API_TYPE = 'graphql' as const
 export const ASYNCAPI_API_TYPE = 'asyncapi' as const
+export const MCP_API_TYPE = 'mcp' as const

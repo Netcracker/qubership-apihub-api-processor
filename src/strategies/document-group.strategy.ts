@@ -36,7 +36,10 @@ import {
 } from '../utils'
 import { OpenAPIV3 } from 'openapi-types'
 import { VersionRestDocument } from '../apitypes/rest/rest.types'
-import { ASYNCAPI_API_TYPE, FILE_FORMAT_JSON, GRAPHQL_API_TYPE, INLINE_REFS_FLAG, NORMALIZE_OPTIONS, REST_API_TYPE } from '../consts'
+import {
+  ASYNCAPI_API_TYPE, FILE_FORMAT_JSON, GRAPHQL_API_TYPE, INLINE_REFS_FLAG,
+  MCP_API_TYPE, NORMALIZE_OPTIONS, REST_API_TYPE,
+} from '../consts'
 import { normalize } from '@netcracker/qubership-apihub-api-unifier'
 import { extractOperationBasePath } from '@netcracker/qubership-apihub-api-diff'
 import { calculateSpecRefs, extractCommonPathItemProperties } from '../apitypes/rest/rest.operation'
@@ -50,6 +53,7 @@ const documentTransformers: Record<OperationsApiType, ApiTypeDocumentTransformer
   [REST_API_TYPE]: getRestTransformedDocument,
   [GRAPHQL_API_TYPE]: getGraphQLTransformedDocument,
   [ASYNCAPI_API_TYPE]: null,
+  [MCP_API_TYPE]: null,
 }
 
 function getTransformedDocument(apiType: OperationsApiType, document: ResolvedGroupDocument, format: FileFormat, packages: ResolvedReferenceMap): VersionDocument {
