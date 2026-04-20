@@ -69,18 +69,26 @@ function detectFormat(extension: string, sourceString: string): FormatInfo | und
 }
 
 export const parseAsyncApiFile = async (fileId: string, source: Blob): Promise<TextFile<AsyncAPIV3.AsyncAPIObject, ValidationError> | undefined> => {
+  console.log('parseAsyncApiFile source1111111----------------------------->', source)
+
   const sourceString = await source.text()
   const extension = getFileExtension(fileId)
 
   const formatInfo = detectFormat(extension, sourceString)
+  console.log('parseAsyncApiFile formatInfo----------------------------->', formatInfo)
+  console.log('parseAsyncApiFile sourceString----------------------------->', sourceString)
   if (!formatInfo) {
     return undefined
   }
 
   let data: AsyncAPIV3.AsyncAPIObject
+
   try {
+    console.log('parseAsyncApiFile try try try parse----------------------------->', sourceString)
+
     data = formatInfo.parse(sourceString)
   } catch (error) {
+    console.log('parseAsyncApiFile ERROR----------------------------->', fileId, formatInfo, sourceString, source)
     throw new Error(`Failed to parse AsyncAPI file '${fileId}': ${error instanceof Error ? error.message : 'Unknown parse error'}`)
   }
 
