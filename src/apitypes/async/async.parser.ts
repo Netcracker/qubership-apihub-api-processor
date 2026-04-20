@@ -21,6 +21,7 @@ import { ASYNC_DOCUMENT_TYPE, ASYNC_FILE_FORMAT } from './async.consts'
 import { FILE_KIND, TextFile } from '../../types'
 import { getFileExtension } from '../../utils'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
+import { RulesetOptions } from '@asyncapi/parser/cjs/ruleset'
 
 interface ValidationError {
   message: string
@@ -129,6 +130,10 @@ async function getParserClass(): Promise<typeof Parser> {
   return ParserClass
 }
 
+const DISABLED_PARSER_RULES: Record<string, 'off'> = {
+  'asyncapi-latest-version': 'off',
+}
+
 /**
  * Validates AsyncAPI document using official parser.
  * This provides spec validation while avoiding circular reference issues
@@ -140,7 +145,7 @@ async function getParserClass(): Promise<typeof Parser> {
 async function validateAsyncApiDocument(sourceString: string): Promise<ValidationError[] | undefined> {
   try {
     const ParserClass = await getParserClass()
-    const parser: Parser = new ParserClass()
+    const parser: Parser = new ParserClass({ ruleset: { rules: DISABLED_PARSER_RULES } as RulesetOptions })
     const { diagnostics }: ParseOutput = await parser.parse(sourceString)
 
     const criticalErrors: Diagnostic[] = diagnostics.filter(diagnostic => diagnostic.severity === 0)
