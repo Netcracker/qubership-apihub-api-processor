@@ -171,12 +171,10 @@ async function validateAsyncApiDocument(sourceString: string): Promise<Validatio
       throw error
     }
 
-    // SyntaxError может возникнуть из-за бага генерации кода в ajv (внутри @asyncapi/parser).
-    // Документ уже успешно разобран через JSON.parse/YAML.load, поэтому валидацию пропускаем.
-    if (error instanceof SyntaxError) {
-      console.warn(`AsyncAPI schema validation skipped due to internal parser error: ${error.message}`)
-      return undefined
-    }
+    // if (error instanceof SyntaxError) {
+    //   console.warn(`AsyncAPI schema validation skipped due to internal parser error: ${error.message}`)
+    //   return undefined
+    // }
 
     throw new Error(`AsyncAPI validation error: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
