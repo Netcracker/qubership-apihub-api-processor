@@ -72,7 +72,6 @@ export const parseAsyncApiFile = async (fileId: string, source: Blob): Promise<T
   }
 
   let data: AsyncAPIV3.AsyncAPIObject
-
   try {
     data = formatInfo.parse(sourceString)
   } catch (error) {

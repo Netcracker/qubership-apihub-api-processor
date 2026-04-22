@@ -31,7 +31,6 @@ export async function asyncFunction(fun: () => void): Promise<null> {
   )
 }
 
-
 export function normalizeAsyncApiToRefsDocument(sourceDocument: AsyncAPIV3.AsyncAPIObject): AsyncAPIV3.AsyncAPIObject {
   return normalize(
     removeComponents(sourceDocument),
