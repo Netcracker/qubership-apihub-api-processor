@@ -49,7 +49,7 @@ import { extractOperationBasePath } from '@netcracker/qubership-apihub-api-diff'
 import { calculateSpecRefs, extractCommonPathItemProperties } from '../apitypes/rest/rest.operation'
 import { GraphApiSchema, printGraphApi } from '@netcracker/qubership-apihub-graphapi'
 import { createOperationSpec } from '../apitypes/graphql/graphql.operation'
-import { createOperationSpecWithInlineRefs } from '../apitypes/async/async.operation'
+import { createOperationSpecEnrichedWithRefs } from '../apitypes/async/async.operation'
 import { parseGraphQLSource } from '../utils/graphql-transformer'
 import { normalizeAsyncApiToRefsDocument } from '../utils/async'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
@@ -109,7 +109,7 @@ function getAsyncApiTransformedDocument(document: ResolvedGroupDocument, format:
   return buildTransformedDocument<VersionDocument<string>>(document, format, packages, (versionDocument) => {
     const sourceDocument = extractAsyncDocumentData(versionDocument)
     const refsOnlyDocument = normalizeAsyncApiToRefsDocument(sourceDocument)
-    const operationsSpec = createOperationSpecWithInlineRefs(sourceDocument, versionDocument.operationIds, refsOnlyDocument)
+    const operationsSpec = createOperationSpecEnrichedWithRefs(versionDocument.operationIds, sourceDocument, refsOnlyDocument)
     versionDocument.data = JSON.stringify(operationsSpec)
   })
 }
