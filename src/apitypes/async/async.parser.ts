@@ -44,22 +44,15 @@ type FormatInfo = {
 }
 
 function detectFormat(extension: string, sourceString: string): FormatInfo | undefined {
-
-  console.log('detectFormat----->', extension, sourceString)
   if (extension === ASYNC_FILE_FORMAT.JSON || sourceString.trimStart().startsWith('{')) {
-    console.log('detectFormat----->ASYNC_FILE_FORMAT.JSON', extension === ASYNC_FILE_FORMAT.JSON, sourceString.trimStart().startsWith('{'))
     if (ASYNCAPI_3_JSON_PATTERN.test(sourceString)) {
-      console.log('detectFormat----->ASYNC_FILE_FORMAT.JSON---->ASYNCAPI_3_JSON_PATTERN.test', ASYNCAPI_3_JSON_PATTERN.test(sourceString))
       return {
         format: ASYNC_FILE_FORMAT.JSON,
         parse: (s) => JSON.parse(s) as AsyncAPIV3.AsyncAPIObject,
       }
     }
   } else if (extension === ASYNC_FILE_FORMAT.YAML || extension === 'yml' || !extension) {
-    console.log('detectFormat----->ASYNC_FILE_FORMAT.YAML', extension === ASYNC_FILE_FORMAT.YAML, extension === 'yml', !extension)
-
     if (ASYNCAPI_3_YAML_PATTERN.test(sourceString)) {
-      console.log('detectFormat----->ASYNC_FILE_FORMAT.YAML--->ASYNCAPI_3_YAML_PATTERN.test', ASYNCAPI_3_YAML_PATTERN.test(sourceString))
       return {
         format: ASYNC_FILE_FORMAT.YAML,
         parse: (s) => YAML.load(s) as AsyncAPIV3.AsyncAPIObject,
@@ -70,14 +63,10 @@ function detectFormat(extension: string, sourceString: string): FormatInfo | und
 }
 
 export const parseAsyncApiFile = async (fileId: string, source: Blob): Promise<TextFile<AsyncAPIV3.AsyncAPIObject, ValidationError> | undefined> => {
-  console.log('parseAsyncApiFile source1111111----------------------------->', source)
-
   const sourceString = await source.text()
   const extension = getFileExtension(fileId)
 
   const formatInfo = detectFormat(extension, sourceString)
-  console.log('parseAsyncApiFile formatInfo----------------------------->', formatInfo)
-  console.log('parseAsyncApiFile sourceString----------------------------->', sourceString)
   if (!formatInfo) {
     return undefined
   }
@@ -85,8 +74,6 @@ export const parseAsyncApiFile = async (fileId: string, source: Blob): Promise<T
   let data: AsyncAPIV3.AsyncAPIObject
 
   try {
-    console.log('parseAsyncApiFile try try try parse----------------------------->', sourceString)
-
     data = formatInfo.parse(sourceString)
   } catch (error) {
     throw new Error(`Failed to parse AsyncAPI file '${fileId}': ${error instanceof Error ? error.message : 'Unknown parse error'}`)
@@ -128,6 +115,13 @@ async function getParserClass(): Promise<typeof Parser> {
   return ParserClass
 }
 
+/**
+ * Rules that are intentionally suppressed in validation.
+ *
+ * asyncapi-latest-version: fires when the document uses AsyncAPI 3.0.0 instead of the newest
+ * version known to the parser. We support 3.0.0 documents and do not want to treat
+ * "not the latest version" as an error or warning.
+ */
 const DISABLED_PARSER_RULES: Record<string, 'off'> = {
   'asyncapi-latest-version': 'off',
 }
@@ -171,12 +165,6 @@ async function validateAsyncApiDocument(sourceString: string): Promise<Validatio
       throw error
     }
 
-    // if (error instanceof SyntaxError) {
-    //   console.warn(`AsyncAPI schema validation skipped due to internal parser error: ${error.message}`)
-    //   return undefined
-    // }
-
     throw new Error(`AsyncAPI validation error: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
-
