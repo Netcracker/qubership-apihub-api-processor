@@ -198,7 +198,7 @@ export const getAsyncApiOperations = (
  * must decide whether to include it (see {@link getRequiredDefaultContentType}).
  */
 export const createBaseAsyncApiSpec = (
-  document: AsyncAPIV3.AsyncAPIObject,
+  document: AsyncAPIV3.AsyncAPIObject | TYPE.AsyncOperationData,
   operations: Record<string, AsyncAPIV3.OperationObject>,
   channels?: AsyncAPIV3.ChannelsObject,
   defaultContentType?: string,
