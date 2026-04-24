@@ -115,6 +115,8 @@ function getAsyncApiTransformedDocument(document: ResolvedGroupDocument, format:
 }
 
 export class DocumentGroupStrategy implements BuilderStrategy {
+  protected readonly arrayApiType = [REST_API_TYPE, GRAPHQL_API_TYPE, ASYNCAPI_API_TYPE]
+
   async execute(config: ReducedSourceSpecificationsBuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
     const { builderContext } = contexts
     const { packageId, version, groupName, apiType = REST_API_TYPE, format = FILE_FORMAT_JSON } = config
@@ -123,7 +125,7 @@ export class DocumentGroupStrategy implements BuilderStrategy {
       throw new Error('No group to transform documents for provided')
     }
 
-    if (![REST_API_TYPE, GRAPHQL_API_TYPE, ASYNCAPI_API_TYPE].some(type => type === apiType)) {
+    if (!this.arrayApiType.some(type => type === apiType)) {
       throw new Error(`reducedSourceSpecifications transformation is not supported for API type: ${apiType}`)
     }
 

@@ -197,6 +197,6 @@ describe('Export AsyncAPI Operations Group integration tests', () => {
     await expect(editor.run({
       ...COMMON_MERGED_ASYNC_API_GROUP_EXPORT_CONFIG,
       format: FILE_FORMAT_JSON,
-    })).rejects.toThrow('This transformation kind is not supported for graphql apiType')
+    })).rejects.toThrow('This transformation kind is not supported for asyncapi apiType')
   })
 })

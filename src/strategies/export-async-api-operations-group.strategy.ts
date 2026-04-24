@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { BuildResult, BuildTypeContexts, ExportAsyncApiOperationsGroupBuildConfig } from '../types'
+import { ExportAsyncApiOperationsGroupBuildConfig, ExportDocument, ExportFormat } from '../types'
 import { ExportOperationsGroupStrategy } from './export-operations-group.strategy'
 import { ASYNCAPI_API_TYPE } from '../consts'
 import { createAsyncExportDocument } from '../apitypes/async/async.document'
@@ -22,25 +22,7 @@ import { createAsyncExportDocument } from '../apitypes/async/async.document'
 export class ExportAsyncApiOperationsGroupStrategy extends ExportOperationsGroupStrategy<ExportAsyncApiOperationsGroupBuildConfig> {
   protected readonly supportedApiType = ASYNCAPI_API_TYPE
 
-  async exportReducedDocuments(
-    config: ExportAsyncApiOperationsGroupBuildConfig,
-    buildResult: BuildResult,
-    contexts: BuildTypeContexts,
-  ): Promise<void> {
-    await this.resolveReducedDocuments(config, buildResult, contexts)
-
-    const transformedDocuments = await Promise.all([...buildResult.documents.values()].map(async document => {
-      return createAsyncExportDocument(
-        document.filename,
-        document.data as string,
-        config.format,
-      )
-    }))
-
-    buildResult.exportDocuments.push(...transformedDocuments)
-  }
-
-  protected exportMergedDocument(): Promise<void> {
-    throw new Error('This transformation kind is not supported for graphql apiType')
+  protected createExportDocument(filename: string, data: string, format: ExportFormat): ExportDocument {
+    return createAsyncExportDocument(filename, data, format)
   }
 }

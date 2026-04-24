@@ -115,14 +115,17 @@ async function getParserClass(): Promise<typeof Parser> {
 }
 
 /**
- * Rules that are intentionally suppressed in validation.
+ * Parser ruleset options with intentionally suppressed rules.
  *
  * asyncapi-latest-version: fires when the document uses AsyncAPI 3.0.0 instead of the newest
  * version known to the parser. We support 3.0.0 documents and do not want to treat
  * "not the latest version" as an error or warning.
  */
-const DISABLED_PARSER_RULES: Record<string, 'off'> = {
-  'asyncapi-latest-version': 'off',
+const PARSER_RULESET: RulesetOptions = {
+  extends: [],
+  rules: {
+    'asyncapi-latest-version': 'off',
+  },
 }
 
 /**
@@ -136,7 +139,7 @@ const DISABLED_PARSER_RULES: Record<string, 'off'> = {
 async function validateAsyncApiDocument(sourceString: string): Promise<ValidationError[] | undefined> {
   try {
     const ParserClass = await getParserClass()
-    const parser: Parser = new ParserClass({ ruleset: { rules: DISABLED_PARSER_RULES } as RulesetOptions })
+    const parser: Parser = new ParserClass({ ruleset: PARSER_RULESET })
     const { diagnostics }: ParseOutput = await parser.parse(sourceString)
 
     const criticalErrors: Diagnostic[] = diagnostics.filter(diagnostic => diagnostic.severity === 0)
