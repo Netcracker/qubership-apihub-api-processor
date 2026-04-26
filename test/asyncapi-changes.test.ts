@@ -51,6 +51,30 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
       ]))
     })
 
+    test('should report added operations from a new AsyncAPI document', async () => {
+      const result = await buildChangelogPackageDefaultConfig(
+        'asyncapi-changes/operation/add-async-new-document',
+        [{ fileId: 'before/rest.yaml' }],
+        [
+          { fileId: 'after/rest.yaml' },
+          { fileId: 'after/async.yaml' },
+        ],
+      )
+
+      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(operationChangesMatcher([
+        expect.objectContaining({
+          operationId: 'operation1-message1',
+          changeSummary: expect.objectContaining({ [NON_BREAKING_CHANGE_TYPE]: 1 }),
+        }),
+        expect.objectContaining({
+          operationId: 'operation2-message2',
+          changeSummary: expect.objectContaining({ [NON_BREAKING_CHANGE_TYPE]: 1 }),
+        }),
+      ]))
+    })
+
     test('should report added operation with multiple messages', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/operation/add-with-multiple-messages')
       expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
