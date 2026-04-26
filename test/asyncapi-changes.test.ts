@@ -449,7 +449,7 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
     test('should report added APIHUB operation when message reference is added to async operation', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/message/add-to-operation')
 
-      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(operationChangesMatcher([
         expect.objectContaining({ operationId: 'operation1-message2' }),
       ]))
@@ -458,7 +458,7 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
     test('should report removed APIHUB operation when message reference is removed from async operation', async () => {
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/message/remove-from-operation')
 
-      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(operationChangesMatcher([
         expect.objectContaining({ previousOperationId: 'operation1-message2' }),
       ]))
@@ -481,7 +481,7 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
 
       // message2 added to operation1, operation2 unchanged
       // should only impact 1 new apihub operation (operation1-message2)
-      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(operationChangesMatcher([
         expect.objectContaining({
           operationId: 'operation1-message2',
@@ -495,7 +495,7 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
       // Removing message2 from operation with message1, message2, message3
       // should only impact 1 removed apihub operation (operation1-message2),
       // not the remaining operation1-message1 and operation1-message3
-      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(operationChangesMatcher([
         expect.objectContaining({
           previousOperationId: 'operation1-message2',
@@ -541,7 +541,7 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
       // not on existing operation1-message1 or operation1-message2.
       const result = await buildChangelogPackageDefaultConfig('asyncapi-changes/message/add-message-no-sibling-impact')
 
-      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
+      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(operationChangesMatcher([
         expect.objectContaining({
           operationId: 'operation1-message3',
