@@ -203,6 +203,14 @@ export const calculateAsyncOperationId = (
   return `${slugify(asyncOperationId, SLUG_OPTIONS_OPERATION_ID)}-${slugify(messageId, SLUG_OPTIONS_OPERATION_ID)}`
 }
 
+export const calculateMcpEntityId = (
+  mcpEndpoint: string,
+  entityType: string,
+  entityName: string,
+): string => {
+  return `${slugify(removeFirstSlash(mcpEndpoint), SLUG_OPTIONS_OPERATION_ID)}-${entityType}-${slugify(entityName, SLUG_OPTIONS_OPERATION_ID)}`
+}
+
 export const getInlineRefsFomDocument = (document: RestOperationData | AsyncOperationData): Set<string> => {
   const handledObjects = new Set<unknown>()
   const inlineRefs = new Set<string>()

@@ -41,6 +41,7 @@ import { unknownApiBuilder } from '../apitypes'
 import { BUILD_TYPE, FILE_FORMAT_JSON, MESSAGE_SEVERITY, PACKAGE } from '../consts'
 import { EXPORT_FORMAT_TO_FILE_FORMAT, takeIf, toPackageDocument } from '../utils'
 import { toVersionsComparisonDto } from '../utils/transformToDto'
+import { McpBuildResult, McpEntity } from '../apitypes/mcp/mcp.types'
 
 export interface ZipTool {
   // todo method should only accept Blob content, transformation is not a responsibility of this method
@@ -96,6 +97,8 @@ export const createVersionPackage = async (
     if (!data) { continue }
     createOperationDataFile(operationsDir, operationId, data)
   }
+
+  createMcpFiles(zip, buildResultDto.mcp)
 
   if (buildResultDto.comparisons.length) {
     const comparisons: PackageComparison[] = buildResultDto.comparisons.map(({ data, ...rest }) => rest)
@@ -290,4 +293,61 @@ const createComparisonsFile = (zip: ZipTool, comparisons: PackageComparisons): v
 
 const createComparisonDataFile = (zipFolder: ZipTool, comparisonFileId: string, comparison: PackageComparisonOperations): void => {
   zipFolder.file(comparisonFileId, comparison)
+}
+
+const createMcpFiles = (zip: ZipTool, mcp: McpBuildResult): void => {
+  const hasContent = mcp.tools.size > 0 || mcp.resources.size > 0 || mcp.prompts.size > 0 || mcp.init.size > 0
+  if (!hasContent) { return }
+
+  const mcpDir = zip.folder(PACKAGE.MCP_DIR_NAME)
+
+  const toIndexEntry = (entity: McpEntity) => ({
+    entityId: entity.entityId,
+    documentId: entity.documentId,
+    entityType: entity.entityType,
+    mcpEndpoint: entity.mcpEndpoint,
+    title: entity.title,
+    search: entity.search,
+    ...entity.metadata,
+  })
+
+  if (mcp.tools.size > 0) {
+    const toolsDir = mcpDir.folder(PACKAGE.MCP_TOOLS_DIR_NAME)
+    const toolsList = []
+    for (const [entityId, entity] of mcp.tools) {
+      toolsDir.file(`${entityId}.${FILE_FORMAT_JSON}`, entity.data)
+      toolsList.push(toIndexEntry(entity))
+    }
+    mcpDir.file(PACKAGE.MCP_TOOLS_FILE_NAME, { tools: toolsList })
+  }
+
+  if (mcp.resources.size > 0) {
+    const resourcesDir = mcpDir.folder(PACKAGE.MCP_RESOURCES_DIR_NAME)
+    const resourcesList = []
+    for (const [entityId, entity] of mcp.resources) {
+      resourcesDir.file(`${entityId}.${FILE_FORMAT_JSON}`, entity.data)
+      resourcesList.push(toIndexEntry(entity))
+    }
+    mcpDir.file(PACKAGE.MCP_RESOURCES_FILE_NAME, { resources: resourcesList })
+  }
+
+  if (mcp.prompts.size > 0) {
+    const promptsDir = mcpDir.folder(PACKAGE.MCP_PROMPTS_DIR_NAME)
+    const promptsList = []
+    for (const [entityId, entity] of mcp.prompts) {
+      promptsDir.file(`${entityId}.${FILE_FORMAT_JSON}`, entity.data)
+      promptsList.push(toIndexEntry(entity))
+    }
+    mcpDir.file(PACKAGE.MCP_PROMPTS_FILE_NAME, { prompts: promptsList })
+  }
+
+  if (mcp.init.size > 0) {
+    const initDir = mcpDir.folder(PACKAGE.MCP_INIT_DIR_NAME)
+    const initList = []
+    for (const [entityId, entity] of mcp.init) {
+      initDir.file(`${entityId}.${FILE_FORMAT_JSON}`, entity.data)
+      initList.push(toIndexEntry(entity))
+    }
+    mcpDir.file(PACKAGE.MCP_INIT_FILE_NAME, { init: initList })
+  }
 }

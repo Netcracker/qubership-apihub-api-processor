@@ -25,7 +25,8 @@ export function validateConfig(config: BuildConfig): void {
 
   const filesCount = config?.files?.length
   const refsCount = config?.refs?.length
-  if (!filesCount && !refsCount && config.buildType === BUILD_TYPE.BUILD) {
+  const mcpPacksCount = config?.mcpPacks?.length
+  if (!filesCount && !refsCount && !mcpPacksCount && config.buildType === BUILD_TYPE.BUILD) {
     throw new Error('Incorrect config. Got no files and refs')
   }
 }

@@ -53,6 +53,7 @@ export type BuilderType =
   | typeof ASYNCAPI_API_TYPE
   | typeof TEXT_API_TYPE
   | typeof UNKNOWN_API_TYPE
+  | string  // for MCP and future non-operation API types
 
 export interface BuilderContext<T = any> {
   apiBuilders: ApiBuilder<T>[]

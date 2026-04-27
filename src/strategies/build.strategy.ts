@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-import { BuildConfig, BuilderStrategy, BuildResult, BuildTypeContexts, VersionCache } from '../types'
+import { BuildConfig, BuildConfigFile, BuilderStrategy, BuildResult, BuildTypeContexts, McpDocumentPack, VersionCache } from '../types'
 import { compareVersions } from '../components/compare'
 import { DuplicateOperationHandler, getOperationsList, setDocument } from '../utils'
 import { buildFiles } from '../components/files'
 import { calculateHistoryForDeprecatedItems } from '../components/deprecated'
 import { ASYNCAPI_API_TYPE, MESSAGE_SEVERITY, REST_API_TYPE } from '../consts'
+import { buildMcpEntities, validateMcpCapabilities } from '../apitypes/mcp'
 
 /**
  * Handles duplicate operationIds found across different documents during build.
@@ -50,6 +51,7 @@ export class BuildStrategy implements BuilderStrategy {
       version,
       previousVersion,
       files,
+      mcpPacks,
       refs,
     } = config
 
@@ -62,16 +64,22 @@ export class BuildStrategy implements BuilderStrategy {
       previousVersionCache = await compareContextObject.versionResolver(previousVersion, previousVersionPackageId || packageId)
     }
 
-    if (!files?.length && !refs?.length) {
+    const allFiles = [...(files ?? []), ...expandMcpPacks(mcpPacks)]
+
+    if (!allFiles.length && !refs?.length) {
       throw new Error('Incorrect config: No files and refs')
     }
 
-    if (files?.length) {
-      const buildFilesResult = await buildFiles(files, builderContextObject)
+    if (allFiles.length) {
+      const buildFilesResult = await buildFiles(allFiles, builderContextObject)
       const handleDuplicateOperation = createDuplicateOperationHandler(buildResult)
       for (const { document, operations = [] } of buildFilesResult) {
         setDocument(buildResult, document, operations, handleDuplicateOperation)
       }
+
+      // Extract MCP entities from MCP documents (separate from operations)
+      buildResult.mcp = buildMcpEntities(buildResult.documents)
+      buildResult.notifications.push(...validateMcpCapabilities(buildResult.mcp))
 
       if (!builderContextObject.builderRunOptions.withoutDeprecatedDepth && previousVersionCache) {
         // add deprecated depth
@@ -95,4 +103,18 @@ export class BuildStrategy implements BuilderStrategy {
 
     return buildResult
   }
+}
+
+function expandMcpPacks(mcpPacks?: McpDocumentPack[]): BuildConfigFile[] {
+  if (!mcpPacks?.length) { return [] }
+  const files: BuildConfigFile[] = []
+  for (const pack of mcpPacks) {
+    if (!pack.mcpEndpoint) {
+      throw new Error('MCP document pack is missing required \'mcpEndpoint\' property')
+    }
+    for (const fileId of pack.fileIds) {
+      files.push({ fileId, mcpEndpoint: pack.mcpEndpoint })
+    }
+  }
+  return files
 }

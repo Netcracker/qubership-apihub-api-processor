@@ -14,9 +14,22 @@
  * limitations under the License.
  */
 
-export * from './async'
-export * from './graphql'
-export * from './mcp'
-export * from './rest'
-export * from './text'
-export * from './unknown'
+import { FILE_FORMAT_JSON } from '../../consts'
+import { ResolvedVersionDocument, ZippableDocument } from '../../types'
+
+export const MCP_SCHEMA_VERSION = '2025-11-25'
+
+export const MCP_DOCUMENT_TYPE = {
+  TOOLS: 'mcp-tools',
+  RESOURCES: 'mcp-resources',
+  PROMPTS: 'mcp-prompts',
+  INIT: 'mcp-init',
+} as const
+
+export const MCP_FILE_FORMAT = {
+  JSON: FILE_FORMAT_JSON,
+} as const
+
+export function isMcpDocument(document: ZippableDocument | ResolvedVersionDocument): boolean {
+  return Object.values(MCP_DOCUMENT_TYPE).some(type => document.type === type)
+}
