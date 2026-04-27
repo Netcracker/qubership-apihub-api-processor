@@ -19,7 +19,8 @@ import { compareVersions } from '../components/compare'
 import { DuplicateOperationHandler, getOperationsList, setDocument } from '../utils'
 import { buildFiles } from '../components/files'
 import { calculateHistoryForDeprecatedItems } from '../components/deprecated'
-import { ASYNCAPI_API_TYPE, MCP_API_TYPE, MESSAGE_SEVERITY, REST_API_TYPE } from '../consts'
+import { ASYNCAPI_API_TYPE, MESSAGE_SEVERITY, REST_API_TYPE } from '../consts'
+import { buildMcpEntities, validateMcpCapabilities } from '../apitypes/mcp'
 
 /**
  * Handles duplicate operationIds found across different documents during build.
@@ -27,7 +28,7 @@ import { ASYNCAPI_API_TYPE, MCP_API_TYPE, MESSAGE_SEVERITY, REST_API_TYPE } from
  * - REST: adds an error notification (non-fatal), since existing published specs may already have duplicates.
  */
 const createDuplicateOperationHandler = (buildResult: BuildResult): DuplicateOperationHandler => (existing, duplicate) => {
-  if (duplicate.apiType === ASYNCAPI_API_TYPE || duplicate.apiType === MCP_API_TYPE) {
+  if (duplicate.apiType === ASYNCAPI_API_TYPE) {
     throw new Error(
       `Duplicated operationId '${duplicate.operationId}' found in different documents: ` +
       `'${existing.documentId}' and '${duplicate.documentId}'`,
@@ -75,6 +76,10 @@ export class BuildStrategy implements BuilderStrategy {
       for (const { document, operations = [] } of buildFilesResult) {
         setDocument(buildResult, document, operations, handleDuplicateOperation)
       }
+
+      // Extract MCP entities from MCP documents (separate from operations)
+      buildResult.mcp = buildMcpEntities(buildResult.documents)
+      buildResult.notifications.push(...validateMcpCapabilities(buildResult.mcp))
 
       if (!builderContextObject.builderRunOptions.withoutDeprecatedDepth && previousVersionCache) {
         // add deprecated depth

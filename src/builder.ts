@@ -61,6 +61,7 @@ import {
   textApiBuilder,
   unknownApiBuilder,
 } from './apitypes'
+import { McpBuildResult, createEmptyMcpBuildResult } from './apitypes/mcp/mcp.types'
 import { filesDiff, findSharedPath, getCompositeKey, getFileExtension, getOperationsList } from './utils'
 import {
   BUILD_TYPE,
@@ -100,6 +101,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
   exportDocuments: ExportDocument[] = []
   exportFileName?: string
   operations = new Map<string, ApiOperation>()
+  mcp: McpBuildResult = createEmptyMcpBuildResult()
   comparisons: VersionsComparison[] = []
 
   versionsCache = new Map<string, VersionCache>()
@@ -172,6 +174,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
   get buildResult(): BuildResult {
     return {
       operations: this.operations,
+      mcp: this.mcp,
       comparisons: this.comparisons,
       documents: this.documents,
       exportDocuments: this.exportDocuments,
@@ -184,6 +187,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
 
   private setBuildResult(buildResult: BuildResult): void {
     this.operations = buildResult.operations
+    this.mcp = buildResult.mcp
     this.comparisons = buildResult.comparisons
     this.documents = buildResult.documents
     this.exportDocuments = buildResult.exportDocuments
@@ -877,6 +881,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     this.referencesCache.clear()
     this.packageChangesCache.clear()
     this.operations.clear()
+    this.mcp = createEmptyMcpBuildResult()
     this.documents.clear()
     this.exportDocuments = []
     this.exportFileName = undefined

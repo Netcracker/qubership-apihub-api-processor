@@ -23,6 +23,7 @@ export const MCP_DOCUMENT_TYPE = {
   TOOLS: 'mcp-tools',
   RESOURCES: 'mcp-resources',
   PROMPTS: 'mcp-prompts',
+  INIT: 'mcp-init',
 } as const
 
 export const MCP_FILE_FORMAT = {

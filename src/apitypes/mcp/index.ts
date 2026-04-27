@@ -15,7 +15,6 @@
  */
 
 import { buildMcpDocument, dumpMcpDocument } from './mcp.document'
-import { buildMcpOperations } from './mcp.operations'
 import { MCP_DOCUMENT_TYPE } from './mcp.consts'
 import { parseMcpFile } from './mcp.parser'
 import { ApiBuilder } from '../../types'
@@ -24,12 +23,14 @@ import { MCP_API_TYPE } from '../../consts'
 
 export * from './mcp.consts'
 export * from './mcp.types'
+export { buildMcpEntities, validateMcpCapabilities } from './mcp.entities'
 
 export const mcpApiBuilder: ApiBuilder<McpDocument> = {
   apiType: MCP_API_TYPE,
   types: Object.values(MCP_DOCUMENT_TYPE),
   parser: parseMcpFile,
   buildDocument: buildMcpDocument,
-  buildOperations: buildMcpOperations,
   dumpDocument: dumpMcpDocument,
+  // No buildOperations — MCP entities are not operations.
+  // Entity extraction is handled by buildMcpEntities, called from BuildStrategy.
 }

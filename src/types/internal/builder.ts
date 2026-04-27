@@ -21,6 +21,7 @@ import { NotificationMessage } from '../package/notifications'
 import { ExportDocument, VersionDocument } from './documents'
 import { SourceFile } from './internal'
 import { ApiOperation } from './operation'
+import { McpBuildResult } from '../../apitypes/mcp/mcp.types'
 
 export type VersionCache = ResolvedVersion & {
   packageId: PackageId
@@ -34,6 +35,7 @@ export interface BuildResultDto {
   documents: Map<string, VersionDocument>
   exportDocuments: ExportDocument[]
   operations: Map<string, ApiOperation>
+  mcp: McpBuildResult
   merged?: VersionDocument
 }
 
@@ -45,6 +47,7 @@ export interface BuildResult {
   exportDocuments: ExportDocument[]
   exportFileName?: string
   operations: Map<string, ApiOperation>
+  mcp: McpBuildResult
   merged?: VersionDocument
 }
 

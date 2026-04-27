@@ -19,6 +19,7 @@ import { McpDocument } from './mcp.types'
 import mcpToolsSchema from './schemas/mcp-tools.json'
 import mcpResourcesSchema from './schemas/mcp-resources.json'
 import mcpPromptsSchema from './schemas/mcp-prompts.json'
+import mcpInitSchema from './schemas/mcp-init.json'
 import { FILE_KIND, TextFile } from '../../types'
 import { getFileExtension, validateDocument } from '../../utils'
 import { isObject } from '../../utils/objects'
@@ -32,9 +33,12 @@ type McpDetectionResult = {
  * Detects whether a parsed JSON object is an MCP document and which type.
  *
  * Detection rules:
+ * - Has `capabilities` object + `protocolVersion` string + `serverInfo` object → mcp-init
  * - Has a top-level `tools` array of objects → mcp-tools
  * - Has a top-level `resources` array of objects → mcp-resources
  * - Has a top-level `prompts` array of objects → mcp-prompts
+ *
+ * Init detection is checked first because it is the most specific (3 required fields).
  *
  * Schema validation (including required fields like `name`) is performed
  * separately after detection.
@@ -45,6 +49,10 @@ function detectMcpType(data: unknown): McpDetectionResult | undefined {
   }
 
   const obj = data as Record<string, unknown>
+
+  if (isObject(obj.capabilities) && typeof obj.protocolVersion === 'string' && isObject(obj.serverInfo)) {
+    return { type: MCP_DOCUMENT_TYPE.INIT, schema: mcpInitSchema }
+  }
 
   if (Array.isArray(obj.tools) && (obj.tools.length === 0 || isObject(obj.tools[0]))) {
     return { type: MCP_DOCUMENT_TYPE.TOOLS, schema: mcpToolsSchema }

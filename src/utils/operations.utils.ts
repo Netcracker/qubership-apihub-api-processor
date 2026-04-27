@@ -208,7 +208,7 @@ export const calculateMcpEntityId = (
   entityType: string,
   entityName: string,
 ): string => {
-  return `${slugify(mcpEndpoint, SLUG_OPTIONS_OPERATION_ID)}-${entityType}-${slugify(entityName, SLUG_OPTIONS_OPERATION_ID)}`
+  return `${slugify(removeFirstSlash(mcpEndpoint), SLUG_OPTIONS_OPERATION_ID)}-${entityType}-${slugify(entityName, SLUG_OPTIONS_OPERATION_ID)}`
 }
 
 export const getInlineRefsFomDocument = (document: RestOperationData | AsyncOperationData): Set<string> => {
