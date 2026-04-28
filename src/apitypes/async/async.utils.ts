@@ -303,11 +303,14 @@ export const buildAsyncApiSpecFromDocument = (
     const refsMessages = (refsOperations[asyncOperationId]?.messages as AsyncAPIV3.MessageObject[] | undefined) ?? []
     const filteredMessages: (AsyncAPIV3.MessageObject | AsyncAPIV3.ReferenceObject)[] = []
 
-    sourceMessages.forEach((message, index) => {
+    // refsMessages is a compact array (only matched messages), so use a separate index instead of the source positional index
+    let refsIndex = 0
+    sourceMessages.forEach((message) => {
       if (isReferenceObject(message) && matchedRefs.has(message.$ref)) {
         filteredMessages.push(message)
-        const resolvedMessage = refsMessages[index]
+        const resolvedMessage = refsMessages[refsIndex]
         if (resolvedMessage) { resolvedMessages.push(resolvedMessage) }
+        refsIndex++
       }
     })
 

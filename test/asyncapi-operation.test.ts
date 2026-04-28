@@ -464,6 +464,16 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
           const result = createOperationSpecEnrichedWithRefs(OPERATION_ID_1, baseDocument, buildRefsOnlyDoc(baseDocument))
           expect(result.defaultContentType).toBeUndefined()
         })
+
+        test('should include root defaultContentType when selecting a non-first message from a multi-message operation', async () => {
+          const sharedChannelDoc = await loadYamlFile<AsyncAPIV3.AsyncAPIObject>('asyncapi/operations/shared-channel/spec.yaml')
+          const document = cloneDocument(sharedChannelDoc)
+          document.defaultContentType = 'application/json'
+
+          const operationIdB = calculateAsyncOperationId('multiMessageOp', 'MessageB')
+          const result = createOperationSpecEnrichedWithRefs(operationIdB, document, buildRefsOnlyDoc(sharedChannelDoc))
+          expect(result.defaultContentType).toBe('application/json')
+        })
       })
 
       describe('root specification extensions', () => {
