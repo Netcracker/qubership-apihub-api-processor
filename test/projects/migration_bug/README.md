@@ -35,7 +35,7 @@ Supports OpenAPI and GraphQL specifications processing.
 
 ## Works perfectly with specifications:
 
-- [JsonSchema](https://json-schema.org/draft/2020-12/json-schema-core.html)
+- [JsonSchema](https://json-schema.org/draft/2020-12/json-schema-core)
 - [OpenApi 3.x](https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.0.3.md)
 - GraphApi
 - ~~Swagger 2.x~~ (roadmap)
