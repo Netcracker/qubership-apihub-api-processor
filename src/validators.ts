@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { BuildConfig, VersionCache } from './types'
+import { BuildConfig, VersionCache, VersionValidationLevel } from './types'
 import { assert } from './utils'
 import { BUILD_TYPE } from './consts'
 import { version as apiProcessorVersion } from '../package.json'
@@ -30,9 +30,26 @@ export function validateConfig(config: BuildConfig): void {
   }
 }
 
-export function validateApiProcessorVersion(resolvedVersion: VersionCache | null, errorPrefix?: string): void {
+export function validateApiProcessorVersion(
+  resolvedVersion: VersionCache | null,
+  errorPrefix?: string,
+  validationLevel: VersionValidationLevel = 'strict',
+): void {
 
   if (!resolvedVersion) {
+    return
+  }
+
+  if (validationLevel === 'major') {
+    const resolvedMajor = parseMajorVersion(resolvedVersion.apiProcessorVersion)
+    const currentMajor = parseMajorVersion(apiProcessorVersion)
+    if (resolvedMajor === null || currentMajor === null) {
+      return
+    }
+    if (resolvedMajor !== currentMajor) {
+      errorPrefix = errorPrefix ? `${errorPrefix} ` : ''
+      throw new Error(`${errorPrefix}Expected api-processor major version: ${currentMajor}, got ${resolvedMajor} for package ${resolvedVersion.packageId} version ${resolvedVersion.version}`)
+    }
     return
   }
 
@@ -40,4 +57,9 @@ export function validateApiProcessorVersion(resolvedVersion: VersionCache | null
     errorPrefix = errorPrefix ? `${errorPrefix} ` : ''
     throw new Error(`${errorPrefix}Expected api-processor version:  ${apiProcessorVersion}, got ${resolvedVersion.apiProcessorVersion} for package ${resolvedVersion.packageId} version ${resolvedVersion.version}`)
   }
+}
+
+function parseMajorVersion(version: string): number | null {
+  const match = version.match(/^(\d+)\./)
+  return match ? parseInt(match[1], 10) : null
 }

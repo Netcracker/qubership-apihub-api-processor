@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { BuildConfigRef, CompareContext, VersionParams, VersionsComparison } from '../../types'
+import { BuildConfigRef, BuilderVersionInfo, CompareContext, CompareResult, PackageConfig, VersionParams, VersionsComparison } from '../../types'
 import { compareVersionsOperations } from './compare.operations'
 import { getSplittedVersionKey } from '../../utils'
 
@@ -22,11 +22,16 @@ export async function compareVersions(
   prev: VersionParams,
   curr: VersionParams,
   ctx: CompareContext,
-): Promise<VersionsComparison[]> {
+): Promise<CompareResult> {
   const comparisons: VersionsComparison[] = await compareVersionsReferences(prev, curr, ctx)
-  comparisons.push(await compareVersionsOperations(prev, curr, ctx))
+  const { previousVersionBuilderVersion, currentVersionBuilderVersion, ...comparison } = await compareVersionsOperations(prev, curr, ctx)
+  comparisons.push(comparison)
 
-  return comparisons
+  return {
+    comparisons,
+    previousVersionBuilderVersion,
+    currentVersionBuilderVersion,
+  }
 }
 
 export async function compareVersionsReferences(
@@ -73,8 +78,18 @@ export async function compareVersionsReferences(
     }
     const prevParams: VersionParams = previous ? [previous.version, previous.refId] : null
     const currParams: VersionParams = current ? [current.version, current.refId] : null
-    comparisons.push(await compareVersionsOperations(prevParams, currParams, ctx))
+    const { previousVersionBuilderVersion: _, currentVersionBuilderVersion: __, ...refComparison } = await compareVersionsOperations(prevParams, currParams, ctx)
+    comparisons.push(refComparison)
   }
 
   return comparisons
+}
+
+export function applyBuilderVersionInfo(config: PackageConfig, source: BuilderVersionInfo): void {
+  if (source.previousVersionBuilderVersion) {
+    config.previousVersionBuilderVersion = source.previousVersionBuilderVersion
+  }
+  if (source.currentVersionBuilderVersion) {
+    config.currentVersionBuilderVersion = source.currentVersionBuilderVersion
+  }
 }

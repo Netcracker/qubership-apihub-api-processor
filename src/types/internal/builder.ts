@@ -77,11 +77,14 @@ export type FileSourceMap = Record<string, Blob>
  * @param {boolean} [cleanCache=false] - Wipe cache before start.
  * @param {FileSourceMap} [fileSources=false] - Set initial version file content for builder.
  */
+export type VersionValidationLevel = 'major' | 'strict'
+
 export type BuilderRunOptions = Partial<{
   withoutChangelog: boolean
   withoutBwc: boolean
   withoutDeprecatedDepth: boolean
   cleanCache: boolean
+  apiProcessorVersionValidationLevel: VersionValidationLevel
 }>
 
 export interface BuildFileResult<T = any> {
