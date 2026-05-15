@@ -30,7 +30,9 @@ import {
   PackageComparisonOperations,
   PackageComparisons,
   PackageConfig,
+  PackageDdlContractsFile,
   PackageDocuments,
+  PackageMcpContractsFile,
   PackageNotifications,
   PackageOperation,
   PackageOperations,
@@ -39,6 +41,8 @@ import {
 } from '../types'
 import { unknownApiBuilder } from '../apitypes'
 import { BUILD_TYPE, FILE_FORMAT_JSON, MESSAGE_SEVERITY, PACKAGE } from '../consts'
+import { parseDdlContent, buildDdlContractContent } from '../apitypes/ddl'
+import { buildMcpContractContent } from '../apitypes/mcp'
 import { EXPORT_FORMAT_TO_FILE_FORMAT, takeIf, toPackageDocument } from '../utils'
 import { toVersionsComparisonDto } from '../utils/transformToDto'
 
@@ -114,6 +118,13 @@ export const createVersionPackage = async (
   }
 
   createNotificationsFile(zip, { notifications: buildResultDto.notifications })
+
+  if (buildResultDto.ddlContracts) {
+    await createDdlContractsFiles(zip, buildResultDto.ddlContracts, buildResultDto.documents)
+  }
+  if (buildResultDto.mcpContracts) {
+    await createMcpContractsFiles(zip, buildResultDto.mcpContracts, buildResultDto.documents)
+  }
 
   return await zip.buildResult(options)
 }
@@ -291,4 +302,32 @@ const createComparisonsFile = (zip: ZipTool, comparisons: PackageComparisons): v
 
 const createComparisonDataFile = (zipFolder: ZipTool, comparisonFileId: string, comparison: PackageComparisonOperations): void => {
   zipFolder.file(comparisonFileId, comparison)
+}
+
+const createDdlContractsFiles = async (zip: ZipTool, ddlContracts: PackageDdlContractsFile, documents: Map<string, VersionDocument>): Promise<void> => {
+  zip.file(PACKAGE.CONTRACTS_DDL_FILE_NAME, ddlContracts)
+  const ddlDir = zip.folder(PACKAGE.CONTRACTS_DDL_DIR_NAME)
+  for (const contract of ddlContracts.contracts) {
+    const document = contract.documentId ? documents.get(contract.documentId) : undefined
+    if (!document) { continue }
+    const rawSql = typeof document.description === 'string' ? document.description : ''
+    const ddlContent = parseDdlContent(rawSql).find(e => e.ddlTableId === contract.ddlTableId)
+    const entitySql = ddlContent ? ddlContent.rawSql : rawSql
+    await ddlDir.file(contract.contentPath, buildDdlContractContent({ rawSql: entitySql }))
+  }
+}
+
+const createMcpContractsFiles = async (zip: ZipTool, mcpContracts: PackageMcpContractsFile, documents: Map<string, VersionDocument>): Promise<void> => {
+  zip.file(PACKAGE.CONTRACTS_MCP_FILE_NAME, mcpContracts)
+  const mcpDir = zip.folder(PACKAGE.CONTRACTS_MCP_DIR_NAME)
+  for (const contract of mcpContracts.contracts) {
+    const document = contract.documentId ? documents.get(contract.documentId) : undefined
+    if (!document) { continue }
+    let entityData: unknown = document.data
+    // For MCP files, the document data is the raw JSON object - serialize each entity separately
+    if (typeof document.description === 'string') {
+      try { entityData = JSON.parse(document.description) } catch { /* use document.data */ }
+    }
+    await mcpDir.file(contract.contentPath, buildMcpContractContent({ data: entityData }))
+  }
 }

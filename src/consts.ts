@@ -75,6 +75,12 @@ export const PACKAGE = {
   COMPARISONS_DIR_NAME: 'comparisons',
   VERSION_INTERNAL_DOCUMENTS_DIR_NAME: 'version-internal-documents',
   COMPARISON_INTERNAL_DOCUMENTS_DIR_NAME: 'comparison-internal-documents',
+  CONTRACTS_DDL_FILE_NAME: 'contracts/ddl.json',
+  CONTRACTS_DDL_COMPARISONS_FILE_NAME: 'contracts/ddl-comparisons.json',
+  CONTRACTS_MCP_FILE_NAME: 'contracts/mcp.json',
+  CONTRACTS_DDL_DIR_NAME: 'contracts/ddl',
+  CONTRACTS_DDL_COMPARISONS_DIR_NAME: 'contracts/ddl-comparisons',
+  CONTRACTS_MCP_DIR_NAME: 'contracts/mcp',
 } as const
 
 export const EDITOR_MESSAGES = {
@@ -138,6 +144,8 @@ export const FILE_FORMAT_GQL = 'gql'
 export const FILE_FORMAT_MD = 'md'
 export const FILE_FORMAT_PROTO = 'proto'
 export const FILE_FORMAT_HTML = 'html'
+export const FILE_FORMAT_DDL = 'ddl'
+export const FILE_FORMAT_SQL = 'sql'
 
 export const FILE_FORMAT = {
   JSON: FILE_FORMAT_JSON,
@@ -148,6 +156,8 @@ export const FILE_FORMAT = {
   GQL: FILE_FORMAT_GQL,
   MD: FILE_FORMAT_MD,
   PROTO: FILE_FORMAT_PROTO,
+  DDL: FILE_FORMAT_DDL,
+  SQL: FILE_FORMAT_SQL,
 } as const
 
 export const SUPPORTED_FILE_FORMATS = Object.values(FILE_FORMAT)
@@ -210,3 +220,5 @@ export const API_KIND_SPECIFICATION_EXTENSION = 'x-api-kind'
 export const REST_API_TYPE = 'rest' as const
 export const GRAPHQL_API_TYPE = 'graphql' as const
 export const ASYNCAPI_API_TYPE = 'asyncapi' as const
+export const DDL_CONTRACT_API_TYPE = 'ddl-contract' as const
+export const MCP_CONTRACT_API_TYPE = 'mcp-contract' as const

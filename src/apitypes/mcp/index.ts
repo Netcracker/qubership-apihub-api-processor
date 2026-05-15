@@ -14,10 +14,21 @@
  * limitations under the License.
  */
 
-export * from './async'
-export * from './ddl'
-export * from './graphql'
-export * from './mcp'
-export * from './rest'
-export * from './text'
-export * from './unknown'
+import { ApiBuilder } from '../../types'
+import { MCP_API_TYPE, MCP_DOCUMENT_TYPE } from './mcp.consts'
+import { parseMcpFile } from './mcp.parser'
+import { buildMcpDocument, dumpMcpDocument } from './mcp.document'
+import { ParsedMcpData } from './mcp.types'
+
+export * from './mcp.consts'
+export * from './mcp.types'
+export * from './mcp.parser'
+export * from './mcp.entities'
+
+export const mcpApiBuilder: ApiBuilder<ParsedMcpData> = {
+  apiType: MCP_API_TYPE,
+  types: [MCP_DOCUMENT_TYPE.MCP],
+  parser: parseMcpFile,
+  buildDocument: buildMcpDocument,
+  dumpDocument: dumpMcpDocument,
+}

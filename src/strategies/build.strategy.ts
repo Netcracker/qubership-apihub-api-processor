@@ -18,6 +18,7 @@ import { BuildConfig, BuilderStrategy, BuildResult, BuildTypeContexts, VersionCa
 import { compareVersions } from '../components/compare'
 import { DuplicateOperationHandler, getOperationsList, setDocument } from '../utils'
 import { buildFiles } from '../components/files'
+import { buildContracts } from '../components/contracts'
 import { calculateHistoryForDeprecatedItems } from '../components/deprecated'
 import { ASYNCAPI_API_TYPE, MESSAGE_SEVERITY, REST_API_TYPE } from '../consts'
 
@@ -72,6 +73,10 @@ export class BuildStrategy implements BuilderStrategy {
       for (const { document, operations = [] } of buildFilesResult) {
         setDocument(buildResult, document, operations, handleDuplicateOperation)
       }
+
+      const { ddlContracts, mcpContracts } = await buildContracts(files, buildResult, builderContextObject)
+      buildResult.ddlContracts = ddlContracts
+      buildResult.mcpContracts = mcpContracts
 
       if (!builderContextObject.builderRunOptions.withoutDeprecatedDepth && previousVersionCache) {
         // add deprecated depth

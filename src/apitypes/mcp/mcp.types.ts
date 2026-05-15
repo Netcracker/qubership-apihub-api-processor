@@ -14,10 +14,19 @@
  * limitations under the License.
  */
 
-export * from './async'
-export * from './ddl'
-export * from './graphql'
-export * from './mcp'
-export * from './rest'
-export * from './text'
-export * from './unknown'
+import { McpKind } from '../../types/package/contracts-mcp'
+
+export interface McpEntityRaw {
+  kind: McpKind
+  name?: string
+  title?: string
+  description?: string
+  data: unknown
+}
+
+export interface ParsedMcpData {
+  endpoint: string
+  serverName: string
+  entities: McpEntityRaw[]
+  rawJson: unknown
+}

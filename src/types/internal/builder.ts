@@ -18,6 +18,7 @@ import { BuildConfig, BuilderResolvers, FileId, PackageId, ResolvedVersion, Vers
 import { VersionsComparison, VersionsComparisonDto } from './compare'
 import { PackageConfig } from '../package/config'
 import { NotificationMessage } from '../package/notifications'
+import { PackageDdlComparisonsFile, PackageDdlContractsFile, PackageMcpContractsFile } from '../package'
 import { ExportDocument, VersionDocument } from './documents'
 import { SourceFile } from './internal'
 import { ApiOperation } from './operation'
@@ -35,6 +36,9 @@ export interface BuildResultDto {
   exportDocuments: ExportDocument[]
   operations: Map<string, ApiOperation>
   merged?: VersionDocument
+  ddlContracts?: PackageDdlContractsFile
+  ddlComparisons?: PackageDdlComparisonsFile
+  mcpContracts?: PackageMcpContractsFile
 }
 
 export interface BuildResult {
@@ -46,6 +50,9 @@ export interface BuildResult {
   exportFileName?: string
   operations: Map<string, ApiOperation>
   merged?: VersionDocument
+  ddlContracts?: PackageDdlContractsFile
+  ddlComparisons?: PackageDdlComparisonsFile
+  mcpContracts?: PackageMcpContractsFile
 }
 
 export type BuilderConfiguration = {

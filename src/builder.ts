@@ -53,7 +53,7 @@ import {
   VersionDocument,
 } from './types/internal'
 import type { NotificationMessage, PackageConfig } from './types/package'
-import { asyncApiBuilder, graphqlApiBuilder, restApiBuilder, textApiBuilder, unknownApiBuilder } from './apitypes'
+import { asyncApiBuilder, ddlApiBuilder, graphqlApiBuilder, mcpApiBuilder, restApiBuilder, textApiBuilder, unknownApiBuilder } from './apitypes'
 import { filesDiff, findSharedPath, getCompositeKey, getFileExtension, getOperationsList } from './utils'
 import {
   BUILD_TYPE,
@@ -112,7 +112,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
   private basePath: string = ''
 
   constructor(config: BuildConfig, public params: BuilderParams, fileSources?: FileSourceMap) {
-    this.apiBuilders.push(restApiBuilder, graphqlApiBuilder, asyncApiBuilder, textApiBuilder, unknownApiBuilder)
+    this.apiBuilders.push(mcpApiBuilder, ddlApiBuilder, restApiBuilder, graphqlApiBuilder, asyncApiBuilder, textApiBuilder, unknownApiBuilder)
     this.config = {
       previousVersion: '',
       previousVersionPackageId: '',
@@ -163,6 +163,10 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     return config
   }
 
+  ddlContracts?: import('./types').PackageDdlContractsFile
+  ddlComparisons?: import('./types').PackageDdlComparisonsFile
+  mcpContracts?: import('./types').PackageMcpContractsFile
+
   get buildResult(): BuildResult {
     return {
       operations: this.operations,
@@ -173,6 +177,9 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       config: this.packageConfig,
       notifications: this.notifications,
       merged: this.merged,
+      ddlContracts: this.ddlContracts,
+      ddlComparisons: this.ddlComparisons,
+      mcpContracts: this.mcpContracts,
     }
   }
 
@@ -184,6 +191,9 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     this.exportFileName = buildResult.exportFileName
     this.notifications = buildResult.notifications
     this.merged = buildResult.merged
+    this.ddlContracts = buildResult.ddlContracts
+    this.ddlComparisons = buildResult.ddlComparisons
+    this.mcpContracts = buildResult.mcpContracts
   }
 
   builderContext(config: BuildConfigBase): BuilderContext {

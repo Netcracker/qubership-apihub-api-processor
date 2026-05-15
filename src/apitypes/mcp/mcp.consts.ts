@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-export * from './async'
-export * from './ddl'
-export * from './graphql'
-export * from './mcp'
-export * from './rest'
-export * from './text'
-export * from './unknown'
+import { MCP_CONTRACT_API_TYPE } from '../../consts'
+
+export const MCP_API_TYPE = MCP_CONTRACT_API_TYPE
+
+export const MCP_DOCUMENT_TYPE = {
+  MCP: 'mcp',
+} as const

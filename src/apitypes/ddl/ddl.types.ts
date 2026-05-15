@@ -14,10 +14,19 @@
  * limitations under the License.
  */
 
-export * from './async'
-export * from './ddl'
-export * from './graphql'
-export * from './mcp'
-export * from './rest'
-export * from './text'
-export * from './unknown'
+import { DdlKind } from '../../types/package/contracts-ddl'
+
+export interface DdlEntity {
+  ddlTableId: string
+  kind: DdlKind
+  schemaName?: string
+  name: string
+  title?: string
+  deprecated: boolean
+  rawSql: string
+}
+
+export interface ParsedDdlData {
+  entities: DdlEntity[]
+  rawContent: string
+}

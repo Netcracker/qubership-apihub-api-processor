@@ -42,7 +42,7 @@ import { SourceFile, TextFile } from './internal'
 import { ApiOperation } from './operation'
 import { Diff } from '@netcracker/qubership-apihub-api-diff'
 import { ResolvedPackage } from '../external/package'
-import { FILE_FORMAT_JSON, FILE_FORMAT_YAML, GRAPHQL_API_TYPE, REST_API_TYPE, ASYNCAPI_API_TYPE } from '../../consts'
+import { FILE_FORMAT_JSON, FILE_FORMAT_YAML, GRAPHQL_API_TYPE, REST_API_TYPE, ASYNCAPI_API_TYPE, DDL_CONTRACT_API_TYPE, MCP_CONTRACT_API_TYPE } from '../../consts'
 import { OpenApiExtensionKey } from '@netcracker/qubership-apihub-api-unifier'
 import { OperationsMap } from '../../components'
 import { ObjectHashCache } from '../../utils/hashes'
@@ -53,6 +53,8 @@ export type BuilderType =
   | typeof ASYNCAPI_API_TYPE
   | typeof TEXT_API_TYPE
   | typeof UNKNOWN_API_TYPE
+  | typeof DDL_CONTRACT_API_TYPE
+  | typeof MCP_CONTRACT_API_TYPE
 
 export interface BuilderContext<T = any> {
   apiBuilders: ApiBuilder<T>[]

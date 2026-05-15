@@ -16,6 +16,8 @@
 
 export * from './comparisons'
 export * from './config'
+export * from './contracts-ddl'
+export * from './contracts-mcp'
 export * from './deprecated'
 export * from './documents'
 export * from './notifications'

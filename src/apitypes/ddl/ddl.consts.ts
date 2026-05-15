@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
-export * from './async'
-export * from './ddl'
-export * from './graphql'
-export * from './mcp'
-export * from './rest'
-export * from './text'
-export * from './unknown'
+import { DDL_CONTRACT_API_TYPE, FILE_FORMAT_DDL, FILE_FORMAT_SQL } from '../../consts'
+
+export const DDL_API_TYPE = DDL_CONTRACT_API_TYPE
+
+export const DDL_DOCUMENT_TYPE = {
+  DDL: 'ddl',
+} as const
+
+export const DDL_FILE_FORMATS = [FILE_FORMAT_DDL, FILE_FORMAT_SQL] as const
