@@ -15,6 +15,7 @@
  */
 import {
   ApiAudienceTransition,
+  BuilderVersionInfo,
   CompareContext,
   CompareOperationsPairContext,
   ComparisonDocument,
@@ -25,6 +26,7 @@ import {
   VersionParams,
   VersionsComparison,
 } from '../../types'
+import { version as apiProcessorVersion } from '../../../package.json'
 import {
   calculatePairedDocs,
   calculateTotalImpactedSummary,
@@ -50,20 +52,26 @@ export async function compareVersionsOperations(
   prev: VersionParams,
   curr: VersionParams,
   ctx: CompareContext,
-): Promise<VersionsComparison> {
+): Promise<VersionsComparison & BuilderVersionInfo> {
   const changes: OperationChanges[] = []
   const operationTypes: OperationType[] = []
   const comparisonDocuments: ComparisonDocument[] = []
 
   const { versionResolver } = ctx
+  const validationLevel = ctx.apiProcessorVersionValidationLevel ?? 'strict'
 
   // resolve both versions
   const prevVersionData = prev && await versionResolver(...prev)
   const currVersionData = curr && await versionResolver(...curr)
 
   // validate api-processor version compatibility
-  validateApiProcessorVersion(prevVersionData, 'Can\'t build the changelog if previous version was built using an outdated api-processor.')
-  validateApiProcessorVersion(currVersionData, 'Can\'t build the changelog if current version was built using an outdated api-processor.')
+  validateApiProcessorVersion(prevVersionData, 'Can\'t build the changelog if previous version was built using an outdated api-processor.', validationLevel)
+  validateApiProcessorVersion(currVersionData, 'Can\'t build the changelog if current version was built using an outdated api-processor.', validationLevel)
+
+  const previousVersionBuilderVersion = prevVersionData?.apiProcessorVersion && prevVersionData.apiProcessorVersion !== apiProcessorVersion
+    ? prevVersionData.apiProcessorVersion : undefined
+  const currentVersionBuilderVersion = currVersionData?.apiProcessorVersion && currVersionData.apiProcessorVersion !== apiProcessorVersion
+    ? currVersionData.apiProcessorVersion : undefined
 
   // compare operations of each type
   for (const apiType of getUniqueApiTypesFromVersions(prevVersionData, currVersionData)) {
@@ -100,6 +108,8 @@ export async function compareVersionsOperations(
       data: changes,
     } : {},
     comparisonInternalDocuments,
+    previousVersionBuilderVersion,
+    currentVersionBuilderVersion,
   }
 }
 

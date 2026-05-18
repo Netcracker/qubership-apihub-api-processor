@@ -15,7 +15,7 @@
  */
 
 import { BuildConfig, BuilderStrategy, BuildResult, BuildTypeContexts, VersionCache } from '../types'
-import { compareVersions } from '../components/compare'
+import { applyBuilderVersionInfo, compareVersions } from '../components/compare'
 import { DuplicateOperationHandler, getOperationsList, setDocument } from '../utils'
 import { buildFiles } from '../components/files'
 import { calculateHistoryForDeprecatedItems } from '../components/deprecated'
@@ -86,11 +86,13 @@ export class BuildStrategy implements BuilderStrategy {
     }
 
     if (!builderContextObject.builderRunOptions.withoutChangelog && previousVersionCache) {
-      buildResult.comparisons = await compareVersions(
+      const compareResult = await compareVersions(
         [previousVersionCache.version, previousVersionPackageId || packageId],
         [version, packageId],
         compareContextObject,
       )
+      buildResult.comparisons = compareResult.comparisons
+      applyBuilderVersionInfo(config, compareResult)
     }
 
     return buildResult
