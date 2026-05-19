@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { BuildConfig, VersionCache, VersionValidationLevel } from './types'
+import { BuildConfig, BuilderVersionInfo, PackageConfig, VersionCache, VersionValidationLevel } from './types'
 import { assert } from './utils'
 import { BUILD_TYPE } from './consts'
 import { version as apiProcessorVersion } from '../package.json'
@@ -56,6 +56,24 @@ export function validateApiProcessorVersion(
   if (resolvedVersion.apiProcessorVersion !== apiProcessorVersion) {
     errorPrefix = errorPrefix ? `${errorPrefix} ` : ''
     throw new Error(`${errorPrefix}Expected api-processor version: ${apiProcessorVersion}, got ${resolvedVersion.apiProcessorVersion} for package ${resolvedVersion.packageId} version ${resolvedVersion.version}`)
+  }
+}
+
+// Returns the builder version that built this package version, but only if it differs from the current one.
+// Stored in info.json so the UI can signal that a changelog was built across different api-processor versions (e.g. during migration).
+export function getMismatchedBuilderVersion(versionData: VersionCache | null | undefined): string | undefined {
+  if (!versionData?.apiProcessorVersion || versionData.apiProcessorVersion === apiProcessorVersion) {
+    return undefined
+  }
+  return versionData.apiProcessorVersion
+}
+
+export function applyBuilderVersionInfo(config: PackageConfig, source: BuilderVersionInfo): void {
+  if (source.previousVersionBuilderVersion) {
+    config.previousVersionBuilderVersion = source.previousVersionBuilderVersion
+  }
+  if (source.currentVersionBuilderVersion) {
+    config.currentVersionBuilderVersion = source.currentVersionBuilderVersion
   }
 }
 

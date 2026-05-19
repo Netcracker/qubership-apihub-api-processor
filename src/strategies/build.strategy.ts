@@ -15,7 +15,8 @@
  */
 
 import { BuildConfig, BuilderStrategy, BuildResult, BuildTypeContexts, VersionCache } from '../types'
-import { applyBuilderVersionInfo, compareVersions } from '../components/compare'
+import { compareVersions } from '../components/compare'
+import { applyBuilderVersionInfo } from '../validators'
 import { DuplicateOperationHandler, getOperationsList, setDocument } from '../utils'
 import { buildFiles } from '../components/files'
 import { calculateHistoryForDeprecatedItems } from '../components/deprecated'

@@ -15,7 +15,8 @@
  */
 
 import { BuildConfig, BuilderStrategy, BuildResult, BuildTypeContexts } from '../types'
-import { applyBuilderVersionInfo, compareVersions } from '../components/compare'
+import { compareVersions } from '../components/compare'
+import { applyBuilderVersionInfo } from '../validators'
 import { validateGroupPrefix } from '../apitypes/rest/rest.utils'
 
 export class PrefixGroupsChangelogStrategy implements BuilderStrategy {

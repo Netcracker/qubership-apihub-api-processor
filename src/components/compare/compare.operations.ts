@@ -26,7 +26,6 @@ import {
   VersionParams,
   VersionsComparison,
 } from '../../types'
-import { version as apiProcessorVersion } from '../../../package.json'
 import {
   calculatePairedDocs,
   calculateTotalImpactedSummary,
@@ -46,7 +45,7 @@ import {
   SLUG_OPTIONS_OPERATION_ID,
   slugify,
 } from '../../utils'
-import { validateApiProcessorVersion } from '../../validators'
+import { getMismatchedBuilderVersion, validateApiProcessorVersion } from '../../validators'
 
 export async function compareVersionsOperations(
   prev: VersionParams,
@@ -68,10 +67,8 @@ export async function compareVersionsOperations(
   validateApiProcessorVersion(prevVersionData, 'Can\'t build the changelog if previous version was built using an outdated api-processor.', validationLevel)
   validateApiProcessorVersion(currVersionData, 'Can\'t build the changelog if current version was built using an outdated api-processor.', validationLevel)
 
-  const previousVersionBuilderVersion = prevVersionData?.apiProcessorVersion && prevVersionData.apiProcessorVersion !== apiProcessorVersion
-    ? prevVersionData.apiProcessorVersion : undefined
-  const currentVersionBuilderVersion = currVersionData?.apiProcessorVersion && currVersionData.apiProcessorVersion !== apiProcessorVersion
-    ? currVersionData.apiProcessorVersion : undefined
+  const previousVersionBuilderVersion = getMismatchedBuilderVersion(prevVersionData)
+  const currentVersionBuilderVersion = getMismatchedBuilderVersion(currVersionData)
 
   // compare operations of each type
   for (const apiType of getUniqueApiTypesFromVersions(prevVersionData, currVersionData)) {

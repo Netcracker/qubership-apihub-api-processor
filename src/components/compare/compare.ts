@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { BuildConfigRef, BuilderVersionInfo, CompareContext, CompareResult, PackageConfig, VersionParams, VersionsComparison } from '../../types'
+import { BuildConfigRef, CompareContext, CompareResult, VersionParams, VersionsComparison } from '../../types'
 import { compareVersionsOperations } from './compare.operations'
 import { getSplittedVersionKey } from '../../utils'
 
@@ -78,6 +78,7 @@ export async function compareVersionsReferences(
     }
     const prevParams: VersionParams = previous ? [previous.version, previous.refId] : null
     const currParams: VersionParams = current ? [current.version, current.refId] : null
+    // builder version info is only relevant for the root package; ref-packages report it at their own root level
     const { previousVersionBuilderVersion: _, currentVersionBuilderVersion: __, ...refComparison } = await compareVersionsOperations(prevParams, currParams, ctx)
     comparisons.push(refComparison)
   }
@@ -85,11 +86,3 @@ export async function compareVersionsReferences(
   return comparisons
 }
 
-export function applyBuilderVersionInfo(config: PackageConfig, source: BuilderVersionInfo): void {
-  if (source.previousVersionBuilderVersion) {
-    config.previousVersionBuilderVersion = source.previousVersionBuilderVersion
-  }
-  if (source.currentVersionBuilderVersion) {
-    config.currentVersionBuilderVersion = source.currentVersionBuilderVersion
-  }
-}
