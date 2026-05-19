@@ -71,14 +71,14 @@ export interface IPackageVersionBuilder {
 
 export type FileSourceMap = Record<string, Blob>
 
+export type VersionValidationLevel = 'major' | 'strict'
+
 /**
  * @param {boolean} [withChangelog=true] - Generate changelog flag.
  * @param {boolean} [withBwc=true] - Check backward compatibility flag.
  * @param {boolean} [cleanCache=false] - Wipe cache before start.
  * @param {FileSourceMap} [fileSources=false] - Set initial version file content for builder.
  */
-export type VersionValidationLevel = 'major' | 'strict'
-
 export type BuilderRunOptions = Partial<{
   withoutChangelog: boolean
   withoutBwc: boolean

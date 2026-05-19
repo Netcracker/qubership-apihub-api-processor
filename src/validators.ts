@@ -55,7 +55,7 @@ export function validateApiProcessorVersion(
 
   if (resolvedVersion.apiProcessorVersion !== apiProcessorVersion) {
     errorPrefix = errorPrefix ? `${errorPrefix} ` : ''
-    throw new Error(`${errorPrefix}Expected api-processor version:  ${apiProcessorVersion}, got ${resolvedVersion.apiProcessorVersion} for package ${resolvedVersion.packageId} version ${resolvedVersion.version}`)
+    throw new Error(`${errorPrefix}Expected api-processor version: ${apiProcessorVersion}, got ${resolvedVersion.apiProcessorVersion} for package ${resolvedVersion.packageId} version ${resolvedVersion.version}`)
   }
 }
 
