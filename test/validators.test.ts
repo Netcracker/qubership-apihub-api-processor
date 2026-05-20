@@ -132,12 +132,12 @@ describe('Builder version info in changelog result', () => {
   it('should set previousVersionBuilderVersion when previous version has different apiProcessorVersion', async () => {
     const result = await buildChangelogWithVersionOverrides(packageId, { v1: '1.1.0' })
     expect(result.config.previousVersionBuilderVersion).toBe('1.1.0')
-    expect(result.config.currentVersionBuilderVersion).toBeUndefined()
+    expect(result.config).not.toHaveProperty('currentVersionBuilderVersion')
   })
 
   it('should set currentVersionBuilderVersion when current version has different apiProcessorVersion', async () => {
     const result = await buildChangelogWithVersionOverrides(packageId, { v2: '1.1.0' })
-    expect(result.config.previousVersionBuilderVersion).toBeUndefined()
+    expect(result.config).not.toHaveProperty('previousVersionBuilderVersion')
     expect(result.config.currentVersionBuilderVersion).toBe('1.1.0')
   })
 
@@ -152,7 +152,7 @@ describe('Builder version info in changelog result', () => {
 
   it('should not set either when both versions match current apiProcessorVersion', async () => {
     const result = await buildChangelogWithVersionOverrides(packageId, {})
-    expect(result.config.previousVersionBuilderVersion).toBeUndefined()
-    expect(result.config.currentVersionBuilderVersion).toBeUndefined()
+    expect(result.config).not.toHaveProperty('previousVersionBuilderVersion')
+    expect(result.config).not.toHaveProperty('currentVersionBuilderVersion')
   })
 })
