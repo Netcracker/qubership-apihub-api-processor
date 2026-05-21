@@ -28,6 +28,7 @@ import {
   EMPTY_CHANGE_SUMMARY, Labels,
   SERIALIZE_SYMBOL_STRING_MAPPING,
   VERSION_STATUS,
+  VERSION_VALIDATION_LEVEL,
   PackageVersionBuilder,
   VersionValidationLevel,
 } from '../../src'
@@ -415,7 +416,7 @@ const DEFAULT_SPEC = JSON.stringify({
 export async function buildChangelogWithVersionOverrides(
   packageId: string,
   overrides: Record<string, string>,
-  validationLevel: VersionValidationLevel = 'major',
+  validationLevel: VersionValidationLevel = VERSION_VALIDATION_LEVEL.MAJOR,
   beforeContent: string = DEFAULT_SPEC,
   afterContent: string = DEFAULT_SPEC,
 ): Promise<BuildResult> {

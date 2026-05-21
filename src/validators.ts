@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { BuildConfig, BuilderVersionInfo, PackageConfig, VersionCache, VersionValidationLevel } from './types'
+import { BuildConfig, BuilderVersionInfo, PackageConfig, VERSION_VALIDATION_LEVEL, VersionCache, VersionValidationLevel } from './types'
 import { assert } from './utils'
 import { BUILD_TYPE } from './consts'
 import { version as apiProcessorVersion } from '../package.json'
@@ -32,15 +32,15 @@ export function validateConfig(config: BuildConfig): void {
 
 export function validateApiProcessorVersion(
   resolvedVersion: VersionCache | null,
+  validationLevel: VersionValidationLevel,
   errorPrefix?: string,
-  validationLevel: VersionValidationLevel = 'strict',
 ): void {
 
   if (!resolvedVersion) {
     return
   }
 
-  if (validationLevel === 'major') {
+  if (validationLevel === VERSION_VALIDATION_LEVEL.MAJOR) {
     const resolvedMajor = parseMajorVersion(resolvedVersion.apiProcessorVersion)
     const currentMajor = parseMajorVersion(apiProcessorVersion)
     if (resolvedMajor === null || currentMajor === null) {
@@ -69,9 +69,13 @@ export function getMismatchedBuilderVersion(versionData: VersionCache | null | u
 export function applyBuilderVersionInfo(config: PackageConfig, source: BuilderVersionInfo): void {
   if (source.previousVersionBuilderVersion) {
     config.previousVersionBuilderVersion = source.previousVersionBuilderVersion
+  } else {
+    delete config.previousVersionBuilderVersion
   }
   if (source.currentVersionBuilderVersion) {
     config.currentVersionBuilderVersion = source.currentVersionBuilderVersion
+  } else {
+    delete config.currentVersionBuilderVersion
   }
 }
 

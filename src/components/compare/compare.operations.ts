@@ -22,6 +22,7 @@ import {
   OperationChanges,
   OperationsApiType,
   OperationType,
+  VERSION_VALIDATION_LEVEL,
   VersionCache,
   VersionParams,
   VersionsComparison,
@@ -57,15 +58,15 @@ export async function compareVersionsOperations(
   const comparisonDocuments: ComparisonDocument[] = []
 
   const { versionResolver } = ctx
-  const validationLevel = ctx.apiProcessorVersionValidationLevel ?? 'strict'
+  const validationLevel = ctx.apiProcessorVersionValidationLevel ?? VERSION_VALIDATION_LEVEL.STRICT
 
   // resolve both versions
   const prevVersionData = prev && await versionResolver(...prev)
   const currVersionData = curr && await versionResolver(...curr)
 
   // validate api-processor version compatibility
-  validateApiProcessorVersion(prevVersionData, 'Can\'t build the changelog if previous version was built using an outdated api-processor.', validationLevel)
-  validateApiProcessorVersion(currVersionData, 'Can\'t build the changelog if current version was built using an outdated api-processor.', validationLevel)
+  validateApiProcessorVersion(prevVersionData, validationLevel, 'Can\'t build the changelog if previous version was built using an outdated api-processor.')
+  validateApiProcessorVersion(currVersionData, validationLevel, 'Can\'t build the changelog if current version was built using an outdated api-processor.')
 
   const previousVersionBuilderVersion = getMismatchedBuilderVersion(prevVersionData)
   const currentVersionBuilderVersion = getMismatchedBuilderVersion(currVersionData)

@@ -71,7 +71,12 @@ export interface IPackageVersionBuilder {
 
 export type FileSourceMap = Record<string, Blob>
 
-export type VersionValidationLevel = 'major' | 'strict'
+export const VERSION_VALIDATION_LEVEL = {
+  STRICT: 'strict',
+  MAJOR: 'major',
+} as const
+
+export type VersionValidationLevel = typeof VERSION_VALIDATION_LEVEL[keyof typeof VERSION_VALIDATION_LEVEL]
 
 /**
  * @param {boolean} [withChangelog=true] - Generate changelog flag.
