@@ -16,8 +16,8 @@
 
 import {
   APIHUB_API_COMPATIBILITY_KIND_BWC,
-  APIHUB_API_COMPATIBILITY_KIND_NO_BWC,
   ApihubApiCompatibilityKind,
+  isNoBwcOrExperimental,
   SPECIFICATION_EXTENSION_PREFIX,
 } from '../../consts'
 import { isObject, isValidHttpMethod } from '../../utils'
@@ -43,12 +43,12 @@ export const calculateOperationApiCompatibilityKind = (
 
   // Handle operation removal: compatibility depends on the removed operation's kind
   if (isOperationRemoved) {
-    return beforeKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC
+    return isNoBwcOrExperimental(beforeKind)
       ? API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
       : API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
   }
 
-  if (beforeKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC || afterKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC) {
+  if (isNoBwcOrExperimental(beforeKind) || isNoBwcOrExperimental(afterKind)) {
     return API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
   }
 
@@ -56,7 +56,8 @@ export const calculateOperationApiCompatibilityKind = (
 }
 
 export const getMethodsApiCompatibilityKind = (pathItemObject: OpenAPIV3.PathItemObject, prevDocumentApiKind: ApihubApiCompatibilityKind): ApiCompatibilityKind => {
-  if (checkAllMethodsHaveSameApiKind(pathItemObject, APIHUB_API_COMPATIBILITY_KIND_NO_BWC)) {
+  // Predicate-based: covers mixed apiKinds in one pathItem (e.g. GET=no-BWC, POST=experimental)
+  if (checkAllMethodsMatchApiKind(pathItemObject, isNoBwcOrExperimental)) {
     return API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
   }
 
@@ -64,13 +65,23 @@ export const getMethodsApiCompatibilityKind = (pathItemObject: OpenAPIV3.PathIte
     return API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
   }
 
-  return prevDocumentApiKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC
+  return isNoBwcOrExperimental(prevDocumentApiKind)
     ? API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
     : API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
 }
 
 const hasApiKind = (obj: OpenAPIV3.OperationObject, apiKind: ApihubApiCompatibilityKind): boolean => {
   return getApiKindProperty(obj) === apiKind
+}
+
+const checkAllMethodsMatchApiKind = (obj: OpenAPIV3.PathItemObject, predicate: (kind: ApihubApiCompatibilityKind | undefined) => boolean): boolean => {
+  if (!isObject(obj)) {
+    return false
+  }
+  const entries = Object.entries(obj)
+  return entries.length > 0 &&
+    entries.filter(([key, value]) => isValidHttpMethod(key) && isObject(value))
+      .every(([_, value]) => predicate(getApiKindProperty(value as OpenAPIV3.OperationObject)))
 }
 
 const isSpecificationExtension = (propertyKey?: PropertyKey): boolean => {
@@ -98,7 +109,7 @@ export const createRestApiCompatibilityScopeFunction: ApiCompatibilityScopeFunct
   prevDocumentApiKind = APIHUB_API_COMPATIBILITY_KIND_BWC,
   currDocumentApiKind = APIHUB_API_COMPATIBILITY_KIND_BWC,
 ) => {
-  const defaultApiCompatibilityKind = (prevDocumentApiKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC || currDocumentApiKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
+  const defaultApiCompatibilityKind = (isNoBwcOrExperimental(prevDocumentApiKind) || isNoBwcOrExperimental(currDocumentApiKind))
     ? API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
     : API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
 
