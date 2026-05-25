@@ -76,6 +76,7 @@ import {
 import { unknownParsedFile } from './apitypes/unknown/unknown.parser'
 import { createVersionPackage } from './components/package'
 import { compareVersions } from './components/compare'
+import { applyBuilderVersionInfo } from './validators'
 import { buildFiles } from './components/files'
 import JSZip from 'jszip'
 import { calculateHistoryForDeprecatedItems } from './components/deprecated'
@@ -90,6 +91,7 @@ import { ExportRestDocumentStrategy } from './strategies/export-rest-document.st
 import { ExportRestOperationsGroupStrategy } from './strategies/export-rest-operations-group.strategy'
 import { ResolvedPackage } from './types/external/package'
 import { ExportGraphQlOperationsGroupStrategy } from './strategies/export-graphql-operations-group.strategy'
+import { ExportAsyncApiOperationsGroupStrategy } from './strategies/export-async-api-operations-group.strategy'
 
 export const DEFAULT_RUN_OPTIONS: BuilderRunOptions = {
   cleanCache: false,
@@ -238,6 +240,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       versionDocumentsResolver: this.versionDocumentsResolver.bind(this),
       rawDocumentResolver: this.rawDocumentResolver.bind(this),
       normalizedSpecFragmentsHashCache: this.normalizedSpecFragmentsHashCache,
+      apiProcessorVersionValidationLevel: this.builderRunOptions.apiProcessorVersionValidationLevel,
     }
   }
 
@@ -295,6 +298,10 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
 
     if (buildType === BUILD_TYPE.EXPORT_GRAPHQL_OPERATIONS_GROUP) {
       builderStrategyContext.setStrategy(new ExportGraphQlOperationsGroupStrategy())
+    }
+
+    if (buildType === BUILD_TYPE.EXPORT_ASYNC_API_OPERATIONS_GROUP) {
+      builderStrategyContext.setStrategy(new ExportAsyncApiOperationsGroupStrategy())
     }
 
     this.setBuildResult(await builderStrategyContext.executeStrategy())
@@ -766,11 +773,13 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
         this.config.previousVersionPackageId || this.config.packageId,
         this.builderContext(config),
       )
-      this.comparisons = await compareVersions(
+      const compareResult = await compareVersions(
         [previousVersion, previousVersionPackageId || packageId],
         [version, packageId],
         this.compareContext(this.config),
       )
+      this.comparisons = compareResult.comparisons
+      applyBuilderVersionInfo(this.config, compareResult)
     } else if (!previousVersion) {
       this.comparisons = []
     }

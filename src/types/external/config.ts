@@ -75,6 +75,9 @@ export interface BuildConfig extends BuildConfigBase {
   // todo since it goes straight to the info.json, remove it from every buildconfig except the one that is 'build'
   validationRulesSeverity?: ValidationRulesSeverity
   operationsSpecTransformation?: OperationsSpecTransformation
+
+  previousVersionBuilderVersion?: string
+  currentVersionBuilderVersion?: string
 }
 
 // todo rename
@@ -135,6 +138,10 @@ export interface ExportRestOperationsGroupBuildConfig extends ExportOperationsGr
 
 export interface ExportGraphQLOperationsGroupBuildConfig extends ExportOperationsGroupBuildConfig {
   buildType: typeof BUILD_TYPE.EXPORT_GRAPHQL_OPERATIONS_GROUP
+}
+
+export interface ExportAsyncApiOperationsGroupBuildConfig extends ExportOperationsGroupBuildConfig {
+  buildType: typeof BUILD_TYPE.EXPORT_ASYNC_API_OPERATIONS_GROUP
 }
 
 // deprecated
