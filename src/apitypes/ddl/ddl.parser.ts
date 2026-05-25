@@ -42,7 +42,7 @@ export function parseDdlContent(sql: string): DdlEntity[] {
       const startIdx = match.index
       const endIdx = sql.indexOf(';', startIdx)
       const rawSql = endIdx >= 0 ? sql.slice(startIdx, endIdx + 1) : sql.slice(startIdx)
-      entities.push({ ddlTableId, kind, schemaName, name, deprecated: false, rawSql })
+      entities.push({ ddlTableId, kind, schemaName, name, rawSql })
     }
   }
 

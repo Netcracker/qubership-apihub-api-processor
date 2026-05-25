@@ -22,7 +22,7 @@ import { createVersionInternalDocument } from '../../utils'
 export const buildMcpDocument: DocumentBuilder<ParsedMcpData> = async (parsedFile, file): Promise<VersionDocument<ParsedMcpData>> => {
   const { fileId, slug = '', publish = true, ...metadata } = file
   const data = parsedFile.data as ParsedMcpData
-  const title = data.serverName || fileId.split('/').pop()!.replace(/\.[^/.]+$/, '')
+  const title = fileId.split('/').pop()!.replace(/\.[^/.]+$/, '')
   return {
     fileId,
     type: MCP_DOCUMENT_TYPE.MCP,

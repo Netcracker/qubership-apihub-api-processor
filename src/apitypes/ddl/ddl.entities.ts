@@ -27,13 +27,13 @@ export function buildDdlContracts(
   const metadata = extractMetadata(file)
   return data.entities.map((entity) => {
     const contentPath = `${entity.ddlTableId}.sql`
+    const searchText = [entity.schemaName, entity.name].filter(Boolean).join(' ')
     return {
       ddlTableId: entity.ddlTableId,
       kind: entity.kind,
-      title: entity.title,
       schemaName: entity.schemaName,
       name: entity.name,
-      deprecated: entity.deprecated,
+      searchText,
       metadata: metadata ?? undefined,
       documentId,
       contentPath,

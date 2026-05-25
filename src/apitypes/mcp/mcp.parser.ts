@@ -36,8 +36,7 @@ function extractEntities(obj: Record<string, unknown>): McpEntityRaw[] {
     const serverInfo = obj['serverInfo'] as Record<string, unknown>
     entities.push({
       kind: 'init',
-      name: (serverInfo['name'] as string) || 'init',
-      title: (serverInfo['name'] as string) || 'init',
+      name: 'initialize',
       data: obj,
     })
   }
@@ -51,7 +50,6 @@ function extractEntities(obj: Record<string, unknown>): McpEntityRaw[] {
           entities.push({
             kind,
             name: (entry['name'] as string) || '',
-            title: (entry['title'] as string) || (entry['name'] as string) || '',
             description: (entry['description'] as string) || undefined,
             data: item,
           })
@@ -83,10 +81,6 @@ export const parseMcpFile = async (fileId: string, source: Blob): Promise<TextFi
     return undefined
   }
 
-  const serverInfo = obj['serverInfo'] as Record<string, unknown> | undefined
-  const serverName = (serverInfo?.['name'] as string) || fileId.split('/').pop()!.replace(/\.[^/.]+$/, '')
-  const endpoint = (obj['endpoint'] as string) || ''
-
   const entities = extractEntities(obj)
   if (entities.length === 0) {
     return undefined
@@ -96,7 +90,7 @@ export const parseMcpFile = async (fileId: string, source: Blob): Promise<TextFi
     fileId,
     type: MCP_DOCUMENT_TYPE.MCP,
     format: FILE_FORMAT_JSON,
-    data: { endpoint, serverName, entities, rawJson: obj },
+    data: { entities, rawJson: obj },
     source,
     kind: FILE_KIND.TEXT,
   }

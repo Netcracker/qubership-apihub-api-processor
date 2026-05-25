@@ -21,8 +21,6 @@ export interface DdlEntity {
   kind: DdlKind
   schemaName?: string
   name: string
-  title?: string
-  deprecated: boolean
   rawSql: string
 }
 

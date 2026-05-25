@@ -19,10 +19,9 @@ export type McpKind = 'init' | 'tool' | 'prompt' | 'resource'
 export interface PackageMcpContract {
   mcpEntityId: string
   kind: McpKind
-  title?: string
+  name: string
   mcpEndpoint: string
-  serverName: string
-  deprecated: boolean
+  searchText?: string
   metadata?: Record<string, unknown>
   documentId?: string
   contentPath: string

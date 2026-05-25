@@ -39,6 +39,7 @@ export interface BuildResultDto {
   ddlContracts?: PackageDdlContractsFile
   ddlComparisons?: PackageDdlComparisonsFile
   mcpContracts?: PackageMcpContractsFile
+  mcpEntityDataMap?: Map<string, unknown>
 }
 
 export interface BuildResult {
@@ -53,6 +54,7 @@ export interface BuildResult {
   ddlContracts?: PackageDdlContractsFile
   ddlComparisons?: PackageDdlComparisonsFile
   mcpContracts?: PackageMcpContractsFile
+  mcpEntityDataMap?: Map<string, unknown>
 }
 
 export type BuilderConfiguration = {

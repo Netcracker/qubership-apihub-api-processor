@@ -24,9 +24,10 @@ export async function buildContracts(
   files: BuildConfigFile[],
   buildResult: BuildResult,
   ctx: BuilderContext,
-): Promise<{ ddlContracts?: PackageDdlContractsFile; mcpContracts?: PackageMcpContractsFile }> {
+): Promise<{ ddlContracts?: PackageDdlContractsFile; mcpContracts?: PackageMcpContractsFile; mcpEntityDataMap?: Map<string, unknown> }> {
   const ddlContracts: PackageDdlContractsFile = { contracts: [] }
   const mcpContracts: PackageMcpContractsFile = { contracts: [] }
+  const mcpEntityDataMap = new Map<string, unknown>()
 
   for (const file of files) {
     const document = buildResult.documents.get(file.fileId)
@@ -44,8 +45,11 @@ export async function buildContracts(
     } else if (document.type === MCP_DOCUMENT_TYPE.MCP) {
       const data = parsedFile.data as ParsedMcpData
       if (data && data.entities) {
-        const contracts = buildMcpContracts(file.fileId, data, file)
+        const { contracts, entityDataMap } = buildMcpContracts(file.fileId, data, file)
         mcpContracts.contracts.push(...contracts)
+        for (const [key, val] of entityDataMap) {
+          mcpEntityDataMap.set(key, val)
+        }
       }
     }
   }
@@ -53,5 +57,6 @@ export async function buildContracts(
   return {
     ddlContracts: ddlContracts.contracts.length > 0 ? ddlContracts : undefined,
     mcpContracts: mcpContracts.contracts.length > 0 ? mcpContracts : undefined,
+    mcpEntityDataMap: mcpEntityDataMap.size > 0 ? mcpEntityDataMap : undefined,
   }
 }

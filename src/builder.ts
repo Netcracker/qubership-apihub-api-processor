@@ -166,6 +166,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
   ddlContracts?: import('./types').PackageDdlContractsFile
   ddlComparisons?: import('./types').PackageDdlComparisonsFile
   mcpContracts?: import('./types').PackageMcpContractsFile
+  mcpEntityDataMap?: Map<string, unknown>
 
   get buildResult(): BuildResult {
     return {
@@ -180,6 +181,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       ddlContracts: this.ddlContracts,
       ddlComparisons: this.ddlComparisons,
       mcpContracts: this.mcpContracts,
+      mcpEntityDataMap: this.mcpEntityDataMap,
     }
   }
 
@@ -194,6 +196,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     this.ddlContracts = buildResult.ddlContracts
     this.ddlComparisons = buildResult.ddlComparisons
     this.mcpContracts = buildResult.mcpContracts
+    this.mcpEntityDataMap = buildResult.mcpEntityDataMap
   }
 
   builderContext(config: BuildConfigBase): BuilderContext {

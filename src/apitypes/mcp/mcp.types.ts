@@ -19,14 +19,11 @@ import { McpKind } from '../../types/package/contracts-mcp'
 export interface McpEntityRaw {
   kind: McpKind
   name?: string
-  title?: string
   description?: string
   data: unknown
 }
 
 export interface ParsedMcpData {
-  endpoint: string
-  serverName: string
   entities: McpEntityRaw[]
   rawJson: unknown
 }

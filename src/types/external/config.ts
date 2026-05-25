@@ -209,6 +209,9 @@ export interface BuildConfigFile {
   // deprecated
   publish?: boolean
 
+  // File-level metadata bag. For MCP files: { mcpEndpoint: string }
+  metadata?: Record<string, unknown>
+
   // other params (should pass through to output config)
   [key: string]: unknown
 

@@ -74,9 +74,10 @@ export class BuildStrategy implements BuilderStrategy {
         setDocument(buildResult, document, operations, handleDuplicateOperation)
       }
 
-      const { ddlContracts, mcpContracts } = await buildContracts(files, buildResult, builderContextObject)
+      const { ddlContracts, mcpContracts, mcpEntityDataMap } = await buildContracts(files, buildResult, builderContextObject)
       buildResult.ddlContracts = ddlContracts
       buildResult.mcpContracts = mcpContracts
+      buildResult.mcpEntityDataMap = mcpEntityDataMap
 
       if (!builderContextObject.builderRunOptions.withoutDeprecatedDepth && previousVersionCache) {
         // add deprecated depth

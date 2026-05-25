@@ -123,7 +123,7 @@ export const createVersionPackage = async (
     await createDdlContractsFiles(zip, buildResultDto.ddlContracts, buildResultDto.documents)
   }
   if (buildResultDto.mcpContracts) {
-    await createMcpContractsFiles(zip, buildResultDto.mcpContracts, buildResultDto.documents)
+    await createMcpContractsFiles(zip, buildResultDto.mcpContracts, buildResultDto.mcpEntityDataMap)
   }
 
   return await zip.buildResult(options)
@@ -317,17 +317,12 @@ const createDdlContractsFiles = async (zip: ZipTool, ddlContracts: PackageDdlCon
   }
 }
 
-const createMcpContractsFiles = async (zip: ZipTool, mcpContracts: PackageMcpContractsFile, documents: Map<string, VersionDocument>): Promise<void> => {
+const createMcpContractsFiles = async (zip: ZipTool, mcpContracts: PackageMcpContractsFile, mcpEntityDataMap?: Map<string, unknown>): Promise<void> => {
   zip.file(PACKAGE.CONTRACTS_MCP_FILE_NAME, mcpContracts)
   const mcpDir = zip.folder(PACKAGE.CONTRACTS_MCP_DIR_NAME)
   for (const contract of mcpContracts.contracts) {
-    const document = contract.documentId ? documents.get(contract.documentId) : undefined
-    if (!document) { continue }
-    let entityData: unknown = document.data
-    // For MCP files, the document data is the raw JSON object - serialize each entity separately
-    if (typeof document.description === 'string') {
-      try { entityData = JSON.parse(document.description) } catch { /* use document.data */ }
-    }
+    const entityData = mcpEntityDataMap?.get(contract.contentPath)
+    if (entityData === undefined) { continue }
     await mcpDir.file(contract.contentPath, buildMcpContractContent({ data: entityData }))
   }
 }

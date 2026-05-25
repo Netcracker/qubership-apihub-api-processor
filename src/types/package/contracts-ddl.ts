@@ -19,10 +19,9 @@ export type DdlKind = 'table' | 'view'
 export interface PackageDdlContract {
   ddlTableId: string
   kind: DdlKind
-  title?: string
   schemaName?: string
   name?: string
-  deprecated: boolean
+  searchText?: string
   metadata?: Record<string, unknown>
   documentId?: string
   contentPath: string
