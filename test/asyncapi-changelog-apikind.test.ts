@@ -7,6 +7,7 @@ import {
   generateAsyncApiTwoOperationsSpec,
 } from './helpers'
 import {
+  API_KIND_SPECIFICATION_EXTENSION,
   APIHUB_API_COMPATIBILITY_KIND_BWC,
   APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL,
   APIHUB_API_COMPATIBILITY_KIND_NO_BWC,
@@ -22,7 +23,6 @@ import {
   API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE,
 } from '@netcracker/qubership-apihub-api-diff'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
-import { API_KIND_SPECIFICATION_EXTENSION } from '../src'
 
 const BWC = APIHUB_API_COMPATIBILITY_KIND_BWC
 const NO_BWC = APIHUB_API_COMPATIBILITY_KIND_NO_BWC
@@ -54,12 +54,12 @@ function expectedModifyType(
 ): ChangeType {
   const beforeKind = effectiveApiKind(beforeCh, beforeOp)
   const afterKind = effectiveApiKind(afterCh, afterOp)
-  return (beforeKind === NO_BWC || afterKind === NO_BWC) ? RISKY : BREAKING
+  return (isNoBwcOrExperimental(beforeKind) || isNoBwcOrExperimental(afterKind)) ? RISKY : BREAKING
 }
 
 // Remove: effective api kind of the before operation, if no-BWC → risky, otherwise breaking
 function expectedRemoveType(beforeCh: ApiKindValue, beforeOp: ApiKindValue): ChangeType {
-  return effectiveApiKind(beforeCh, beforeOp) === NO_BWC ? RISKY : BREAKING
+  return isNoBwcOrExperimental(effectiveApiKind(beforeCh, beforeOp)) ? RISKY : BREAKING
 }
 
 function buildExpected(changeType: typeof BREAKING | typeof RISKY, unclassified: number): Record<string, number> {

@@ -17,7 +17,7 @@
 import {
   APIHUB_API_COMPATIBILITY_KIND_BWC,
   ApihubApiCompatibilityKind,
-  isNoBwcOrExperimental,
+  isNoBwcLike,
 } from '../../consts'
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import {
@@ -48,7 +48,7 @@ const toApiCompatibilityKind = (
   beforeKind: ApihubApiCompatibilityKind,
   afterKind: ApihubApiCompatibilityKind,
 ): ApiCompatibilityKind => {
-  return (isNoBwcOrExperimental(beforeKind) || isNoBwcOrExperimental(afterKind))
+  return (isNoBwcLike(beforeKind) || isNoBwcLike(afterKind))
     ? API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
     : API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
 }

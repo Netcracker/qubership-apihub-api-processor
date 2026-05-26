@@ -121,7 +121,7 @@ export type ApihubApiCompatibilityKind = typeof APIHUB_API_COMPATIBILITY_KIND_BW
   | typeof APIHUB_API_COMPATIBILITY_KIND_NO_BWC
   | typeof APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL
 
-export const isNoBwcOrExperimental = (kind: ApihubApiCompatibilityKind | undefined): boolean => {
+export const isNoBwcLike = (kind: ApihubApiCompatibilityKind | undefined): boolean => {
   return kind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC || kind === APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL
 }
 

@@ -17,7 +17,7 @@
 import {
   APIHUB_API_COMPATIBILITY_KIND_BWC,
   ApihubApiCompatibilityKind,
-  isNoBwcOrExperimental,
+  isNoBwcLike,
   SPECIFICATION_EXTENSION_PREFIX,
 } from '../../consts'
 import { isObject, isValidHttpMethod } from '../../utils'
@@ -43,12 +43,12 @@ export const calculateOperationApiCompatibilityKind = (
 
   // Handle operation removal: compatibility depends on the removed operation's kind
   if (isOperationRemoved) {
-    return isNoBwcOrExperimental(beforeKind)
+    return isNoBwcLike(beforeKind)
       ? API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
       : API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
   }
 
-  if (isNoBwcOrExperimental(beforeKind) || isNoBwcOrExperimental(afterKind)) {
+  if (isNoBwcLike(beforeKind) || isNoBwcLike(afterKind)) {
     return API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
   }
 
@@ -57,21 +57,17 @@ export const calculateOperationApiCompatibilityKind = (
 
 export const getMethodsApiCompatibilityKind = (pathItemObject: OpenAPIV3.PathItemObject, prevDocumentApiKind: ApihubApiCompatibilityKind): ApiCompatibilityKind => {
   // Predicate-based: covers mixed apiKinds in one pathItem (e.g. GET=no-BWC, POST=experimental)
-  if (checkAllMethodsMatchApiKind(pathItemObject, isNoBwcOrExperimental)) {
+  if (checkAllMethodsMatchApiKind(pathItemObject, isNoBwcLike)) {
     return API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
   }
 
-  if (checkAllMethodsHaveSameApiKind(pathItemObject, APIHUB_API_COMPATIBILITY_KIND_BWC)) {
+  if (checkAllMethodsMatchApiKind(pathItemObject, (kind) => kind === APIHUB_API_COMPATIBILITY_KIND_BWC)) {
     return API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
   }
 
-  return isNoBwcOrExperimental(prevDocumentApiKind)
+  return isNoBwcLike(prevDocumentApiKind)
     ? API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
     : API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
-}
-
-const hasApiKind = (obj: OpenAPIV3.OperationObject, apiKind: ApihubApiCompatibilityKind): boolean => {
-  return getApiKindProperty(obj) === apiKind
 }
 
 const checkAllMethodsMatchApiKind = (obj: OpenAPIV3.PathItemObject, predicate: (kind: ApihubApiCompatibilityKind | undefined) => boolean): boolean => {
@@ -88,19 +84,6 @@ const isSpecificationExtension = (propertyKey?: PropertyKey): boolean => {
   return propertyKey?.toString()?.startsWith(SPECIFICATION_EXTENSION_PREFIX) ?? false
 }
 
-// If a path object is removed/added, we must ensure every HTTP method under it
-// is explicitly marked NO_BWC before treating the change as risky.
-const checkAllMethodsHaveSameApiKind = (obj: OpenAPIV3.PathItemObject, apiKind: ApihubApiCompatibilityKind): boolean => {
-  if (!isObject(obj)) {
-    return false
-  }
-  const entries = Object.entries(obj)
-
-  return entries.length > 0 &&
-    entries.filter(([key, value]) => isValidHttpMethod(key) && isObject(value))
-      .every(([_, value]) => hasApiKind(value as OpenAPIV3.OperationObject, apiKind))
-}
-
 const ROOT_PATH_LENGTH = 0
 const PATH_ITEM_PATH_LENGTH = 2
 const OPERATION_OBJECT_PATH_LENGTH = 3
@@ -109,7 +92,7 @@ export const createRestApiCompatibilityScopeFunction: ApiCompatibilityScopeFunct
   prevDocumentApiKind = APIHUB_API_COMPATIBILITY_KIND_BWC,
   currDocumentApiKind = APIHUB_API_COMPATIBILITY_KIND_BWC,
 ) => {
-  const defaultApiCompatibilityKind = (isNoBwcOrExperimental(prevDocumentApiKind) || isNoBwcOrExperimental(currDocumentApiKind))
+  const defaultApiCompatibilityKind = (isNoBwcLike(prevDocumentApiKind) || isNoBwcLike(currDocumentApiKind))
     ? API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
     : API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
 
@@ -121,7 +104,7 @@ export const createRestApiCompatibilityScopeFunction: ApiCompatibilityScopeFunct
     const pathLength = path?.length ?? 0
     /*
      * Calculating Api Kind for the entire document as the default
-     * If there is a NO_BWC marker on:
+     * If there is a NO_BWC or experimental marker on:
      * - Version labels and Document labels
      * - Document API info section
      */
@@ -146,8 +129,8 @@ export const createRestApiCompatibilityScopeFunction: ApiCompatibilityScopeFunct
 
     if (pathLength === PATH_ITEM_PATH_LENGTH) {
       // case remove: when a node disappears, api-diff emits REMOVE diffs for each
-      // operation. We only mark the deletion as NO_BWC if all removed methods were
-      // explicitly flagged NO_BWC, keeping deletions consistent with declared scope.
+      // operation. We only mark the deletion as NO_BWC/experimental if all removed methods were
+      // explicitly flagged NO_BWC or experimental, keeping deletions consistent with declared scope.
       if (beforeExists && !afterExists) {
         const pathItemObject = beforeJson as OpenAPIV3.PathItemObject
         return getMethodsApiCompatibilityKind(pathItemObject, prevDocumentApiKind)
