@@ -34,15 +34,15 @@ const RISKY = RISKY_CHANGE_TYPE
 type ChangeType = typeof BREAKING | typeof RISKY
 type ApiKindValue = ApihubApiCompatibilityKind | undefined
 
-const isNoBwcOrExperimental = (value: ApiKindValue | null): boolean => value === NO_BWC || value === EXPERIMENTAL
+const isNoBwcLike = (value: ApiKindValue | null): boolean => value === NO_BWC || value === EXPERIMENTAL
 
 // Effective api-kind resolution: operation overrides channel, channel overrides default (BWC)
 function effectiveApiKind(channel: ApiKindValue, operation: ApiKindValue): typeof BWC | typeof NO_BWC {
   if (operation) {
-    return isNoBwcOrExperimental(operation) ? NO_BWC : BWC
+    return isNoBwcLike(operation) ? NO_BWC : BWC
   }
   if (channel) {
-    return isNoBwcOrExperimental(channel) ? NO_BWC : BWC
+    return isNoBwcLike(channel) ? NO_BWC : BWC
   }
   return BWC
 }
@@ -54,12 +54,12 @@ function expectedModifyType(
 ): ChangeType {
   const beforeKind = effectiveApiKind(beforeCh, beforeOp)
   const afterKind = effectiveApiKind(afterCh, afterOp)
-  return (isNoBwcOrExperimental(beforeKind) || isNoBwcOrExperimental(afterKind)) ? RISKY : BREAKING
+  return (isNoBwcLike(beforeKind) || isNoBwcLike(afterKind)) ? RISKY : BREAKING
 }
 
 // Remove: effective api kind of the before operation, if no-BWC → risky, otherwise breaking
 function expectedRemoveType(beforeCh: ApiKindValue, beforeOp: ApiKindValue): ChangeType {
-  return isNoBwcOrExperimental(effectiveApiKind(beforeCh, beforeOp)) ? RISKY : BREAKING
+  return isNoBwcLike(effectiveApiKind(beforeCh, beforeOp)) ? RISKY : BREAKING
 }
 
 function buildExpected(changeType: typeof BREAKING | typeof RISKY, unclassified: number): Record<string, number> {
