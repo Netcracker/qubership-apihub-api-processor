@@ -14,6 +14,7 @@ import {
   ApihubApiCompatibilityKind,
   ASYNCAPI_API_TYPE,
   BREAKING_CHANGE_TYPE,
+  isNoBwcLike,
   RISKY_CHANGE_TYPE,
   UNCLASSIFIED_CHANGE_TYPE,
 } from '../src'
@@ -33,8 +34,6 @@ const RISKY = RISKY_CHANGE_TYPE
 
 type ChangeType = typeof BREAKING | typeof RISKY
 type ApiKindValue = ApihubApiCompatibilityKind | undefined
-
-const isNoBwcLike = (value: ApiKindValue | null): boolean => value === NO_BWC || value === EXPERIMENTAL
 
 // Effective api-kind resolution: operation overrides channel, channel overrides default (BWC)
 function effectiveApiKind(channel: ApiKindValue, operation: ApiKindValue): typeof BWC | typeof NO_BWC {
@@ -101,11 +100,7 @@ describe('Changelog backward compatibility scope function', () => {
       [BWC, NO_BWC, NOT_BACKWARD_COMPATIBLE],
       [NO_BWC, BWC, NOT_BACKWARD_COMPATIBLE],
       [NO_BWC, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      // experimental
-      [BWC, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, BWC, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
-      // mixed no-bwc and experimental
+      // mixed no-bwc and experimental (unique cross-interaction cases)
       [EXPERIMENTAL, NO_BWC, NOT_BACKWARD_COMPATIBLE],
       [NO_BWC, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
     ] as const)('should classify root scope prev(%s) curr(%s) as %s', (prev, curr, expected) => {
@@ -150,13 +145,6 @@ describe('Changelog backward compatibility scope function', () => {
       // Unrealistic: diff engine never calls scope for a path absent in both versions. Defensive guard.
       [NO_BWC, null, null, undefined],
 
-      // experimental on channel (document kind is irrelevant for channel scope — it uses channel's own x-api-kind)
-      [BWC, undefined, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
-      [BWC, EXPERIMENTAL, undefined, NOT_BACKWARD_COMPATIBLE],
-      [BWC, EXPERIMENTAL, BWC, NOT_BACKWARD_COMPATIBLE],
-      [BWC, EXPERIMENTAL, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
-      [BWC, null, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
-      [BWC, EXPERIMENTAL, null, NOT_BACKWARD_COMPATIBLE],
       // mixed no-bwc and experimental on channel
       [BWC, NO_BWC, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
       [BWC, EXPERIMENTAL, NO_BWC, NOT_BACKWARD_COMPATIBLE],
@@ -211,53 +199,11 @@ describe('Changelog backward compatibility scope function', () => {
       // Unrealistic: diff engine never calls scope for a path absent in both versions. Defensive guard.
       [NO_BWC, null, null, undefined],
 
-      // experimental on operation (document=BWC)
-      [BWC, undefined, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
-      [BWC, EXPERIMENTAL, undefined, NOT_BACKWARD_COMPATIBLE],
-      [BWC, EXPERIMENTAL, BWC, NOT_BACKWARD_COMPATIBLE],
-      [BWC, EXPERIMENTAL, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
-      [BWC, EXPERIMENTAL, null, NOT_BACKWARD_COMPATIBLE],
-      [BWC, null, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
+      // mixed no-bwc and experimental on operation
       [BWC, NO_BWC, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
       [BWC, EXPERIMENTAL, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-
-      // experimental on operation (document=NO_BWC)
-      [NO_BWC, undefined, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, EXPERIMENTAL, undefined, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, EXPERIMENTAL, BWC, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, EXPERIMENTAL, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, EXPERIMENTAL, null, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, null, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
       [NO_BWC, NO_BWC, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
       [NO_BWC, EXPERIMENTAL, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-
-      // document=EXPERIMENTAL (mirrors document=NO_BWC — same fallback behavior)
-      [EXPERIMENTAL, undefined, undefined, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, undefined, BWC, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, undefined, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, undefined, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, undefined, null, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, BWC, undefined, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, BWC, BWC, BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, BWC, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, BWC, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, BWC, null, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, NO_BWC, undefined, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, NO_BWC, BWC, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, NO_BWC, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, NO_BWC, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, NO_BWC, null, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, EXPERIMENTAL, undefined, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, EXPERIMENTAL, BWC, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, EXPERIMENTAL, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, EXPERIMENTAL, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, EXPERIMENTAL, null, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, null, undefined, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, null, BWC, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, null, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, null, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
-      // Unrealistic: diff engine never calls scope for a path absent in both versions. Defensive guard.
-      [EXPERIMENTAL, null, null, undefined],
     ] as const)('should classify operation scope document(%s) before(%s) after(%s) as %s', (
       documentApiKind,
       beforeKind,
@@ -291,6 +237,47 @@ describe('Changelog backward compatibility scope function', () => {
         channel: { [API_KIND_SPECIFICATION_EXTENSION]: NO_BWC },
       }
       expect(scopeFunction(['operations', 'op1'], before, after)).toBe(BACKWARD_COMPATIBLE)
+    })
+  })
+
+  describe('Experimental equivalence', () => {
+    const allKinds: ApiKindInput[] = [BWC, NO_BWC, undefined, null]
+    const documentKinds: ApihubApiCompatibilityKind[] = [BWC, NO_BWC]
+
+    const swapNoBwc = (kind: ApiKindInput): ApiKindInput => {
+      return kind === NO_BWC ? EXPERIMENTAL : kind
+    }
+
+    it.each(documentKinds)('EXPERIMENTAL produces same root scope results as NO_BWC (document=%s)', (doc) => {
+      for (const otherDoc of documentKinds) {
+        const noBwcResult = createAsyncApiCompatibilityScopeFunction(doc, otherDoc)([], {}, {})
+        const expResult = createAsyncApiCompatibilityScopeFunction(swapNoBwc(doc) as ApihubApiCompatibilityKind, swapNoBwc(otherDoc) as ApihubApiCompatibilityKind)([], {}, {})
+        expect(expResult).toBe(noBwcResult)
+      }
+    })
+
+    it.each(documentKinds)('EXPERIMENTAL produces same channel scope results as NO_BWC (document=%s)', (doc) => {
+      const scope = createAsyncApiCompatibilityScopeFunction(doc, doc)
+      const expDocScope = createAsyncApiCompatibilityScopeFunction(swapNoBwc(doc) as ApihubApiCompatibilityKind, swapNoBwc(doc) as ApihubApiCompatibilityKind)
+      for (const before of allKinds) {
+        for (const after of allKinds) {
+          const noBwcResult = scope(['channels', 'ch1'], buildChannel(before), buildChannel(after))
+          const expResult = expDocScope(['channels', 'ch1'], buildChannel(swapNoBwc(before)), buildChannel(swapNoBwc(after)))
+          expect(expResult).toBe(noBwcResult)
+        }
+      }
+    })
+
+    it.each(documentKinds)('EXPERIMENTAL produces same operation scope results as NO_BWC (document=%s)', (doc) => {
+      const scope = createAsyncApiCompatibilityScopeFunction(doc, doc)
+      const expDocScope = createAsyncApiCompatibilityScopeFunction(swapNoBwc(doc) as ApihubApiCompatibilityKind, swapNoBwc(doc) as ApihubApiCompatibilityKind)
+      for (const before of allKinds) {
+        for (const after of allKinds) {
+          const noBwcResult = scope(['operations', 'op1'], buildOperation(before), buildOperation(after))
+          const expResult = expDocScope(['operations', 'op1'], buildOperation(swapNoBwc(before)), buildOperation(swapNoBwc(after)))
+          expect(expResult).toBe(noBwcResult)
+        }
+      }
     })
   })
 

@@ -4,6 +4,7 @@ import {
   APIHUB_API_COMPATIBILITY_KIND_NO_BWC,
   ApihubApiCompatibilityKind,
   ApiOperation,
+  isNoBwcLike,
 } from '../src'
 import { calculateAsyncApiKind } from '../src/apitypes/async/async.utils'
 import { buildPackageWithDefaultConfig } from './helpers'
@@ -21,11 +22,6 @@ describe('AsyncAPI apiKind calculation', () => {
         [undefined, APIHUB_API_COMPATIBILITY_KIND_NO_BWC, APIHUB_API_COMPATIBILITY_KIND_NO_BWC],
         [APIHUB_API_COMPATIBILITY_KIND_BWC, APIHUB_API_COMPATIBILITY_KIND_NO_BWC, APIHUB_API_COMPATIBILITY_KIND_BWC],
         [APIHUB_API_COMPATIBILITY_KIND_NO_BWC, APIHUB_API_COMPATIBILITY_KIND_BWC, APIHUB_API_COMPATIBILITY_KIND_NO_BWC],
-        // experimental
-        [APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL, undefined, APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL],
-        [undefined, APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL, APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL],
-        [APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL, APIHUB_API_COMPATIBILITY_KIND_BWC, APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL],
-        [APIHUB_API_COMPATIBILITY_KIND_BWC, APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL, APIHUB_API_COMPATIBILITY_KIND_BWC],
         // mixed no-bwc and experimental
         [APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL, APIHUB_API_COMPATIBILITY_KIND_NO_BWC, APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL],
         [APIHUB_API_COMPATIBILITY_KIND_NO_BWC, APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL, APIHUB_API_COMPATIBILITY_KIND_NO_BWC],
@@ -36,7 +32,23 @@ describe('AsyncAPI apiKind calculation', () => {
       })
     })
 
-
+    it('experimental follows same resolution rules as no-BWC', () => {
+      const swap = (kind: ApihubApiCompatibilityKind | undefined): ApihubApiCompatibilityKind | undefined => {
+        return kind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC ? APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL : kind
+      }
+      const noBwcCases: [ApihubApiCompatibilityKind | undefined, ApihubApiCompatibilityKind | undefined][] = [
+        [APIHUB_API_COMPATIBILITY_KIND_NO_BWC, undefined],
+        [undefined, APIHUB_API_COMPATIBILITY_KIND_NO_BWC],
+        [APIHUB_API_COMPATIBILITY_KIND_BWC, APIHUB_API_COMPATIBILITY_KIND_NO_BWC],
+        [APIHUB_API_COMPATIBILITY_KIND_NO_BWC, APIHUB_API_COMPATIBILITY_KIND_BWC],
+      ]
+      for (const [op, ch] of noBwcCases) {
+        const noBwcResult = calculateAsyncApiKind(op, ch)
+        const expResult = calculateAsyncApiKind(swap(op), swap(ch))
+        expect(expResult).toBe(swap(noBwcResult))
+        expect(isNoBwcLike(expResult)).toBe(isNoBwcLike(noBwcResult))
+      }
+    })
   })
 
   describe('AsyncAPI operation/channel compatibility apiKind application', () => {
