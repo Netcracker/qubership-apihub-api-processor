@@ -5,7 +5,7 @@ info:
 paths:
   /path1:
     get:
-      x-api-kind: {{API_KIND}}
+      x-api-kind: {{ API_KIND }}
       responses:
         '200':
           description: OK
@@ -14,7 +14,7 @@ paths:
               schema:
                 type: string
     post:
-      x-api-kind: {{API_KIND}}
+      x-api-kind: {{ API_KIND }}
       responses:
         '200':
           description: OK

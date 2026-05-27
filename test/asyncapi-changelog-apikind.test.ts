@@ -244,25 +244,26 @@ describe('Changelog backward compatibility scope function', () => {
     const allKinds: ApiKindInput[] = [BWC, NO_BWC, undefined, null]
     const documentKinds: ApihubApiCompatibilityKind[] = [BWC, NO_BWC]
 
-    const swapNoBwc = (kind: ApiKindInput): ApiKindInput => {
+    // Substitutes NO_BWC → EXPERIMENTAL in inputs to verify both produce identical scope results
+    const replaceNoBwcWithExperimental = (kind: ApiKindInput): ApiKindInput => {
       return kind === NO_BWC ? EXPERIMENTAL : kind
     }
 
     it.each(documentKinds)('EXPERIMENTAL produces same root scope results as NO_BWC (document=%s)', (doc) => {
       for (const otherDoc of documentKinds) {
         const noBwcResult = createAsyncApiCompatibilityScopeFunction(doc, otherDoc)([], {}, {})
-        const expResult = createAsyncApiCompatibilityScopeFunction(swapNoBwc(doc) as ApihubApiCompatibilityKind, swapNoBwc(otherDoc) as ApihubApiCompatibilityKind)([], {}, {})
+        const expResult = createAsyncApiCompatibilityScopeFunction(replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind, replaceNoBwcWithExperimental(otherDoc) as ApihubApiCompatibilityKind)([], {}, {})
         expect(expResult).toBe(noBwcResult)
       }
     })
 
     it.each(documentKinds)('EXPERIMENTAL produces same channel scope results as NO_BWC (document=%s)', (doc) => {
       const scope = createAsyncApiCompatibilityScopeFunction(doc, doc)
-      const expDocScope = createAsyncApiCompatibilityScopeFunction(swapNoBwc(doc) as ApihubApiCompatibilityKind, swapNoBwc(doc) as ApihubApiCompatibilityKind)
+      const expDocScope = createAsyncApiCompatibilityScopeFunction(replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind, replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind)
       for (const before of allKinds) {
         for (const after of allKinds) {
           const noBwcResult = scope(['channels', 'ch1'], buildChannel(before), buildChannel(after))
-          const expResult = expDocScope(['channels', 'ch1'], buildChannel(swapNoBwc(before)), buildChannel(swapNoBwc(after)))
+          const expResult = expDocScope(['channels', 'ch1'], buildChannel(replaceNoBwcWithExperimental(before)), buildChannel(replaceNoBwcWithExperimental(after)))
           expect(expResult).toBe(noBwcResult)
         }
       }
@@ -270,11 +271,11 @@ describe('Changelog backward compatibility scope function', () => {
 
     it.each(documentKinds)('EXPERIMENTAL produces same operation scope results as NO_BWC (document=%s)', (doc) => {
       const scope = createAsyncApiCompatibilityScopeFunction(doc, doc)
-      const expDocScope = createAsyncApiCompatibilityScopeFunction(swapNoBwc(doc) as ApihubApiCompatibilityKind, swapNoBwc(doc) as ApihubApiCompatibilityKind)
+      const expDocScope = createAsyncApiCompatibilityScopeFunction(replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind, replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind)
       for (const before of allKinds) {
         for (const after of allKinds) {
           const noBwcResult = scope(['operations', 'op1'], buildOperation(before), buildOperation(after))
-          const expResult = expDocScope(['operations', 'op1'], buildOperation(swapNoBwc(before)), buildOperation(swapNoBwc(after)))
+          const expResult = expDocScope(['operations', 'op1'], buildOperation(replaceNoBwcWithExperimental(before)), buildOperation(replaceNoBwcWithExperimental(after)))
           expect(expResult).toBe(noBwcResult)
         }
       }

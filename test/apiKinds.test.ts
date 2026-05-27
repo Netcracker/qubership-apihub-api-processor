@@ -523,8 +523,8 @@ describe('Check Api Compatibility Function tests', () => {
     const portal = new LocalRegistry(packageId)
 
     const applyApiKind = (content: string, apiKind: string | undefined): string => {
-      if (apiKind) { return content.replace(/\{\{API_KIND}}/g, apiKind) }
-      return content.replace(/^.*\{\{API_KIND}}.*\n/gm, '')
+      if (apiKind) { return content.replace(/\{\{ API_KIND }}/g, apiKind) }
+      return content.replace(/^.*\{\{ API_KIND }}.*\n/gm, '')
     }
 
     const file1 = await loadFileAsString(DEFAULT_PROJECTS_PATH, templatePackageId, '1.yaml')
