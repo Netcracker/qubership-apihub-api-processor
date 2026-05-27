@@ -523,7 +523,7 @@ describe('Check Api Compatibility Function tests', () => {
     const portal = new LocalRegistry(packageId)
 
     const applyApiKind = (content: string, apiKind: string | undefined): string => {
-      if (apiKind) { return content.replace(/\{\{ API_KIND }}/g, apiKind) }
+      if (apiKind) { return content.replace(/"?\{\{ API_KIND }}"?/g, apiKind) }
       return content.replace(/^.*\{\{ API_KIND }}.*\n/gm, '')
     }
 
@@ -570,7 +570,7 @@ describe('isNoBwcLike', () => {
     [undefined, false],
   ]
 
-  it.each(cases)('should return %s for %s', (kind, expected) => {
+  it.each(cases)('%s should be %s', (kind, expected) => {
     expect(isNoBwcLike(kind)).toBe(expected)
   })
 })

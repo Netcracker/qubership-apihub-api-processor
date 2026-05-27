@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: test
   version: 0.1.0
-  x-api-kind: {{ API_KIND }}
+  x-api-kind: "{{ API_KIND }}"
 paths:
   /path1:
     post:
