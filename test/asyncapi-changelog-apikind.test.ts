@@ -240,7 +240,7 @@ describe('Changelog backward compatibility scope function', () => {
     })
   })
 
-  describe('Experimental equivalence', () => {
+  describe('Experimental produces same scope results as no-BWC', () => {
     const allKinds: ApiKindInput[] = [BWC, NO_BWC, undefined, null]
     const documentKinds: ApihubApiCompatibilityKind[] = [BWC, NO_BWC]
 
@@ -249,7 +249,7 @@ describe('Changelog backward compatibility scope function', () => {
       return kind === NO_BWC ? EXPERIMENTAL : kind
     }
 
-    it.each(documentKinds)('EXPERIMENTAL produces same root scope results as NO_BWC (document=%s)', (doc) => {
+    it.each(documentKinds)('should produce same root scope results as no-BWC (document=%s)', (doc) => {
       for (const otherDoc of documentKinds) {
         const noBwcResult = createAsyncApiCompatibilityScopeFunction(doc, otherDoc)([], {}, {})
         const expResult = createAsyncApiCompatibilityScopeFunction(replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind, replaceNoBwcWithExperimental(otherDoc) as ApihubApiCompatibilityKind)([], {}, {})
@@ -257,7 +257,7 @@ describe('Changelog backward compatibility scope function', () => {
       }
     })
 
-    it.each(documentKinds)('EXPERIMENTAL produces same channel scope results as NO_BWC (document=%s)', (doc) => {
+    it.each(documentKinds)('should produce same channel scope results as no-BWC (document=%s)', (doc) => {
       const scope = createAsyncApiCompatibilityScopeFunction(doc, doc)
       const expDocScope = createAsyncApiCompatibilityScopeFunction(replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind, replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind)
       for (const before of allKinds) {
@@ -269,7 +269,7 @@ describe('Changelog backward compatibility scope function', () => {
       }
     })
 
-    it.each(documentKinds)('EXPERIMENTAL produces same operation scope results as NO_BWC (document=%s)', (doc) => {
+    it.each(documentKinds)('should produce same operation scope results as no-BWC (document=%s)', (doc) => {
       const scope = createAsyncApiCompatibilityScopeFunction(doc, doc)
       const expDocScope = createAsyncApiCompatibilityScopeFunction(replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind, replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind)
       for (const before of allKinds) {
