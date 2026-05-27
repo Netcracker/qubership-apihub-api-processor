@@ -254,25 +254,25 @@ describe('Check Api Compatibility Function tests', () => {
 
     describe('ApiKind info property tests', () => {
       test('should apply info no-BWC property in previous document', async () => {
-        const result = await runApiKindTest('api-kinds/info-noBWC-in-prev-document')
+        const result = await runApiKindTestFromTemplate('api-kinds/info-apiKind', 'no-BWC', undefined)
         expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
         expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
       })
 
       test('should apply info no-BWC property in current document', async () => {
-        const result = await runApiKindTest('api-kinds/info-noBWC-in-curr-document')
+        const result = await runApiKindTestFromTemplate('api-kinds/info-apiKind', undefined, 'no-BWC')
         expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
         expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
       })
 
       test('should prioritize info no-BWC property in current document over info BWC property in previous document', async () => {
-        const result = await runApiKindTest('api-kinds/info-bwc-in-prev-document-info-noBWC-in-curr-document')
+        const result = await runApiKindTestFromTemplate('api-kinds/info-apiKind', 'BWC', 'no-BWC')
         expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
         expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
       })
 
       test('should prioritize info label no-BWC property in previous document over info BWC property in current document', async () => {
-        const result = await runApiKindTest('api-kinds/info-noBWC-in-prev-document-info-bwc-in-curr-document')
+        const result = await runApiKindTestFromTemplate('api-kinds/info-apiKind', 'no-BWC', 'BWC')
         expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
         expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
       })
@@ -314,65 +314,49 @@ describe('Check Api Compatibility Function tests', () => {
 
     describe('Priority Info property and File labels', () => {
       test('should prioritize info no-BWC property in previous document over file label BWC in previous document', async () => {
-        const result = await runApiKindTest(
-          'api-kinds/info-noBWC-in-prev-document', [API_KIND_BWC_LABEL],
-        )
+        const result = await runApiKindTestFromTemplate('api-kinds/info-apiKind', 'no-BWC', undefined, [API_KIND_BWC_LABEL])
         expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
         expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
       })
 
       test('should prioritize info no-BWC property in previous document over file label BWC in current document', async () => {
-        const result = await runApiKindTest(
-          'api-kinds/info-noBWC-in-prev-document', [], [API_KIND_BWC_LABEL],
-        )
+        const result = await runApiKindTestFromTemplate('api-kinds/info-apiKind', 'no-BWC', undefined, [], [API_KIND_BWC_LABEL])
         expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
         expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
       })
 
       test('should prioritize info no-BWC property in current document over file label BWC in previous document', async () => {
-        const result = await runApiKindTest(
-          'api-kinds/info-noBWC-in-curr-document', [API_KIND_BWC_LABEL],
-        )
+        const result = await runApiKindTestFromTemplate('api-kinds/info-apiKind', undefined, 'no-BWC', [API_KIND_BWC_LABEL])
         expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
         expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
       })
 
       test('should prioritize info no-BWC property in current document over file label BWC in current document', async () => {
-        const result = await runApiKindTest(
-          'api-kinds/info-noBWC-in-curr-document', [], [API_KIND_BWC_LABEL],
-        )
+        const result = await runApiKindTestFromTemplate('api-kinds/info-apiKind', undefined, 'no-BWC', [], [API_KIND_BWC_LABEL])
         expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
         expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
       })
 
       test('should prioritize info BWC property in previous document over file label no-BWC in previous document', async () => {
-        const result = await runApiKindTest(
-          'api-kinds/info-bwc-in-prev-document', [API_KIND_NO_BWC_LABEL],
-        )
+        const result = await runApiKindTestFromTemplate('api-kinds/info-apiKind', 'BWC', undefined, [API_KIND_NO_BWC_LABEL])
         expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }))
         expect(result).toEqual(serializedComparisonDocumentMatcher([BREAKING_CHANGE_TYPE]))
       })
 
       test('should prioritize file label no-BWC in current document over info BWC property in previous document', async () => {
-        const result = await runApiKindTest(
-          'api-kinds/info-bwc-in-prev-document', [], [API_KIND_NO_BWC_LABEL],
-        )
+        const result = await runApiKindTestFromTemplate('api-kinds/info-apiKind', 'BWC', undefined, [], [API_KIND_NO_BWC_LABEL])
         expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
         expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
       })
 
       test('should prioritize file label no-BWC in previous document over info BWC property in current document', async () => {
-        const result = await runApiKindTest(
-          'api-kinds/info-bwc-in-curr-document', [API_KIND_NO_BWC_LABEL],
-        )
+        const result = await runApiKindTestFromTemplate('api-kinds/info-apiKind', undefined, 'BWC', [API_KIND_NO_BWC_LABEL])
         expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
         expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
       })
 
       test('should prioritize info BWC property in current document over file label no-BWC in current document', async () => {
-        const result = await runApiKindTest(
-          'api-kinds/info-bwc-in-curr-document', [], [API_KIND_NO_BWC_LABEL],
-        )
+        const result = await runApiKindTestFromTemplate('api-kinds/info-apiKind', undefined, 'BWC', [], [API_KIND_NO_BWC_LABEL])
         expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }))
         expect(result).toEqual(serializedComparisonDocumentMatcher([BREAKING_CHANGE_TYPE]))
       })
@@ -391,25 +375,25 @@ describe('Check Api Compatibility Function tests', () => {
 
   describe('ApiKind operations section tests', () => {
     test('should apply operation no-BWC in current document', async () => {
-      const result = await runApiKindTest('api-kinds/operation-noBWC-in-curr-document')
+      const result = await runApiKindTestFromTemplate('api-kinds/operation-apiKind', undefined, 'no-BWC')
       expect(result).toEqual(changesSummaryMatcher(OPERATION_RISKY_CHANGE_TYPES))
       expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
     })
 
     test('should apply operation no-BWC in previous document', async () => {
-      const result = await runApiKindTest('api-kinds/operation-noBWC-in-prev-document')
+      const result = await runApiKindTestFromTemplate('api-kinds/operation-apiKind', 'no-BWC', undefined)
       expect(result).toEqual(changesSummaryMatcher(OPERATION_RISKY_CHANGE_TYPES))
       expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
     })
 
     test('should prioritize operation no-BWC property in current document over operation BWC property in previous document', async () => {
-      const result = await runApiKindTest('api-kinds/operation-bwc-in-prev-document-operation-noBWC-in-curr-document')
+      const result = await runApiKindTestFromTemplate('api-kinds/operation-apiKind', 'BWC', 'no-BWC')
       expect(result).toEqual(changesSummaryMatcher(OPERATION_RISKY_CHANGE_TYPES))
       expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
     })
 
     test('should prioritize operation no-BWC property in previous document over operation BWC property in current document', async () => {
-      const result = await runApiKindTest('api-kinds/operation-noBWC-in-prev-document-operation-bwc-in-curr-document')
+      const result = await runApiKindTestFromTemplate('api-kinds/operation-apiKind', 'no-BWC', 'BWC')
       expect(result).toEqual(changesSummaryMatcher(OPERATION_RISKY_CHANGE_TYPES))
       expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
     })
@@ -417,49 +401,49 @@ describe('Check Api Compatibility Function tests', () => {
 
   describe('Priority operation ApiKind and default ApiKind', () => {
     test('should prioritize parent no-BWC in previous document over operation BWC property in current document', async () => {
-      const result = await runApiKindTest('api-kinds/operation-bwc-in-curr-document', [API_KIND_NO_BWC_LABEL])
+      const result = await runApiKindTestFromTemplate('api-kinds/operation-apiKind', undefined, 'BWC', [API_KIND_NO_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher(OPERATION_RISKY_CHANGE_TYPES))
       expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
     })
 
     test('should prioritize operation BWC property in current document over default no-BWC in current document', async () => {
-      const result = await runApiKindTest('api-kinds/operation-bwc-in-curr-document', [], [API_KIND_NO_BWC_LABEL])
+      const result = await runApiKindTestFromTemplate('api-kinds/operation-apiKind', undefined, 'BWC', [], [API_KIND_NO_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher(OPERATION_BREAKING_CHANGE_TYPES))
       expect(result).toEqual(serializedComparisonDocumentMatcher([BREAKING_CHANGE_TYPE]))
     })
 
     test('should prioritize operation BWC property in previous document over default no-BWC in previous document', async () => {
-      const result = await runApiKindTest('api-kinds/operation-bwc-in-prev-document', [API_KIND_NO_BWC_LABEL])
+      const result = await runApiKindTestFromTemplate('api-kinds/operation-apiKind', 'BWC', undefined, [API_KIND_NO_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher(OPERATION_BREAKING_CHANGE_TYPES))
       expect(result).toEqual(serializedComparisonDocumentMatcher([BREAKING_CHANGE_TYPE]))
     })
 
     test('should prioritize default no-BWC in current document over operation BWC in previous document', async () => {
-      const result = await runApiKindTest('api-kinds/operation-bwc-in-prev-document', [], [API_KIND_NO_BWC_LABEL])
+      const result = await runApiKindTestFromTemplate('api-kinds/operation-apiKind', 'BWC', undefined, [], [API_KIND_NO_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher(OPERATION_RISKY_CHANGE_TYPES))
       expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
     })
 
     test('should prioritize operation no-BWC property in current document over default BWC in previous document', async () => {
-      const result = await runApiKindTest('api-kinds/operation-noBWC-in-curr-document', [API_KIND_BWC_LABEL])
+      const result = await runApiKindTestFromTemplate('api-kinds/operation-apiKind', undefined, 'no-BWC', [API_KIND_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher(OPERATION_RISKY_CHANGE_TYPES))
       expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
     })
 
     test('should prioritize operation no-BWC property in current document over default BWC in current document', async () => {
-      const result = await runApiKindTest('api-kinds/operation-noBWC-in-curr-document', [], [API_KIND_BWC_LABEL])
+      const result = await runApiKindTestFromTemplate('api-kinds/operation-apiKind', undefined, 'no-BWC', [], [API_KIND_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher(OPERATION_RISKY_CHANGE_TYPES))
       expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
     })
 
     test('should prioritize operation no-BWC property in previous document over default BWC in previous document', async () => {
-      const result = await runApiKindTest('api-kinds/operation-noBWC-in-prev-document', [API_KIND_BWC_LABEL])
+      const result = await runApiKindTestFromTemplate('api-kinds/operation-apiKind', 'no-BWC', undefined, [API_KIND_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher(OPERATION_RISKY_CHANGE_TYPES))
       expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
     })
 
     test('should prioritize operation no-BWC property in previous document over default BWC in current document', async () => {
-      const result = await runApiKindTest('api-kinds/operation-noBWC-in-prev-document', [], [API_KIND_BWC_LABEL])
+      const result = await runApiKindTestFromTemplate('api-kinds/operation-apiKind', 'no-BWC', undefined, [], [API_KIND_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher(OPERATION_RISKY_CHANGE_TYPES))
       expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
     })
@@ -467,19 +451,19 @@ describe('Check Api Compatibility Function tests', () => {
 
   describe('Remove operations tests', () => {
     test('should apply removed operations as BWC by default', async () => {
-      const result = await runApiKindTest('api-kinds/remove-operations-bwc')
+      const result = await runApiKindTestFromTemplate('api-kinds/remove-operations-apiKind', 'BWC', 'BWC')
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }))
       expect(result).toEqual(serializedComparisonDocumentMatcher([BREAKING_CHANGE_TYPE]))
     })
 
     test('should prioritize removed operation BWC property over default no-BWC in previous document', async () => {
-      const result = await runApiKindTest('api-kinds/remove-operations-bwc', [API_KIND_NO_BWC_LABEL])
+      const result = await runApiKindTestFromTemplate('api-kinds/remove-operations-apiKind', 'BWC', 'BWC', [API_KIND_NO_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }))
       expect(result).toEqual(serializedComparisonDocumentMatcher([BREAKING_CHANGE_TYPE]))
     })
 
     test('should prioritize removed operation BWC property over default no-BWC in current document', async () => {
-      const result = await runApiKindTest('api-kinds/remove-operations-bwc', [], [API_KIND_NO_BWC_LABEL])
+      const result = await runApiKindTestFromTemplate('api-kinds/remove-operations-apiKind', 'BWC', 'BWC', [], [API_KIND_NO_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }))
       expect(result).toEqual(serializedComparisonDocumentMatcher([BREAKING_CHANGE_TYPE]))
     })
@@ -487,19 +471,19 @@ describe('Check Api Compatibility Function tests', () => {
 
   describe('Remove pathItem tests', () => {
     test('should apply removed operations as no-BWC by default', async () => {
-      const result = await runApiKindTest('api-kinds/remove-operations-noBWC')
+      const result = await runApiKindTestFromTemplate('api-kinds/remove-operations-apiKind', 'no-BWC', 'no-BWC')
       expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
       expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
     })
 
     test('should prioritize removed operation no-BWC property over default BWC in previous document', async () => {
-      const result = await runApiKindTest('api-kinds/remove-operations-noBWC', [API_KIND_BWC_LABEL])
+      const result = await runApiKindTestFromTemplate('api-kinds/remove-operations-apiKind', 'no-BWC', 'no-BWC', [API_KIND_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
       expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
     })
 
     test('should prioritize removed operation no-BWC property over default BWC in current document', async () => {
-      const result = await runApiKindTest('api-kinds/remove-operations-noBWC', [], [API_KIND_BWC_LABEL])
+      const result = await runApiKindTestFromTemplate('api-kinds/remove-operations-apiKind', 'no-BWC', 'no-BWC', [], [API_KIND_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
       expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
     })
@@ -523,37 +507,37 @@ describe('Check Api Compatibility Function tests', () => {
     })
 
     test('should apply removed pathItem operation BWC by default', async () => {
-      const result = await runApiKindTest('api-kinds/remove-pathItem-operation-bwc-in-prev-document')
+      const result = await runApiKindTestFromTemplate('api-kinds/remove-pathItem-operation-apiKind', 'BWC', undefined)
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }))
       expect(result).toEqual(serializedComparisonDocumentMatcher([BREAKING_CHANGE_TYPE]))
     })
 
     test('should apply removed pathItem operation BWC over no-BWC default from previous document', async () => {
-      const result = await runApiKindTest('api-kinds/remove-pathItem-operation-bwc-in-prev-document', [API_KIND_NO_BWC_LABEL])
+      const result = await runApiKindTestFromTemplate('api-kinds/remove-pathItem-operation-apiKind', 'BWC', undefined, [API_KIND_NO_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }))
       expect(result).toEqual(serializedComparisonDocumentMatcher([BREAKING_CHANGE_TYPE]))
     })
 
     test('should apply removed pathItem operation BWC over no-BWC default from current document', async () => {
-      const result = await runApiKindTest('api-kinds/remove-pathItem-operation-bwc-in-prev-document', [], [API_KIND_NO_BWC_LABEL])
+      const result = await runApiKindTestFromTemplate('api-kinds/remove-pathItem-operation-apiKind', 'BWC', undefined, [], [API_KIND_NO_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }))
       expect(result).toEqual(serializedComparisonDocumentMatcher([BREAKING_CHANGE_TYPE]))
     })
 
     test('should apply removed pathItem operation no-BWC by default', async () => {
-      const result = await runApiKindTest('api-kinds/remove-pathItem-operation-noBWC-in-prev-document')
+      const result = await runApiKindTestFromTemplate('api-kinds/remove-pathItem-operation-apiKind', 'no-BWC', undefined)
       expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
       expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
     })
 
     test('should apply removed pathItem operation no-BWC over BWC default from previous document', async () => {
-      const result = await runApiKindTest('api-kinds/remove-pathItem-operation-noBWC-in-prev-document', [API_KIND_BWC_LABEL])
+      const result = await runApiKindTestFromTemplate('api-kinds/remove-pathItem-operation-apiKind', 'no-BWC', undefined, [API_KIND_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
       expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
     })
 
     test('should apply removed pathItem operation no-BWC over BWC default from current document', async () => {
-      const result = await runApiKindTest('api-kinds/remove-pathItem-operation-noBWC-in-prev-document', [], [API_KIND_BWC_LABEL])
+      const result = await runApiKindTestFromTemplate('api-kinds/remove-pathItem-operation-apiKind', 'no-BWC', undefined, [], [API_KIND_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
       expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
     })
@@ -577,37 +561,37 @@ describe('Check Api Compatibility Function tests', () => {
     })
 
     test('should apply removed pathItem operations BWC by default', async () => {
-      const result = await runApiKindTest('api-kinds/remove-pathItem-operations-bwc-and-bwc-in-prev-document')
+      const result = await runApiKindTestFromTemplate('api-kinds/remove-pathItem-operations-apiKind', 'BWC', undefined)
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 2 }))
       expect(result).toEqual(serializedComparisonDocumentMatcher([BREAKING_CHANGE_TYPE]))
     })
 
     test('should apply removed pathItem operations BWC and BWC over no-BWC default from previous document', async () => {
-      const result = await runApiKindTest('api-kinds/remove-pathItem-operations-bwc-and-bwc-in-prev-document', [API_KIND_NO_BWC_LABEL])
+      const result = await runApiKindTestFromTemplate('api-kinds/remove-pathItem-operations-apiKind', 'BWC', undefined, [API_KIND_NO_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 2 }))
       expect(result).toEqual(serializedComparisonDocumentMatcher([BREAKING_CHANGE_TYPE]))
     })
 
     test('should apply removed pathItem operations BWC and BWC over no-BWC default from current document', async () => {
-      const result = await runApiKindTest('api-kinds/remove-pathItem-operations-bwc-and-bwc-in-prev-document', [], [API_KIND_NO_BWC_LABEL])
+      const result = await runApiKindTestFromTemplate('api-kinds/remove-pathItem-operations-apiKind', 'BWC', undefined, [], [API_KIND_NO_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 2 }))
       expect(result).toEqual(serializedComparisonDocumentMatcher([BREAKING_CHANGE_TYPE]))
     })
 
     test('should apply removed pathItem operations no-BWC by default', async () => {
-      const result = await runApiKindTest('api-kinds/remove-pathItem-operations-noBWC-and-noBWC-in-prev-document')
+      const result = await runApiKindTestFromTemplate('api-kinds/remove-pathItem-operations-apiKind', 'no-BWC', undefined)
       expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 2 }))
       expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
     })
 
     test('should apply removed pathItem operations no-BWC and no-BWC over BWC default from previous document', async () => {
-      const result = await runApiKindTest('api-kinds/remove-pathItem-operations-noBWC-and-noBWC-in-prev-document', [API_KIND_BWC_LABEL])
+      const result = await runApiKindTestFromTemplate('api-kinds/remove-pathItem-operations-apiKind', 'no-BWC', undefined, [API_KIND_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 2 }))
       expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
     })
 
     test('should apply removed pathItem operations no-BWC and no-BWC over BWC default from current document', async () => {
-      const result = await runApiKindTest('api-kinds/remove-pathItem-operations-noBWC-and-noBWC-in-prev-document', [], [API_KIND_BWC_LABEL])
+      const result = await runApiKindTestFromTemplate('api-kinds/remove-pathItem-operations-apiKind', 'no-BWC', undefined, [], [API_KIND_BWC_LABEL])
       expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 2 }))
       expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
     })
@@ -651,13 +635,13 @@ describe('Check Api Compatibility Function tests', () => {
 
     describe('Info property tests', () => {
       test('should apply info property in previous document', async () => {
-        const result = await runApiKindTestFromTemplate('api-kinds/info-noBWC-in-prev-document', name)
+        const result = await runApiKindTestFromTemplate('api-kinds/info-apiKind', name, undefined)
         expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
         expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
       })
 
       test('should apply info property in current document', async () => {
-        const result = await runApiKindTestFromTemplate('api-kinds/info-noBWC-in-curr-document', name)
+        const result = await runApiKindTestFromTemplate('api-kinds/info-apiKind', undefined, name)
         expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
         expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
       })
@@ -665,13 +649,13 @@ describe('Check Api Compatibility Function tests', () => {
 
     describe('Operation section tests', () => {
       test('should apply operation in current document', async () => {
-        const result = await runApiKindTestFromTemplate('api-kinds/operation-noBWC-in-curr-document', name)
+        const result = await runApiKindTestFromTemplate('api-kinds/operation-apiKind', undefined, name)
         expect(result).toEqual(changesSummaryMatcher(OPERATION_RISKY_CHANGE_TYPES))
         expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
       })
 
       test('should apply operation in previous document', async () => {
-        const result = await runApiKindTestFromTemplate('api-kinds/operation-noBWC-in-prev-document', name)
+        const result = await runApiKindTestFromTemplate('api-kinds/operation-apiKind', name, undefined)
         expect(result).toEqual(changesSummaryMatcher(OPERATION_RISKY_CHANGE_TYPES))
         expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
       })
@@ -679,13 +663,13 @@ describe('Check Api Compatibility Function tests', () => {
 
     describe('Remove operations tests', () => {
       test('should apply removed operations as risky', async () => {
-        const result = await runApiKindTestFromTemplate('api-kinds/remove-operations-noBWC', name)
+        const result = await runApiKindTestFromTemplate('api-kinds/remove-operations-apiKind', name, name)
         expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
         expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
       })
 
       test('should apply removed pathItem with operation as risky', async () => {
-        const result = await runApiKindTestFromTemplate('api-kinds/remove-pathItem-operation-noBWC-in-prev-document', name)
+        const result = await runApiKindTestFromTemplate('api-kinds/remove-pathItem-operation-apiKind', name, undefined)
         expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
         expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
       })
@@ -731,13 +715,13 @@ describe('Check Api Compatibility Function tests', () => {
 
     describe('Mixed info property tests', () => {
       test('should apply info no-BWC property in previous document and experimental property in current document', async () => {
-        const result = await runApiKindTest('api-kinds/info-noBWC-in-prev-document-info-experimental-in-curr-document')
+        const result = await runApiKindTestFromTemplate('api-kinds/info-apiKind', 'no-BWC', 'experimental')
         expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
         expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
       })
 
       test('should apply info experimental property in previous document and no-BWC property in current document', async () => {
-        const result = await runApiKindTest('api-kinds/info-experimental-in-prev-document-info-noBWC-in-curr-document')
+        const result = await runApiKindTestFromTemplate('api-kinds/info-apiKind', 'experimental', 'no-BWC')
         expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }))
         expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
       })
@@ -745,13 +729,13 @@ describe('Check Api Compatibility Function tests', () => {
 
     describe('Mixed operation section tests', () => {
       test('should apply operation no-BWC in previous document and experimental in current document', async () => {
-        const result = await runApiKindTest('api-kinds/operation-noBWC-in-prev-document-operation-experimental-in-curr-document')
+        const result = await runApiKindTestFromTemplate('api-kinds/operation-apiKind', 'no-BWC', 'experimental')
         expect(result).toEqual(changesSummaryMatcher(OPERATION_RISKY_CHANGE_TYPES))
         expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
       })
 
       test('should apply operation experimental in previous document and no-BWC in current document', async () => {
-        const result = await runApiKindTest('api-kinds/operation-experimental-in-prev-document-operation-noBWC-in-curr-document')
+        const result = await runApiKindTestFromTemplate('api-kinds/operation-apiKind', 'experimental', 'no-BWC')
         expect(result).toEqual(changesSummaryMatcher(OPERATION_RISKY_CHANGE_TYPES))
         expect(result).toEqual(serializedComparisonDocumentMatcher([RISKY_CHANGE_TYPE]))
       })
@@ -865,22 +849,26 @@ describe('Check Api Compatibility Function tests', () => {
 
   async function runApiKindTestFromTemplate(
     templatePackageId: string,
-    apiKind: string,
+    prevApiKind: string | undefined,
+    currApiKind: string | undefined,
     prevFileLabels?: Labels,
     currFileLabels?: Labels,
     prevVersionLabels?: Labels,
     currVersionLabels?: Labels,
   ): Promise<BuildResult> {
-    const packageId = `${templatePackageId}--${apiKind}`
+    const packageId = `${templatePackageId}--${prevApiKind ?? 'none'}-${currApiKind ?? 'none'}`
     const portal = new LocalRegistry(packageId)
 
-    const replace = (content: string): string => content.replace(/x-api-kind: no-BWC/g, `x-api-kind: ${apiKind}`)
+    const applyApiKind = (content: string, apiKind: string | undefined): string => {
+      if (apiKind) { return content.replace(/x-api-kind: \S+/g, `x-api-kind: ${apiKind}`) }
+      return content.replace(/^.*x-api-kind:.*\n/gm, '')
+    }
 
     const file1 = await loadFileAsString(DEFAULT_PROJECTS_PATH, templatePackageId, '1.yaml')
     const file2 = await loadFileAsString(DEFAULT_PROJECTS_PATH, templatePackageId, '2.yaml')
 
     await portal.publishFromContent(
-      { '1.yaml': replace(file1!) },
+      { '1.yaml': applyApiKind(file1!, prevApiKind) },
       {
         packageId,
         version: PREV_VERSION,
@@ -890,7 +878,7 @@ describe('Check Api Compatibility Function tests', () => {
     )
 
     await portal.publishFromContent(
-      { '2.yaml': replace(file2!) },
+      { '2.yaml': applyApiKind(file2!, currApiKind) },
       {
         packageId,
         version: CURR_VERSION,
