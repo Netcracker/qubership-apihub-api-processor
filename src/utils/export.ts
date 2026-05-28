@@ -107,7 +107,7 @@ export const dump = (
 ): TextBlobConstructorParameters => {
   switch (format) {
     case FILE_FORMAT_YAML:
-      return [[YAML.dump(value)], { type: 'application/yaml' }]
+      return [[YAML.dump(value, { lineWidth: -1 })], { type: 'application/yaml' }]
 
     case FILE_FORMAT_JSON:
       return [[JSON.stringify(value, undefined, 2)], { type: 'application/json' }]
