@@ -33,7 +33,7 @@
   },
   "dependencies": {
     "@asyncapi/parser": "^3.6.0",
-    "@netcracker/qubership-apihub-api-diff": "dev",
+    "@netcracker/qubership-apihub-api-diff": "bugfix-match-combiner-branches-by-direct-ref-origin",
     "@netcracker/qubership-apihub-api-unifier": "dev",
     "@netcracker/qubership-apihub-graphapi": "dev",
     "@netcracker/qubership-apihub-json-crawl": "dev",
