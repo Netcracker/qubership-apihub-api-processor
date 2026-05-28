@@ -1,5 +1,6 @@
 import {
   APIHUB_API_COMPATIBILITY_KIND_BWC,
+  APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL,
   APIHUB_API_COMPATIBILITY_KIND_NO_BWC,
   ApihubApiCompatibilityKind,
   ApiOperation,
@@ -20,6 +21,9 @@ describe('AsyncAPI apiKind calculation', () => {
         [undefined, APIHUB_API_COMPATIBILITY_KIND_NO_BWC, APIHUB_API_COMPATIBILITY_KIND_NO_BWC],
         [APIHUB_API_COMPATIBILITY_KIND_BWC, APIHUB_API_COMPATIBILITY_KIND_NO_BWC, APIHUB_API_COMPATIBILITY_KIND_BWC],
         [APIHUB_API_COMPATIBILITY_KIND_NO_BWC, APIHUB_API_COMPATIBILITY_KIND_BWC, APIHUB_API_COMPATIBILITY_KIND_NO_BWC],
+        // mixed no-bwc and experimental
+        [APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL, APIHUB_API_COMPATIBILITY_KIND_NO_BWC, APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL],
+        [APIHUB_API_COMPATIBILITY_KIND_NO_BWC, APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL, APIHUB_API_COMPATIBILITY_KIND_NO_BWC],
       ]
       data.forEach(([operationApiKind, channelApiKind, expected]) => {
         const result = calculateAsyncApiKind(operationApiKind as ApihubApiCompatibilityKind, channelApiKind as ApihubApiCompatibilityKind)
@@ -27,7 +31,17 @@ describe('AsyncAPI apiKind calculation', () => {
       })
     })
 
-
+    it('should resolve experimental the same way as no-BWC', () => {
+      const data: [ApihubApiCompatibilityKind | undefined, ApihubApiCompatibilityKind | undefined, ApihubApiCompatibilityKind][] = [
+        [APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL, undefined, APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL],
+        [undefined, APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL, APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL],
+        [APIHUB_API_COMPATIBILITY_KIND_BWC, APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL, APIHUB_API_COMPATIBILITY_KIND_BWC],
+        [APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL, APIHUB_API_COMPATIBILITY_KIND_BWC, APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL],
+      ]
+      data.forEach(([operationApiKind, channelApiKind, expected]) => {
+        expect(calculateAsyncApiKind(operationApiKind, channelApiKind)).toBe(expected)
+      })
+    })
   })
 
   describe('AsyncAPI operation/channel compatibility apiKind application', () => {
