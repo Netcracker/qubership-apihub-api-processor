@@ -14,35 +14,15 @@
  * limitations under the License.
  */
 
-import { BuildConfig, BuildConfigFile, BuilderStrategy, BuildResult, BuildTypeContexts, McpDocumentPack, VersionCache } from '../types'
-import { compareVersions } from '../components/compare'
+import { BuildConfig, BuilderStrategy, BuildResult, BuildTypeContexts, VersionCache } from '../types'
+import { compareVersions } from '../components'
 import { applyBuilderVersionInfo } from '../validators'
-import { DuplicateOperationHandler, getOperationsList, setDocument } from '../utils'
+import { getOperationsList } from '../utils'
 import { buildFiles } from '../components/files'
+import { createDuplicateOperationHandler, processOperationDocument } from '../components/operations'
+import { createDuplicateMcpEntityHandler, createMcpBuildContext, finalizeMcp, processMcpDocument } from '../components/mcp'
 import { calculateHistoryForDeprecatedItems } from '../components/deprecated'
-import { ASYNCAPI_API_TYPE, MESSAGE_SEVERITY, REST_API_TYPE } from '../consts'
-import { buildMcpEntities, validateMcpCapabilities } from '../apitypes/mcp'
-
-/**
- * Handles duplicate operationIds found across different documents during build.
- * - AsyncAPI: throws an error, since duplicate operationIds across documents are not allowed.
- * - REST: adds an error notification (non-fatal), since existing published specs may already have duplicates.
- */
-const createDuplicateOperationHandler = (buildResult: BuildResult): DuplicateOperationHandler => (existing, duplicate) => {
-  if (duplicate.apiType === ASYNCAPI_API_TYPE) {
-    throw new Error(
-      `Duplicated operationId '${duplicate.operationId}' found in different documents: ` +
-      `'${existing.documentId}' and '${duplicate.documentId}'`,
-    )
-  }
-  buildResult.notifications.push({
-    severity: MESSAGE_SEVERITY.Error,
-    message: `Duplicated operationId '${duplicate.operationId}' found in different documents: ` +
-      `'${existing.documentId}' and '${duplicate.documentId}'`,
-    operationId: duplicate.operationId,
-    fileId: duplicate.documentId,
-  })
-}
+import { MCP_TYPE, REST_API_TYPE } from '../consts'
 
 export class BuildStrategy implements BuilderStrategy {
   async execute(config: BuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
@@ -52,7 +32,6 @@ export class BuildStrategy implements BuilderStrategy {
       version,
       previousVersion,
       files,
-      mcpPacks,
       refs,
     } = config
 
@@ -65,25 +44,34 @@ export class BuildStrategy implements BuilderStrategy {
       previousVersionCache = await compareContextObject.versionResolver(previousVersion, previousVersionPackageId || packageId)
     }
 
-    const allFiles = [...(files ?? []), ...expandMcpPacks(mcpPacks)]
-
-    if (!allFiles.length && !refs?.length) {
+    if (!files?.length && !refs?.length) {
       throw new Error('Incorrect config: No files and refs')
     }
 
-    if (allFiles.length) {
-      const buildFilesResult = await buildFiles(allFiles, builderContextObject)
+    if (files?.length) {
+      const buildFilesResult = await buildFiles(files, builderContextObject)
+
       const handleDuplicateOperation = createDuplicateOperationHandler(buildResult)
-      for (const { document, operations = [] } of buildFilesResult) {
-        setDocument(buildResult, document, operations, handleDuplicateOperation)
+      const handleDuplicateMcp = createDuplicateMcpEntityHandler()
+      const mcpCtx = createMcpBuildContext()
+
+      for (const { file, document, builder } of buildFilesResult) {
+        buildResult.documents.set(document.fileId, document)
+        if (!builder || document.publish === false) { continue }
+
+        if (builder.apiType === MCP_TYPE) {
+          processMcpDocument(file, document, builder, mcpCtx, handleDuplicateMcp)
+        } else {
+          await processOperationDocument(document, builder, builderContextObject, buildResult, handleDuplicateOperation)
+        }
       }
 
-      // Extract MCP entities from MCP documents (separate from operations)
-      buildResult.mcp = buildMcpEntities(buildResult.documents)
-      buildResult.notifications.push(...validateMcpCapabilities(buildResult.mcp))
+      const mcpResult = finalizeMcp(mcpCtx, buildResult.documents)
+      buildResult.mcpEntities = mcpResult.mcpEntities
+      buildResult.mcpEntityData = mcpResult.mcpEntityData
+      buildResult.notifications.push(...mcpResult.notifications)
 
       if (!builderContextObject.builderRunOptions.withoutDeprecatedDepth && previousVersionCache) {
-        // add deprecated depth
         await calculateHistoryForDeprecatedItems(
           REST_API_TYPE,
           getOperationsList(buildResult),
@@ -106,18 +94,4 @@ export class BuildStrategy implements BuilderStrategy {
 
     return buildResult
   }
-}
-
-function expandMcpPacks(mcpPacks?: McpDocumentPack[]): BuildConfigFile[] {
-  if (!mcpPacks?.length) { return [] }
-  const files: BuildConfigFile[] = []
-  for (const pack of mcpPacks) {
-    if (!pack.mcpEndpoint) {
-      throw new Error('MCP document pack is missing required \'mcpEndpoint\' property')
-    }
-    for (const fileId of pack.fileIds) {
-      files.push({ fileId, mcpEndpoint: pack.mcpEndpoint })
-    }
-  }
-  return files
 }

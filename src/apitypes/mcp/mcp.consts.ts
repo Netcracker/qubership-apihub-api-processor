@@ -14,22 +14,21 @@
  * limitations under the License.
  */
 
-import { FILE_FORMAT_JSON } from '../../consts'
-import { ResolvedVersionDocument, ZippableDocument } from '../../types'
+import { MCP_TYPE } from '../../consts'
+import { ZippableDocument } from '../../types'
+import { ResolvedVersionDocument } from '../../types/external'
 
-export const MCP_SCHEMA_VERSION = '2025-11-25'
+export const MCP_API_TYPE = MCP_TYPE
 
 export const MCP_DOCUMENT_TYPE = {
-  TOOLS: 'mcp-tools',
-  RESOURCES: 'mcp-resources',
-  PROMPTS: 'mcp-prompts',
-  INIT: 'mcp-init',
+  MCP_INIT: 'mcp-init',
+  MCP_TOOLS: 'mcp-tools',
+  MCP_RESOURCES: 'mcp-resources',
+  MCP_PROMPTS: 'mcp-prompts',
 } as const
 
-export const MCP_FILE_FORMAT = {
-  JSON: FILE_FORMAT_JSON,
-} as const
+export const MCP_DOCUMENT_TYPES = Object.values(MCP_DOCUMENT_TYPE)
 
 export function isMcpDocument(document: ZippableDocument | ResolvedVersionDocument): boolean {
-  return Object.values(MCP_DOCUMENT_TYPE).some(type => document.type === type)
+  return MCP_DOCUMENT_TYPES.includes(document.type as typeof MCP_DOCUMENT_TYPES[number])
 }

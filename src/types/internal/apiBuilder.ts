@@ -42,7 +42,7 @@ import { SourceFile, TextFile } from './internal'
 import { ApiOperation } from './operation'
 import { Diff } from '@netcracker/qubership-apihub-api-diff'
 import { ResolvedPackage } from '../external/package'
-import { FILE_FORMAT_JSON, FILE_FORMAT_YAML, GRAPHQL_API_TYPE, REST_API_TYPE, ASYNCAPI_API_TYPE } from '../../consts'
+import { FILE_FORMAT_JSON, FILE_FORMAT_YAML, GRAPHQL_API_TYPE, REST_API_TYPE, ASYNCAPI_API_TYPE, MCP_TYPE } from '../../consts'
 import { OpenApiExtensionKey } from '@netcracker/qubership-apihub-api-unifier'
 import { OperationsMap } from '../../components'
 import { ObjectHashCache } from '../../utils/hashes'
@@ -53,7 +53,7 @@ export type BuilderType =
   | typeof ASYNCAPI_API_TYPE
   | typeof TEXT_API_TYPE
   | typeof UNKNOWN_API_TYPE
-  | string  // for MCP and future non-operation API types
+  | typeof MCP_TYPE
 
 export interface BuilderContext<T = any> {
   apiBuilders: ApiBuilder<T>[]
@@ -113,6 +113,7 @@ export type FileParser = (fileId: string, data: Blob) => Promise<SourceFile | un
 export type DocumentBuilder<T> = (parsedFile: TextFile, file: BuildConfigFile, ctx: BuilderContext<T>) => Promise<VersionDocument<T>>
 export type OperationsBuilder<T, M = any> = (document: VersionDocument<T>, ctx: BuilderContext<T>) => Promise<ApiOperation<M>[]>
 export type DocumentDumper<T> = (document: ZippableDocument<T>, format?: typeof FILE_FORMAT_YAML | typeof FILE_FORMAT_JSON) => Blob
+export type ContractsBuilder<T> = (document: VersionDocument<T>, file: BuildConfigFile) => unknown[]
 export type OperationDataCompare<T> = (current: T, previous: T, ctx: CompareOperationsPairContext) => Promise<Diff[]>
 export type DocumentsCompareData = {
   operationChanges: OperationChanges[]
@@ -141,6 +142,8 @@ export interface ApiBuilder<T = any, O = any, M = any> {
   buildDocument: DocumentBuilder<T>
   dumpDocument: DocumentDumper<T>
   buildOperations?: OperationsBuilder<T, M>
+  // todo fix
+  buildContracts?: ContractsBuilder<T>
   compareOperationsData?: OperationDataCompare<O>
   compareDocuments?: DocumentsCompare
   createNormalizedOperationId?: OperationIdNormalizer

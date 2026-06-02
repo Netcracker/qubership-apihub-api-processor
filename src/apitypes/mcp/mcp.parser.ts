@@ -14,99 +14,118 @@
  * limitations under the License.
  */
 
-import { MCP_DOCUMENT_TYPE, MCP_FILE_FORMAT } from './mcp.consts'
-import { McpDocument } from './mcp.types'
-import mcpToolsSchema from './schemas/mcp-tools.json'
-import mcpResourcesSchema from './schemas/mcp-resources.json'
-import mcpPromptsSchema from './schemas/mcp-prompts.json'
-import mcpInitSchema from './schemas/mcp-init.json'
 import { FILE_KIND, TextFile } from '../../types'
-import { getFileExtension, validateDocument } from '../../utils'
-import { isObject } from '../../utils/objects'
+import { getFileExtension } from '../../utils'
+import { FILE_FORMAT_JSON } from '../../consts'
+import { MCP_DOCUMENT_TYPE } from './mcp.consts'
+import { McpEntityRaw, ParsedMcpData } from './mcp.types'
+import { McpKind, MCP_KIND } from '../../types'
+import { isObject, isString } from '../../utils'
 
-type McpDetectionResult = {
-  type: (typeof MCP_DOCUMENT_TYPE)[keyof typeof MCP_DOCUMENT_TYPE]
-  schema: object
-}
-
-/**
- * Detects whether a parsed JSON object is an MCP document and which type.
- *
- * Detection rules:
- * - Has `capabilities` object + `protocolVersion` string + `serverInfo` object → mcp-init
- * - Has a top-level `tools` array of objects → mcp-tools
- * - Has a top-level `resources` array of objects → mcp-resources
- * - Has a top-level `prompts` array of objects → mcp-prompts
- *
- * Init detection is checked first because it is the most specific (3 required fields).
- *
- * Schema validation (including required fields like `name`) is performed
- * separately after detection.
- */
-function detectMcpType(data: unknown): McpDetectionResult | undefined {
-  if (!isObject(data)) {
-    return undefined
-  }
-
-  const obj = data as Record<string, unknown>
-
+function detectMcpDocumentType(obj: Record<string, unknown>): string | undefined {
   if (isObject(obj.capabilities) && typeof obj.protocolVersion === 'string' && isObject(obj.serverInfo)) {
-    return { type: MCP_DOCUMENT_TYPE.INIT, schema: mcpInitSchema }
+    return MCP_DOCUMENT_TYPE.MCP_INIT
   }
-
-  if (Array.isArray(obj.tools) && (obj.tools.length === 0 || isObject(obj.tools[0]))) {
-    return { type: MCP_DOCUMENT_TYPE.TOOLS, schema: mcpToolsSchema }
-  }
-
-  if (Array.isArray(obj.resources) && (obj.resources.length === 0 || isObject(obj.resources[0]))) {
-    return { type: MCP_DOCUMENT_TYPE.RESOURCES, schema: mcpResourcesSchema }
-  }
-
-  if (Array.isArray(obj.prompts) && (obj.prompts.length === 0 || isObject(obj.prompts[0]))) {
-    return { type: MCP_DOCUMENT_TYPE.PROMPTS, schema: mcpPromptsSchema }
-  }
-
+  if (Array.isArray(obj.tools)) { return MCP_DOCUMENT_TYPE.MCP_TOOLS }
+  if (Array.isArray(obj.resources)) { return MCP_DOCUMENT_TYPE.MCP_RESOURCES }
+  if (Array.isArray(obj.prompts)) { return MCP_DOCUMENT_TYPE.MCP_PROMPTS }
   return undefined
 }
 
-export const parseMcpFile = async (fileId: string, source: Blob): Promise<TextFile<McpDocument> | undefined> => {
-  const sourceString = await source.text()
+const LIST_TYPE_MAPPING: Record<string, { key: string; kind: McpKind }> = {
+  [MCP_DOCUMENT_TYPE.MCP_TOOLS]: { key: 'tools', kind: MCP_KIND.TOOL },
+  [MCP_DOCUMENT_TYPE.MCP_RESOURCES]: { key: 'resources', kind: MCP_KIND.RESOURCE },
+  [MCP_DOCUMENT_TYPE.MCP_PROMPTS]: { key: 'prompts', kind: MCP_KIND.PROMPT },
+}
+
+// A list item (tool/resource/prompt) is only usable if it carries a non-empty string `name`:
+// the name becomes a segment of the MCP entity id, so an empty one would yield a degenerate id
+// and collide with any other nameless entity. Validate it once here instead of casting blindly.
+type McpListItemRaw = Record<string, unknown> & { name: string }
+
+function hasValidName(item: Record<string, unknown>): item is McpListItemRaw {
+  return isString(item.name) && item.name.trim().length > 0
+}
+
+interface ExtractEntitiesResult {
+  entities: McpEntityRaw[]
+  errors: { message: string }[]
+}
+
+function extractEntities(obj: Record<string, unknown>, docType: string): ExtractEntitiesResult {
+  if (docType === MCP_DOCUMENT_TYPE.MCP_INIT) {
+    return { entities: [{ kind: MCP_KIND.INIT, name: 'initialize', data: obj }], errors: [] }
+  }
+
+  const mapping = LIST_TYPE_MAPPING[docType]
+  if (!mapping) { return { entities: [], errors: [] } }
+
+  const arr = obj[mapping.key]
+  if (!Array.isArray(arr)) { return { entities: [], errors: [] } }
+
+  const entities: McpEntityRaw[] = []
+  const errors: { message: string }[] = []
+
+  arr.forEach((item, index) => {
+    if (!isObject(item)) {
+      errors.push({ message: `Skipped ${mapping.kind} at index ${index}: expected an object` })
+      return
+    }
+    if (!hasValidName(item)) {
+      errors.push({ message: `Skipped ${mapping.kind} at index ${index}: missing or empty required 'name'` })
+      return
+    }
+    entities.push({
+      kind: mapping.kind,
+      name: item.name,
+      description: isString(item.description) ? item.description : undefined,
+      data: item,
+    })
+  })
+
+  return { entities, errors }
+}
+
+export const parseMcpFile = async (fileId: string, source: Blob): Promise<TextFile<ParsedMcpData> | undefined> => {
   const extension = getFileExtension(fileId)
-
-  // MCP documents are JSON only
-  if (extension !== MCP_FILE_FORMAT.JSON && !sourceString.trimStart().startsWith('{')) {
+  if (extension !== FILE_FORMAT_JSON) {
     return undefined
   }
 
-  let data: unknown
+  const data = await source.text()
+  let parsed: unknown
   try {
-    data = JSON.parse(sourceString)
+    parsed = JSON.parse(data)
   } catch {
+    // MCP document type is detected from the parsed object's shape, so at this point
+    // we don't yet know whether this is an MCP file. Invalid JSON simply means it cannot
+    // be one — return undefined to let the next builder in the chain claim the file
+    // (parseFile rethrows on a thrown error, which would abort the whole parse chain).
     return undefined
   }
 
-  const detection = detectMcpType(data)
-  if (!detection) {
+  if (!isObject(parsed) || Array.isArray(parsed)) {
     return undefined
   }
 
-  // Validate against MCP schema
-  const validationErrors = validateDocument(detection.schema, data)
+  const obj = parsed as Record<string, unknown>
+  const docType = detectMcpDocumentType(obj)
+  if (!docType) {
+    return undefined
+  }
 
-  if (validationErrors.length > 0) {
-    const errorMessages = validationErrors
-      .map(err => err.message || String(err))
-      .join('; ')
-    throw new Error(`MCP validation failed for '${fileId}': ${errorMessages}`)
+  const { entities, errors } = extractEntities(obj, docType)
+  if (entities.length === 0) {
+    return undefined
   }
 
   return {
     fileId,
-    type: detection.type,
-    format: MCP_FILE_FORMAT.JSON,
-    data: data as McpDocument,
+    type: docType,
+    format: FILE_FORMAT_JSON,
+    data: { entities, rawJson: obj },
     source,
-    errors: undefined,
     kind: FILE_KIND.TEXT,
+    errors: errors.length ? errors : undefined,
   }
 }

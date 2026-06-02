@@ -19,7 +19,6 @@ import {
   ApiDocument,
   ApiOperation,
   BuilderContext,
-  BuildResult,
   ExportFormat,
   FILE_KIND,
   FileFormat,
@@ -114,22 +113,6 @@ export type DuplicateOperationHandler = (
   existing: ApiOperation,
   duplicate: ApiOperation,
 ) => void
-
-export function setDocument(
-  buildResult: BuildResult,
-  document: VersionDocument,
-  operations: ApiOperation[] = [],
-  handleDuplicateOperation?: DuplicateOperationHandler,
-): void {
-  buildResult.documents.set(document.fileId, document)
-  for (const operation of operations) {
-    const existingOperation = buildResult.operations.get(operation.operationId)
-    if (existingOperation && handleDuplicateOperation) {
-      handleDuplicateOperation(existingOperation, operation)
-    }
-    buildResult.operations.set(operation.operationId, operation)
-  }
-}
 
 export const findSharedPath = (fileIds: string[]): string => {
   if (!fileIds.length) { return '' }

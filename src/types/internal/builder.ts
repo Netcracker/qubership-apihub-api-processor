@@ -14,14 +14,23 @@
  * limitations under the License.
  */
 
-import { BuildConfig, BuilderResolvers, FileId, PackageId, ResolvedVersion, VersionId } from '../external'
+import {
+  BuildConfig,
+  BuildConfigFile,
+  BuilderResolvers,
+  FileId,
+  PackageId,
+  ResolvedVersion,
+  VersionId,
+} from '../external'
 import { VersionsComparison, VersionsComparisonDto } from './compare'
 import { PackageConfig } from '../package/config'
 import { NotificationMessage } from '../package/notifications'
 import { ExportDocument, VersionDocument } from './documents'
 import { SourceFile } from './internal'
 import { ApiOperation } from './operation'
-import { McpBuildResult } from '../../apitypes/mcp/mcp.types'
+import { ApiBuilder } from './apiBuilder'
+import { PackageMcpEntity } from '../package'
 
 export type VersionCache = ResolvedVersion & {
   packageId: PackageId
@@ -35,8 +44,9 @@ export interface BuildResultDto {
   documents: Map<string, VersionDocument>
   exportDocuments: ExportDocument[]
   operations: Map<string, ApiOperation>
-  mcp: McpBuildResult
   merged?: VersionDocument
+  mcpEntities: Map<string, PackageMcpEntity>
+  mcpEntityData: Map<string, unknown>
 }
 
 export interface BuildResult {
@@ -47,8 +57,9 @@ export interface BuildResult {
   exportDocuments: ExportDocument[]
   exportFileName?: string
   operations: Map<string, ApiOperation>
-  mcp: McpBuildResult
   merged?: VersionDocument
+  mcpEntities: Map<string, PackageMcpEntity>
+  mcpEntityData: Map<string, unknown>
 }
 
 export type BuilderConfiguration = {
@@ -96,8 +107,9 @@ export type BuilderRunOptions = Partial<{
 }>
 
 export interface BuildFileResult<T = any> {
+  file: BuildConfigFile
   document: VersionDocument<T>
-  operations?: ApiOperation[]
+  builder?: ApiBuilder
 }
 
 

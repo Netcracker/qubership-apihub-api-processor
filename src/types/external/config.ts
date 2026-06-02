@@ -67,7 +67,6 @@ export interface BuildConfig extends BuildConfigBase {
 
   refs?: BuildConfigRef[]
   files?: BuildConfigFile[]
-  mcpPacks?: McpDocumentPack[]
 
   metadata?: Record<string, unknown>
   format?: ExportFormat
@@ -99,7 +98,6 @@ export interface PublishBuildConfig extends BuildConfigBase {
   versionLabels?: string[]
   refs?: BuildConfigRef[]
   files?: BuildConfigFile[]
-  mcpPacks?: McpDocumentPack[]
 
   metadata?: Record<string, unknown>
 }
@@ -214,18 +212,13 @@ export interface BuildConfigFile {
   // deprecated
   publish?: boolean
 
+  metadata?: Record<string, unknown>
+
   // other params (should pass through to output config)
   [key: string]: unknown
-
-  // labels?: string[]
 }
 
 export interface BuildConfigRef {
   refId: string
   version: string
-}
-
-export interface McpDocumentPack {
-  mcpEndpoint: string
-  fileIds: FileId[]
 }

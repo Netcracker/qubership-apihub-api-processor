@@ -14,23 +14,27 @@
  * limitations under the License.
  */
 
-import { buildMcpDocument, dumpMcpDocument } from './mcp.document'
-import { MCP_DOCUMENT_TYPE } from './mcp.consts'
-import { parseMcpFile } from './mcp.parser'
 import { ApiBuilder } from '../../types'
-import { McpDocument } from './mcp.types'
-import { MCP_API_TYPE } from '../../consts'
+import { MCP_API_TYPE, MCP_DOCUMENT_TYPES } from './mcp.consts'
+import { parseMcpFile } from './mcp.parser'
+import { buildMcpDocument, dumpMcpDocument } from './mcp.document'
+import { buildMcpEntities } from './mcp.entities'
+import { ParsedMcpData } from './mcp.types'
 
 export * from './mcp.consts'
+export * from './mcp.entities'
+export * from './mcp.parser'
 export * from './mcp.types'
-export { buildMcpEntities, validateMcpCapabilities } from './mcp.entities'
 
-export const mcpApiBuilder: ApiBuilder<McpDocument> = {
+export const mcpBuilder: ApiBuilder<ParsedMcpData> = {
   apiType: MCP_API_TYPE,
-  types: Object.values(MCP_DOCUMENT_TYPE),
+  types: [...MCP_DOCUMENT_TYPES],
   parser: parseMcpFile,
   buildDocument: buildMcpDocument,
   dumpDocument: dumpMcpDocument,
-  // No buildOperations — MCP entities are not operations.
-  // Entity extraction is handled by buildMcpEntities, called from BuildStrategy.
+  buildContracts: (document, file) => {
+    const {data} = document
+    if (!data?.entities) { return [] }
+    return buildMcpEntities(document.fileId, data, file)
+  },
 }

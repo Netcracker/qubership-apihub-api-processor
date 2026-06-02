@@ -14,10 +14,32 @@
  * limitations under the License.
  */
 
-export * from './comparisons'
-export * from './config'
-export * from './mcp'
-export * from './deprecated'
-export * from './documents'
-export * from './notifications'
-export * from './operations'
+export const MCP_KIND = {
+  INIT: 'init',
+  TOOL: 'tool',
+  PROMPT: 'prompt',
+  RESOURCE: 'resource',
+} as const
+
+export type McpKind = typeof MCP_KIND[keyof typeof MCP_KIND]
+
+export interface McpEntitySearch {
+  useEntityDataAsSearchText: boolean
+}
+
+export interface PackageMcpEntity {
+  mcpEntityId: string
+  kind: McpKind
+  title: string
+  description: string
+  mcpEndpoint: string
+  search: McpEntitySearch
+  documentId: string
+}
+
+export interface PackageMcpFile {
+  inits: PackageMcpEntity[]
+  tools: PackageMcpEntity[]
+  resources: PackageMcpEntity[]
+  prompts: PackageMcpEntity[]
+}

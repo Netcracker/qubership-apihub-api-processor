@@ -52,6 +52,7 @@ export interface VersionDocument<T = any> extends ZippableDocument<T> {
   filename: string
   dependencies: string[]
   operationIds: OperationId[]
+  mcpEntityIds?: string[]
   metadata: Record<string, unknown>
   errors?: number
   /*

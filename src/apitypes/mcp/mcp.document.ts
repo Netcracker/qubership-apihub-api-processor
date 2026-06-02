@@ -15,40 +15,34 @@
  */
 
 import { DocumentBuilder, DocumentDumper, VersionDocument } from '../../types'
-import { FILE_FORMAT, FILE_FORMAT_JSON } from '../../consts'
+import { FILE_FORMAT_JSON } from '../../consts'
+import { ParsedMcpData } from './mcp.types'
 import { createVersionInternalDocument, getDocumentTitle } from '../../utils'
-import { dump } from '../../utils/apihubSpecificationExtensions'
-import { McpDocument, McpDocumentMetadata } from './mcp.types'
 
-export const buildMcpDocument: DocumentBuilder<McpDocument> = async (parsedFile, file, _ctx): Promise<VersionDocument<McpDocument>> => {
-  const { fileId, slug = '', publish = true, mcpEndpoint, ...fileMetadata } = file
-  const { type, fileId: parsedFileId, source, data, errors } = parsedFile
-
-  const metadata: McpDocumentMetadata = {
-    ...fileMetadata,
-    mcpEndpoint: mcpEndpoint as string,
-  }
-
+export const buildMcpDocument: DocumentBuilder<ParsedMcpData> = async (parsedFile, file): Promise<VersionDocument<ParsedMcpData>> => {
+  const { fileId, slug = '', publish = true, ...fileMetadata } = file
+  const data = parsedFile.data as ParsedMcpData
   return {
-    fileId: parsedFileId,
-    type,
-    format: FILE_FORMAT.JSON,
+    fileId,
+    type: parsedFile.type,
+    format: FILE_FORMAT_JSON,
     data,
     slug,
-    filename: `${slug}.${FILE_FORMAT.JSON}`,
+    publish,
+    filename: `${slug}.${FILE_FORMAT_JSON}`,
     title: getDocumentTitle(fileId),
-    operationIds: [],
     dependencies: [],
     description: '',
+    operationIds: [],
+    metadata: fileMetadata,
+    source: parsedFile.source,
     version: undefined,
-    metadata,
-    publish,
-    source,
-    errors: errors?.length ?? 0,
+    errors: 0,
     versionInternalDocument: createVersionInternalDocument(slug),
   }
 }
 
-export const dumpMcpDocument: DocumentDumper<McpDocument> = (document, _format) => {
-  return new Blob(...dump(document.data, FILE_FORMAT_JSON))
+export const dumpMcpDocument: DocumentDumper<ParsedMcpData> = (document) => {
+  const data = document.data as ParsedMcpData
+  return new Blob([JSON.stringify(data.rawJson, null, 2)], { type: 'application/json' })
 }

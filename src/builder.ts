@@ -52,16 +52,19 @@ import {
   VersionCache,
   VersionDocument,
 } from './types/internal'
-import type { NotificationMessage, PackageConfig } from './types/package'
+import type {
+  NotificationMessage,
+  PackageConfig,
+  PackageMcpEntity,
+} from './types/package'
 import {
   asyncApiBuilder,
   graphqlApiBuilder,
-  mcpApiBuilder,
+  mcpBuilder,
   restApiBuilder,
   textApiBuilder,
   unknownApiBuilder,
 } from './apitypes'
-import { McpBuildResult, createEmptyMcpBuildResult } from './apitypes/mcp/mcp.types'
 import { filesDiff, findSharedPath, getCompositeKey, getFileExtension, getOperationsList } from './utils'
 import {
   BUILD_TYPE,
@@ -69,6 +72,7 @@ import {
   DEFAULT_VALIDATION_RULES_SEVERITY_CONFIG,
   EXPORT_BUILD_TYPES,
   MESSAGE_SEVERITY,
+  MCP_TYPE,
   REST_API_TYPE,
   SUPPORTED_FILE_FORMATS,
   VERSION_STATUS,
@@ -78,6 +82,8 @@ import { createVersionPackage } from './components/package'
 import { compareVersions } from './components/compare'
 import { applyBuilderVersionInfo } from './validators'
 import { buildFiles } from './components/files'
+import { createDuplicateMcpEntityHandler, McpBuildContext, processMcpDocument, validateMcpCapabilities } from './components/mcp'
+import { createDuplicateOperationHandler, processOperationDocument } from './components/operations'
 import JSZip from 'jszip'
 import { calculateHistoryForDeprecatedItems } from './components/deprecated'
 import { JsZipTool } from './components/js-zip-tool'
@@ -103,7 +109,6 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
   exportDocuments: ExportDocument[] = []
   exportFileName?: string
   operations = new Map<string, ApiOperation>()
-  mcp: McpBuildResult = createEmptyMcpBuildResult()
   comparisons: VersionsComparison[] = []
 
   versionsCache = new Map<string, VersionCache>()
@@ -117,12 +122,15 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
 
   normalizedSpecFragmentsHashCache = new WeakMap<object, string>()
 
+  mcpEntities = new Map<string, PackageMcpEntity>()
+  mcpEntityData = new Map<string, unknown>()
+
   readonly parsedFiles: Map<string, SourceFile> = new Map()
 
   private basePath: string = ''
 
   constructor(config: BuildConfig, public params: BuilderParams, fileSources?: FileSourceMap) {
-    this.apiBuilders.push(restApiBuilder, graphqlApiBuilder, asyncApiBuilder, mcpApiBuilder, textApiBuilder, unknownApiBuilder)
+    this.apiBuilders.push(restApiBuilder, graphqlApiBuilder, asyncApiBuilder, mcpBuilder, textApiBuilder, unknownApiBuilder)
     this.config = {
       previousVersion: '',
       previousVersionPackageId: '',
@@ -176,7 +184,6 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
   get buildResult(): BuildResult {
     return {
       operations: this.operations,
-      mcp: this.mcp,
       comparisons: this.comparisons,
       documents: this.documents,
       exportDocuments: this.exportDocuments,
@@ -184,18 +191,21 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       config: this.packageConfig,
       notifications: this.notifications,
       merged: this.merged,
+      mcpEntities: this.mcpEntities,
+      mcpEntityData: this.mcpEntityData,
     }
   }
 
   private setBuildResult(buildResult: BuildResult): void {
     this.operations = buildResult.operations
-    this.mcp = buildResult.mcp
     this.comparisons = buildResult.comparisons
     this.documents = buildResult.documents
     this.exportDocuments = buildResult.exportDocuments
     this.exportFileName = buildResult.exportFileName
     this.notifications = buildResult.notifications
     this.merged = buildResult.merged
+    this.mcpEntities = buildResult.mcpEntities
+    this.mcpEntityData = buildResult.mcpEntityData
   }
 
   builderContext(config: BuildConfigBase): BuilderContext {
@@ -760,8 +770,14 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     this.config = config
     const { version, packageId, previousVersion, previousVersionPackageId } = this.config
 
-    this.removeOutdatedCaches(changedFiles, previousConfig)
-    await this.rebuildChangedFiles(changedFiles)
+    const mcpFilesRemoved = this.removeOutdatedCaches(changedFiles, previousConfig)
+    const mcpFilesChanged = await this.rebuildChangedFiles(changedFiles)
+
+    // entities themselves are updated granularly above; the capability cross-check is global,
+    // so refresh its notifications whenever any MCP file was added, changed or removed.
+    if (mcpFilesRemoved || mcpFilesChanged) {
+      this.revalidateMcpCapabilities()
+    }
 
     const needToRecalculateComparisons = (previousConfig.previousVersion !== previousVersion || !!changedFiles.length) && !options.withoutChangelog
 
@@ -793,31 +809,38 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     return this.buildResult
   }
 
-  private removeOutdatedCaches(changedFiles: FileId[], previousConfig: BuildConfig): void {
-    // delete updated files from cache
+  private removeOutdatedCaches(changedFiles: FileId[], previousConfig: BuildConfig): boolean {
     for (const id of changedFiles) {
       this.parsedFiles.delete(id)
     }
 
-    // delete removed documents and operations
+    let hasMcpChanges = false
     const removedFileIds = filesDiff(previousConfig.files!, this.config.files!).map(({ fileId }) => fileId)
     for (const removedFileId of removedFileIds) {
       const document = this.documents.get(removedFileId)
+      if (!document) { continue }
 
-      document?.operationIds.forEach(operationId => {
+      document.operationIds?.forEach(operationId => {
         this.operations.delete(operationId)
       })
-
+      // mcpEntities is a flat map keyed by id, so a removed document's entities drop out granularly
+      document.mcpEntityIds?.forEach(entityId => {
+        this.mcpEntities.delete(entityId)
+        this.mcpEntityData.delete(entityId)
+        hasMcpChanges = true
+      })
       this.documents.delete(removedFileId)
     }
+    return hasMcpChanges
   }
 
-  private async rebuildChangedFiles(changedFileIds: FileId[]): Promise<void> {
-    // build only changed or added files
-    if (changedFileIds.length) {
-      this.basePath = findSharedPath(this.config.files!.map(({ fileId }) => fileId).filter(Boolean))
-      await this.rebuildFiles(this.config.files!.filter(file => changedFileIds.includes(file.fileId)))
+  private async rebuildChangedFiles(changedFileIds: FileId[]): Promise<boolean> {
+    // build only changed or added files; returns whether any of them were MCP files
+    if (!changedFileIds.length) {
+      return false
     }
+    this.basePath = findSharedPath(this.config.files!.map(({ fileId }) => fileId).filter(Boolean))
+    return this.rebuildFiles(this.config.files!.filter(file => changedFileIds.includes(file.fileId)))
   }
 
   private updateDocumentLabelsFromConfig(config: BuildConfig): void {
@@ -862,23 +885,48 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     }
   }
 
-  private async rebuildFiles(changedFiles: BuildConfigFile[]): Promise<void> {
+  private async rebuildFiles(changedFiles: BuildConfigFile[]): Promise<boolean> {
     for (const changedFile of changedFiles) {
       const previousDocument = this.documents.get(changedFile.fileId)
-      // remove current operations
       if (previousDocument) {
         previousDocument.operationIds?.forEach(operationId => {
           this.operations.delete(operationId)
         })
-
+        previousDocument.mcpEntityIds?.forEach(entityId => {
+          this.mcpEntities.delete(entityId)
+          this.mcpEntityData.delete(entityId)
+        })
         this.documents.delete(previousDocument.fileId)
       }
     }
 
-    const buildFilesResult = await buildFiles(changedFiles, this.builderContext(this.config))
-    for (const { document, operations = [] } of buildFilesResult) {
-      this.setDocument(document, operations)
+    const ctx = this.builderContext(this.config)
+    const buildFilesResult = await buildFiles(changedFiles, ctx)
+
+    const { buildResult } = this
+    const handleDuplicateOperation = createDuplicateOperationHandler(buildResult)
+    const handleDuplicateMcp = createDuplicateMcpEntityHandler()
+    const mcpCtx: McpBuildContext = { mcpEntities: this.mcpEntities, mcpEntityData: this.mcpEntityData }
+    let hasMcpChanges = false
+
+    for (const { file, document, builder } of buildFilesResult) {
+      this.documents.set(document.fileId, document)
+      if (!builder || document.publish === false) { continue }
+
+      if (builder.apiType === MCP_TYPE) {
+        processMcpDocument(file, document, builder, mcpCtx, handleDuplicateMcp)
+        hasMcpChanges = true
+      } else {
+        await processOperationDocument(document, builder, ctx, buildResult, handleDuplicateOperation)
+      }
     }
+
+    // entities are maintained in this.mcpEntities granularly; caller refreshes capability warnings
+    return hasMcpChanges
+  }
+
+  private revalidateMcpCapabilities(): void {
+    validateMcpCapabilities(this.mcpEntities, this.documents, this.notifications)
   }
 
   clearRuntimeCachesOnly(): void {
@@ -890,11 +938,12 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     this.referencesCache.clear()
     this.packageChangesCache.clear()
     this.operations.clear()
-    this.mcp = createEmptyMcpBuildResult()
     this.documents.clear()
     this.exportDocuments = []
     this.exportFileName = undefined
     this.comparisons = []
+    this.mcpEntities = new Map()
+    this.mcpEntityData = new Map()
 
     this.notifications = []
   }
