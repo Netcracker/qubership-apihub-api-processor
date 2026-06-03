@@ -40,6 +40,7 @@ import { NotificationMessage } from '../package/notifications'
 import { TEXT_API_TYPE, UNKNOWN_API_TYPE } from '../../apitypes'
 import { SourceFile, TextFile } from './internal'
 import { ApiOperation } from './operation'
+import { McpEntityWithData } from '../package/mcp'
 import { Diff } from '@netcracker/qubership-apihub-api-diff'
 import { ResolvedPackage } from '../external/package'
 import { FILE_FORMAT_JSON, FILE_FORMAT_YAML, GRAPHQL_API_TYPE, REST_API_TYPE, ASYNCAPI_API_TYPE, MCP_TYPE } from '../../consts'
@@ -113,7 +114,7 @@ export type FileParser = (fileId: string, data: Blob) => Promise<SourceFile | un
 export type DocumentBuilder<T> = (parsedFile: TextFile, file: BuildConfigFile, ctx: BuilderContext<T>) => Promise<VersionDocument<T>>
 export type OperationsBuilder<T, M = any> = (document: VersionDocument<T>, ctx: BuilderContext<T>) => Promise<ApiOperation<M>[]>
 export type DocumentDumper<T> = (document: ZippableDocument<T>, format?: typeof FILE_FORMAT_YAML | typeof FILE_FORMAT_JSON) => Blob
-export type ContractsBuilder<T> = (document: VersionDocument<T>, file: BuildConfigFile) => unknown[]
+export type McpEntitiesBuilder<T> = (document: VersionDocument<T>, file: BuildConfigFile) => McpEntityWithData[]
 export type OperationDataCompare<T> = (current: T, previous: T, ctx: CompareOperationsPairContext) => Promise<Diff[]>
 export type DocumentsCompareData = {
   operationChanges: OperationChanges[]
@@ -133,7 +134,6 @@ export type DocumentExporter = (
   generatedHtmlExportDocuments?: ExportDocument[],
   addBackLink?: boolean,
 ) => Promise<ExportDocument>
-export type BreakingChangeReclassifier = (changes: OperationChanges[], previousVersion: string, previousPackageId: string, ctx: CompareContext) => Promise<void>
 
 export interface ApiBuilder<T = any, O = any, M = any> {
   apiType: BuilderType
@@ -142,8 +142,7 @@ export interface ApiBuilder<T = any, O = any, M = any> {
   buildDocument: DocumentBuilder<T>
   dumpDocument: DocumentDumper<T>
   buildOperations?: OperationsBuilder<T, M>
-  // todo fix
-  buildContracts?: ContractsBuilder<T>
+  buildMcpEntities?: McpEntitiesBuilder<T>
   compareOperationsData?: OperationDataCompare<O>
   compareDocuments?: DocumentsCompare
   createNormalizedOperationId?: OperationIdNormalizer

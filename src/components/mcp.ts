@@ -17,7 +17,8 @@
 import { ApiBuilder, BuildConfigFile, VersionDocument } from '../types'
 import { McpKind, MCP_KIND, PackageMcpEntity, PackageMcpFile } from '../types/package/mcp'
 import { NotificationMessage } from '../types/package'
-import { McpEntityWithData, ParsedMcpData } from '../apitypes/mcp'
+import { ParsedMcpData } from '../apitypes/mcp'
+import { McpEntityWithData } from '../types/package/mcp'
 import { MESSAGE_SEVERITY } from '../consts'
 
 /**
@@ -53,8 +54,8 @@ export function processMcpDocument(
   ctx: McpBuildContext,
   onDuplicate?: DuplicateMcpEntityHandler,
 ): void {
-  if (!builder.buildContracts) { return }
-  const results = builder.buildContracts(document, file) as McpEntityWithData[]
+  if (!builder.buildMcpEntities) { return }
+  const results: McpEntityWithData[] = builder.buildMcpEntities(document, file)
   const entityIds: string[] = []
   for (const { entity, entityData } of results) {
     const existing = ctx.mcpEntities.get(entity.mcpEntityId)

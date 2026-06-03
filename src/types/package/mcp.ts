@@ -43,3 +43,9 @@ export interface PackageMcpFile {
   resources: PackageMcpEntity[]
   prompts: PackageMcpEntity[]
 }
+
+/** An MCP entity (index metadata) paired with its raw payload — the result of building MCP contracts. */
+export interface McpEntityWithData {
+  entity: PackageMcpEntity
+  entityData: unknown
+}

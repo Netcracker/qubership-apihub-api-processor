@@ -14,15 +14,10 @@
  * limitations under the License.
  */
 
-import { McpKind, MCP_KIND, PackageMcpEntity } from '../../types'
+import { McpEntityWithData, McpKind, MCP_KIND } from '../../types'
 import { ParsedMcpData } from './mcp.types'
 import { BuildConfigFile } from '../../types'
 import { isString, slugify, SLUG_OPTIONS_OPERATION_ID } from '../../utils'
-
-export interface McpEntityWithData {
-  entity: PackageMcpEntity
-  entityData: unknown
-}
 
 const KIND_TO_WRAPPER_KEY: Record<string, string> = {
   [MCP_KIND.TOOL]: 'tools',

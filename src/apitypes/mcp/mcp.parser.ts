@@ -15,15 +15,49 @@
  */
 
 import { FILE_KIND, TextFile } from '../../types'
-import { getFileExtension } from '../../utils'
+import { getFileExtension, validateDocument } from '../../utils'
 import { FILE_FORMAT_JSON } from '../../consts'
 import { MCP_DOCUMENT_TYPE } from './mcp.consts'
 import { McpEntityRaw, ParsedMcpData } from './mcp.types'
 import { McpKind, MCP_KIND } from '../../types'
 import { isObject, isString } from '../../utils'
+import mcpInitSchema from './schemas/mcp-init.json'
+import mcpToolsSchema from './schemas/mcp-tools.json'
+import mcpResourcesSchema from './schemas/mcp-resources.json'
+import mcpPromptsSchema from './schemas/mcp-prompts.json'
+
+const SCHEMA_BY_TYPE: Record<string, object> = {
+  [MCP_DOCUMENT_TYPE.MCP_INIT]: mcpInitSchema,
+  [MCP_DOCUMENT_TYPE.MCP_TOOLS]: mcpToolsSchema,
+  [MCP_DOCUMENT_TYPE.MCP_RESOURCES]: mcpResourcesSchema,
+  [MCP_DOCUMENT_TYPE.MCP_PROMPTS]: mcpPromptsSchema,
+}
+
+/**
+ * Validate the document against its MCP schema (versions 2024-11-05 … 2025-11-25).
+ * The `draft` revision is out of scope: its init response (`DiscoverResult`) drops `protocolVersion`
+ * for `supportedVersions`, which our `mcp-init` schema still requires — so skip schema validation for
+ * that draft-shaped init to avoid false errors. (Tools/resources/prompts have no version marker; the
+ * only draft divergence there is `inputSchema` becoming optional.)
+ */
+function validateMcpSchema(docType: string, obj: Record<string, unknown>): { message: string }[] {
+  if (docType === MCP_DOCUMENT_TYPE.MCP_INIT && !isString(obj.protocolVersion) && Array.isArray(obj.supportedVersions)) {
+    return []
+  }
+  const schema = SCHEMA_BY_TYPE[docType]
+  if (!schema) { return [] }
+  return validateDocument(schema, obj).map(e => ({
+    message: `${e.instancePath || '/'} ${e.message ?? 'schema validation failed'}`.trim(),
+  }))
+}
 
 function detectMcpDocumentType(obj: Record<string, unknown>): string | undefined {
-  if (isObject(obj.capabilities) && typeof obj.protocolVersion === 'string' && isObject(obj.serverInfo)) {
+  // init response: pre-draft uses a single `protocolVersion` string; the draft replaces it with a
+  // `supportedVersions` array (DiscoverResult) — accept either as the init marker.
+  if (
+    isObject(obj.capabilities) && isObject(obj.serverInfo) &&
+    (isString(obj.protocolVersion) || Array.isArray(obj.supportedVersions))
+  ) {
     return MCP_DOCUMENT_TYPE.MCP_INIT
   }
   if (Array.isArray(obj.tools)) { return MCP_DOCUMENT_TYPE.MCP_TOOLS }
@@ -119,6 +153,9 @@ export const parseMcpFile = async (fileId: string, source: Blob): Promise<TextFi
     return undefined
   }
 
+  // schema validation runs only once the document is confirmed MCP (so we never reject a foreign file)
+  const allErrors = [...validateMcpSchema(docType, obj), ...errors]
+
   return {
     fileId,
     type: docType,
@@ -126,6 +163,6 @@ export const parseMcpFile = async (fileId: string, source: Blob): Promise<TextFi
     data: { entities, rawJson: obj },
     source,
     kind: FILE_KIND.TEXT,
-    errors: errors.length ? errors : undefined,
+    errors: allErrors.length ? allErrors : undefined,
   }
 }

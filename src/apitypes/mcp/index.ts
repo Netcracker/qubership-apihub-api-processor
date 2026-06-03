@@ -32,8 +32,8 @@ export const mcpBuilder: ApiBuilder<ParsedMcpData> = {
   parser: parseMcpFile,
   buildDocument: buildMcpDocument,
   dumpDocument: dumpMcpDocument,
-  buildContracts: (document, file) => {
-    const {data} = document
+  buildMcpEntities: (document, file) => {
+    const { data } = document
     if (!data?.entities) { return [] }
     return buildMcpEntities(document.fileId, data, file)
   },

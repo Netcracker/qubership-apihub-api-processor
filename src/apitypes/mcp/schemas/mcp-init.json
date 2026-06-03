@@ -1,0 +1,31 @@
+{
+  "$comment": "Based on MCP specification schema version 2025-11-25: https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/schema/2025-11-25/schema.json",
+  "type": "object",
+  "required": ["capabilities", "protocolVersion", "serverInfo"],
+  "additionalProperties": true,
+  "properties": {
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "completions": { "type": "object", "additionalProperties": true },
+        "experimental": { "type": "object", "additionalProperties": true },
+        "logging": { "type": "object", "additionalProperties": true },
+        "prompts": { "type": "object", "additionalProperties": true },
+        "resources": { "type": "object", "additionalProperties": true },
+        "tools": { "type": "object", "additionalProperties": true }
+      }
+    },
+    "protocolVersion": { "type": "string" },
+    "serverInfo": {
+      "type": "object",
+      "required": ["name", "version"],
+      "additionalProperties": true,
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" }
+      }
+    },
+    "instructions": { "type": "string" }
+  }
+}
