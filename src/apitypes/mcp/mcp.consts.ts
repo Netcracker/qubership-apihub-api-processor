@@ -14,11 +14,8 @@
  * limitations under the License.
  */
 
-import { MCP_TYPE } from '../../consts'
 import { ZippableDocument } from '../../types'
 import { ResolvedVersionDocument } from '../../types/external'
-
-export const MCP_API_TYPE = MCP_TYPE
 
 export const MCP_DOCUMENT_TYPE = {
   MCP_INIT: 'mcp-init',
@@ -27,8 +24,8 @@ export const MCP_DOCUMENT_TYPE = {
   MCP_PROMPTS: 'mcp-prompts',
 } as const
 
-export const MCP_DOCUMENT_TYPES = Object.values(MCP_DOCUMENT_TYPE)
+export type McpDocumentType = typeof MCP_DOCUMENT_TYPE[keyof typeof MCP_DOCUMENT_TYPE]
 
 export function isMcpDocument(document: ZippableDocument | ResolvedVersionDocument): boolean {
-  return MCP_DOCUMENT_TYPES.includes(document.type as typeof MCP_DOCUMENT_TYPES[number])
+  return Object.values(MCP_DOCUMENT_TYPE).includes(document.type as McpDocumentType)
 }

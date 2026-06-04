@@ -52,11 +52,7 @@ import {
   VersionCache,
   VersionDocument,
 } from './types/internal'
-import type {
-  NotificationMessage,
-  PackageConfig,
-  PackageMcpEntity,
-} from './types/package'
+import type { McpEntityDataMap, McpEntityIndex, NotificationMessage, PackageConfig } from './types/package'
 import {
   asyncApiBuilder,
   graphqlApiBuilder,
@@ -71,8 +67,8 @@ import {
   DEFAULT_BATCH_SIZE,
   DEFAULT_VALIDATION_RULES_SEVERITY_CONFIG,
   EXPORT_BUILD_TYPES,
+  MCP_API_TYPE,
   MESSAGE_SEVERITY,
-  MCP_TYPE,
   REST_API_TYPE,
   SUPPORTED_FILE_FORMATS,
   VERSION_STATUS,
@@ -80,15 +76,19 @@ import {
 import { unknownParsedFile } from './apitypes/unknown/unknown.parser'
 import { createVersionPackage } from './components/package'
 import { compareVersions } from './components/compare'
-import { applyBuilderVersionInfo } from './validators'
+import { applyBuilderVersionInfo, validateConfig } from './validators'
 import { buildFiles } from './components/files'
-import { createDuplicateMcpEntityHandler, McpBuildContext, processMcpDocument, validateMcpCapabilities } from './components/mcp'
+import {
+  createDuplicateMcpEntityHandler,
+  McpBuildContext,
+  processMcpDocument,
+  validateMcpCapabilities,
+} from './components/mcp'
 import { createDuplicateOperationHandler, processOperationDocument } from './components/operations'
 import JSZip from 'jszip'
 import { calculateHistoryForDeprecatedItems } from './components/deprecated'
 import { JsZipTool } from './components/js-zip-tool'
 import { AdmZipTool } from './components/adm-zip-tool'
-import { validateConfig } from './validators'
 import { BuildStrategy, ChangelogStrategy, DocumentGroupStrategy, PrefixGroupsChangelogStrategy } from './strategies'
 import { BuilderStrategyContext } from './builder-strategy'
 import { MergedDocumentGroupStrategy } from './strategies/merged-document-group.strategy'
@@ -122,8 +122,8 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
 
   normalizedSpecFragmentsHashCache = new WeakMap<object, string>()
 
-  mcpEntities = new Map<string, PackageMcpEntity>()
-  mcpEntityData = new Map<string, unknown>()
+  mcpEntities: McpEntityIndex = new Map()
+  mcpEntityData: McpEntityDataMap = new Map()
 
   readonly parsedFiles: Map<string, SourceFile> = new Map()
 
@@ -913,7 +913,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       this.documents.set(document.fileId, document)
       if (!builder || document.publish === false) { continue }
 
-      if (builder.apiType === MCP_TYPE) {
+      if (builder.apiType === MCP_API_TYPE) {
         processMcpDocument(file, document, builder, mcpCtx, handleDuplicateMcp)
         hasMcpChanges = true
       } else {

@@ -21,7 +21,7 @@ import { createVersionInternalDocument, getDocumentTitle } from '../../utils'
 
 export const buildMcpDocument: DocumentBuilder<ParsedMcpData> = async (parsedFile, file): Promise<VersionDocument<ParsedMcpData>> => {
   const { fileId, slug = '', publish = true, ...fileMetadata } = file
-  const data = parsedFile.data as ParsedMcpData
+  const { data } = parsedFile
   return {
     fileId,
     type: parsedFile.type,
@@ -43,6 +43,6 @@ export const buildMcpDocument: DocumentBuilder<ParsedMcpData> = async (parsedFil
 }
 
 export const dumpMcpDocument: DocumentDumper<ParsedMcpData> = (document) => {
-  const data = document.data as ParsedMcpData
+  const { data } = document
   return new Blob([JSON.stringify(data.rawJson, null, 2)], { type: 'application/json' })
 }

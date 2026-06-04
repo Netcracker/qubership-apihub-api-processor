@@ -30,7 +30,7 @@ import { ExportDocument, VersionDocument } from './documents'
 import { SourceFile } from './internal'
 import { ApiOperation } from './operation'
 import { ApiBuilder } from './apiBuilder'
-import { PackageMcpEntity } from '../package'
+import { McpEntityDataMap, McpEntityIndex } from '../package/mcp'
 
 export type VersionCache = ResolvedVersion & {
   packageId: PackageId
@@ -45,8 +45,8 @@ export interface BuildResultDto {
   exportDocuments: ExportDocument[]
   operations: Map<string, ApiOperation>
   merged?: VersionDocument
-  mcpEntities: Map<string, PackageMcpEntity>
-  mcpEntityData: Map<string, unknown>
+  mcpEntities: McpEntityIndex
+  mcpEntityData: McpEntityDataMap
 }
 
 export interface BuildResult {
@@ -58,8 +58,8 @@ export interface BuildResult {
   exportFileName?: string
   operations: Map<string, ApiOperation>
   merged?: VersionDocument
-  mcpEntities: Map<string, PackageMcpEntity>
-  mcpEntityData: Map<string, unknown>
+  mcpEntities: McpEntityIndex
+  mcpEntityData: McpEntityDataMap
 }
 
 export type BuilderConfiguration = {

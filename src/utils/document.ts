@@ -109,10 +109,24 @@ export function toPackageDocument(document: VersionDocument): PackageDocument {
   }
 }
 
-export type DuplicateOperationHandler = (
-  existing: ApiOperation,
-  duplicate: ApiOperation,
-) => void
+export type DuplicateHandler<T> = (existing: T, duplicate: T) => void
+
+export type DuplicateOperationHandler = DuplicateHandler<ApiOperation>
+
+/**
+ * Put `value` into `map` under `key`; if an entry already existed for that key, invoke `onDuplicate`
+ * with `(existing, incoming)` before overwriting. Shared by operation and MCP-entity indexing.
+ */
+export function setReportingDuplicate<K, V>(
+  map: Map<K, V>,
+  key: K,
+  value: V,
+  onDuplicate?: DuplicateHandler<V>,
+): void {
+  const existing = map.get(key)
+  if (existing !== undefined && onDuplicate) { onDuplicate(existing, value) }
+  map.set(key, value)
+}
 
 export const findSharedPath = (fileIds: string[]): string => {
   if (!fileIds.length) { return '' }

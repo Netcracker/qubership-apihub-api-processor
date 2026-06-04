@@ -20,9 +20,14 @@ import { applyBuilderVersionInfo } from '../validators'
 import { getOperationsList } from '../utils'
 import { buildFiles } from '../components/files'
 import { createDuplicateOperationHandler, processOperationDocument } from '../components/operations'
-import { createDuplicateMcpEntityHandler, createMcpBuildContext, finalizeMcp, processMcpDocument } from '../components/mcp'
+import {
+  createDuplicateMcpEntityHandler,
+  createMcpBuildContext,
+  finalizeMcp,
+  processMcpDocument,
+} from '../components/mcp'
 import { calculateHistoryForDeprecatedItems } from '../components/deprecated'
-import { MCP_TYPE, REST_API_TYPE } from '../consts'
+import { MCP_API_TYPE, REST_API_TYPE } from '../consts'
 
 export class BuildStrategy implements BuilderStrategy {
   async execute(config: BuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
@@ -59,7 +64,7 @@ export class BuildStrategy implements BuilderStrategy {
         buildResult.documents.set(document.fileId, document)
         if (!builder || document.publish === false) { continue }
 
-        if (builder.apiType === MCP_TYPE) {
+        if (builder.apiType === MCP_API_TYPE) {
           processMcpDocument(file, document, builder, mcpCtx, handleDuplicateMcp)
         } else {
           await processOperationDocument(document, builder, builderContextObject, buildResult, handleDuplicateOperation)

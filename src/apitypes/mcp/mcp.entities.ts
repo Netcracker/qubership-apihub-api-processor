@@ -14,16 +14,12 @@
  * limitations under the License.
  */
 
-import { McpEntityWithData, McpKind, MCP_KIND } from '../../types'
+import { MCP_COLLECTION_KEY, MCP_KIND, McpEntitiesBuilder, McpKind } from '../../types'
 import { ParsedMcpData } from './mcp.types'
-import { BuildConfigFile } from '../../types'
-import { isString, slugify, SLUG_OPTIONS_OPERATION_ID } from '../../utils'
+import { isString, SLUG_OPTIONS_OPERATION_ID, slugify } from '../../utils'
 
-const KIND_TO_WRAPPER_KEY: Record<string, string> = {
-  [MCP_KIND.TOOL]: 'tools',
-  [MCP_KIND.RESOURCE]: 'resources',
-  [MCP_KIND.PROMPT]: 'prompts',
-}
+// the init entity has no per-item title; it is shown as a fixed "Overview" label (kept as "init" in data)
+const INIT_ENTITY_TITLE = 'init'
 
 export function calculateMcpEntityId(
   mcpEndpoint: string,
@@ -35,39 +31,44 @@ export function calculateMcpEntityId(
   return `${safeEndpoint}-${kind}-${safeName}`
 }
 
-export function wrapEntityData(kind: McpKind, data: unknown): unknown {
+export function wrapEntityData(kind: McpKind, data: Record<string, unknown>): Record<string, unknown> {
   if (kind === MCP_KIND.INIT) { return data }
-  const key = KIND_TO_WRAPPER_KEY[kind]
-  return { [key]: [data] }
+  return { [MCP_COLLECTION_KEY[kind]]: [data] }
 }
 
-export function buildMcpEntities(
-  documentId: string,
-  data: ParsedMcpData,
-  file: BuildConfigFile,
-): McpEntityWithData[] {
+export const buildMcpEntities: McpEntitiesBuilder<ParsedMcpData> = (document, file) => {
+  const { data } = document
+  if (!data?.entities) { return [] }
+
   const fileMetadata = file.metadata as Record<string, unknown> | undefined
   const mcpEndpoint = fileMetadata?.mcpEndpoint
   if (!isString(mcpEndpoint)) {
     throw new Error(`MCP file '${file.fileId}' is missing required metadata.mcpEndpoint`)
   }
 
-  const seen = new Map<string, string>()
+  const documentId = document.fileId
+  // intra-document duplicate detection, mirroring `operationIdMap` in rest/async.operations.
+  // TODO: unify with the shared `findDuplicates`/`createDuplicatesError` once those are de-coupled from
+  // operation-specific naming (`DuplicateEntry.operationId`, "Duplicated operationIds found") so the MCP
+  // message stays correct. Until then we keep this MCP-specific check (id -> name, for the error text).
+  const mcpEntityIdMap = new Map<string, string>()
 
   return data.entities.map((entity) => {
     const mcpEntityId = calculateMcpEntityId(mcpEndpoint, entity.kind, entity.name)
 
-    if (seen.has(mcpEntityId)) {
+    if (mcpEntityIdMap.has(mcpEntityId)) {
       throw new Error(
-        `Duplicate MCP entity ID '${mcpEntityId}': '${entity.name}' conflicts with '${seen.get(mcpEntityId)}' in file '${file.fileId}'`,
+        `Duplicate MCP entity ID '${mcpEntityId}': '${entity.name}' conflicts with '${mcpEntityIdMap.get(mcpEntityId)}' in file '${file.fileId}'`,
       )
     }
-    seen.set(mcpEntityId, entity.name)
+    mcpEntityIdMap.set(mcpEntityId, entity.name)
 
-    const title = entity.kind === MCP_KIND.INIT
-      ? 'init'
-      : (isString(entity.data['title']) ? entity.data['title'] : entity.name)
-    const description = entity.kind === MCP_KIND.INIT ? '' : (entity.description ?? '')
+    const isInitEntity = entity.kind === MCP_KIND.INIT
+    const rawTitle = entity.data.title
+    const title = isInitEntity
+      ? INIT_ENTITY_TITLE
+      : (isString(rawTitle) ? rawTitle : entity.name)
+    const description = isInitEntity ? '' : (entity.description ?? '')
 
     return {
       entity: {

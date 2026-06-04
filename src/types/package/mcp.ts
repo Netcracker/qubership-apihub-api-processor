@@ -23,12 +23,25 @@ export const MCP_KIND = {
 
 export type McpKind = typeof MCP_KIND[keyof typeof MCP_KIND]
 
+/**
+ * JSON key that holds the collection for each list kind — the array property in the list document
+ * (`{ tools: [...] }`), the `capabilities.*` key, and the per-entity data wrapper key.
+ */
+export const MCP_COLLECTION_KEY: Record<string, string> = {
+  [MCP_KIND.TOOL]: 'tools',
+  [MCP_KIND.RESOURCE]: 'resources',
+  [MCP_KIND.PROMPT]: 'prompts',
+}
+
 export interface McpEntitySearch {
   useEntityDataAsSearchText: boolean
 }
 
+/** Stable identifier of an MCP entity: `{endpoint}-{kind}-{name}` (computed, not a fixed set). */
+export type McpEntityId = string
+
 export interface PackageMcpEntity {
-  mcpEntityId: string
+  mcpEntityId: McpEntityId
   kind: McpKind
   title: string
   description: string
@@ -47,5 +60,11 @@ export interface PackageMcpFile {
 /** An MCP entity (index metadata) paired with its raw payload — the result of building MCP contracts. */
 export interface McpEntityWithData {
   entity: PackageMcpEntity
-  entityData: unknown
+  entityData: Record<string, unknown>
 }
+
+/** MCP entities kept flat, keyed by entity id (the `mcp.json` index, grouped by kind only at serialization). */
+export type McpEntityIndex = Map<McpEntityId, PackageMcpEntity>
+
+/** Raw entity payloads keyed by entity id (written to `mcp/{id}.json`). */
+export type McpEntityDataMap = Map<McpEntityId, Record<string, unknown>>

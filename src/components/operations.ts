@@ -15,7 +15,7 @@
  */
 
 import type { ApiBuilder, BuilderContext, BuildResult, VersionDocument } from '../types'
-import type { DuplicateOperationHandler } from '../utils'
+import { DuplicateOperationHandler, setReportingDuplicate } from '../utils'
 import { ASYNCAPI_API_TYPE, MESSAGE_SEVERITY } from '../consts'
 
 export const createDuplicateOperationHandler = (buildResult: BuildResult): DuplicateOperationHandler => (existing, duplicate) => {
@@ -45,8 +45,6 @@ export async function processOperationDocument(
   const operations = await builder.buildOperations(document, ctx)
   document.operationIds = operations.map(({ operationId }) => operationId)
   for (const operation of operations) {
-    const existing = buildResult.operations.get(operation.operationId)
-    if (existing && onDuplicate) { onDuplicate(existing, operation) }
-    buildResult.operations.set(operation.operationId, operation)
+    setReportingDuplicate(buildResult.operations, operation.operationId, operation, onDuplicate)
   }
 }

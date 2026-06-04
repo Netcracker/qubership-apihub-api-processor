@@ -33,7 +33,7 @@ import {
   VersionDocumentsResolver,
   VersionId,
 } from '../external'
-import { CompareContext, ComparisonDocument, OperationChanges } from './compare'
+import { ComparisonDocument, OperationChanges } from './compare'
 import { BuilderConfiguration, BuilderRunOptions, VersionCache } from './builder'
 import { ExportDocument, VersionDocument, ZippableDocument } from './documents'
 import { NotificationMessage } from '../package/notifications'
@@ -43,7 +43,14 @@ import { ApiOperation } from './operation'
 import { McpEntityWithData } from '../package/mcp'
 import { Diff } from '@netcracker/qubership-apihub-api-diff'
 import { ResolvedPackage } from '../external/package'
-import { FILE_FORMAT_JSON, FILE_FORMAT_YAML, GRAPHQL_API_TYPE, REST_API_TYPE, ASYNCAPI_API_TYPE, MCP_TYPE } from '../../consts'
+import {
+  ASYNCAPI_API_TYPE,
+  FILE_FORMAT_JSON,
+  FILE_FORMAT_YAML,
+  GRAPHQL_API_TYPE,
+  MCP_API_TYPE,
+  REST_API_TYPE,
+} from '../../consts'
 import { OpenApiExtensionKey } from '@netcracker/qubership-apihub-api-unifier'
 import { OperationsMap } from '../../components'
 import { ObjectHashCache } from '../../utils/hashes'
@@ -54,7 +61,7 @@ export type BuilderType =
   | typeof ASYNCAPI_API_TYPE
   | typeof TEXT_API_TYPE
   | typeof UNKNOWN_API_TYPE
-  | typeof MCP_TYPE
+  | typeof MCP_API_TYPE
 
 export interface BuilderContext<T = any> {
   apiBuilders: ApiBuilder<T>[]
@@ -111,7 +118,7 @@ export interface CompareOperationsPairContext {
 export type NormalizedOperationId = string
 
 export type FileParser = (fileId: string, data: Blob) => Promise<SourceFile | undefined>
-export type DocumentBuilder<T> = (parsedFile: TextFile, file: BuildConfigFile, ctx: BuilderContext<T>) => Promise<VersionDocument<T>>
+export type DocumentBuilder<T> = (parsedFile: TextFile<T>, file: BuildConfigFile, ctx: BuilderContext<T>) => Promise<VersionDocument<T>>
 export type OperationsBuilder<T, M = any> = (document: VersionDocument<T>, ctx: BuilderContext<T>) => Promise<ApiOperation<M>[]>
 export type DocumentDumper<T> = (document: ZippableDocument<T>, format?: typeof FILE_FORMAT_YAML | typeof FILE_FORMAT_JSON) => Blob
 export type McpEntitiesBuilder<T> = (document: VersionDocument<T>, file: BuildConfigFile) => McpEntityWithData[]

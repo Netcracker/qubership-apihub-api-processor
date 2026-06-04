@@ -15,7 +15,8 @@
  */
 
 import { ApiBuilder } from '../../types'
-import { MCP_API_TYPE, MCP_DOCUMENT_TYPES } from './mcp.consts'
+import { MCP_DOCUMENT_TYPE } from './mcp.consts'
+import { MCP_API_TYPE } from '../../consts'
 import { parseMcpFile } from './mcp.parser'
 import { buildMcpDocument, dumpMcpDocument } from './mcp.document'
 import { buildMcpEntities } from './mcp.entities'
@@ -28,13 +29,9 @@ export * from './mcp.types'
 
 export const mcpBuilder: ApiBuilder<ParsedMcpData> = {
   apiType: MCP_API_TYPE,
-  types: [...MCP_DOCUMENT_TYPES],
+  types: Object.values(MCP_DOCUMENT_TYPE),
   parser: parseMcpFile,
   buildDocument: buildMcpDocument,
   dumpDocument: dumpMcpDocument,
-  buildMcpEntities: (document, file) => {
-    const { data } = document
-    if (!data?.entities) { return [] }
-    return buildMcpEntities(document.fileId, data, file)
-  },
+  buildMcpEntities,
 }

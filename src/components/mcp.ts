@@ -15,21 +15,25 @@
  */
 
 import { ApiBuilder, BuildConfigFile, VersionDocument } from '../types'
-import { McpKind, MCP_KIND, PackageMcpEntity, PackageMcpFile } from '../types/package/mcp'
+import {
+  MCP_COLLECTION_KEY,
+  MCP_KIND,
+  McpEntityDataMap,
+  McpEntityId,
+  McpEntityIndex,
+  McpEntityWithData,
+  McpKind,
+  PackageMcpEntity,
+  PackageMcpFile,
+} from '../types/package/mcp'
 import { NotificationMessage } from '../types/package'
 import { ParsedMcpData } from '../apitypes/mcp'
-import { McpEntityWithData } from '../types/package/mcp'
+import { DuplicateHandler, setReportingDuplicate } from '../utils'
 import { MESSAGE_SEVERITY } from '../consts'
-
-/**
- * MCP entities are stored flat, keyed by entity id — mirroring how operations are kept in a Map.
- * The grouped-by-kind `mcp.json` shape is produced only at serialization (see `groupMcpEntitiesByKind`).
- */
-export type McpEntityIndex = Map<string, PackageMcpEntity>
 
 export interface McpBuildContext {
   mcpEntities: McpEntityIndex
-  mcpEntityData: Map<string, unknown>
+  mcpEntityData: McpEntityDataMap
 }
 
 export function createMcpBuildContext(): McpBuildContext {
@@ -39,11 +43,13 @@ export function createMcpBuildContext(): McpBuildContext {
   }
 }
 
-export type DuplicateMcpEntityHandler = (existingDocumentId: string, duplicate: PackageMcpEntity) => void
+export type DuplicateMcpEntityHandler = DuplicateHandler<PackageMcpEntity>
 
-export const createDuplicateMcpEntityHandler = (): DuplicateMcpEntityHandler => (existingDocumentId, duplicate) => {
+export const createDuplicateMcpEntityHandler = (): DuplicateMcpEntityHandler => (existing, duplicate) => {
+  // the same document re-processed (e.g. incremental rebuild) is not a cross-document duplicate
+  if (existing.documentId === duplicate.documentId) { return }
   throw new Error(
-    `Duplicate MCP entity ID '${duplicate.mcpEntityId}' found in different documents: '${existingDocumentId}' and '${duplicate.documentId}'`,
+    `Duplicate MCP entity ID '${duplicate.mcpEntityId}' found in different documents: '${existing.documentId}' and '${duplicate.documentId}'`,
   )
 }
 
@@ -56,13 +62,9 @@ export function processMcpDocument(
 ): void {
   if (!builder.buildMcpEntities) { return }
   const results: McpEntityWithData[] = builder.buildMcpEntities(document, file)
-  const entityIds: string[] = []
+  const entityIds: McpEntityId[] = []
   for (const { entity, entityData } of results) {
-    const existing = ctx.mcpEntities.get(entity.mcpEntityId)
-    if (existing && existing.documentId !== document.fileId && onDuplicate) {
-      onDuplicate(existing.documentId, entity)
-    }
-    ctx.mcpEntities.set(entity.mcpEntityId, entity)
+    setReportingDuplicate(ctx.mcpEntities, entity.mcpEntityId, entity, onDuplicate)
     ctx.mcpEntityData.set(entity.mcpEntityId, entityData)
     entityIds.push(entity.mcpEntityId)
   }
@@ -72,7 +74,7 @@ export function processMcpDocument(
 
 export interface McpBuildResult {
   mcpEntities: McpEntityIndex
-  mcpEntityData: Map<string, unknown>
+  mcpEntityData: McpEntityDataMap
   notifications: NotificationMessage[]
 }
 
@@ -103,9 +105,9 @@ export function groupMcpEntitiesByKind(entities: McpEntityIndex): PackageMcpFile
 }
 
 const CAPABILITY_TO_KIND: [string, McpKind][] = [
-  ['tools', MCP_KIND.TOOL],
-  ['prompts', MCP_KIND.PROMPT],
-  ['resources', MCP_KIND.RESOURCE],
+  [MCP_COLLECTION_KEY[MCP_KIND.TOOL], MCP_KIND.TOOL],
+  [MCP_COLLECTION_KEY[MCP_KIND.PROMPT], MCP_KIND.PROMPT],
+  [MCP_COLLECTION_KEY[MCP_KIND.RESOURCE], MCP_KIND.RESOURCE],
 ]
 
 /**
