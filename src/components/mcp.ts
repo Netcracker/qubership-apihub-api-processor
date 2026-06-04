@@ -72,22 +72,6 @@ export function processMcpDocument(
   document.mcpEntityIds = entityIds
 }
 
-export interface McpBuildResult {
-  mcpEntities: McpEntityIndex
-  mcpEntityData: McpEntityDataMap
-  notifications: NotificationMessage[]
-}
-
-export function finalizeMcp(ctx: McpBuildContext, documents: Map<string, VersionDocument>): McpBuildResult {
-  const notifications: NotificationMessage[] = []
-  validateMcpCapabilities(ctx.mcpEntities, documents, notifications)
-  return {
-    mcpEntities: ctx.mcpEntities,
-    mcpEntityData: ctx.mcpEntityData,
-    notifications,
-  }
-}
-
 const KIND_TO_FIELD: Record<McpKind, keyof PackageMcpFile> = {
   [MCP_KIND.INIT]: 'inits',
   [MCP_KIND.TOOL]: 'tools',
@@ -124,7 +108,7 @@ export function validateMcpCapabilities(
   for (const initEntity of allEntities) {
     if (initEntity.kind !== MCP_KIND.INIT) { continue }
     const initDocument = documents.get(initEntity.documentId)
-    const capabilities = (initDocument?.data as ParsedMcpData | undefined)?.rawJson?.capabilities as Record<string, unknown> | undefined
+    const capabilities = (initDocument?.data as ParsedMcpData | undefined)?.originalDocument?.capabilities as Record<string, unknown> | undefined
     if (!capabilities) { continue }
     for (const [capKey, kind] of CAPABILITY_TO_KIND) {
       if (!capabilities[capKey]) { continue }

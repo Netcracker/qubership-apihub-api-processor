@@ -75,6 +75,10 @@ interface ExtractEntitiesResult {
 
 function extractEntities(obj: Record<string, unknown>, docType: string): ExtractEntitiesResult {
   if (docType === MCP_DOCUMENT_TYPE.MCP_INIT) {
+    // init is always exactly one entity, but we deliberately wrap it in an array so that
+    // ParsedMcpData.entities stays a uniform McpEntityRaw[] across all doc types. This keeps
+    // the rest of the pipeline (buildMcpEntities, id/title calc, dedup, grouping) kind-agnostic —
+    // a single `.map` over entities, with no init-vs-list branching downstream.
     return { entities: [{ kind: MCP_KIND.INIT, name: 'initialize', data: obj }], errors: [] }
   }
 
@@ -129,13 +133,13 @@ export const parseMcpFile = async (fileId: string, source: Blob): Promise<TextFi
     return undefined
   }
 
-  const obj = parsed as Record<string, unknown>
-  const docType = detectMcpDocumentType(obj)
+  const originalDocument = parsed as Record<string, unknown>
+  const docType = detectMcpDocumentType(originalDocument)
   if (!docType) {
     return undefined
   }
 
-  const { entities, errors } = extractEntities(obj, docType)
+  const { entities, errors } = extractEntities(originalDocument, docType)
   if (entities.length === 0) {
     return undefined
   }
@@ -143,13 +147,13 @@ export const parseMcpFile = async (fileId: string, source: Blob): Promise<TextFi
   // schema validation runs only once the document is confirmed MCP (so we never reject a foreign file).
   // unlike rest/async (which surface raw ajv ErrorObject[]), MCP has two error sources — schema validation
   // and per-item extraction skips — so both are normalized to a single `{ message }` shape and merged here.
-  const allErrors = [...validateMcpSchema(docType, obj), ...errors]
+  const allErrors = [...validateMcpSchema(docType, originalDocument), ...errors]
 
   return {
     fileId,
     type: docType,
     format: FILE_FORMAT_JSON,
-    data: { entities, rawJson: obj },
+    data: { entities, originalDocument },
     source,
     kind: FILE_KIND.TEXT,
     errors: allErrors.length ? allErrors : undefined,

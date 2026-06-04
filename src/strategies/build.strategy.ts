@@ -22,9 +22,8 @@ import { buildFiles } from '../components/files'
 import { createDuplicateOperationHandler, processOperationDocument } from '../components/operations'
 import {
   createDuplicateMcpEntityHandler,
-  createMcpBuildContext,
-  finalizeMcp,
   processMcpDocument,
+  validateMcpCapabilities,
 } from '../components/mcp'
 import { calculateHistoryForDeprecatedItems } from '../components/deprecated'
 import { MCP_API_TYPE, REST_API_TYPE } from '../consts'
@@ -58,23 +57,21 @@ export class BuildStrategy implements BuilderStrategy {
 
       const handleDuplicateOperation = createDuplicateOperationHandler(buildResult)
       const handleDuplicateMcp = createDuplicateMcpEntityHandler()
-      const mcpCtx = createMcpBuildContext()
 
       for (const { file, document, builder } of buildFilesResult) {
         buildResult.documents.set(document.fileId, document)
         if (!builder || document.publish === false) { continue }
 
         if (builder.apiType === MCP_API_TYPE) {
-          processMcpDocument(file, document, builder, mcpCtx, handleDuplicateMcp)
+          processMcpDocument(file, document, builder, buildResult, handleDuplicateMcp)
         } else {
           await processOperationDocument(document, builder, builderContextObject, buildResult, handleDuplicateOperation)
         }
       }
 
-      const mcpResult = finalizeMcp(mcpCtx, buildResult.documents)
-      buildResult.mcpEntities = mcpResult.mcpEntities
-      buildResult.mcpEntityData = mcpResult.mcpEntityData
-      buildResult.notifications.push(...mcpResult.notifications)
+      // whole-set cross-check: needs all entities collected first (init and its tools/resources/prompts
+      // may live in different files), mirroring how calculateHistoryForDeprecatedItems runs after the loop
+      validateMcpCapabilities(buildResult.mcpEntities, buildResult.documents, buildResult.notifications)
 
       if (!builderContextObject.builderRunOptions.withoutDeprecatedDepth && previousVersionCache) {
         await calculateHistoryForDeprecatedItems(

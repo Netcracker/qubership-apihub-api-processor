@@ -44,5 +44,5 @@ export const buildMcpDocument: DocumentBuilder<ParsedMcpData> = async (parsedFil
 
 export const dumpMcpDocument: DocumentDumper<ParsedMcpData> = (document) => {
   const { data } = document
-  return new Blob([JSON.stringify(data.rawJson, null, 2)], { type: 'application/json' })
+  return new Blob([JSON.stringify(data.originalDocument, null, 2)], { type: 'application/json' })
 }

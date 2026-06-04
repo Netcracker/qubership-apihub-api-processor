@@ -24,6 +24,10 @@ export interface McpEntityRaw {
 }
 
 export interface ParsedMcpData {
+  // flat, kind-agnostic projection of the document used to build MCP entities
   entities: McpEntityRaw[]
-  rawJson: Record<string, unknown>
+  // the parsed document preserved verbatim; dumped as-is by dumpMcpDocument (analogous to a
+  // rest document's full OpenAPI in VersionDocument.data) and the source of init capabilities.
+  // entities are slices of this, so it is not reconstructable from them without losing top-level fields.
+  originalDocument: Record<string, unknown>
 }

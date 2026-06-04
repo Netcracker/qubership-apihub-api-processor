@@ -40,7 +40,7 @@ export const buildMcpEntities: McpEntitiesBuilder<ParsedMcpData> = (document, fi
   const { data } = document
   if (!data?.entities) { return [] }
 
-  const fileMetadata = file.metadata as Record<string, unknown> | undefined
+  const fileMetadata = file.metadata
   const mcpEndpoint = fileMetadata?.mcpEndpoint
   if (!isString(mcpEndpoint)) {
     throw new Error(`MCP file '${file.fileId}' is missing required metadata.mcpEndpoint`)
