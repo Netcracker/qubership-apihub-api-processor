@@ -303,6 +303,6 @@ const createMcpFiles = (zip: ZipTool, mcpEntities: McpEntityIndex): void => {
   zip.file(PACKAGE.MCP_FILE_NAME, groupMcpEntitiesByKind(mcpEntities))
   const mcpDir = zip.folder(PACKAGE.MCP_DIR_NAME)
   for (const entity of mcpEntities.values()) {
-    mcpDir.file(`${entity.mcpEntityId}.json`, new Blob([JSON.stringify(entity.data, null, 2)], { type: 'application/json' }))
+    mcpDir.file(entity.mcpEntityId, entity.data)
   }
 }

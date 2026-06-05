@@ -1,5 +1,5 @@
 {
-  "$comment": "Based on MCP specification schema version 2025-11-25: https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/schema/2025-11-25/schema.json",
+  "$comment": "Cross-version MCP schema: validates documents across supported protocol revisions (2024-11-05 … 2025-11-25) by requiring only fields stable across all of them, with additionalProperties:true for forward compatibility. Reference: https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/schema/2025-11-25/schema.json",
   "type": "object",
   "required": ["capabilities", "protocolVersion", "serverInfo"],
   "additionalProperties": true,
