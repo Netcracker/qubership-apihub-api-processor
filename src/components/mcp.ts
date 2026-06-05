@@ -18,12 +18,10 @@ import { ApiBuilder, BuildConfigFile, VersionDocument } from '../types'
 import {
   MCP_COLLECTION_KEY,
   MCP_KIND,
-  McpEntityDataMap,
+  McpEntity,
   McpEntityId,
   McpEntityIndex,
-  McpEntityWithData,
   McpKind,
-  PackageMcpEntity,
   PackageMcpFile,
 } from '../types/package/mcp'
 import { NotificationMessage } from '../types/package'
@@ -33,17 +31,15 @@ import { MESSAGE_SEVERITY } from '../consts'
 
 export interface McpBuildContext {
   mcpEntities: McpEntityIndex
-  mcpEntityData: McpEntityDataMap
 }
 
 export function createMcpBuildContext(): McpBuildContext {
   return {
     mcpEntities: new Map(),
-    mcpEntityData: new Map(),
   }
 }
 
-export type DuplicateMcpEntityHandler = DuplicateHandler<PackageMcpEntity>
+export type DuplicateMcpEntityHandler = DuplicateHandler<McpEntity>
 
 export const createDuplicateMcpEntityHandler = (): DuplicateMcpEntityHandler => (existing, duplicate) => {
   // the same document re-processed (e.g. incremental rebuild) is not a cross-document duplicate
@@ -61,11 +57,10 @@ export function processMcpDocument(
   onDuplicate?: DuplicateMcpEntityHandler,
 ): void {
   if (!builder.buildMcpEntities) { return }
-  const results: McpEntityWithData[] = builder.buildMcpEntities(document, file)
+  const entities: McpEntity[] = builder.buildMcpEntities(document, file)
   const entityIds: McpEntityId[] = []
-  for (const { entity, entityData } of results) {
+  for (const entity of entities) {
     setReportingDuplicate(ctx.mcpEntities, entity.mcpEntityId, entity, onDuplicate)
-    ctx.mcpEntityData.set(entity.mcpEntityId, entityData)
     entityIds.push(entity.mcpEntityId)
   }
   // record which entities this document owns, so an incremental update can drop them granularly
@@ -82,8 +77,9 @@ const KIND_TO_FIELD: Record<McpKind, keyof PackageMcpFile> = {
 /** Group the flat entity index into the `{ inits, tools, resources, prompts }` shape written to `mcp.json`. */
 export function groupMcpEntitiesByKind(entities: McpEntityIndex): PackageMcpFile {
   const grouped: PackageMcpFile = { inits: [], tools: [], resources: [], prompts: [] }
-  for (const entity of entities.values()) {
-    grouped[KIND_TO_FIELD[entity.kind]].push(entity)
+  for (const { data: _data, ...index } of entities.values()) {
+    // strip the payload (`data`) — mcp.json is the lightweight index; payloads live in mcp/{id}.json
+    grouped[KIND_TO_FIELD[index.kind]].push(index)
   }
   return grouped
 }

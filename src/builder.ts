@@ -52,7 +52,7 @@ import {
   VersionCache,
   VersionDocument,
 } from './types/internal'
-import type { McpEntityDataMap, McpEntityIndex, NotificationMessage, PackageConfig } from './types/package'
+import type { McpEntityIndex, NotificationMessage, PackageConfig } from './types/package'
 import {
   asyncApiBuilder,
   graphqlApiBuilder,
@@ -123,7 +123,6 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
   normalizedSpecFragmentsHashCache = new WeakMap<object, string>()
 
   mcpEntities: McpEntityIndex = new Map()
-  mcpEntityData: McpEntityDataMap = new Map()
 
   readonly parsedFiles: Map<string, SourceFile> = new Map()
 
@@ -192,7 +191,6 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       notifications: this.notifications,
       merged: this.merged,
       mcpEntities: this.mcpEntities,
-      mcpEntityData: this.mcpEntityData,
     }
   }
 
@@ -205,7 +203,6 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     this.notifications = buildResult.notifications
     this.merged = buildResult.merged
     this.mcpEntities = buildResult.mcpEntities
-    this.mcpEntityData = buildResult.mcpEntityData
   }
 
   builderContext(config: BuildConfigBase): BuilderContext {
@@ -826,7 +823,6 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       // mcpEntities is a flat map keyed by id, so a removed document's entities drop out granularly
       document.mcpEntityIds?.forEach(entityId => {
         this.mcpEntities.delete(entityId)
-        this.mcpEntityData.delete(entityId)
         hasMcpChanges = true
       })
       this.documents.delete(removedFileId)
@@ -894,7 +890,6 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
         })
         previousDocument.mcpEntityIds?.forEach(entityId => {
           this.mcpEntities.delete(entityId)
-          this.mcpEntityData.delete(entityId)
         })
         this.documents.delete(previousDocument.fileId)
       }
@@ -906,7 +901,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     const { buildResult } = this
     const handleDuplicateOperation = createDuplicateOperationHandler(buildResult)
     const handleDuplicateMcp = createDuplicateMcpEntityHandler()
-    const mcpCtx: McpBuildContext = { mcpEntities: this.mcpEntities, mcpEntityData: this.mcpEntityData }
+    const mcpCtx: McpBuildContext = { mcpEntities: this.mcpEntities }
     let hasMcpChanges = false
 
     for (const { file, document, builder } of buildFilesResult) {
@@ -943,7 +938,6 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     this.exportFileName = undefined
     this.comparisons = []
     this.mcpEntities = new Map()
-    this.mcpEntityData = new Map()
 
     this.notifications = []
   }

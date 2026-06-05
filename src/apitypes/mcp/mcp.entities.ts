@@ -71,16 +71,14 @@ export const buildMcpEntities: McpEntitiesBuilder<ParsedMcpData> = (document, fi
     const description = isInitEntity ? '' : (entity.description ?? '')
 
     return {
-      entity: {
-        mcpEntityId,
-        kind: entity.kind,
-        title,
-        description,
-        mcpEndpoint,
-        search: { useEntityDataAsSearchText: true },
-        documentId,
-      },
-      entityData: wrapEntityData(entity.kind, entity.data),
+      mcpEntityId,
+      kind: entity.kind,
+      title,
+      description,
+      mcpEndpoint,
+      search: { useEntityDataAsSearchText: true },
+      documentId,
+      data: wrapEntityData(entity.kind, entity.data),
     }
   })
 }

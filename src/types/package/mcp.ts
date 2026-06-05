@@ -57,14 +57,10 @@ export interface PackageMcpFile {
   prompts: PackageMcpEntity[]
 }
 
-/** An MCP entity (index metadata) paired with its raw payload — the result of building MCP contracts. */
-export interface McpEntityWithData {
-  entity: PackageMcpEntity
-  entityData: Record<string, unknown>
+
+export interface McpEntity extends PackageMcpEntity {
+  data: Record<string, unknown>
 }
 
-/** MCP entities kept flat, keyed by entity id (the `mcp.json` index, grouped by kind only at serialization). */
-export type McpEntityIndex = Map<McpEntityId, PackageMcpEntity>
-
-/** Raw entity payloads keyed by entity id (written to `mcp/{id}.json`). */
-export type McpEntityDataMap = Map<McpEntityId, Record<string, unknown>>
+/** MCP entities kept flat, keyed by entity id (grouped by kind into `mcp.json` only at serialization). */
+export type McpEntityIndex = Map<McpEntityId, McpEntity>

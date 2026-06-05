@@ -42,7 +42,7 @@ import { BUILD_TYPE, FILE_FORMAT_JSON, MESSAGE_SEVERITY, PACKAGE } from '../cons
 import { EXPORT_FORMAT_TO_FILE_FORMAT, takeIf, toPackageDocument } from '../utils'
 import { toVersionsComparisonDto } from '../utils/transformToDto'
 import { groupMcpEntitiesByKind } from './mcp'
-import { McpEntityDataMap, McpEntityIndex } from '../types/package/mcp'
+import { McpEntityIndex } from '../types/package/mcp'
 
 export interface ZipTool {
   // todo method should only accept Blob content, transformation is not a responsibility of this method
@@ -101,7 +101,7 @@ export const createVersionPackage = async (
   }
 
   if (buildResultDto.mcpEntities.size) {
-    createMcpFiles(zip, buildResultDto.mcpEntities, buildResultDto.mcpEntityData)
+    createMcpFiles(zip, buildResultDto.mcpEntities)
   }
 
   if (buildResultDto.comparisons.length) {
@@ -299,12 +299,10 @@ const createComparisonDataFile = (zipFolder: ZipTool, comparisonFileId: string, 
   zipFolder.file(comparisonFileId, comparison)
 }
 
-const createMcpFiles = (zip: ZipTool, mcpEntities: McpEntityIndex, entityDataMap?: McpEntityDataMap): void => {
+const createMcpFiles = (zip: ZipTool, mcpEntities: McpEntityIndex): void => {
   zip.file(PACKAGE.MCP_FILE_NAME, groupMcpEntitiesByKind(mcpEntities))
   const mcpDir = zip.folder(PACKAGE.MCP_DIR_NAME)
   for (const entity of mcpEntities.values()) {
-    const data = entityDataMap?.get(entity.mcpEntityId)
-    if (!data) { continue }
-    mcpDir.file(`${entity.mcpEntityId}.json`, new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }))
+    mcpDir.file(`${entity.mcpEntityId}.json`, new Blob([JSON.stringify(entity.data, null, 2)], { type: 'application/json' }))
   }
 }
