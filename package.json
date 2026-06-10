@@ -37,6 +37,7 @@
     "@netcracker/qubership-apihub-api-unifier": "2.8.0",
     "@netcracker/qubership-apihub-graphapi": "1.0.10",
     "@netcracker/qubership-apihub-json-crawl": "1.2.1",
+    "@netcracker/qubership-apihub-ddlapi": "feature-ddl",
     "adm-zip": "0.5.10",
     "ajv": "^8.12.0",
     "ajv-formats": "^2.1.1",

@@ -45,6 +45,7 @@ import { Diff } from '@netcracker/qubership-apihub-api-diff'
 import { ResolvedPackage } from '../external/package'
 import {
   ASYNCAPI_API_TYPE,
+  DDL_API_TYPE,
   FILE_FORMAT_JSON,
   FILE_FORMAT_YAML,
   GRAPHQL_API_TYPE,
@@ -62,6 +63,7 @@ export type BuilderType =
   | typeof TEXT_API_TYPE
   | typeof UNKNOWN_API_TYPE
   | typeof MCP_API_TYPE
+  | typeof DDL_API_TYPE
 
 export interface BuilderContext<T = any> {
   apiBuilders: ApiBuilder<T>[]

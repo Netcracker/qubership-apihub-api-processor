@@ -14,10 +14,13 @@
  * limitations under the License.
  */
 
-export * from './async'
-export * from './ddl'
-export * from './graphql'
-export * from './mcp'
-export * from './rest'
-export * from './text'
-export * from './unknown'
+import { ZippableDocument } from '../../types'
+import { ResolvedVersionDocument } from '../../types/external'
+
+// Single document type, unlike MCP's four per-file types — the entity kind (table/view) is
+// determined per entity inside the parsed model, not per file.
+export const DDL_DOCUMENT_TYPE = 'ddl' as const
+
+export function isDdlDocument(document: ZippableDocument | ResolvedVersionDocument): boolean {
+  return document.type === DDL_DOCUMENT_TYPE
+}

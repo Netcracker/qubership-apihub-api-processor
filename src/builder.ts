@@ -55,6 +55,7 @@ import {
 import type { McpEntityIndex, NotificationMessage, PackageConfig } from './types/package'
 import {
   asyncApiBuilder,
+  ddlBuilder,
   graphqlApiBuilder,
   mcpBuilder,
   restApiBuilder,
@@ -129,7 +130,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
   private basePath: string = ''
 
   constructor(config: BuildConfig, public params: BuilderParams, fileSources?: FileSourceMap) {
-    this.apiBuilders.push(restApiBuilder, graphqlApiBuilder, asyncApiBuilder, mcpBuilder, textApiBuilder, unknownApiBuilder)
+    this.apiBuilders.push(restApiBuilder, graphqlApiBuilder, asyncApiBuilder, mcpBuilder, ddlBuilder, textApiBuilder, unknownApiBuilder)
     this.config = {
       previousVersion: '',
       previousVersionPackageId: '',

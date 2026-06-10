@@ -144,6 +144,8 @@ export const FILE_FORMAT_GQL = 'gql'
 export const FILE_FORMAT_MD = 'md'
 export const FILE_FORMAT_PROTO = 'proto'
 export const FILE_FORMAT_HTML = 'html'
+export const FILE_FORMAT_SQL = 'sql'
+export const FILE_FORMAT_DDL = 'ddl'
 
 export const FILE_FORMAT = {
   JSON: FILE_FORMAT_JSON,
@@ -154,6 +156,8 @@ export const FILE_FORMAT = {
   GQL: FILE_FORMAT_GQL,
   MD: FILE_FORMAT_MD,
   PROTO: FILE_FORMAT_PROTO,
+  SQL: FILE_FORMAT_SQL,
+  DDL: FILE_FORMAT_DDL,
 } as const
 
 export const SUPPORTED_FILE_FORMATS = Object.values(FILE_FORMAT)
@@ -217,3 +221,4 @@ export const REST_API_TYPE = 'rest' as const
 export const GRAPHQL_API_TYPE = 'graphql' as const
 export const ASYNCAPI_API_TYPE = 'asyncapi' as const
 export const MCP_API_TYPE = 'mcp' as const
+export const DDL_API_TYPE = 'ddl' as const

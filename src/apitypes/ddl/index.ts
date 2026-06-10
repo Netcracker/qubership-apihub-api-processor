@@ -14,10 +14,21 @@
  * limitations under the License.
  */
 
-export * from './async'
-export * from './ddl'
-export * from './graphql'
-export * from './mcp'
-export * from './rest'
-export * from './text'
-export * from './unknown'
+import { ApiBuilder } from '../../types'
+import { DDL_API_TYPE } from '../../consts'
+import { DDL_DOCUMENT_TYPE } from './ddl.consts'
+import { parseDdlFile } from './ddl.parser'
+import { buildDdlDocument, dumpDdlDocument } from './ddl.document'
+import { ParsedDdlData } from './ddl.types'
+
+export * from './ddl.consts'
+export * from './ddl.parser'
+export * from './ddl.types'
+
+export const ddlBuilder: ApiBuilder<ParsedDdlData> = {
+  apiType: DDL_API_TYPE,
+  types: [DDL_DOCUMENT_TYPE],
+  parser: parseDdlFile,
+  buildDocument: buildDdlDocument,
+  dumpDocument: dumpDdlDocument,
+}

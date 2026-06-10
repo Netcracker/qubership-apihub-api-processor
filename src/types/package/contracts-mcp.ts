@@ -14,10 +14,24 @@
  * limitations under the License.
  */
 
-export * from './async'
-export * from './ddl'
-export * from './graphql'
-export * from './mcp'
-export * from './rest'
-export * from './text'
-export * from './unknown'
+export type McpKind = 'init' | 'tool' | 'prompt' | 'resource'
+
+export interface McpContractSearch {
+  useEntityDataAsSearchText: boolean
+}
+
+export interface PackageMcpContract {
+  mcpEntityId: string
+  kind: McpKind
+  name: string
+  description?: string
+  mcpEndpoint: string
+  search: McpContractSearch
+  metadata?: Record<string, unknown>
+  documentId?: string
+  contentPath: string
+}
+
+export interface PackageMcpContractsFile {
+  contracts: PackageMcpContract[]
+}

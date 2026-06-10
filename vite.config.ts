@@ -18,6 +18,26 @@ import * as path from 'path'
 import { defineConfig } from 'vite'
 import dts from 'vite-plugin-dts'
 
+// Keep the DDL parser chain OUT of the bundled ESM/UMD build. @netcracker/qubership-apihub-ddlapi
+// pulls in pgsql-parser → libpg-query, whose Emscripten glue fetches `libpg-query.wasm` at runtime
+// via locateFile(). If this chain is inlined into apihub-builder.es.js it becomes a SECOND physical
+// copy of libpg-query that the consumer's bundler (apihub-ui) can no longer reach with its
+// optimizeDeps/locateFile transform — the wasm 404s ("expected magic word 00 61 73 6d"). Keeping it
+// external lets the consumer resolve a SINGLE copy from node_modules (browser: optimized + locateFile
+// -patched by Vite; Node/BTC: read straight from node_modules beside the loader). Only the dynamic
+// import() in ddl.parser.ts reaches this chain, so externalising it leaves no static binding behind.
+// (The tsc CJS output in dist/cjs, used via `require`, already keeps these as runtime imports.)
+const PARSER_CHAIN_EXTERNALS = [
+  '@netcracker/qubership-apihub-ddlapi',
+  'pgsql-parser',
+  'pgsql-deparser',
+  'libpg-query',
+  '@pgsql/types',
+]
+const isExternal = (id: string): boolean =>
+  id === '@asyncapi/parser' ||
+  PARSER_CHAIN_EXTERNALS.some((pkg) => id === pkg || id.startsWith(`${pkg}/`))
+
 export default defineConfig({
   plugins: [
     dts({
@@ -36,7 +56,7 @@ export default defineConfig({
       fileName: (format) => `apihub-builder.${format}.js`,
     },
     rollupOptions: {
-      external: ['@asyncapi/parser'],
+      external: isExternal,
       output: {
         // Map @asyncapi/parser to browser version in UMD builds
         paths: {

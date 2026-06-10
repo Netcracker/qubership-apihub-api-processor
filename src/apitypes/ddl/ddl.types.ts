@@ -14,10 +14,16 @@
  * limitations under the License.
  */
 
-export * from './async'
-export * from './ddl'
-export * from './graphql'
-export * from './mcp'
-export * from './rest'
-export * from './text'
-export * from './unknown'
+// `Realm` is imported as a *type only* — erased at compile time, so it adds no runtime
+// dependency on ddlapi. The actual ddlapi code (and its ~1.1 MB Postgres WASM) is pulled
+// lazily via dynamic import() inside ddl.parser.ts, only when a .sql/.ddl file is parsed.
+import type { Realm } from '@netcracker/qubership-apihub-ddlapi'
+
+/**
+ * Parsed DDL document: the normalized ddlapi model plus the verbatim source SQL.
+ * Mirrors ParsedMcpData ({ entities, originalDocument }).
+ */
+export interface ParsedDdlData {
+  realm: Realm
+  originalDocument: string
+}

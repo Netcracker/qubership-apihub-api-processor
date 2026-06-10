@@ -27,7 +27,7 @@ import {
   validateMcpInitRequired,
 } from '../components/mcp'
 import { calculateHistoryForDeprecatedItems } from '../components/deprecated'
-import { MCP_API_TYPE, REST_API_TYPE } from '../consts'
+import { DDL_API_TYPE, MCP_API_TYPE, MESSAGE_SEVERITY, REST_API_TYPE } from '../consts'
 
 export class BuildStrategy implements BuilderStrategy {
   async execute(config: BuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
@@ -65,6 +65,18 @@ export class BuildStrategy implements BuilderStrategy {
 
         if (builder.apiType === MCP_API_TYPE) {
           processMcpDocument(file, document, builder, buildResult, handleDuplicateMcp)
+        } else if (builder.apiType === DDL_API_TYPE) {
+          // PoC: ddlapi already parsed the .sql into a Realm (document.data.realm) during the
+          // parse phase. Entity/index/payload generation is the next step; for tests we just
+          // surface what was parsed so the chain is observable, and skip the operations path.
+          const realm = (document.data as { realm?: { schemas?: Array<{ tables?: unknown[] }> } } | undefined)?.realm
+          const schemas = realm?.schemas ?? []
+          const tableCount = schemas.reduce((n: number, s) => n + (s.tables?.length ?? 0), 0)
+          buildResult.notifications.push({
+            severity: MESSAGE_SEVERITY.Warning,
+            message: `DDL parsed (PoC): ${schemas.length} schema(s), ${tableCount} table(s)`,
+            fileId: document.fileId,
+          })
         } else {
           await processOperationDocument(document, builder, builderContextObject, buildResult, handleDuplicateOperation)
         }
