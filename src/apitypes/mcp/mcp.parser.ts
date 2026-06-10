@@ -135,7 +135,7 @@ export const parseMcpFile = async (fileId: string, source: Blob): Promise<TextFi
     return undefined
   }
 
-  if (!isObject(parsed) || Array.isArray(parsed)) {
+  if (!isObject(parsed) ) {
     return undefined
   }
 
