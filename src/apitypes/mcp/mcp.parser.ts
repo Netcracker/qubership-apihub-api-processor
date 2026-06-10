@@ -24,6 +24,8 @@ import mcpToolsSchema from './schemas/mcp-tools.json'
 import mcpResourcesSchema from './schemas/mcp-resources.json'
 import mcpPromptsSchema from './schemas/mcp-prompts.json'
 
+type McpParseError = { message: string }
+
 const MCP_SCHEMA_BY_TYPE: Record<string, object> = {
   [MCP_DOCUMENT_TYPE.MCP_INIT]: mcpInitSchema,
   [MCP_DOCUMENT_TYPE.MCP_TOOLS]: mcpToolsSchema,
@@ -31,7 +33,7 @@ const MCP_SCHEMA_BY_TYPE: Record<string, object> = {
   [MCP_DOCUMENT_TYPE.MCP_PROMPTS]: mcpPromptsSchema,
 }
 
-function validateMcpSchema(docType: string, obj: Record<string, unknown>): { message: string }[] {
+function validateMcpSchema(docType: string, obj: Record<string, unknown>): McpParseError[] {
   const schema = MCP_SCHEMA_BY_TYPE[docType]
   if (!schema) { return [] }
   return validateDocument(schema, obj).map(e => ({
@@ -70,8 +72,12 @@ function hasValidName(item: Record<string, unknown>): item is McpListItemRaw {
 
 interface ExtractEntitiesResult {
   entities: McpEntityRaw[]
-  errors: { message: string }[]
+  errors: McpParseError[]
 }
+
+// returned when the document yields no entities (unknown type or non-array payload);
+// never mutated by callers, so a shared constant is safe
+const EMPTY_EXTRACTION: ExtractEntitiesResult = { entities: [], errors: [] }
 
 function extractEntities(obj: Record<string, unknown>, docType: string): ExtractEntitiesResult {
   if (docType === MCP_DOCUMENT_TYPE.MCP_INIT) {
@@ -83,13 +89,13 @@ function extractEntities(obj: Record<string, unknown>, docType: string): Extract
   }
 
   const mapping = MCP_LIST_TYPE_MAPPING[docType]
-  if (!mapping) { return { entities: [], errors: [] } }
+  if (!mapping) { return EMPTY_EXTRACTION }
 
   const arr = obj[mapping.key]
-  if (!Array.isArray(arr)) { return { entities: [], errors: [] } }
+  if (!Array.isArray(arr)) { return EMPTY_EXTRACTION }
 
   const entities: McpEntityRaw[] = []
-  const errors: { message: string }[] = []
+  const errors: McpParseError[] = []
 
   arr.forEach((item, index) => {
     if (!isObject(item)) {
@@ -133,7 +139,7 @@ export const parseMcpFile = async (fileId: string, source: Blob): Promise<TextFi
     return undefined
   }
 
-  const originalDocument = parsed as Record<string, unknown>
+  const originalDocument: Record<string, unknown> = parsed
   const docType = detectMcpDocumentType(originalDocument)
   if (!docType) {
     return undefined
