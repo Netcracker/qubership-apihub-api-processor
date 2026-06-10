@@ -22,6 +22,11 @@ import { McpEntity, McpEntityIndex, McpKind, PackageMcpEntity } from '../src/typ
 
 const MCP_ENDPOINT = '/mcp'
 
+// A build file entry for the init document. Returns a FRESH object per call — the builder mutates
+// file entries (sets `slug`, `apiKind`), so a shared reference would leak state across runs.
+const initFile = (mcpEndpoint: string = MCP_ENDPOINT): { fileId: string; metadata: { mcpEndpoint: string } } =>
+  ({ fileId: 'init.json', metadata: { mcpEndpoint } })
+
 // mcpEntities is a flat Map keyed by id, valued by McpEntity (index fields + data); pull out a kind's entities
 const entitiesOfKind = (
   result: { mcpEntities?: McpEntityIndex },
@@ -67,7 +72,7 @@ describe('MCP Build', () => {
       const editor = createMcpEditor()
       const result = await editor.run({
         files: [
-          { fileId: 'init.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
+          initFile(),
         ],
       })
       const doc = result.documents.get('init.json')
@@ -79,6 +84,7 @@ describe('MCP Build', () => {
       const editor = createMcpEditor()
       const result = await editor.run({
         files: [
+          initFile(),
           { fileId: 'tools.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
         ],
       })
@@ -91,6 +97,7 @@ describe('MCP Build', () => {
       const editor = createMcpEditor()
       const result = await editor.run({
         files: [
+          initFile(),
           { fileId: 'resources.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
         ],
       })
@@ -103,6 +110,7 @@ describe('MCP Build', () => {
       const editor = createMcpEditor()
       const result = await editor.run({
         files: [
+          initFile(),
           { fileId: 'prompts.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
         ],
       })
@@ -117,12 +125,13 @@ describe('MCP Build', () => {
       const editor = createMcpEditor()
       const result = await editor.run({
         files: [
+          initFile(),
           { fileId: 'tools.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
         ],
       })
 
       expect(result.mcpEntities).toBeDefined()
-      expectEntityCounts(result, { tool: 2 })
+      expectEntityCounts(result, { init: 1, tool: 2 })
 
       const searchDocTool = entitiesOfKind(result, 'tool').find(t => t.title === 'search_docs')
       expectEntity(searchDocTool, {
@@ -138,12 +147,13 @@ describe('MCP Build', () => {
       const editor = createMcpEditor()
       const result = await editor.run({
         files: [
+          initFile(),
           { fileId: 'resources.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
         ],
       })
 
       expect(result.mcpEntities).toBeDefined()
-      expectEntityCounts(result, { resource: 2 })
+      expectEntityCounts(result, { init: 1, resource: 2 })
 
       const readme = entitiesOfKind(result, 'resource').find(r => r.title === 'readme')
       expectEntity(readme, {
@@ -159,12 +169,13 @@ describe('MCP Build', () => {
       const editor = createMcpEditor()
       const result = await editor.run({
         files: [
+          initFile(),
           { fileId: 'prompts.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
         ],
       })
 
       expect(result.mcpEntities).toBeDefined()
-      expectEntityCounts(result, { prompt: 2 })
+      expectEntityCounts(result, { init: 1, prompt: 2 })
 
       const summarize = entitiesOfKind(result, 'prompt').find(p => p.title === 'summarize')
       expectEntity(summarize, {
@@ -180,7 +191,7 @@ describe('MCP Build', () => {
       const editor = createMcpEditor()
       const result = await editor.run({
         files: [
-          { fileId: 'init.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
+          initFile(),
         ],
       })
 
@@ -203,10 +214,11 @@ describe('MCP Build', () => {
       const editor = createMcpEditor()
       const result = await editor.run({
         files: [
+          initFile(),
           { fileId: 'tools-title.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
         ],
       })
-      expectEntityCounts(result, { tool: 2 })
+      expectEntityCounts(result, { init: 1, tool: 2 })
 
       // source `title` wins over the name fallback
       const withTitle = entitiesOfKind(result, 'tool').find(t => t.mcpEntityId === 'mcp-tool-with_title')
@@ -224,6 +236,7 @@ describe('MCP Build', () => {
       const editor = createMcpEditor()
       const result = await editor.run({
         files: [
+          initFile(),
           { fileId: 'tools.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
         ],
       })
@@ -236,12 +249,13 @@ describe('MCP Build', () => {
       const editor = createMcpEditor()
       const result = await editor.run({
         files: [
+          initFile(),
           { fileId: 'tools-same-name.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
           { fileId: 'resources-same-name.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
         ],
       })
 
-      expectEntityCounts(result, { tool: 1, resource: 1 })
+      expectEntityCounts(result, { init: 1, tool: 1, resource: 1 })
       expect(entitiesOfKind(result, 'tool')[0].mcpEntityId).not.toBe(entitiesOfKind(result, 'resource')[0].mcpEntityId)
     })
   })
@@ -251,6 +265,7 @@ describe('MCP Build', () => {
       const editor = createMcpEditor()
       const result = await editor.run({
         files: [
+          initFile(),
           { fileId: 'tools.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
         ],
       })
@@ -273,6 +288,7 @@ describe('MCP Build', () => {
       const editor = createMcpEditor()
       const result = await editor.run({
         files: [
+          initFile(),
           { fileId: 'resources.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
         ],
       })
@@ -292,6 +308,7 @@ describe('MCP Build', () => {
       const editor = createMcpEditor()
       const result = await editor.run({
         files: [
+          initFile(),
           { fileId: 'prompts.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
         ],
       })
@@ -313,7 +330,7 @@ describe('MCP Build', () => {
       const editor = createMcpEditor()
       const result = await editor.run({
         files: [
-          { fileId: 'init.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
+          initFile(),
         ],
       })
 
@@ -340,7 +357,7 @@ describe('MCP Build', () => {
 
       const result = await editor.run({
         files: [
-          { fileId: 'init.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
+          initFile(),
           { fileId: 'tools.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
           { fileId: 'resources.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
           { fileId: 'prompts.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
@@ -392,7 +409,7 @@ describe('MCP Build', () => {
       const editor = createMcpEditor()
       const result = await editor.run({
         files: [
-          { fileId: 'init.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
+          initFile(),
           { fileId: 'tools.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
         ],
       })
@@ -407,7 +424,7 @@ describe('MCP Build', () => {
       const editor = createMcpEditor()
       const result = await editor.run({
         files: [
-          { fileId: 'init.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
+          initFile(),
           { fileId: 'tools.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
           { fileId: 'resources.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
           { fileId: 'prompts.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
@@ -418,16 +435,16 @@ describe('MCP Build', () => {
       expect(warnings).toHaveLength(0)
     })
 
-    test('should not warn when no init document provided', async () => {
+    test('should reject publishing MCP entities with no init document', async () => {
       const editor = createMcpEditor()
-      const result = await editor.run({
-        files: [
-          { fileId: 'tools.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
-        ],
-      })
-
-      const warnings = result.notifications.filter(n => n.severity === 1)
-      expect(warnings).toHaveLength(0)
+      // tool/resource/prompt entities with no init describe an incomplete MCP server → publish must fail
+      await expect(
+        editor.run({
+          files: [
+            { fileId: 'tools.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
+          ],
+        }),
+      ).rejects.toThrow(/MCP init is required/)
     })
   })
 
@@ -460,12 +477,13 @@ describe('MCP Build', () => {
       const editor = createMcpEditor()
       const result = await editor.run({
         files: [
+          initFile('/mcp/a'),
           { fileId: 'tools-same-name.json', metadata: { mcpEndpoint: '/mcp/a' } },
           { fileId: 'tools-same-name-2.json', metadata: { mcpEndpoint: '/mcp/b' } },
         ],
       })
 
-      expectEntityCounts(result, { tool: 2 })
+      expectEntityCounts(result, { init: 1, tool: 2 })
       const ids = entitiesOfKind(result, 'tool').map(t => t.mcpEntityId)
       expect(new Set(ids).size).toBe(2)
     })
@@ -487,12 +505,13 @@ describe('MCP Build', () => {
       const editor = createMcpEditor()
       const result = await editor.run({
         files: [
+          initFile(),
           { fileId: 'tools-missing-inputschema.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
         ],
       })
 
       // entity is still produced (schema errors are reported, not fatal)
-      expectEntityCounts(result, { tool: 1 })
+      expectEntityCounts(result, { init: 1, tool: 1 })
       const note = result.notifications.find(n => /inputSchema/.test(n.message))
       expect(note).toBeDefined()
     })
@@ -501,12 +520,13 @@ describe('MCP Build', () => {
       const editor = createMcpEditor()
       const result = await editor.run({
         files: [
+          initFile(),
           { fileId: 'tools-partial-invalid.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
         ],
       })
 
       // the valid tool is built, the nameless one is dropped instead of producing a degenerate id
-      expectEntityCounts(result, { tool: 1 })
+      expectEntityCounts(result, { init: 1, tool: 1 })
       expect(entitiesOfKind(result, 'tool')[0].title).toBe('valid_tool')
 
       // the skipped item is surfaced as a notification rather than silently swallowed
@@ -521,11 +541,12 @@ describe('MCP Build', () => {
       const editor = createMcpEditor()
       const initial = await editor.run({
         files: [
+          initFile(),
           { fileId: 'tools.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
           { fileId: 'resources.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
         ],
       })
-      expectEntityCounts(initial, { tool: 2, resource: 2 })
+      expectEntityCounts(initial, { init: 1, tool: 2, resource: 2 })
 
       const updated = await editor.update(
         { files: [{ fileId: 'resources.json', metadata: { mcpEndpoint: MCP_ENDPOINT } }] },
@@ -538,7 +559,10 @@ describe('MCP Build', () => {
     test('should replace its entities when an MCP file is changed', async () => {
       const editor = createMcpEditor()
       await editor.run({
-        files: [{ fileId: 'tools.json', metadata: { mcpEndpoint: MCP_ENDPOINT } }],
+        files: [
+          initFile(),
+          { fileId: 'tools.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
+        ],
       })
 
       await editor.updateJsonFile('tools.json', () => ({
@@ -546,7 +570,7 @@ describe('MCP Build', () => {
       }))
       const updated = await editor.update({}, ['tools.json'])
 
-      expectEntityCounts(updated, { tool: 1 })
+      expectEntityCounts(updated, { init: 1, tool: 1 })
       expect(entitiesOfKind(updated, 'tool')[0].title).toBe('only_one')
     })
   })
@@ -559,11 +583,12 @@ describe('MCP Build', () => {
       // both files declare a tool named "search" — distinct endpoints keep their ids apart
       const result = await editor.run({
         files: [
+          initFile('/mcp/a'),
           { fileId: 'tools-same-name.json', metadata: { mcpEndpoint: '/mcp/a' } },
           { fileId: 'tools-same-name-2.json', metadata: { mcpEndpoint: '/mcp/b' } },
         ],
       })
-      expectEntityCounts(result, { tool: 2 })
+      expectEntityCounts(result, { init: 1, tool: 2 })
 
       await registry.publishPackage(result, editor.builder.builderContext(editor.config), editor.config)
 
@@ -582,6 +607,7 @@ describe('MCP Build', () => {
       const result = await editor.run({
         files: [
           { fileId: 'simple-rest-api-for-mixed.json' },
+          initFile(),
           { fileId: 'tools.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
         ],
       })
@@ -590,7 +616,7 @@ describe('MCP Build', () => {
       const operations = Array.from(result.operations.values())
       expect(operations).toHaveLength(1)
       expect(operations[0].apiType).toBe(REST_API_TYPE)
-      expectEntityCounts(result, { tool: 2 })
+      expectEntityCounts(result, { init: 1, tool: 2 })
     })
   })
 })

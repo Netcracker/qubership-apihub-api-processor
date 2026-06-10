@@ -84,6 +84,17 @@ export function groupMcpEntitiesByKind(entities: McpEntityIndex): PackageMcpFile
   return grouped
 }
 
+export function validateMcpInitRequired(entities: McpEntityIndex): void {
+  const allEntities = [...entities.values()]
+  const hasInit = allEntities.some(entity => entity.kind === MCP_KIND.INIT)
+  const hasOtherEntities = allEntities.some(entity => entity.kind !== MCP_KIND.INIT)
+  if (hasOtherEntities && !hasInit) {
+    throw new Error(
+      'MCP init is required: the version publishes tool/resource/prompt entities but contains no init entity',
+    )
+  }
+}
+
 const CAPABILITY_TO_KIND: [string, McpKind][] = [
   [MCP_COLLECTION_KEY[MCP_KIND.TOOL], MCP_KIND.TOOL],
   [MCP_COLLECTION_KEY[MCP_KIND.PROMPT], MCP_KIND.PROMPT],
