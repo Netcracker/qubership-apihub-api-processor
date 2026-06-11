@@ -24,8 +24,8 @@ import {
   createDuplicateMcpEntityHandler,
   processMcpDocument,
   validateMcpCapabilities,
-  validateMcpDocumentsSchema,
   validateMcpInitRequired,
+  validateMcpProtocolVersion,
 } from '../components/mcp'
 import { calculateHistoryForDeprecatedItems } from '../components/deprecated'
 import { MCP_API_TYPE, REST_API_TYPE } from '../consts'
@@ -73,8 +73,8 @@ export class BuildStrategy implements BuilderStrategy {
 
       // whole-set cross-check: needs all entities collected first (init and its tools/resources/prompts
       // may live in different files), mirroring how calculateHistoryForDeprecatedItems runs after the loop
-      validateMcpDocumentsSchema(buildResult.documents)
       validateMcpInitRequired(buildResult.mcpEntities)
+      validateMcpProtocolVersion(buildResult.documents, buildResult.mcpEntities)
       validateMcpCapabilities(buildResult.mcpEntities, buildResult.documents, buildResult.notifications)
 
       if (!builderContextObject.builderRunOptions.withoutDeprecatedDepth && previousVersionCache) {

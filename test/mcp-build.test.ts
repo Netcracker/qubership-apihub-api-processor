@@ -24,8 +24,8 @@ const MCP_ENDPOINT = '/mcp'
 
 // A build file entry for the init document. Returns a FRESH object per call — the builder mutates
 // file entries (sets `slug`, `apiKind`), so a shared reference would leak state across runs.
-const initFile = (mcpEndpoint: string = MCP_ENDPOINT): { fileId: string; metadata: { mcpEndpoint: string } } =>
-  ({ fileId: 'init.json', metadata: { mcpEndpoint } })
+const initFile = (mcpEndpoint: string = MCP_ENDPOINT, fileId = 'init.json'): { fileId: string; metadata: { mcpEndpoint: string } } =>
+  ({ fileId, metadata: { mcpEndpoint } })
 
 // mcpEntities is a flat Map keyed by id, valued by McpEntity (index fields + data); pull out a kind's entities
 const entitiesOfKind = (
@@ -457,7 +457,7 @@ describe('MCP Build', () => {
       const result = await editor.run({
         files: [
           initFile('/mcp/a'),
-          initFile('/mcp/b'),
+          initFile('/mcp/b', 'init-b.json'),
           { fileId: 'tools-same-name.json', metadata: { mcpEndpoint: '/mcp/a' } },
           { fileId: 'tools-same-name-2.json', metadata: { mcpEndpoint: '/mcp/b' } },
         ],
@@ -491,7 +491,7 @@ describe('MCP Build', () => {
             { fileId: 'tools-missing-inputschema.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
           ],
         }),
-      ).rejects.toThrow(/does not conform to schema/)
+      ).rejects.toThrow(/does not conform to protocolVersion/)
     })
 
     test('should fail the publish when any list item violates the schema (item without a name)', async () => {
@@ -505,7 +505,34 @@ describe('MCP Build', () => {
             { fileId: 'tools-partial-invalid.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
           ],
         }),
-      ).rejects.toThrow(/does not conform to schema/)
+      ).rejects.toThrow(/does not conform to protocolVersion/)
+    })
+
+    test('should not fail the publish for a list document whose every item is invalid', async () => {
+      const editor = createMcpEditor()
+      // every item is dropped at extraction, so the document yields no entity to resolve its endpoint
+      // (and protocolVersion) from; it is reported via notifications rather than schema-validated.
+      const result = await editor.run({
+        files: [
+          initFile(),
+          { fileId: 'tools-all-invalid.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
+        ],
+      })
+
+      expectEntityCounts(result, { init: 1 })
+      const note = result.notifications.find(n => /missing or empty required 'name'/.test(n.message))
+      expect(note).toBeDefined()
+    })
+
+    test('should fail the publish when init declares an unsupported protocolVersion', async () => {
+      const editor = createMcpEditor()
+      await expect(
+        editor.run({
+          files: [
+            { fileId: 'init-unsupported-version.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
+          ],
+        }),
+      ).rejects.toThrow(/unsupported protocolVersion '9999-01-01'/)
     })
   })
 
@@ -518,7 +545,7 @@ describe('MCP Build', () => {
       const result = await editor.run({
         files: [
           initFile('/mcp/a'),
-          initFile('/mcp/b'),
+          initFile('/mcp/b', 'init-b.json'),
           { fileId: 'tools-same-name.json', metadata: { mcpEndpoint: '/mcp/a' } },
           { fileId: 'tools-same-name-2.json', metadata: { mcpEndpoint: '/mcp/b' } },
         ],
@@ -534,6 +561,21 @@ describe('MCP Build', () => {
       const endpoints = index.tools.map((t: PackageMcpEntity) => t.mcpEndpoint)
       expect(new Set(endpoints)).toEqual(new Set(['/mcp/a', '/mcp/b']))
     }, 30000)
+
+    test('should validate each endpoint against the protocolVersion its own init declares', async () => {
+      const editor = createMcpEditor()
+      // /mcp/a runs 2024-11-05, /mcp/b runs 2025-11-25 — both build, each validated against its version
+      const result = await editor.run({
+        files: [
+          initFile('/mcp/a', 'init-v2024.json'),
+          initFile('/mcp/b', 'init-b.json'),
+          { fileId: 'tools-same-name.json', metadata: { mcpEndpoint: '/mcp/a' } },
+          { fileId: 'tools-same-name-2.json', metadata: { mcpEndpoint: '/mcp/b' } },
+        ],
+      })
+
+      expectEntityCounts(result, { init: 2, tool: 2 })
+    })
   })
 
   describe('Mixed with operations', () => {

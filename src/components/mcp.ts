@@ -26,18 +26,16 @@ import {
 } from '../types/package/mcp'
 import { NotificationMessage } from '../types/package'
 import { MCP_DOCUMENT_TYPE } from '../apitypes/mcp'
-import { DuplicateHandler, setReportingDuplicate, validateDocument } from '../utils'
+import { DuplicateHandler, isObject, isString, setReportingDuplicate } from '../utils'
 import { MESSAGE_SEVERITY } from '../consts'
-import mcpInitSchema from '../apitypes/mcp/schemas/mcp-init.json'
-import mcpToolsSchema from '../apitypes/mcp/schemas/mcp-tools.json'
-import mcpResourcesSchema from '../apitypes/mcp/schemas/mcp-resources.json'
-import mcpPromptsSchema from '../apitypes/mcp/schemas/mcp-prompts.json'
+import { getMcpSchemaValidator, isSupportedMcpVersion, SUPPORTED_MCP_VERSIONS } from '../apitypes/mcp/mcp.validation'
 
-const MCP_SCHEMA_BY_TYPE: Record<string, object> = {
-  [MCP_DOCUMENT_TYPE.MCP_INIT]: mcpInitSchema,
-  [MCP_DOCUMENT_TYPE.MCP_TOOLS]: mcpToolsSchema,
-  [MCP_DOCUMENT_TYPE.MCP_RESOURCES]: mcpResourcesSchema,
-  [MCP_DOCUMENT_TYPE.MCP_PROMPTS]: mcpPromptsSchema,
+// MCP document type → the kind whose official definition validates it (see getMcpSchemaValidator).
+const MCP_DOCUMENT_TYPE_TO_KIND: Record<string, McpKind> = {
+  [MCP_DOCUMENT_TYPE.MCP_INIT]: MCP_KIND.INIT,
+  [MCP_DOCUMENT_TYPE.MCP_TOOLS]: MCP_KIND.TOOL,
+  [MCP_DOCUMENT_TYPE.MCP_RESOURCES]: MCP_KIND.RESOURCE,
+  [MCP_DOCUMENT_TYPE.MCP_PROMPTS]: MCP_KIND.PROMPT,
 }
 
 export interface McpBuildContext {
@@ -96,9 +94,9 @@ export function groupMcpEntitiesByKind(entities: McpEntityIndex): PackageMcpFile
 }
 
 /**
- * Every MCP endpoint published in a version must carry its OWN init: a publish may contain documents
- * for several endpoints at once, and each endpoint's init is the mandatory descriptor of that server.
- * An endpoint that publishes any entity but has no init fails the publish.
+ * Requires an init for every published endpoint. A version may publish documents for several endpoints
+ * at once, and each endpoint's init is its mandatory descriptor; an endpoint that publishes any entity
+ * without an init fails the publish.
  */
 export function validateMcpInitRequired(entities: McpEntityIndex): void {
   const endpoints = new Set<string>()
@@ -115,21 +113,50 @@ export function validateMcpInitRequired(entities: McpEntityIndex): void {
 }
 
 /**
- * Validate every MCP document against the MCP JSON schema for its type. Mandatory and FATAL: any
- * non-conforming document throws → the publish fails (same policy as duplicate entities / missing
- * init). Validates the whole document (its raw `originalDocument`), so it also catches files that were
- * detected as MCP but yielded no usable entities. Non-MCP documents are skipped.
+ * Validates each published MCP document, in full, against the official schema for the protocolVersion
+ * its endpoint's init declares. Validating the raw document (not the extracted entities) also rejects
+ * items extraction dropped (e.g. a tool with no `name`). Endpoint and version are resolved from the
+ * entities — the same source as validateMcpInitRequired. Fatal: an unsupported protocolVersion or any
+ * non-conforming document fails the publish. A document with no entities has no resolvable endpoint and
+ * is left to its extraction notifications.
  */
-export function validateMcpDocumentsSchema(documents: Map<string, VersionDocument>): void {
+export function validateMcpProtocolVersion(documents: Map<string, VersionDocument>, entities: McpEntityIndex): void {
+  const versionByEndpoint = new Map<string, unknown>()
+  const endpointByDocumentId = new Map<string, string>()
+  for (const entity of entities.values()) {
+    endpointByDocumentId.set(entity.documentId, entity.mcpEndpoint)
+    if (entity.kind === MCP_KIND.INIT) {
+      // at most one init per endpoint: a second would share the init's mcpEntityId and is already
+      // rejected by the cross-document duplicate check, so this set never overwrites a real version
+      versionByEndpoint.set(entity.mcpEndpoint, entity.data.protocolVersion)
+    }
+  }
+
   for (const document of documents.values()) {
-    const schema = MCP_SCHEMA_BY_TYPE[document.type]
-    if (!schema) { continue }
-    const originalDocument = document.data?.originalDocument
-    if (!originalDocument) { continue }
-    const errors = validateDocument(schema, originalDocument)
-    if (errors.length > 0) {
-      const detail = errors.map(e => `${e.instancePath || '/'} ${e.message ?? 'does not match schema'}`.trim()).join('; ')
-      throw new Error(`MCP ${document.type} file '${document.fileId}' does not conform to schema: ${detail}`)
+    const kind = MCP_DOCUMENT_TYPE_TO_KIND[document.type]
+    if (!kind) { continue } // not an MCP document
+
+    const endpoint = endpointByDocumentId.get(document.fileId)
+    if (endpoint === undefined) { continue } // no entities → no endpoint to resolve a version from
+
+    const version = versionByEndpoint.get(endpoint)
+    if (!isString(version) || !isSupportedMcpVersion(version)) {
+      throw new Error(
+        `MCP endpoint '${endpoint}' declares unsupported protocolVersion '${String(version)}'. ` +
+        `Supported versions: ${SUPPORTED_MCP_VERSIONS.join(', ')}`,
+      )
+    }
+
+    const validate = getMcpSchemaValidator(version, kind)
+    if (!validate) {
+      // version is supported → a missing validator is a wiring bug, not bad input
+      throw new Error(`No MCP schema for kind '${kind}' at protocolVersion '${version}' (endpoint '${endpoint}')`)
+    }
+    if (!validate(document.data?.originalDocument)) {
+      const detail = (validate.errors ?? [])
+        .map(error => `${error.instancePath || '/'} ${error.message ?? 'does not match schema'}`.trim())
+        .join('; ')
+      throw new Error(`MCP ${document.type} file '${document.fileId}' does not conform to protocolVersion '${version}': ${detail}`)
     }
   }
 }
@@ -154,8 +181,8 @@ export function validateMcpCapabilities(
   for (const initEntity of allEntities) {
     if (initEntity.kind !== MCP_KIND.INIT) { continue }
     const initDocument = documents.get(initEntity.documentId)
-    const capabilities = initDocument?.data?.originalDocument?.capabilities as Record<string, unknown> | undefined
-    if (!capabilities) { continue }
+    const capabilities = initDocument?.data?.originalDocument?.capabilities
+    if (!isObject(capabilities)) { continue }
     for (const [capKey, kind] of CAPABILITY_TO_KIND) {
       if (!capabilities[capKey]) { continue }
       const hasEntities = allEntities.some(e => e.mcpEndpoint === initEntity.mcpEndpoint && e.kind === kind)

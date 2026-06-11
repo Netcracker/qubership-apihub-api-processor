@@ -17,6 +17,7 @@
 import { DocumentBuilder, DocumentDumper, VersionDocument } from '../../types'
 import { FILE_FORMAT_JSON } from '../../consts'
 import { ParsedMcpData } from './mcp.types'
+import { serializeMcpDocument } from './mcp.utils'
 import { createVersionInternalDocument, getDocumentTitle } from '../../utils'
 
 export const buildMcpDocument: DocumentBuilder<ParsedMcpData> = async (parsedFile, file): Promise<VersionDocument<ParsedMcpData>> => {
@@ -44,5 +45,5 @@ export const buildMcpDocument: DocumentBuilder<ParsedMcpData> = async (parsedFil
 
 export const dumpMcpDocument: DocumentDumper<ParsedMcpData> = (document) => {
   const { data } = document
-  return new Blob([JSON.stringify(data.originalDocument, null, 2)], { type: 'application/json' })
+  return serializeMcpDocument(data.originalDocument)
 }

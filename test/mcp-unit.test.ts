@@ -18,10 +18,11 @@ import { parseMcpFile } from '../src/apitypes/mcp/mcp.parser'
 import { calculateMcpEntityId, wrapEntityData } from '../src/apitypes/mcp/mcp.entities'
 import { MCP_DOCUMENT_TYPE } from '../src/apitypes/mcp/mcp.consts'
 import { mcpBuilder } from '../src/apitypes/mcp'
-import { createDuplicateMcpEntityHandler, createMcpBuildContext, processMcpDocument, validateMcpCapabilities, validateMcpDocumentsSchema } from '../src/components/mcp'
+import { createDuplicateMcpEntityHandler, createMcpBuildContext, processMcpDocument, validateMcpCapabilities } from '../src/components/mcp'
+import { getMcpSchemaValidator, isSupportedMcpVersion, SUPPORTED_MCP_VERSIONS } from '../src/apitypes/mcp/mcp.validation'
 import { VersionDocument } from '../src/types'
 import { ParsedMcpData } from '../src/apitypes/mcp/mcp.types'
-import { McpKind } from '../src/types/package/mcp'
+import { MCP_KIND, McpKind } from '../src/types/package/mcp'
 import { NotificationMessage } from '../src/types/package'
 import { MESSAGE_SEVERITY } from '../src/consts'
 
@@ -63,12 +64,43 @@ describe('MCP parser', () => {
     expect(initEntity.kind).toBe('init')
   })
 
-  test('should detect init without protocolVersion (e.g. MCP Inspector output)', async () => {
+  test('should detect a plain init that carries protocolVersion', async () => {
     const result = await parseMcpFile('init.json', makeBlob({
+      protocolVersion: '2025-11-25',
       capabilities: { tools: {} },
       serverInfo: { name: 'my-server', version: '1.0' },
     }))
     expect(result?.type).toBe(MCP_DOCUMENT_TYPE.MCP_INIT)
+    expect(result?.data.entities).toHaveLength(1)
+  })
+
+  test('should unwrap a JSON-RPC init response and keep only its result as the init document', async () => {
+    const result = await parseMcpFile('init.json', makeBlob({
+      jsonrpc: '2.0',
+      id: 0,
+      result: {
+        protocolVersion: '2025-11-25',
+        capabilities: { tools: {} },
+        serverInfo: { name: 'apihub-mcp', version: '0.0.2' },
+      },
+    }))
+    expect(result?.type).toBe(MCP_DOCUMENT_TYPE.MCP_INIT)
+    // the JSON-RPC envelope is gone — originalDocument is the plain init (its `result`)
+    expect(result?.data.originalDocument).not.toHaveProperty('jsonrpc')
+    expect(result?.data.originalDocument.protocolVersion).toBe('2025-11-25')
+    // ...and it doesn't linger in the stored source either
+    const sourceText = await result!.source.text()
+    expect(sourceText).not.toContain('jsonrpc')
+    expect(JSON.parse(sourceText).protocolVersion).toBe('2025-11-25')
+  })
+
+  test('should unwrap a JSON-RPC tools response and detect it as tools', async () => {
+    const result = await parseMcpFile('tools.json', makeBlob({
+      jsonrpc: '2.0',
+      id: 1,
+      result: { tools: [{ name: 't', inputSchema: { type: 'object' } }] },
+    }))
+    expect(result?.type).toBe(MCP_DOCUMENT_TYPE.MCP_TOOLS)
     expect(result?.data.entities).toHaveLength(1)
   })
 
@@ -134,7 +166,7 @@ describe('MCP parser', () => {
   })
 
   describe('keeps a detected MCP file even when it yields no usable entities', () => {
-    // schema conformance is enforced later, fatally, at build time (validateMcpDocumentsSchema) — the
+    // schema conformance is enforced later, fatally, at build time (validateMcpProtocolVersion) — the
     // parser must NOT downgrade a structurally-detected MCP file to an unknown document
     test('should keep an empty tools array as an MCP document with no entities', async () => {
       const result = await parseMcpFile('tools.json', makeBlob({ tools: [] }))
@@ -282,32 +314,54 @@ describe('MCP cross-document duplicate detection', () => {
   })
 })
 
-describe('MCP document schema validation (fatal, build-time)', () => {
-  // validateMcpDocumentsSchema validates each MCP document's raw originalDocument against the schema for
-  // its type and THROWS on any violation (the publish then fails). Driven here with minimal documents.
-  const mcpDoc = (type: string, originalDocument: Record<string, unknown>): VersionDocument =>
-    makeMcpDocument('f.json', type, { entities: [], originalDocument })
+describe('MCP per-version schema validation', () => {
+  // validates the payload exactly as it is stored on an entity (init = raw InitializeResult; list kinds
+  // wrapped in their collection form by wrapEntityData) against the OFFICIAL schema for the version.
+  const check = (version: string, kind: McpKind, data: unknown): { ok: boolean; errors: string[] } => {
+    const validate = getMcpSchemaValidator(version, kind)
+    if (!validate) { throw new Error(`no validator for ${version}/${kind}`) }
+    const ok = validate(data) as boolean
+    return { ok, errors: (validate.errors ?? []).map(e => `${e.instancePath || '/'} ${e.message ?? ''}`) }
+  }
 
-  const validate = (type: string, originalDocument: Record<string, unknown>): void =>
-    validateMcpDocumentsSchema(new Map([['f.json', mcpDoc(type, originalDocument)]]))
-
-  test('should pass a valid tools document', () => {
-    expect(() => validate(MCP_DOCUMENT_TYPE.MCP_TOOLS, {
-      tools: [{ name: 't', description: 'd', inputSchema: { type: 'object' } }],
-    })).not.toThrow()
+  test('should pass valid init/tools/resources/prompts for 2025-11-25', () => {
+    expect(check('2025-11-25', MCP_KIND.INIT, {
+      protocolVersion: '2025-11-25', capabilities: {}, serverInfo: { name: 's', version: '1.0.0' },
+    }).ok).toBe(true)
+    expect(check('2025-11-25', MCP_KIND.TOOL, { tools: [{ name: 't', inputSchema: { type: 'object' } }] }).ok).toBe(true)
+    expect(check('2025-11-25', MCP_KIND.RESOURCE, { resources: [{ name: 'r', uri: 'https://example.com' }] }).ok).toBe(true)
+    expect(check('2025-11-25', MCP_KIND.PROMPT, { prompts: [{ name: 'p' }] }).ok).toBe(true)
   })
 
-  test('should throw for a tool missing required inputSchema', () => {
-    expect(() => validate(MCP_DOCUMENT_TYPE.MCP_TOOLS, { tools: [{ name: 't' }] })).toThrow(/inputSchema/)
+  test('should reject a tool missing required inputSchema', () => {
+    const { ok, errors } = check('2025-11-25', MCP_KIND.TOOL, { tools: [{ name: 't' }] })
+    expect(ok).toBe(false)
+    expect(errors.some(m => /inputSchema/.test(m))).toBe(true)
   })
 
-  test('should throw for init missing serverInfo.version', () => {
-    expect(() => validate(MCP_DOCUMENT_TYPE.MCP_INIT, {
-      protocolVersion: '2025-11-25', capabilities: { tools: {} }, serverInfo: { name: 's' },
-    })).toThrow(/version/)
+  test('should reject init missing serverInfo.version', () => {
+    const { ok, errors } = check('2025-11-25', MCP_KIND.INIT, {
+      protocolVersion: '2025-11-25', capabilities: {}, serverInfo: { name: 's' },
+    })
+    expect(ok).toBe(false)
+    expect(errors.some(m => /version/.test(m))).toBe(true)
   })
 
-  test('should throw for a resource missing required uri', () => {
-    expect(() => validate(MCP_DOCUMENT_TYPE.MCP_RESOURCES, { resources: [{ name: 'r' }] })).toThrow(/uri/)
+  test('should reject a resource missing required uri', () => {
+    const { ok, errors } = check('2025-11-25', MCP_KIND.RESOURCE, { resources: [{ name: 'r' }] })
+    expect(ok).toBe(false)
+    expect(errors.some(m => /uri/.test(m))).toBe(true)
+  })
+
+  test('should validate the draft-07 revisions too (2024-11-05)', () => {
+    expect(check('2024-11-05', MCP_KIND.TOOL, { tools: [{ name: 't', inputSchema: { type: 'object' } }] }).ok).toBe(true)
+    expect(check('2024-11-05', MCP_KIND.TOOL, { tools: [{ name: 't' }] }).ok).toBe(false)
+  })
+
+  test('should support exactly the four non-draft versions and nothing else', () => {
+    expect(SUPPORTED_MCP_VERSIONS).toEqual(['2024-11-05', '2025-03-26', '2025-06-18', '2025-11-25'])
+    expect(isSupportedMcpVersion('2025-11-25')).toBe(true)
+    expect(isSupportedMcpVersion('draft')).toBe(false)
+    expect(getMcpSchemaValidator('1999-01-01', MCP_KIND.TOOL)).toBeUndefined()
   })
 })

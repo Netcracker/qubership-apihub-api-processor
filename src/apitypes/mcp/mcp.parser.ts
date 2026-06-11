@@ -19,8 +19,17 @@ import { getFileExtension, isObject, isString } from '../../utils'
 import { FILE_FORMAT_JSON } from '../../consts'
 import { MCP_DOCUMENT_TYPE } from './mcp.consts'
 import { McpEntityRaw, ParsedMcpData } from './mcp.types'
+import { serializeMcpDocument } from './mcp.utils'
 
 type McpParseError = { message: string }
+
+// An MCP artifact may arrive as a raw JSON-RPC response (e.g. MCP Inspector output) — `{ jsonrpc, id,
+// result }`. Unwrap `result` once, at the entry of parsing, so the rest of the pipeline only handles a
+// plain MCP document. A JSON-RPC error response (no `result`) or an already-plain document is returned
+// unchanged.
+function unwrapJsonRpc(parsed: Record<string, unknown>): Record<string, unknown> {
+  return isString(parsed.jsonrpc) && isObject(parsed.result) ? parsed.result : parsed
+}
 
 function detectMcpDocumentType(obj: Record<string, unknown>): string | undefined {
   // Initialization documents are identified by the presence of `capabilities` and `serverInfo`.
@@ -125,11 +134,16 @@ export const parseMcpFile = async (fileId: string, source: Blob): Promise<TextFi
     return undefined
   }
 
-  const originalDocument: Record<string, unknown> = parsed
+  // unwrap a JSON-RPC envelope to its `result` (no-op for a plain document); downstream is plain MCP
+  const originalDocument: Record<string, unknown> = unwrapJsonRpc(parsed)
   const docType = detectMcpDocumentType(originalDocument)
   if (!docType) {
     return undefined
   }
+
+  // if the envelope was unwrapped, rebuild `source` from the unwrapped document so no JSON-RPC remains;
+  // a plain document keeps its original bytes
+  const plainSource = originalDocument === parsed ? source : serializeMcpDocument(originalDocument)
 
   const { entities, errors } = extractEntities(originalDocument, docType)
 
@@ -138,7 +152,7 @@ export const parseMcpFile = async (fileId: string, source: Blob): Promise<TextFi
     type: docType,
     format: FILE_FORMAT_JSON,
     data: { entities, originalDocument },
-    source,
+    source: plainSource,
     kind: FILE_KIND.TEXT,
     errors: errors.length ? errors : undefined,
   }
