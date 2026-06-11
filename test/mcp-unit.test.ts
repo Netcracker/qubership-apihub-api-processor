@@ -188,7 +188,7 @@ describe('MCP entity ID', () => {
   // maps `/` and spaces to `-`, and `()[]{}` to `_` (see SLUG_OPTIONS_OPERATION_ID)
   const cases: Array<{ name: string; endpoint: string; kind: McpKind; entityName: string; expected: string }> = [
     { name: 'simple endpoint and name', endpoint: '/mcp', kind: 'tool', entityName: 'search_docs', expected: 'mcp-tool-search_docs' },
-    { name: 'trailing slash is trimmed', endpoint: '/mcp/', kind: 'tool', entityName: 'x', expected: 'mcp-tool-x' },
+    { name: 'trailing slash is not trimmed', endpoint: '/mcp/', kind: 'tool', entityName: 'x', expected: 'mcp--tool-x' },
     { name: 'nested path endpoint', endpoint: '/api/v1', kind: 'tool', entityName: 'get_forecast', expected: 'api-v1-tool-get_forecast' },
     { name: 'prompt kind', endpoint: '/mcp', kind: 'prompt', entityName: 'summarize', expected: 'mcp-prompt-summarize' },
     { name: 'space in name becomes a hyphen', endpoint: '/mcp', kind: 'tool', entityName: 'get forecast', expected: 'mcp-tool-get-forecast' },

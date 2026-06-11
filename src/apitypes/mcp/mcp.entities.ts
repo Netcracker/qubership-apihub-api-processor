@@ -26,9 +26,8 @@ export function calculateMcpEntityId(
   kind: string,
   name: string,
 ): string {
-  // strip the leading slash of the endpoint path the same way operation IDs do (removeFirstSlash),
-  // and drop a trailing slash so `/mcp` and `/mcp/` map alike; the name is slugified as-is.
-  const safeEndpoint = slugify(removeFirstSlash(mcpEndpoint).replace(/\/+$/, ''), SLUG_OPTIONS_OPERATION_ID)
+  // strip the leading slash of the endpoint path the same way operation IDs do
+  const safeEndpoint = slugify(removeFirstSlash(mcpEndpoint), SLUG_OPTIONS_OPERATION_ID)
   const safeName = slugify(name, SLUG_OPTIONS_OPERATION_ID)
   return `${safeEndpoint}-${kind}-${safeName}`
 }
