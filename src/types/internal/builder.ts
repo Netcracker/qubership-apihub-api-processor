@@ -78,6 +78,7 @@ export interface IPackageVersionBuilder {
   readonly versionsCache: Map<string, VersionCache>
 
   run: (options?: BuilderRunOptions) => Promise<BuildResult>
+  //TODO: remove update method, since it is not used in production code after Editor was removed
   update: (config: BuildConfig, changedFiles?: FileId[], options?: BuilderRunOptions) => Promise<BuildResult>
 }
 
