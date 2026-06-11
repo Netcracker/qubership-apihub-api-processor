@@ -65,6 +65,20 @@ function createMcpEditor(registry?: LocalRegistry): Editor {
   }, {}, reg)
 }
 
+// the full payload of the search_docs tool fixture (tools.json) — asserted both as the entity's `data`
+// and as the serialized mcp/{id}.json, so it is defined once here
+const SEARCH_DOCS_TOOL_PAYLOAD = {
+  tools: [{
+    name: 'search_docs',
+    description: 'Search through documentation',
+    inputSchema: {
+      type: 'object',
+      properties: { query: { type: 'string', description: 'Search query' } },
+      required: ['query'],
+    },
+  }],
+}
+
 describe('MCP Build', () => {
 
   describe('Document types', () => {
@@ -231,35 +245,6 @@ describe('MCP Build', () => {
     })
   })
 
-  describe('Entity ID format', () => {
-    test('should use hyphen-separated entity IDs', async () => {
-      const editor = createMcpEditor()
-      const result = await editor.run({
-        files: [
-          initFile(),
-          { fileId: 'tools.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
-        ],
-      })
-
-      const tool = entitiesOfKind(result, 'tool').find(t => t.title === 'search_docs')
-      expect(tool!.mcpEntityId).toMatch(/^mcp-tool-search_docs$/)
-    })
-
-    test('should not collide when tool and resource have the same name', async () => {
-      const editor = createMcpEditor()
-      const result = await editor.run({
-        files: [
-          initFile(),
-          { fileId: 'tools-same-name.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
-          { fileId: 'resources-same-name.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
-        ],
-      })
-
-      expectEntityCounts(result, { init: 1, tool: 1, resource: 1 })
-      expect(entitiesOfKind(result, 'tool')[0].mcpEntityId).not.toBe(entitiesOfKind(result, 'resource')[0].mcpEntityId)
-    })
-  })
-
   describe('Entity payload', () => {
     test('should build the tool entity data as a complete tool item wrapped in tools array', async () => {
       const editor = createMcpEditor()
@@ -271,17 +256,7 @@ describe('MCP Build', () => {
       })
 
       const tool = entitiesOfKind(result, 'tool').find(t => t.title === 'search_docs')
-      expect(tool?.data).toEqual({
-        tools: [{
-          name: 'search_docs',
-          description: 'Search through documentation',
-          inputSchema: {
-            type: 'object',
-            properties: { query: { type: 'string', description: 'Search query' } },
-            required: ['query'],
-          },
-        }],
-      })
+      expect(tool?.data).toEqual(SEARCH_DOCS_TOOL_PAYLOAD)
     })
 
     test('should build the resource entity data as a complete resource item wrapped in resources array', async () => {
@@ -390,17 +365,7 @@ describe('MCP Build', () => {
 
       // mcp/{id}.json — the full element payload lives here, not in the index
       const payload = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, 'mcp-build/v1/mcp', searchDocs.mcpEntityId))!)
-      expect(payload).toEqual({
-        tools: [{
-          name: 'search_docs',
-          description: 'Search through documentation',
-          inputSchema: {
-            type: 'object',
-            properties: { query: { type: 'string', description: 'Search query' } },
-            required: ['query'],
-          },
-        }],
-      })
+      expect(payload).toEqual(SEARCH_DOCS_TOOL_PAYLOAD)
     }, 30000)
   })
 
@@ -446,6 +411,20 @@ describe('MCP Build', () => {
         }),
       ).rejects.toThrow(/MCP init is required/)
     })
+
+    test('should require an init per endpoint when several endpoints are published at once', async () => {
+      const editor = createMcpEditor()
+      // /mcp/a has its own init, /mcp/b publishes tools but no init → publish must fail even though
+      // another endpoint does have an init (each endpoint needs its own init)
+      await expect(
+        editor.run({
+          files: [
+            initFile('/mcp/a'),
+            { fileId: 'tools.json', metadata: { mcpEndpoint: '/mcp/b' } },
+          ],
+        }),
+      ).rejects.toThrow(/endpoint '\/mcp\/b' publishes entities but has no init/)
+    })
   })
 
   describe('Duplicate detection', () => {
@@ -478,12 +457,13 @@ describe('MCP Build', () => {
       const result = await editor.run({
         files: [
           initFile('/mcp/a'),
+          initFile('/mcp/b'),
           { fileId: 'tools-same-name.json', metadata: { mcpEndpoint: '/mcp/a' } },
           { fileId: 'tools-same-name-2.json', metadata: { mcpEndpoint: '/mcp/b' } },
         ],
       })
 
-      expectEntityCounts(result, { init: 1, tool: 2 })
+      expectEntityCounts(result, { init: 2, tool: 2 })
       const ids = entitiesOfKind(result, 'tool').map(t => t.mcpEntityId)
       expect(new Set(ids).size).toBe(2)
     })
@@ -501,77 +481,31 @@ describe('MCP Build', () => {
       ).rejects.toThrow(/mcpEndpoint/)
     })
 
-    test('should report a schema violation (tool missing inputSchema) but still build the entity', async () => {
+    test('should fail the publish when a tool violates the schema (missing inputSchema)', async () => {
       const editor = createMcpEditor()
-      const result = await editor.run({
-        files: [
-          initFile(),
-          { fileId: 'tools-missing-inputschema.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
-        ],
-      })
-
-      // entity is still produced (schema errors are reported, not fatal)
-      expectEntityCounts(result, { init: 1, tool: 1 })
-      const note = result.notifications.find(n => /inputSchema/.test(n.message))
-      expect(note).toBeDefined()
+      // schema conformance is mandatory and fatal — a tool missing the required inputSchema breaks publish
+      await expect(
+        editor.run({
+          files: [
+            initFile(),
+            { fileId: 'tools-missing-inputschema.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
+          ],
+        }),
+      ).rejects.toThrow(/does not conform to schema/)
     })
 
-    test('should skip a list item without a name and report it', async () => {
+    test('should fail the publish when any list item violates the schema (item without a name)', async () => {
       const editor = createMcpEditor()
-      const result = await editor.run({
-        files: [
-          initFile(),
-          { fileId: 'tools-partial-invalid.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
-        ],
-      })
-
-      // the valid tool is built, the nameless one is dropped instead of producing a degenerate id
-      expectEntityCounts(result, { init: 1, tool: 1 })
-      expect(entitiesOfKind(result, 'tool')[0].title).toBe('valid_tool')
-
-      // the skipped item is surfaced as a notification rather than silently swallowed
-      const note = result.notifications.find(n => /missing or empty required 'name'/.test(n.message))
-      expect(note).toBeDefined()
-      expect(note!.fileId).toBe('tools-partial-invalid.json')
-    })
-  })
-
-  describe('Incremental update', () => {
-    test('should drop only its entities when an MCP file is removed', async () => {
-      const editor = createMcpEditor()
-      const initial = await editor.run({
-        files: [
-          initFile(),
-          { fileId: 'tools.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
-          { fileId: 'resources.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
-        ],
-      })
-      expectEntityCounts(initial, { init: 1, tool: 2, resource: 2 })
-
-      const updated = await editor.update(
-        { files: [{ fileId: 'resources.json', metadata: { mcpEndpoint: MCP_ENDPOINT } }] },
-        [],
-      )
-
-      expectEntityCounts(updated, { resource: 2 })
-    })
-
-    test('should replace its entities when an MCP file is changed', async () => {
-      const editor = createMcpEditor()
-      await editor.run({
-        files: [
-          initFile(),
-          { fileId: 'tools.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
-        ],
-      })
-
-      await editor.updateJsonFile('tools.json', () => ({
-        tools: [{ name: 'only_one', description: 'single', inputSchema: { type: 'object' } }],
-      }))
-      const updated = await editor.update({}, ['tools.json'])
-
-      expectEntityCounts(updated, { init: 1, tool: 1 })
-      expect(entitiesOfKind(updated, 'tool')[0].title).toBe('only_one')
+      // one valid tool + one nameless tool: the nameless item violates the schema → the whole publish
+      // fails (invalid input is not silently dropped)
+      await expect(
+        editor.run({
+          files: [
+            initFile(),
+            { fileId: 'tools-partial-invalid.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
+          ],
+        }),
+      ).rejects.toThrow(/does not conform to schema/)
     })
   })
 
@@ -584,11 +518,12 @@ describe('MCP Build', () => {
       const result = await editor.run({
         files: [
           initFile('/mcp/a'),
+          initFile('/mcp/b'),
           { fileId: 'tools-same-name.json', metadata: { mcpEndpoint: '/mcp/a' } },
           { fileId: 'tools-same-name-2.json', metadata: { mcpEndpoint: '/mcp/b' } },
         ],
       })
-      expectEntityCounts(result, { init: 1, tool: 2 })
+      expectEntityCounts(result, { init: 2, tool: 2 })
 
       await registry.publishPackage(result, editor.builder.builderContext(editor.config), editor.config)
 

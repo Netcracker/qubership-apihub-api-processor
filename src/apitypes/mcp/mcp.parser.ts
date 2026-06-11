@@ -15,34 +15,20 @@
  */
 
 import { FILE_KIND, MCP_COLLECTION_KEY, MCP_KIND, McpKind, TextFile } from '../../types'
-import { getFileExtension, isObject, isString, validateDocument } from '../../utils'
+import { getFileExtension, isObject, isString } from '../../utils'
 import { FILE_FORMAT_JSON } from '../../consts'
 import { MCP_DOCUMENT_TYPE } from './mcp.consts'
 import { McpEntityRaw, ParsedMcpData } from './mcp.types'
-import mcpInitSchema from './schemas/mcp-init.json'
-import mcpToolsSchema from './schemas/mcp-tools.json'
-import mcpResourcesSchema from './schemas/mcp-resources.json'
-import mcpPromptsSchema from './schemas/mcp-prompts.json'
 
 type McpParseError = { message: string }
 
-const MCP_SCHEMA_BY_TYPE: Record<string, object> = {
-  [MCP_DOCUMENT_TYPE.MCP_INIT]: mcpInitSchema,
-  [MCP_DOCUMENT_TYPE.MCP_TOOLS]: mcpToolsSchema,
-  [MCP_DOCUMENT_TYPE.MCP_RESOURCES]: mcpResourcesSchema,
-  [MCP_DOCUMENT_TYPE.MCP_PROMPTS]: mcpPromptsSchema,
-}
-
-function validateMcpSchema(docType: string, obj: Record<string, unknown>): McpParseError[] {
-  const schema = MCP_SCHEMA_BY_TYPE[docType]
-  if (!schema) { return [] }
-  return validateDocument(schema, obj).map(e => ({
-    message: `${e.instancePath || '/'} ${e.message ?? 'schema validation failed'}`.trim(),
-  }))
-}
-
 function detectMcpDocumentType(obj: Record<string, unknown>): string | undefined {
-  if (isObject(obj.capabilities) && isString(obj.protocolVersion) && isObject(obj.serverInfo)) {
+  // Initialization documents are identified by the presence of `capabilities` and `serverInfo`.
+  // Although the MCP specification defines `protocolVersion` as part of InitializeResult,
+  // MCP Inspector output currently omits this field. To maintain compatibility, it is not
+  // used as a discriminator here. This logic should be reviewed once version information is
+  // consistently available from the source.
+  if (isObject(obj.capabilities) && isObject(obj.serverInfo)) {
     return MCP_DOCUMENT_TYPE.MCP_INIT
   }
   if (Array.isArray(obj.tools)) { return MCP_DOCUMENT_TYPE.MCP_TOOLS }
@@ -146,14 +132,6 @@ export const parseMcpFile = async (fileId: string, source: Blob): Promise<TextFi
   }
 
   const { entities, errors } = extractEntities(originalDocument, docType)
-  if (entities.length === 0) {
-    return undefined
-  }
-
-  // schema validation runs only once the document is confirmed MCP (so we never reject a foreign file).
-  // unlike rest/async (which surface raw ajv ErrorObject[]), MCP has two error sources — schema validation
-  // and per-item extraction skips — so both are normalized to a single `{ message }` shape and merged here.
-  const allErrors = [...validateMcpSchema(docType, originalDocument), ...errors]
 
   return {
     fileId,
@@ -162,6 +140,6 @@ export const parseMcpFile = async (fileId: string, source: Blob): Promise<TextFi
     data: { entities, originalDocument },
     source,
     kind: FILE_KIND.TEXT,
-    errors: allErrors.length ? allErrors : undefined,
+    errors: errors.length ? errors : undefined,
   }
 }

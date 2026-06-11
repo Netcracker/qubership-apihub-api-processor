@@ -25,9 +25,20 @@ import {
   PackageMcpFile,
 } from '../types/package/mcp'
 import { NotificationMessage } from '../types/package'
-import { ParsedMcpData } from '../apitypes/mcp'
-import { DuplicateHandler, setReportingDuplicate } from '../utils'
+import { MCP_DOCUMENT_TYPE } from '../apitypes/mcp'
+import { DuplicateHandler, setReportingDuplicate, validateDocument } from '../utils'
 import { MESSAGE_SEVERITY } from '../consts'
+import mcpInitSchema from '../apitypes/mcp/schemas/mcp-init.json'
+import mcpToolsSchema from '../apitypes/mcp/schemas/mcp-tools.json'
+import mcpResourcesSchema from '../apitypes/mcp/schemas/mcp-resources.json'
+import mcpPromptsSchema from '../apitypes/mcp/schemas/mcp-prompts.json'
+
+const MCP_SCHEMA_BY_TYPE: Record<string, object> = {
+  [MCP_DOCUMENT_TYPE.MCP_INIT]: mcpInitSchema,
+  [MCP_DOCUMENT_TYPE.MCP_TOOLS]: mcpToolsSchema,
+  [MCP_DOCUMENT_TYPE.MCP_RESOURCES]: mcpResourcesSchema,
+  [MCP_DOCUMENT_TYPE.MCP_PROMPTS]: mcpPromptsSchema,
+}
 
 export interface McpBuildContext {
   mcpEntities: McpEntityIndex
@@ -84,14 +95,42 @@ export function groupMcpEntitiesByKind(entities: McpEntityIndex): PackageMcpFile
   return grouped
 }
 
+/**
+ * Every MCP endpoint published in a version must carry its OWN init: a publish may contain documents
+ * for several endpoints at once, and each endpoint's init is the mandatory descriptor of that server.
+ * An endpoint that publishes any entity but has no init fails the publish.
+ */
 export function validateMcpInitRequired(entities: McpEntityIndex): void {
-  const allEntities = [...entities.values()]
-  const hasInit = allEntities.some(entity => entity.kind === MCP_KIND.INIT)
-  const hasOtherEntities = allEntities.some(entity => entity.kind !== MCP_KIND.INIT)
-  if (hasOtherEntities && !hasInit) {
-    throw new Error(
-      'MCP init is required: the version publishes tool/resource/prompt entities but contains no init entity',
-    )
+  const endpoints = new Set<string>()
+  const endpointsWithInit = new Set<string>()
+  for (const entity of entities.values()) {
+    endpoints.add(entity.mcpEndpoint)
+    if (entity.kind === MCP_KIND.INIT) { endpointsWithInit.add(entity.mcpEndpoint) }
+  }
+  for (const endpoint of endpoints) {
+    if (!endpointsWithInit.has(endpoint)) {
+      throw new Error(`MCP init is required: endpoint '${endpoint}' publishes entities but has no init`)
+    }
+  }
+}
+
+/**
+ * Validate every MCP document against the MCP JSON schema for its type. Mandatory and FATAL: any
+ * non-conforming document throws → the publish fails (same policy as duplicate entities / missing
+ * init). Validates the whole document (its raw `originalDocument`), so it also catches files that were
+ * detected as MCP but yielded no usable entities. Non-MCP documents are skipped.
+ */
+export function validateMcpDocumentsSchema(documents: Map<string, VersionDocument>): void {
+  for (const document of documents.values()) {
+    const schema = MCP_SCHEMA_BY_TYPE[document.type]
+    if (!schema) { continue }
+    const originalDocument = document.data?.originalDocument
+    if (!originalDocument) { continue }
+    const errors = validateDocument(schema, originalDocument)
+    if (errors.length > 0) {
+      const detail = errors.map(e => `${e.instancePath || '/'} ${e.message ?? 'does not match schema'}`.trim()).join('; ')
+      throw new Error(`MCP ${document.type} file '${document.fileId}' does not conform to schema: ${detail}`)
+    }
   }
 }
 
@@ -115,7 +154,7 @@ export function validateMcpCapabilities(
   for (const initEntity of allEntities) {
     if (initEntity.kind !== MCP_KIND.INIT) { continue }
     const initDocument = documents.get(initEntity.documentId)
-    const capabilities = (initDocument?.data as ParsedMcpData | undefined)?.originalDocument?.capabilities as Record<string, unknown> | undefined
+    const capabilities = initDocument?.data?.originalDocument?.capabilities as Record<string, unknown> | undefined
     if (!capabilities) { continue }
     for (const [capKey, kind] of CAPABILITY_TO_KIND) {
       if (!capabilities[capKey]) { continue }

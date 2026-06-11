@@ -16,7 +16,7 @@
 
 import { MCP_COLLECTION_KEY, MCP_KIND, McpEntitiesBuilder, McpKind } from '../../types'
 import { ParsedMcpData } from './mcp.types'
-import { isString, SLUG_OPTIONS_OPERATION_ID, slugify } from '../../utils'
+import { isString, removeFirstSlash, SLUG_OPTIONS_OPERATION_ID, slugify } from '../../utils'
 
 // the init entity has no per-item title; it is shown as a fixed "Overview" label (kept as "init" in data)
 const INIT_ENTITY_TITLE = 'init'
@@ -26,8 +26,10 @@ export function calculateMcpEntityId(
   kind: string,
   name: string,
 ): string {
-  const safeEndpoint = slugify(mcpEndpoint, SLUG_OPTIONS_OPERATION_ID).replace(/^-+|-+$/g, '')
-  const safeName = slugify(name, SLUG_OPTIONS_OPERATION_ID).replace(/^-+|-+$/g, '')
+  // strip the leading slash of the endpoint path the same way operation IDs do (removeFirstSlash),
+  // and drop a trailing slash so `/mcp` and `/mcp/` map alike; the name is slugified as-is.
+  const safeEndpoint = slugify(removeFirstSlash(mcpEndpoint).replace(/\/+$/, ''), SLUG_OPTIONS_OPERATION_ID)
+  const safeName = slugify(name, SLUG_OPTIONS_OPERATION_ID)
   return `${safeEndpoint}-${kind}-${safeName}`
 }
 

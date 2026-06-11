@@ -18,7 +18,7 @@ import { parseMcpFile } from '../src/apitypes/mcp/mcp.parser'
 import { calculateMcpEntityId, wrapEntityData } from '../src/apitypes/mcp/mcp.entities'
 import { MCP_DOCUMENT_TYPE } from '../src/apitypes/mcp/mcp.consts'
 import { mcpBuilder } from '../src/apitypes/mcp'
-import { createDuplicateMcpEntityHandler, createMcpBuildContext, processMcpDocument, validateMcpCapabilities } from '../src/components/mcp'
+import { createDuplicateMcpEntityHandler, createMcpBuildContext, processMcpDocument, validateMcpCapabilities, validateMcpDocumentsSchema } from '../src/components/mcp'
 import { VersionDocument } from '../src/types'
 import { ParsedMcpData } from '../src/apitypes/mcp/mcp.types'
 import { McpKind } from '../src/types/package/mcp'
@@ -63,6 +63,15 @@ describe('MCP parser', () => {
     expect(initEntity.kind).toBe('init')
   })
 
+  test('should detect init without protocolVersion (e.g. MCP Inspector output)', async () => {
+    const result = await parseMcpFile('init.json', makeBlob({
+      capabilities: { tools: {} },
+      serverInfo: { name: 'my-server', version: '1.0' },
+    }))
+    expect(result?.type).toBe(MCP_DOCUMENT_TYPE.MCP_INIT)
+    expect(result?.data.entities).toHaveLength(1)
+  })
+
   test('should skip a non-object list item and report it', async () => {
     const result = await parseMcpFile('tools.json', makeBlob({
       tools: [42, { name: 'ok', inputSchema: { type: 'object' } }],
@@ -80,7 +89,8 @@ describe('MCP parser', () => {
       switch (kind) {
         case 'resource': return { uri: `file:///${name}`, name }
         case 'tool': return { name, inputSchema: { type: 'object' } }
-        default: return { name } // prompt
+        case 'prompt': return { name }
+        default: throw new Error(`makeItem: unsupported kind '${kind}'`)
       }
     }
 
@@ -116,13 +126,27 @@ describe('MCP parser', () => {
       { name: 'invalid JSON', fileId: 'bad.json', blob: new Blob(['not json'], { type: 'application/json' }) },
       { name: 'non-json extension', fileId: 'file.yaml', blob: new Blob(['{}'], { type: 'text/plain' }) },
       { name: 'empty object', fileId: 'empty.json', blob: makeBlob({}) },
-      // MCP-specific: shape is detected, but yields no usable entities → not claimed as MCP
-      { name: 'empty tools array', fileId: 'tools.json', blob: makeBlob({ tools: [] }) },
-      { name: 'tools where every item lacks a name', fileId: 'tools.json', blob: makeBlob({ tools: [{ description: 'no name' }] }) },
     ]
 
     test.each(cases)('should return undefined for $name', async ({ fileId, blob }) => {
       expect(await parseMcpFile(fileId, blob)).toBeUndefined()
+    })
+  })
+
+  describe('keeps a detected MCP file even when it yields no usable entities', () => {
+    // schema conformance is enforced later, fatally, at build time (validateMcpDocumentsSchema) — the
+    // parser must NOT downgrade a structurally-detected MCP file to an unknown document
+    test('should keep an empty tools array as an MCP document with no entities', async () => {
+      const result = await parseMcpFile('tools.json', makeBlob({ tools: [] }))
+      expect(result?.type).toBe(MCP_DOCUMENT_TYPE.MCP_TOOLS)
+      expect(result?.data.entities).toHaveLength(0)
+    })
+
+    test('should keep an all-invalid tools list as an MCP document and report the skips', async () => {
+      const result = await parseMcpFile('tools.json', makeBlob({ tools: [{ description: 'no name' }] }))
+      expect(result?.type).toBe(MCP_DOCUMENT_TYPE.MCP_TOOLS)
+      expect(result?.data.entities).toHaveLength(0)
+      expect(result?.errors?.some(e => /missing or empty required 'name'/.test(e.message))).toBe(true)
     })
   })
 })
@@ -258,36 +282,32 @@ describe('MCP cross-document duplicate detection', () => {
   })
 })
 
-describe('MCP schema validation (2024-11-05 … 2025-11-25)', () => {
-  const errorsOf = async (fileId: string, payload: unknown): Promise<string[]> => {
-    const result = await parseMcpFile(fileId, makeBlob(payload))
-    return (result?.errors ?? []).map((e: { message: string }) => e.message)
-  }
+describe('MCP document schema validation (fatal, build-time)', () => {
+  // validateMcpDocumentsSchema validates each MCP document's raw originalDocument against the schema for
+  // its type and THROWS on any violation (the publish then fails). Driven here with minimal documents.
+  const mcpDoc = (type: string, originalDocument: Record<string, unknown>): VersionDocument =>
+    makeMcpDocument('f.json', type, { entities: [], originalDocument })
 
-  test('should report no schema errors for a valid tools document', async () => {
-    expect(await errorsOf('tools.json', {
+  const validate = (type: string, originalDocument: Record<string, unknown>): void =>
+    validateMcpDocumentsSchema(new Map([['f.json', mcpDoc(type, originalDocument)]]))
+
+  test('should pass a valid tools document', () => {
+    expect(() => validate(MCP_DOCUMENT_TYPE.MCP_TOOLS, {
       tools: [{ name: 't', description: 'd', inputSchema: { type: 'object' } }],
-    })).toHaveLength(0)
+    })).not.toThrow()
   })
 
-  test('should report a tool missing required inputSchema (entity still built)', async () => {
-    const result = await parseMcpFile('tools.json', makeBlob({ tools: [{ name: 't' }] }))
-    expect(result).toBeDefined()
-    expect(result!.data.entities).toHaveLength(1)
-    expect(result!.errors!.some(e => /inputSchema/.test(e.message))).toBe(true)
+  test('should throw for a tool missing required inputSchema', () => {
+    expect(() => validate(MCP_DOCUMENT_TYPE.MCP_TOOLS, { tools: [{ name: 't' }] })).toThrow(/inputSchema/)
   })
 
-  test('should report init missing serverInfo.version', async () => {
-    const errors = await errorsOf('init.json', {
-      protocolVersion: '2025-11-25',
-      capabilities: { tools: {} },
-      serverInfo: { name: 's' },
-    })
-    expect(errors.some(m => /version/.test(m))).toBe(true)
+  test('should throw for init missing serverInfo.version', () => {
+    expect(() => validate(MCP_DOCUMENT_TYPE.MCP_INIT, {
+      protocolVersion: '2025-11-25', capabilities: { tools: {} }, serverInfo: { name: 's' },
+    })).toThrow(/version/)
   })
 
-  test('should report a resource missing required uri', async () => {
-    const errors = await errorsOf('resources.json', { resources: [{ name: 'r' }] })
-    expect(errors.some(m => /uri/.test(m))).toBe(true)
+  test('should throw for a resource missing required uri', () => {
+    expect(() => validate(MCP_DOCUMENT_TYPE.MCP_RESOURCES, { resources: [{ name: 'r' }] })).toThrow(/uri/)
   })
 })

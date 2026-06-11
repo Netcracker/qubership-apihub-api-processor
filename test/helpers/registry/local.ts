@@ -33,6 +33,7 @@ import {
   isRestDocument,
   KIND_PACKAGE,
   Labels,
+  MCP_API_TYPE,
   MESSAGE_SEVERITY,
   NotificationMessage,
   OperationId,
@@ -359,7 +360,7 @@ export class LocalRegistry implements IRegistry {
     return undefined
   }
 
-  private getDocApiTypeGuard(apiType: OperationsApiType | string): (document: ZippableDocument | ResolvedVersionDocument) => void {
+  private getDocApiTypeGuard(apiType: OperationsApiType | typeof MCP_API_TYPE): (document: ZippableDocument | ResolvedVersionDocument) => void {
     switch (apiType) {
       case 'rest':
         return isRestDocument
