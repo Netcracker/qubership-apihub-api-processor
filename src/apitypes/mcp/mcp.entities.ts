@@ -38,14 +38,15 @@ export function wrapEntityData(kind: McpKind, data: Record<string, unknown>): Re
 }
 
 export const buildMcpEntities: McpEntitiesBuilder<ParsedMcpData> = (document, file) => {
-  const { data } = document
-  if (!data?.entities) { return [] }
-
-  const fileMetadata = file.metadata
-  const mcpEndpoint = fileMetadata?.mcpEndpoint
+  // metadata.mcpEndpoint is required for every MCP file, independent of how many entities it yields —
+  // check it before the no-entities early return so a zero-entity document cannot slip through without it
+  const mcpEndpoint = file.metadata?.mcpEndpoint
   if (!isString(mcpEndpoint)) {
     throw new Error(`MCP file '${file.fileId}' is missing required metadata.mcpEndpoint`)
   }
+
+  const { data } = document
+  if (!data?.entities) { return [] }
 
   const documentId = document.fileId
   // intra-document duplicate detection, mirroring `operationIdMap` in rest/async.operations.

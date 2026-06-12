@@ -15,22 +15,29 @@
  */
 
 import { parseMcpFile } from '../src/apitypes/mcp/mcp.parser'
-import { calculateMcpEntityId, wrapEntityData } from '../src/apitypes/mcp/mcp.entities'
+import { buildMcpEntities, calculateMcpEntityId, wrapEntityData } from '../src/apitypes/mcp/mcp.entities'
+import { buildMcpDocument } from '../src/apitypes/mcp/mcp.document'
 import { MCP_DOCUMENT_TYPE } from '../src/apitypes/mcp/mcp.consts'
 import { mcpBuilder } from '../src/apitypes/mcp'
-import { createDuplicateMcpEntityHandler, createMcpBuildContext, processMcpDocument, validateMcpCapabilities } from '../src/components/mcp'
+import { createDuplicateMcpEntityHandler, createMcpBuildContext, processMcpDocument, validateMcpCapabilities, validateMcpProtocolVersion } from '../src/components/mcp'
 import { getMcpSchemaValidator, isSupportedMcpVersion, SUPPORTED_MCP_VERSIONS } from '../src/apitypes/mcp/mcp.validation'
-import { VersionDocument } from '../src/types'
+import { BuilderContext, BuildConfigFile, FILE_KIND, TextFile, VersionDocument } from '../src/types'
 import { ParsedMcpData } from '../src/apitypes/mcp/mcp.types'
 import { MCP_KIND, McpKind } from '../src/types/package/mcp'
 import { NotificationMessage } from '../src/types/package'
-import { MESSAGE_SEVERITY } from '../src/consts'
+import { FILE_FORMAT_JSON, MESSAGE_SEVERITY } from '../src/consts'
 
 const makeBlob = (obj: unknown): Blob => new Blob([JSON.stringify(obj)], { type: 'application/json' })
 
-// minimal stand-in for a built MCP document — the functions under test only read fileId/type/data
-const makeMcpDocument = (fileId: string, type: string, data: ParsedMcpData): VersionDocument<ParsedMcpData> =>
-  ({ fileId, type, data, format: 'json' }) as unknown as VersionDocument<ParsedMcpData>
+// minimal stand-in for a built MCP document — the functions under test read fileId/type/data and,
+// for schema validation, metadata.mcpEndpoint and the publish flag
+const makeMcpDocument = (
+  fileId: string,
+  type: string,
+  data: ParsedMcpData,
+  extra: { mcpEndpoint?: string; publish?: boolean } = {},
+): VersionDocument<ParsedMcpData> =>
+  ({ fileId, type, data, format: 'json', publish: extra.publish, metadata: { mcpEndpoint: extra.mcpEndpoint } }) as unknown as VersionDocument<ParsedMcpData>
 
 describe('MCP parser', () => {
   test('should detect init shape (capabilities + serverInfo) as init', async () => {
@@ -363,5 +370,121 @@ describe('MCP per-version schema validation', () => {
     expect(isSupportedMcpVersion('2025-11-25')).toBe(true)
     expect(isSupportedMcpVersion('draft')).toBe(false)
     expect(getMcpSchemaValidator('1999-01-01', MCP_KIND.TOOL)).toBeUndefined()
+  })
+})
+
+describe('validateMcpProtocolVersion (build-level)', () => {
+  const ENDPOINT = '/mcp/v1'
+  const VERSION = '2025-11-25'
+
+  const initDoc = (overrides: Record<string, unknown> = {}): ParsedMcpData => {
+    const originalDocument = {
+      protocolVersion: VERSION, capabilities: {}, serverInfo: { name: 's', version: '1.0.0' }, ...overrides,
+    }
+    return { entities: [{ kind: 'init', name: 'initialize', data: originalDocument }], originalDocument }
+  }
+
+  // entities deliberately left empty — validation must validate the raw document, not the extracted entities
+  const toolsDoc = (tools: unknown[]): ParsedMcpData => ({ entities: [], originalDocument: { tools } })
+
+  const buildDocuments = (
+    docs: Array<{ fileId: string; type: string; parsed: ParsedMcpData; endpoint?: string; publish?: boolean }>,
+  ): Map<string, VersionDocument> => {
+    const map = new Map<string, VersionDocument>()
+    for (const { fileId, type, parsed, endpoint = ENDPOINT, publish } of docs) {
+      map.set(fileId, makeMcpDocument(fileId, type, parsed, { mcpEndpoint: endpoint, publish }))
+    }
+    return map
+  }
+
+  // gap 2: a tools list whose every item is dropped in extraction (zero entities) must still be
+  // schema-validated, so a non-conforming item (here: missing required name/inputSchema) breaks publish
+  test('should throw when an all-invalid tools list yields a non-conforming document', () => {
+    const documents = buildDocuments([
+      { fileId: 'init.json', type: MCP_DOCUMENT_TYPE.MCP_INIT, parsed: initDoc() },
+      { fileId: 'tools.json', type: MCP_DOCUMENT_TYPE.MCP_TOOLS, parsed: toolsDoc([{ description: 'no name' }]) },
+    ])
+    expect(() => validateMcpProtocolVersion(documents)).toThrow(/does not conform/)
+  })
+
+  test('should pass a structurally-empty tools list', () => {
+    const documents = buildDocuments([
+      { fileId: 'init.json', type: MCP_DOCUMENT_TYPE.MCP_INIT, parsed: initDoc() },
+      { fileId: 'tools.json', type: MCP_DOCUMENT_TYPE.MCP_TOOLS, parsed: toolsDoc([]) },
+    ])
+    expect(() => validateMcpProtocolVersion(documents)).not.toThrow()
+  })
+
+  test('should pass a valid init + tools set', () => {
+    const documents = buildDocuments([
+      { fileId: 'init.json', type: MCP_DOCUMENT_TYPE.MCP_INIT, parsed: initDoc() },
+      { fileId: 'tools.json', type: MCP_DOCUMENT_TYPE.MCP_TOOLS, parsed: toolsDoc([{ name: 't', inputSchema: { type: 'object' } }]) },
+    ])
+    expect(() => validateMcpProtocolVersion(documents)).not.toThrow()
+  })
+
+  test('should throw on an unsupported protocolVersion', () => {
+    const documents = buildDocuments([
+      { fileId: 'init.json', type: MCP_DOCUMENT_TYPE.MCP_INIT, parsed: initDoc({ protocolVersion: '1999-01-01' }) },
+    ])
+    expect(() => validateMcpProtocolVersion(documents)).toThrow(/unsupported protocolVersion/)
+  })
+
+  // gap 1: the endpoint requirement is enforced for every published MCP document, regardless of entities
+  test('should throw when a published MCP document is missing metadata.mcpEndpoint', () => {
+    const documents = new Map<string, VersionDocument>([
+      ['tools.json', makeMcpDocument(
+        'tools.json', MCP_DOCUMENT_TYPE.MCP_TOOLS,
+        toolsDoc([{ name: 't', inputSchema: { type: 'object' } }]), {},
+      )],
+    ])
+    expect(() => validateMcpProtocolVersion(documents)).toThrow(/missing required metadata.mcpEndpoint/)
+  })
+
+  test('should skip documents that are not published', () => {
+    // an otherwise non-conforming tools doc — but publish:false means it is never validated
+    const documents = buildDocuments([
+      { fileId: 'tools.json', type: MCP_DOCUMENT_TYPE.MCP_TOOLS, parsed: toolsDoc([{ description: 'no name' }]), publish: false },
+    ])
+    expect(() => validateMcpProtocolVersion(documents)).not.toThrow()
+  })
+})
+
+describe('buildMcpDocument metadata flattening', () => {
+  const parsedFile = (originalDocument: Record<string, unknown>): TextFile<ParsedMcpData> => ({
+    fileId: 'init.json',
+    type: MCP_DOCUMENT_TYPE.MCP_INIT,
+    format: FILE_FORMAT_JSON,
+    data: { entities: [], originalDocument },
+    source: new Blob([]),
+    kind: FILE_KIND.TEXT,
+  })
+
+  // buildMcpDocument ignores its BuilderContext argument; an empty stand-in keeps the call type-safe
+  const ctx = {} as unknown as BuilderContext<ParsedMcpData>
+
+  test('should place the file metadata keys directly under document.metadata (not nested)', async () => {
+    const file: BuildConfigFile = { fileId: 'init.json', metadata: { mcpEndpoint: '/mcp' }, foo: 'bar' }
+    const document = await buildMcpDocument(parsedFile({ capabilities: {} }), file, ctx)
+    // file.metadata.mcpEndpoint is now a top-level key of document.metadata, not document.metadata.metadata
+    expect(document.metadata.mcpEndpoint).toBe('/mcp')
+    expect(document.metadata.metadata).toBeUndefined()
+    // other pass-through file fields are still carried onto document.metadata
+    expect(document.metadata.foo).toBe('bar')
+  })
+
+  test('should not fail when the file carries no metadata object', async () => {
+    const file: BuildConfigFile = { fileId: 'init.json' }
+    const document = await buildMcpDocument(parsedFile({ capabilities: {} }), file, ctx)
+    expect(document.metadata).toEqual({})
+  })
+})
+
+describe('buildMcpEntities metadata requirement', () => {
+  // gap 1: the endpoint check is hoisted above the no-entities early return, so a zero-entity
+  // document with no endpoint still fails fast rather than slipping through
+  test('should throw when mcpEndpoint is missing even for a zero-entity document', () => {
+    const document = makeMcpDocument('tools.json', MCP_DOCUMENT_TYPE.MCP_TOOLS, { entities: [], originalDocument: { tools: [] } })
+    expect(() => buildMcpEntities(document, { fileId: 'tools.json', metadata: {} })).toThrow(/missing required metadata.mcpEndpoint/)
   })
 })

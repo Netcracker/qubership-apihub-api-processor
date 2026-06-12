@@ -508,20 +508,19 @@ describe('MCP Build', () => {
       ).rejects.toThrow(/does not conform to protocolVersion/)
     })
 
-    test('should not fail the publish for a list document whose every item is invalid', async () => {
+    test('should fail the publish for a list document whose every item is invalid', async () => {
       const editor = createMcpEditor()
-      // every item is dropped at extraction, so the document yields no entity to resolve its endpoint
-      // (and protocolVersion) from; it is reported via notifications rather than schema-validated.
-      const result = await editor.run({
-        files: [
-          initFile(),
-          { fileId: 'tools-all-invalid.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
-        ],
-      })
-
-      expectEntityCounts(result, { init: 1 })
-      const note = result.notifications.find(n => /missing or empty required 'name'/.test(n.message))
-      expect(note).toBeDefined()
+      // every item is dropped at extraction, but the raw document is still schema-validated against its
+      // endpoint's protocolVersion — so an all-invalid list breaks publish (invalid input is not silently
+      // dropped), independent of whether any entity was extracted.
+      await expect(
+        editor.run({
+          files: [
+            initFile(),
+            { fileId: 'tools-all-invalid.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
+          ],
+        }),
+      ).rejects.toThrow(/does not conform to protocolVersion/)
     })
 
     test('should fail the publish when init declares an unsupported protocolVersion', async () => {

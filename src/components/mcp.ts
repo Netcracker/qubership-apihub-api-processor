@@ -115,29 +115,34 @@ export function validateMcpInitRequired(entities: McpEntityIndex): void {
 /**
  * Validates each published MCP document, in full, against the official schema for the protocolVersion
  * its endpoint's init declares. Validating the raw document (not the extracted entities) also rejects
- * items extraction dropped (e.g. a tool with no `name`). Endpoint and version are resolved from the
- * entities — the same source as validateMcpInitRequired. Fatal: an unsupported protocolVersion or any
- * non-conforming document fails the publish. A document with no entities has no resolvable endpoint and
- * is left to its extraction notifications.
+ * items extraction dropped (e.g. a tool with no `name`) — so a document that yields zero entities is
+ * still validated and an all-invalid list breaks the publish. The endpoint is read from the document's
+ * `metadata.mcpEndpoint` (the authoritative source, independent of extraction) and the version from the
+ * matching endpoint's init. Fatal: a missing endpoint, an unsupported protocolVersion, or any
+ * non-conforming document fails the publish.
  */
-export function validateMcpProtocolVersion(documents: Map<string, VersionDocument>, entities: McpEntityIndex): void {
+export function validateMcpProtocolVersion(documents: Map<string, VersionDocument>): void {
   const versionByEndpoint = new Map<string, unknown>()
-  const endpointByDocumentId = new Map<string, string>()
-  for (const entity of entities.values()) {
-    endpointByDocumentId.set(entity.documentId, entity.mcpEndpoint)
-    if (entity.kind === MCP_KIND.INIT) {
-      // at most one init per endpoint: a second would share the init's mcpEntityId and is already
-      // rejected by the cross-document duplicate check, so this set never overwrites a real version
-      versionByEndpoint.set(entity.mcpEndpoint, entity.data.protocolVersion)
-    }
+  for (const document of documents.values()) {
+    if (document.publish === false) { continue }
+    if (MCP_DOCUMENT_TYPE_TO_KIND[document.type] !== MCP_KIND.INIT) { continue }
+    const endpoint = document.metadata?.mcpEndpoint
+    if (!isString(endpoint)) { continue } // missing endpoint is reported per-document in the loop below
+    // at most one init per endpoint: a second would share the init's mcpEntityId and is already
+    // rejected by the cross-document duplicate check, so this set never overwrites a real version
+    versionByEndpoint.set(endpoint, document.data?.originalDocument?.protocolVersion)
   }
 
   for (const document of documents.values()) {
+    if (document.publish === false) { continue } // not published → not validated
     const kind = MCP_DOCUMENT_TYPE_TO_KIND[document.type]
     if (!kind) { continue } // not an MCP document
 
-    const endpoint = endpointByDocumentId.get(document.fileId)
-    if (endpoint === undefined) { continue } // no entities → no endpoint to resolve a version from
+    const endpoint = document.metadata?.mcpEndpoint
+    if (!isString(endpoint)) {
+      // buildMcpEntities normally rejects this first; kept as a defensive guard for the whole-set pass
+      throw new Error(`MCP file '${document.fileId}' is missing required metadata.mcpEndpoint`)
+    }
 
     const version = versionByEndpoint.get(endpoint)
     if (!isString(version) || !isSupportedMcpVersion(version)) {

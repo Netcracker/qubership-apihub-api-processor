@@ -21,7 +21,10 @@ import { serializeMcpDocument } from './mcp.utils'
 import { createVersionInternalDocument, getDocumentTitle } from '../../utils'
 
 export const buildMcpDocument: DocumentBuilder<ParsedMcpData> = async (parsedFile, file): Promise<VersionDocument<ParsedMcpData>> => {
-  const { fileId, slug = '', publish = true, ...fileMetadata } = file
+  // pull the file's `metadata` object out of the rest-spread and merge its contents onto the document's
+  // metadata AFTER the other pass-through fields, so its keys (e.g. mcpEndpoint) live directly under
+  // document.metadata rather than nested as document.metadata.metadata
+  const { fileId, slug = '', publish = true, metadata: fileMetadata, ...passThroughFields } = file
   const { data } = parsedFile
   return {
     fileId,
@@ -35,7 +38,7 @@ export const buildMcpDocument: DocumentBuilder<ParsedMcpData> = async (parsedFil
     dependencies: [],
     description: '',
     operationIds: [],
-    metadata: fileMetadata,
+    metadata: { ...passThroughFields, ...fileMetadata },
     source: parsedFile.source,
     version: undefined,
     errors: 0,
