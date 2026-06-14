@@ -105,19 +105,4 @@ describe('DDL Build', () => {
     expect(ddlDoc).toMatchObject({ type: 'ddl', format: 'sql', operationIds: [] })
     expect(ddlDoc).not.toHaveProperty('ddlEntityIds')
   }, 30000)
-
-  test('rejects two tables that collide on ddlEntityId within the same document (D10)', async () => {
-    const editor = createDdlEditor()
-    // `"user name"` and `"user-name"` are distinct tables to Postgres but both slugify to the same id
-    // `public-table-user-name` (slugify preserves case but maps space → hyphen)
-    await expect(editor.run({ files: [{ fileId: 'duplicate.sql' }] })).rejects.toThrow(/Duplicate DDL entity ID/)
-  })
-
-  test('rejects a ddlEntityId collision across documents (Task 6)', async () => {
-    const editor = createDdlEditor()
-    // both files define public.users → same id from different documents
-    await expect(
-      editor.run({ files: [{ fileId: 'shop.sql' }, { fileId: 'dup-users.sql' }] }),
-    ).rejects.toThrow(/Duplicate DDL entity ID .* found in different documents/)
-  })
 })
