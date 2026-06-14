@@ -28,7 +28,7 @@ import {
   VersionId,
   VersionOperationsResolver,
 } from '../external'
-import { ChangeMessage, NotificationMessage } from '../package'
+import { ChangeMessage, DdlChangesMetadata, DdlEntityId, NotificationMessage } from '../package'
 import {
   _RawDocumentResolver,
   _VersionReferencesResolver,
@@ -38,7 +38,7 @@ import {
 } from './apiBuilder'
 import { ObjectHashCache } from '../../utils/hashes'
 import { VersionValidationLevel } from './builder'
-import { ApihubApiCompatibilityKind } from '../../consts'
+import { ApihubApiCompatibilityKind, DDL_CONTRACT_TYPE } from '../../consts'
 
 export type ChangeKind = keyof ChangeSummary
 
@@ -107,6 +107,55 @@ export interface VersionsComparisonDto extends Omit<VersionsComparison<DiffTypeD
   data?: OperationChangesDto[]
 }
 
+// ---- DDL comparison types (AD2) ----
+// The DDL analogs of OperationChanges / OperationType / VersionsComparison. Fields are renamed per AD2:
+// operationId → ddlEntityId, apiType → contractType, operationTypes → contractTypes,
+// numberOfImpactedOperations → numberOfImpactedEntities. DDL drops `tags` + `apiAudienceTransitions`;
+// its metadata is the shared DdlChangesMetadata ({ kind, name, schemaName, description }).
+
+export interface DdlChanges<T extends DiffType | DiffTypeDto = DiffType> {
+  ddlEntityId?: DdlEntityId
+  previousDdlEntityId?: DdlEntityId
+  contractType: typeof DDL_CONTRACT_TYPE
+  apiKind?: ApihubApiCompatibilityKind
+  previousApiKind?: ApihubApiCompatibilityKind
+  changeSummary: ChangeSummary<T>
+  impactedSummary: ImpactedOperationSummary // internal-only (drives numberOfImpactedEntities)
+  // @deprecated. OOM problem
+  diffs?: Diff[] // internal-only
+  metadata?: DdlChangesMetadata
+  previousMetadata?: DdlChangesMetadata
+  comparisonInternalDocumentId?: string
+}
+
+export interface DdlChangesDto extends Omit<DdlChanges<DiffTypeDto>, 'diffs' | 'impactedSummary'> {
+  changes?: ChangeMessage<DiffTypeDto>[]
+}
+
+export interface DdlContractType<T extends DiffType | DiffTypeDto = DiffType> {
+  contractType: typeof DDL_CONTRACT_TYPE
+  changesSummary: ChangeSummary<T>
+  numberOfImpactedEntities: ChangeSummary<T>
+}
+
+export interface DdlComparison<T extends DiffType | DiffTypeDto = DiffType> {
+  comparisonFileId?: string
+  packageId: PackageId
+  version: VersionId
+  revision?: number
+  previousVersion: VersionId
+  previousVersionPackageId: PackageId
+  previousVersionRevision?: number
+  fromCache: boolean
+  contractTypes: DdlContractType<T>[]
+  data?: DdlChanges[]
+  comparisonInternalDocuments: ComparisonInternalDocument[]
+}
+
+export interface DdlComparisonDto extends Omit<DdlComparison<DiffTypeDto>, 'data' | 'comparisonInternalDocuments'> {
+  data?: DdlChangesDto[]
+}
+
 export type InternalDocumentMetadata = {
   id: string
   filename: string
@@ -137,4 +186,5 @@ export type BuilderVersionInfo = {
 
 export type CompareResult = {
   comparisons: VersionsComparison[]
+  ddlComparisons: DdlComparison[]
 } & BuilderVersionInfo

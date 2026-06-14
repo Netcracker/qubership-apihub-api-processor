@@ -16,6 +16,7 @@
 
 export * from './comparisons'
 export * from './config'
+export * from './ddl'
 export * from './mcp'
 export * from './deprecated'
 export * from './documents'

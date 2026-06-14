@@ -28,6 +28,7 @@ import {
   FILE_FORMAT,
   graphqlApiBuilder,
   isAsyncApiDocument,
+  isDdlDocument,
   isGraphqlDocument,
   isMcpDocument,
   isRestDocument,
@@ -75,6 +76,8 @@ import {
   saveComparisonsArray,
   saveDocumentsArray,
   saveEachComparison,
+  saveDdlEntities,
+  saveDdlComparisons,
   saveEachDocument,
   saveEachOperation,
   saveInfo,
@@ -96,7 +99,7 @@ import {
 } from '../../../src/utils'
 import { IRegistry } from './types'
 import { calculateTotalChangeSummary } from '../../../src/components/compare'
-import { toVersionsComparisonDto } from '../../../src/utils/transformToDto'
+import { toDdlComparisonDto, toVersionsComparisonDto } from '../../../src/utils/transformToDto'
 import path from 'path'
 import { ResolvedPackage } from '../../../src/types/external/package'
 import { version as apiProcessorVersion } from '../../../package.json'
@@ -360,7 +363,7 @@ export class LocalRegistry implements IRegistry {
     return undefined
   }
 
-  private getDocApiTypeGuard(apiType: OperationsApiType | typeof MCP_API_TYPE): (document: ZippableDocument | ResolvedVersionDocument) => void {
+  private getDocApiTypeGuard(apiType: OperationsApiType | typeof MCP_API_TYPE | 'ddl'): (document: ZippableDocument | ResolvedVersionDocument) => void {
     switch (apiType) {
       case 'rest':
         return isRestDocument
@@ -370,6 +373,8 @@ export class LocalRegistry implements IRegistry {
         return isAsyncApiDocument
       case 'mcp':
         return isMcpDocument
+      case 'ddl':
+        return isDdlDocument
       default:
         throw new Error(`Unknown API type: ${apiType}`)
     }
@@ -516,8 +521,10 @@ export class LocalRegistry implements IRegistry {
       operations,
       documents,
       comparisons,
+      ddlComparisons,
       notifications,
       mcpEntities,
+      ddlEntities,
     } = buildResult
 
     const basePath = `${VERSIONS_PATH}/${config.packageId}/${config.version}`
@@ -545,10 +552,16 @@ export class LocalRegistry implements IRegistry {
       })
     }
     const comparisonsDto: VersionsComparisonDto[] = comparisons.map(comparison => toVersionsComparisonDto(comparison, builderContext.normalizedSpecFragmentsHashCache, logError))
-    const comparisonInternalDocuments: ComparisonInternalDocument[] = comparisons.map(comparison => comparison.comparisonInternalDocuments).flat()
+    const ddlComparisonsDto = ddlComparisons.map(comparison => toDdlComparisonDto(comparison, builderContext.normalizedSpecFragmentsHashCache, logError))
+    // comparison-internal documents are shared (operation merged docs + DDL merged Realms)
+    const comparisonInternalDocuments: ComparisonInternalDocument[] = [
+      ...comparisons.flatMap(comparison => comparison.comparisonInternalDocuments),
+      ...ddlComparisons.flatMap(comparison => comparison.comparisonInternalDocuments),
+    ]
 
     await saveComparisonsArray(comparisonsDto, basePath)
     await saveEachComparison(comparisonsDto, basePath)
+    await saveDdlComparisons(ddlComparisonsDto, basePath)
     await saveNotifications(notifications, basePath)
     await saveVersionInternalDocuments(documents, basePath)
 
@@ -556,6 +569,7 @@ export class LocalRegistry implements IRegistry {
     await saveComparisonInternalDocuments(comparisonInternalDocuments, basePath)
 
     await saveMcpEntities(mcpEntities, basePath)
+    await saveDdlEntities(ddlEntities, basePath)
   }
 
   async updateOperationsHash(packageId: string, publishParams?: Partial<BuildConfig>): Promise<void> {

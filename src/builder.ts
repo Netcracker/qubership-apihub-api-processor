@@ -35,6 +35,7 @@ import {
   ResolvedVersionDocuments,
   VersionId,
   VersionsComparison,
+  DdlComparison,
 } from './types'
 import {
   ApiBuilder,
@@ -52,9 +53,10 @@ import {
   VersionCache,
   VersionDocument,
 } from './types/internal'
-import type { McpEntityIndex, NotificationMessage, PackageConfig } from './types/package'
+import type { DdlEntityIndex, McpEntityIndex, NotificationMessage, PackageConfig } from './types/package'
 import {
   asyncApiBuilder,
+  ddlBuilder,
   graphqlApiBuilder,
   mcpBuilder,
   restApiBuilder,
@@ -64,6 +66,7 @@ import {
 import { filesDiff, findSharedPath, getCompositeKey, getFileExtension, getOperationsList } from './utils'
 import {
   BUILD_TYPE,
+  DDL_CONTRACT_TYPE,
   DEFAULT_BATCH_SIZE,
   DEFAULT_VALIDATION_RULES_SEVERITY_CONFIG,
   EXPORT_BUILD_TYPES,
@@ -110,6 +113,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
   exportFileName?: string
   operations = new Map<string, ApiOperation>()
   comparisons: VersionsComparison[] = []
+  ddlComparisons: DdlComparison[] = []
 
   versionsCache = new Map<string, VersionCache>()
   referencesCache = new Map<string, BuildConfigRef[]>()
@@ -124,12 +128,14 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
 
   mcpEntities: McpEntityIndex = new Map()
 
+  ddlEntities: DdlEntityIndex = new Map()
+
   readonly parsedFiles: Map<string, SourceFile> = new Map()
 
   private basePath: string = ''
 
   constructor(config: BuildConfig, public params: BuilderParams, fileSources?: FileSourceMap) {
-    this.apiBuilders.push(restApiBuilder, graphqlApiBuilder, asyncApiBuilder, mcpBuilder, textApiBuilder, unknownApiBuilder)
+    this.apiBuilders.push(restApiBuilder, graphqlApiBuilder, asyncApiBuilder, mcpBuilder, ddlBuilder, textApiBuilder, unknownApiBuilder)
     this.config = {
       previousVersion: '',
       previousVersionPackageId: '',
@@ -184,6 +190,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     return {
       operations: this.operations,
       comparisons: this.comparisons,
+      ddlComparisons: this.ddlComparisons,
       documents: this.documents,
       exportDocuments: this.exportDocuments,
       exportFileName: this.exportFileName,
@@ -191,18 +198,21 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       notifications: this.notifications,
       merged: this.merged,
       mcpEntities: this.mcpEntities,
+      ddlEntities: this.ddlEntities,
     }
   }
 
   private setBuildResult(buildResult: BuildResult): void {
     this.operations = buildResult.operations
     this.comparisons = buildResult.comparisons
+    this.ddlComparisons = buildResult.ddlComparisons
     this.documents = buildResult.documents
     this.exportDocuments = buildResult.exportDocuments
     this.exportFileName = buildResult.exportFileName
     this.notifications = buildResult.notifications
     this.merged = buildResult.merged
     this.mcpEntities = buildResult.mcpEntities
+    this.ddlEntities = buildResult.ddlEntities
   }
 
   builderContext(config: BuildConfigBase): BuilderContext {
@@ -541,7 +551,10 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       apiType,
     )
 
-    if (!documents?.documents.length) {
+    // DDL is an additive contract (AD6): a package having no DDL documents is normal, not noteworthy.
+    // Unlike REST/graphql/asyncapi (gated upstream by the version's operationTypes), the DDL changelog
+    // resolves docs speculatively, so an empty DDL result must NOT emit a warning.
+    if (!documents?.documents.length && (apiType as string) !== DDL_CONTRACT_TYPE) {
       this.notifications.push({
         severity: MESSAGE_SEVERITY.Warning,
         message: `No documents for ${packageId}/${version} that match the criteria (apiType=${apiType})`,
@@ -792,9 +805,11 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
         this.compareContext(this.config),
       )
       this.comparisons = compareResult.comparisons
+      this.ddlComparisons = compareResult.ddlComparisons
       applyBuilderVersionInfo(this.config, compareResult)
     } else if (!previousVersion) {
       this.comparisons = []
+      this.ddlComparisons = []
     }
 
     if (version !== previousConfig.version) {
@@ -937,7 +952,9 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     this.exportDocuments = []
     this.exportFileName = undefined
     this.comparisons = []
+    this.ddlComparisons = []
     this.mcpEntities = new Map()
+    this.ddlEntities = new Map()
 
     this.notifications = []
   }

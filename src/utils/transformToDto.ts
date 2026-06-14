@@ -21,6 +21,11 @@ import { AFTER_VALUE_NORMALIZED_PROPERTY, BEFORE_VALUE_NORMALIZED_PROPERTY } fro
 import {
   ChangeMessage,
   ChangeSummary,
+  DdlChanges,
+  DdlChangesDto,
+  DdlComparison,
+  DdlComparisonDto,
+  DdlContractType,
   DiffTypeDto,
   OperationChanges,
   OperationChangesDto,
@@ -167,6 +172,52 @@ export function toVersionsComparisonDto({
     }),
     data: data?.map(data => toOperationChangesDto(data, normalizedSpecFragmentsHashCache, logError)),
   }
+}
+
+export function toDdlChangesDto({
+  diffs,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  impactedSummary,
+  ...rest
+}: DdlChanges, normalizedSpecFragmentsHashCache: ObjectHashCache, logError: (message: string) => void): DdlChangesDto {
+  return {
+    ...rest,
+    changeSummary: replacePropertyInChangesSummary<DiffType, DiffTypeDto>(rest.changeSummary, {
+      origin: risky,
+      override: SEMI_BREAKING_CHANGE_TYPE,
+    }),
+    changes: diffs?.map(diff => toChangeMessage(diff, normalizedSpecFragmentsHashCache, logError)),
+  }
+}
+
+export function toDdlComparisonDto({
+  data,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  comparisonInternalDocuments,
+  ...rest
+}: DdlComparison, normalizedSpecFragmentsHashCache: ObjectHashCache, logError: (message: string) => void): DdlComparisonDto {
+  return {
+    ...rest,
+    contractTypes: convertDtoFieldContractTypes<DiffType, DiffTypeDto>(rest.contractTypes, {
+      origin: risky,
+      override: SEMI_BREAKING_CHANGE_TYPE,
+    }),
+    data: data?.map(entry => toDdlChangesDto(entry, normalizedSpecFragmentsHashCache, logError)),
+  }
+}
+
+export function convertDtoFieldContractTypes<
+  T extends DiffTypeDto | DiffType = DiffTypeDto,
+  J extends DiffTypeDto | DiffType = DiffType>
+(contractTypes: ReadonlyArray<DdlContractType<T>>, {
+  origin,
+  override,
+}: OptionDiffReplacer = { origin: SEMI_BREAKING_CHANGE_TYPE, override: risky }): DdlContractType<J>[] {
+  return contractTypes?.map((type) => ({
+    ...type,
+    changesSummary: replacePropertyInChangesSummary<T, J>(type.changesSummary, { origin, override }),
+    numberOfImpactedEntities: replacePropertyInChangesSummary<T, J>(type.numberOfImpactedEntities, { origin, override }),
+  }))
 }
 
 export function convertDtoFieldOperationTypes<
