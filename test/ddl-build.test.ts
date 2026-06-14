@@ -34,6 +34,27 @@ function createDdlEditor(registry?: LocalRegistry): Editor {
 
 const entityById = (entities: DdlEntityIndex, id: string): DdlEntity | undefined => entities.get(id)
 
+const USERS_ENTITY = {
+  ddlEntityId: 'public-table-users',
+  kind: 'table',
+  name: 'users',
+  schemaName: 'public',
+  description: 'Registered users', // from COMMENT ON TABLE
+  search: { useEntityDataAsSearchText: true },
+  documentId: 'shop.sql',
+  versionInternalDocumentId: 'shop',
+}
+const PRODUCTS_ENTITY = {
+  ddlEntityId: 'shop-table-products',
+  kind: 'table',
+  name: 'products',
+  schemaName: 'shop',
+  description: '', // no COMMENT ON → empty
+  search: { useEntityDataAsSearchText: true },
+  documentId: 'shop.sql',
+  versionInternalDocumentId: 'shop',
+}
+
 describe('DDL Build', () => {
   test('builds DDL entities from a multi-table .sql with schema defaulting and comments', async () => {
     const editor = createDdlEditor()
@@ -45,29 +66,8 @@ describe('DDL Build', () => {
     expect(result.ddlEntities.size).toBe(2)
 
     // unqualified table → schema defaults to `public`; qualified table keeps its schema
-    const users = entityById(result.ddlEntities, 'public-table-users')
-    const products = entityById(result.ddlEntities, 'shop-table-products')
-
-    expect(users).toMatchObject({
-      ddlEntityId: 'public-table-users',
-      kind: 'table',
-      name: 'users',
-      schemaName: 'public',
-      description: 'Registered users', // from COMMENT ON TABLE
-      search: { useEntityDataAsSearchText: true },
-      documentId: 'shop.sql',
-      versionInternalDocumentId: 'shop',
-    })
-    expect(products).toMatchObject({
-      ddlEntityId: 'shop-table-products',
-      kind: 'table',
-      name: 'products',
-      schemaName: 'shop',
-      description: '', // no COMMENT ON → empty
-      search: { useEntityDataAsSearchText: true },
-      documentId: 'shop.sql',
-      versionInternalDocumentId: 'shop',
-    })
+    expect(entityById(result.ddlEntities, USERS_ENTITY.ddlEntityId)).toMatchObject(USERS_ENTITY)
+    expect(entityById(result.ddlEntities, PRODUCTS_ENTITY.ddlEntityId)).toMatchObject(PRODUCTS_ENTITY)
   })
 
   test('publishes ddl.json (index, payload stripped) + ddl/<id> SQL files', async () => {
@@ -80,37 +80,22 @@ describe('DDL Build', () => {
     // ddl.json — grouped by kind, index rows without `data`
     const index: PackageDdlFile = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, `${PACKAGE_ID}/v1`, 'ddl.json'))!)
     expect(index.tables).toHaveLength(2)
-    const usersIndex = index.tables.find((t: PackageDdlEntity) => t.ddlEntityId === 'public-table-users')
-    expect(usersIndex).toMatchObject({
-      ddlEntityId: 'public-table-users',
-      kind: 'table',
-      name: 'users',
-      schemaName: 'public',
-      description: 'Registered users',
-      documentId: 'shop.sql',
-      versionInternalDocumentId: 'shop',
-    })
+
+    const usersIndex = index.tables.find((t: PackageDdlEntity) => t.ddlEntityId === USERS_ENTITY.ddlEntityId)
+    expect(usersIndex).toMatchObject(USERS_ENTITY)
     expect(usersIndex).not.toHaveProperty('data')
 
     // the qualified, comment-less second table is indexed too (schema kept, description '')
-    const productsIndex = index.tables.find((t: PackageDdlEntity) => t.ddlEntityId === 'shop-table-products')
-    expect(productsIndex).toMatchObject({
-      ddlEntityId: 'shop-table-products',
-      kind: 'table',
-      name: 'products',
-      schemaName: 'shop',
-      description: '',
-      documentId: 'shop.sql',
-      versionInternalDocumentId: 'shop',
-    })
+    const productsIndex = index.tables.find((t: PackageDdlEntity) => t.ddlEntityId === PRODUCTS_ENTITY.ddlEntityId)
+    expect(productsIndex).toMatchObject(PRODUCTS_ENTITY)
     expect(productsIndex).not.toHaveProperty('data')
 
     // ddl/<ddlEntityId> — per-entity SQL (no extension), equal to the stub extractTableStatements output
-    const usersSql = await loadFileAsStringFromRegistry(VERSIONS_PATH, `${PACKAGE_ID}/v1/ddl`, 'public-table-users')
+    const usersSql = await loadFileAsStringFromRegistry(VERSIONS_PATH, `${PACKAGE_ID}/v1/ddl`, USERS_ENTITY.ddlEntityId)
     expect(usersSql).toBeTruthy()
     expect(usersSql).toContain('users')
 
-    const productsSql = await loadFileAsStringFromRegistry(VERSIONS_PATH, `${PACKAGE_ID}/v1/ddl`, 'shop-table-products')
+    const productsSql = await loadFileAsStringFromRegistry(VERSIONS_PATH, `${PACKAGE_ID}/v1/ddl`, PRODUCTS_ENTITY.ddlEntityId)
     expect(productsSql).toBeTruthy()
     expect(productsSql).toContain('products')
 
