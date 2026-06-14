@@ -70,11 +70,13 @@ describe('Mixed REST + DDL content', () => {
   test('a build emits both operations.json and ddl.json with no interference', async () => {
     const result = await publish({ 'api.yaml': REST_V1, 'shop.sql': DDL_V1 }, 'v1', BOTH_FILES)
 
-    expect(result.operations.size).toBeGreaterThan(0)
+    expect(result.operations.size).toBe(1)
     expect(result.ddlEntities.size).toBe(1)
 
     const operations = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, `${PACKAGE_ID}/v1`, 'operations.json'))!)
-    expect(operations.operations.length).toBeGreaterThan(0)
+    expect(operations.operations).toHaveLength(1)
+    expect(operations.operations[0].operationId).toBe('users-get')
+
     const ddl = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, `${PACKAGE_ID}/v1`, 'ddl.json'))!)
     expect(ddl.tables).toHaveLength(1)
     expect(ddl.tables[0].ddlEntityId).toBe('public-table-users')
@@ -85,12 +87,13 @@ describe('Mixed REST + DDL content', () => {
     const result = await publish({ 'api.yaml': REST_V2, 'shop.sql': DDL_V2 }, 'v2', BOTH_FILES, 'v1')
 
     // both contract types produced comparisons in-memory
-    expect(result.comparisons.some(c => c.operationTypes.length > 0)).toBe(true)
+    expect(result.comparisons).toHaveLength(1)
     expect(result.ddlComparisons).toHaveLength(1)
 
     // both sibling files exist
     const operationComparisons = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, `${PACKAGE_ID}/v2`, 'comparisons.json'))!)
-    expect(operationComparisons.comparisons.length).toBeGreaterThan(0)
+    expect(operationComparisons.comparisons[0].operationTypes[0].apiType).toBe('rest')
+
     const ddlComparisons = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, `${PACKAGE_ID}/v2`, 'ddl-comparisons.json'))!)
     expect(ddlComparisons.comparisons[0].contractTypes[0].contractType).toBe('ddl')
   })
@@ -102,8 +105,8 @@ describe('Mixed REST + DDL content', () => {
 
     expect(result.ddlEntities.size).toBe(0) // v2 has no DDL entities
     expect(result.ddlComparisons).toHaveLength(1)
-    const removed = (result.ddlComparisons[0].data ?? []).map(c => c.previousDdlEntityId)
-    expect(removed).toContain('public-table-users')
+    const removed = (result.ddlComparisons[0].data ?? []).find(c => c.previousDdlEntityId === 'public-table-users' && !c.ddlEntityId)
+    expect(removed).toBeDefined()
   })
 
   test('dropping all REST from one version is handled (DDL comparison still emitted)', async () => {

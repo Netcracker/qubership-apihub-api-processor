@@ -16,7 +16,7 @@
 
 import { describe, expect, test } from '@jest/globals'
 import { buildFromDdl, Realm } from '@netcracker/qubership-apihub-ddlapi'
-import { breaking, Diff } from '@netcracker/qubership-apihub-api-diff'
+import { breaking, Diff, risky } from '@netcracker/qubership-apihub-api-diff'
 import { compareDdlDocuments } from '../src/apitypes/ddl/ddl.changes'
 import { DdlComparePairContext } from '../src/types'
 import { LocalRegistry, VERSIONS_PATH, loadFileAsStringFromRegistry } from './helpers'
@@ -99,6 +99,7 @@ describe('compareDdlDocuments (per-pair DDL diff attribution)', () => {
     const noBwc = compareDdlDocuments(prev, curr, ctx({ previousApiKind: 'no-bwc', currentApiKind: 'no-bwc' }))
     // the table removal is no longer classified breaking under a no-bwc document
     expect(noBwc.changesByEntityId.get('public-table-b')!.some(d => d.type === breaking)).toBe(false)
+    expect(noBwc.changesByEntityId.get('public-table-b')!.some(d => d.type === risky)).toBe(true)
   })
 })
 
@@ -155,15 +156,18 @@ describe('DDL changelog end-to-end (build with previousVersion)', () => {
 
     // removed table: previous side only
     const legacy = byId['public-table-legacy']
-    expect(legacy.previousDdlEntityId).toBe('public-table-legacy')
     expect(legacy.ddlEntityId).toBeUndefined()
+    expect(legacy.metadata).toBeUndefined()
+    expect(legacy.previousDdlEntityId).toBe('public-table-legacy')
     expect(legacy.previousMetadata.name).toBe('legacy')
 
     // added table: current side only
     const orders = byId['public-table-orders']
     expect(orders.ddlEntityId).toBe('public-table-orders')
-    expect(orders.previousDdlEntityId).toBeUndefined()
     expect(orders.metadata.name).toBe('orders')
+    expect(orders.previousDdlEntityId).toBeUndefined()
+    expect(orders.previousMetadata).toBeUndefined()
+
 
     // merged Realm lands in the shared comparison-internal documents
     const internalDoc = await loadFileAsStringFromRegistry(VERSIONS_PATH, `${PACKAGE_ID}/v2/comparison-internal-documents`, `${users.comparisonInternalDocumentId}.json`)
