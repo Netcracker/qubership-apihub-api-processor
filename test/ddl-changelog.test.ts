@@ -37,24 +37,24 @@ const ids = (m: Map<string, Diff[]>): string[] => [...m.keys()].sort()
 
 describe('compareDdlDocuments (per-pair DDL diff attribution)', () => {
   test('attributes a column change to the owning table', async () => {
-    const prev = await build(`CREATE TABLE users (id bigint PRIMARY KEY, email varchar(255) NOT NULL);`)
-    const curr = await build(`CREATE TABLE users (id bigint PRIMARY KEY, email text NOT NULL, age int);`)
+    const prev = await build('CREATE TABLE users (id bigint PRIMARY KEY, email varchar(255) NOT NULL);')
+    const curr = await build('CREATE TABLE users (id bigint PRIMARY KEY, email text NOT NULL, age int);')
     const { changesByEntityId } = compareDdlDocuments(prev, curr, ctx())
     expect(ids(changesByEntityId)).toEqual(['public-table-users'])
     expect(changesByEntityId.get('public-table-users')!.length).toBeGreaterThan(0)
   })
 
   test('represents added and removed tables', async () => {
-    const prev = await build(`CREATE TABLE a (id bigint PRIMARY KEY); CREATE TABLE b (id bigint PRIMARY KEY);`)
-    const curr = await build(`CREATE TABLE a (id bigint PRIMARY KEY); CREATE TABLE c (id bigint PRIMARY KEY);`)
+    const prev = await build('CREATE TABLE a (id bigint PRIMARY KEY); CREATE TABLE b (id bigint PRIMARY KEY);')
+    const curr = await build('CREATE TABLE a (id bigint PRIMARY KEY); CREATE TABLE c (id bigint PRIMARY KEY);')
     const { changesByEntityId } = compareDdlDocuments(prev, curr, ctx())
     // b removed, c added; a unchanged → not present
     expect(ids(changesByEntityId)).toEqual(['public-table-b', 'public-table-c'])
   })
 
   test('attributes index changes to the table (related parts)', async () => {
-    const prev = await build(`CREATE TABLE users (id bigint PRIMARY KEY, email text);`)
-    const curr = await build(`CREATE TABLE users (id bigint PRIMARY KEY, email text); CREATE INDEX idx_users_email ON users (email);`)
+    const prev = await build('CREATE TABLE users (id bigint PRIMARY KEY, email text);')
+    const curr = await build('CREATE TABLE users (id bigint PRIMARY KEY, email text); CREATE INDEX idx_users_email ON users (email);')
     const { changesByEntityId } = compareDdlDocuments(prev, curr, ctx())
     expect(ids(changesByEntityId)).toEqual(['public-table-users'])
   })
@@ -71,27 +71,27 @@ describe('compareDdlDocuments (per-pair DDL diff attribution)', () => {
   })
 
   test('an orphan-type change (referenced by no table) yields no entry (D2)', async () => {
-    const prev = await build(`CREATE TYPE status AS ENUM ('on','off'); CREATE TABLE a (id bigint PRIMARY KEY);`)
-    const curr = await build(`CREATE TYPE status AS ENUM ('on','off','idle'); CREATE TABLE a (id bigint PRIMARY KEY);`)
+    const prev = await build('CREATE TYPE status AS ENUM (\'on\',\'off\'); CREATE TABLE a (id bigint PRIMARY KEY);')
+    const curr = await build('CREATE TYPE status AS ENUM (\'on\',\'off\',\'idle\'); CREATE TABLE a (id bigint PRIMARY KEY);')
     const { changesByEntityId } = compareDdlDocuments(prev, curr, ctx())
     expect(changesByEntityId.size).toBe(0)
   })
 
   test('identical realms produce no changes', async () => {
-    const same = `CREATE TABLE users (id bigint PRIMARY KEY);`
+    const same = 'CREATE TABLE users (id bigint PRIMARY KEY);'
     const { changesByEntityId } = compareDdlDocuments(await build(same), await build(same), ctx())
     expect(changesByEntityId.size).toBe(0)
   })
 
   test('builds an empty counterpart for a one-sided pair (whole .sql added)', async () => {
-    const curr = await build(`CREATE TABLE users (id bigint PRIMARY KEY); CREATE TABLE orders (id bigint PRIMARY KEY);`)
+    const curr = await build('CREATE TABLE users (id bigint PRIMARY KEY); CREATE TABLE orders (id bigint PRIMARY KEY);')
     const { changesByEntityId } = compareDdlDocuments(undefined, curr, ctx())
     expect(ids(changesByEntityId)).toEqual(['public-table-orders', 'public-table-users'])
   })
 
   test('a no-bwc document softens a breaking change (D4)', async () => {
-    const prev = await build(`CREATE TABLE a (id bigint PRIMARY KEY); CREATE TABLE b (id bigint PRIMARY KEY);`)
-    const curr = await build(`CREATE TABLE a (id bigint PRIMARY KEY);`)
+    const prev = await build('CREATE TABLE a (id bigint PRIMARY KEY); CREATE TABLE b (id bigint PRIMARY KEY);')
+    const curr = await build('CREATE TABLE a (id bigint PRIMARY KEY);')
 
     const bwc = compareDdlDocuments(prev, curr, ctx({ previousApiKind: 'bwc', currentApiKind: 'bwc' }))
     expect(bwc.changesByEntityId.get('public-table-b')!.some(d => d.type === breaking)).toBe(true)
@@ -134,10 +134,10 @@ describe('DDL changelog end-to-end (build with previousVersion)', () => {
     // ddl-comparisons.json index (per-pair data stripped)
     const index = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, `${PACKAGE_ID}/v2`, 'ddl-comparisons.json'))!)
     expect(index.comparisons).toHaveLength(1)
-    const indexEntry = index.comparisons[0]
+    const [indexEntry] = index.comparisons
     expect(indexEntry.contractTypes[0].contractType).toBe('ddl')
     expect(indexEntry).not.toHaveProperty('data')
-    const comparisonFileId = indexEntry.comparisonFileId
+    const { comparisonFileId } = indexEntry
 
     // ddl-comparisons/<comparisonFileId> per-pair data, wrapper key `entities` (C2)
     const perPair = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, `${PACKAGE_ID}/v2/ddl-comparisons`, `${comparisonFileId}.json`))!)

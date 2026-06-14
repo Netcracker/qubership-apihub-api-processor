@@ -39,7 +39,7 @@ export function calculateDdlEntityId(schemaName: string, kind: DdlKind, name: st
  * `processDdlDocument`'s job. Mirrors MCP: `buildMcpEntities` dedups within a doc, `processMcpDocument`
  * across docs.
  */
-export const buildDdlEntities: DdlEntitiesBuilder<ParsedDdlData> = (document, _file) => {
+export const buildDdlEntities: DdlEntitiesBuilder<ParsedDdlData> = (document) => {
   const { realm, originalSql } = document.data
   const documentId = document.fileId
   const versionInternalDocumentId = document.versionInternalDocument.versionDocumentId
