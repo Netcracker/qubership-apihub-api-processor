@@ -172,10 +172,15 @@ export async function compareVersionsDdl(
     fromCache: false,
   } as const
 
-  // no DDL content in either version, or no registered DDL builder → empty comparison
+  // no DDL content in either version → nothing to compare; empty comparison
   const hasDdl = prevDocInfos.length > 0 || currDocInfos.length > 0
-  if (!hasDdl || !apiBuilder?.compareDdlDocuments) {
+  if (!hasDdl) {
     return { ...envelope, contractTypes: [], comparisonInternalDocuments: [] }
+  }
+  // DDL documents ARE present but the compare hook is missing — a registration/wiring bug. Fail loudly
+  // rather than silently dropping the DDL changes this version actually has.
+  if (!apiBuilder?.compareDdlDocuments) {
+    throw new Error('DDL documents are present but no DDL compare hook (compareDdlDocuments) is registered')
   }
 
   const pairs = pairByKey(indexByEntityId(prevDocInfos), indexByEntityId(currDocInfos))
