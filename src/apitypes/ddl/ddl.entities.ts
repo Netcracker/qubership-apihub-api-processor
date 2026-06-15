@@ -61,7 +61,7 @@ export const buildDdlEntities: DdlEntitiesBuilder<ParsedDdlData> = (document) =>
       seen.set(ddlEntityId, table.name)
 
       return {
-        ...describeTable(schema.name, table),
+        ...tableProperties(schema.name, table),
         ddlEntityId,
         search: { useEntityDataAsSearchText: true },
         documentId,
@@ -72,8 +72,8 @@ export const buildDdlEntities: DdlEntitiesBuilder<ParsedDdlData> = (document) =>
   )
 }
 
-/** The human-facing descriptor of a table: kind, name, schema, and COMMENT ON text (`''` if none). */
-function describeTable(schemaName: string, table: Table): DdlEntityDescriptor {
+/** Common table properties: kind, name, schema, and COMMENT ON text (`''` if none). */
+function tableProperties(schemaName: string, table: Table): DdlEntityDescriptor {
   return {
     kind: DDL_KIND.TABLE,
     name: table.name,
@@ -90,7 +90,7 @@ export function collectTableDescriptors(realm: Realm): Map<DdlEntityId, DdlEntit
   const result = new Map<DdlEntityId, DdlEntityDescriptor>()
   for (const schema of realm.schemas ?? []) {
     for (const table of schema.tables ?? []) {
-      result.set(calculateDdlEntityId(schema.name, DDL_KIND.TABLE, table.name), describeTable(schema.name, table))
+      result.set(calculateDdlEntityId(schema.name, DDL_KIND.TABLE, table.name), tableProperties(schema.name, table))
     }
   }
   return result
