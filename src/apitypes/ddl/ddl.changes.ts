@@ -26,7 +26,7 @@ import {
   AFTER_VALUE_NORMALIZED_PROPERTY,
   BEFORE_VALUE_NORMALIZED_PROPERTY,
 } from '../../consts'
-import { DDL_KIND, DdlDiffResult, DdlDocumentsCompare, DdlEntityId, WithDiffMetaRecord } from '../../types'
+import { DDL_KIND, DdlDiffResult, DdlDocumentsCompare, DdlEntityId, WithAggregatedDiffs, WithDiffMetaRecord } from '../../types'
 import { isEmpty } from '../../utils'
 import { createDdlApiCompatibilityScopeFunction } from '../../components/compare/ddl.bwc.validation'
 import { DDL_EFFECTIVE_NORMALIZE_OPTIONS } from './ddl.consts'
@@ -89,9 +89,10 @@ export const compareDdlDocuments: DdlDocumentsCompare = (prevRealm, currRealm, c
     const tables = schema.tables ?? []
     const tablesMeta = (tables as WithDiffMetaRecord<typeof tables>)[DIFF_META_KEY] ?? {}
     tables.forEach((table, index) => {
-      // changed table → its rolled-up child diffs (a Set, incl. fanned shared-type diffs — D2)
-      const aggregated = (table as unknown as Record<symbol, unknown>)[DIFFS_AGGREGATED_META_KEY]
-      const childDiffs = aggregated ? [...(aggregated as Iterable<Diff>)] : []
+      // changed table → its rolled-up child diffs (incl. fanned shared-type diffs — D2), read via the
+      // same WithAggregatedDiffs helper REST uses. api-diff stores the rollup as a Set under the symbol
+      // key, so only spread it — don't call array methods on it.
+      const childDiffs = [...((table as WithAggregatedDiffs<typeof table>)[DIFFS_AGGREGATED_META_KEY] ?? [])]
       // added/removed whole table → a single diff on the parent tables[] array meta
       const addRemoveDiff = tablesMeta[index] as Diff | undefined
       const tableDiffs = addRemoveDiff ? [...childDiffs, addRemoveDiff] : childDiffs
