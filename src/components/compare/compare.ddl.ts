@@ -60,6 +60,7 @@ async function resolveDdlDocInfos(params: VersionParams, ctx: CompareContext): P
   if (!params) { return [] }
   const [version, packageId] = params
   // OQ1: the host resolves DDL documents for apiType 'ddl' and serves their raw .sql
+  //TODO: clarify backend API and remove `as never` cast here
   const resolved = await ctx.versionDocumentsResolver(version, packageId, DDL_CONTRACT_TYPE as never)
   // Only this package's OWN DDL documents. `packageRef`-bearing docs belong to a reference package and
   // are handled by the dashboard/references path (Task 11); resolving their raw SQL at this package id
