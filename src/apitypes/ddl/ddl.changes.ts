@@ -90,8 +90,7 @@ export const compareDdlDocuments: DdlDocumentsCompare = (prevRealm, currRealm, c
     const tablesMeta = (tables as WithDiffMetaRecord<typeof tables>)[DIFF_META_KEY] ?? {}
     tables.forEach((table, index) => {
       // changed table → its rolled-up child diffs (incl. fanned shared-type diffs — D2), read via the
-      // same WithAggregatedDiffs helper REST uses. api-diff stores the rollup as a Set under the symbol
-      // key, so only spread it — don't call array methods on it.
+      // same WithAggregatedDiffs helper REST uses (api-diff rolls them into a Set).
       const childDiffs = [...((table as WithAggregatedDiffs<typeof table>)[DIFFS_AGGREGATED_META_KEY] ?? [])]
       // added/removed whole table → a single diff on the parent tables[] array meta
       const addRemoveDiff = tablesMeta[index] as Diff | undefined
