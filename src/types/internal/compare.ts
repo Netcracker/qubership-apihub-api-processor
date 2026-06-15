@@ -28,7 +28,7 @@ import {
   VersionId,
   VersionOperationsResolver,
 } from '../external'
-import { ChangeMessage, DdlChangesMetadata, DdlEntityId, NotificationMessage } from '../package'
+import { ChangeMessage, DdlChangesMetadata, DdlEntityId, DdlKind, NotificationMessage } from '../package'
 import {
   _RawDocumentResolver,
   _VersionReferencesResolver,
@@ -109,14 +109,14 @@ export interface VersionsComparisonDto extends Omit<VersionsComparison<DiffTypeD
 
 // ---- DDL comparison types (AD2) ----
 // The DDL analogs of OperationChanges / OperationType / VersionsComparison. Fields are renamed per AD2:
-// operationId → ddlEntityId, apiType → contractType, operationTypes → contractTypes,
-// numberOfImpactedOperations → numberOfImpactedEntities. DDL drops `tags` + `apiAudienceTransitions`;
-// its metadata is the shared DdlChangesMetadata ({ kind, name, schemaName, description }).
+// operationId → ddlEntityId, operationTypes → contractTypes, numberOfImpactedOperations →
+// numberOfImpactedEntities. DDL drops `tags` + `apiAudienceTransitions`. The internal change carries the
+// entity descriptor as `metadata`/`previousMetadata` (the shared DdlChangesMetadata); the DTO flattens
+// these into root `kind`/`name`/`schemaName`/`description` (+ `previous*`) fields — see DdlChangesDto.
 
 export interface DdlChanges<T extends DiffType | DiffTypeDto = DiffType> {
   ddlEntityId?: DdlEntityId
   previousDdlEntityId?: DdlEntityId
-  contractType: typeof DDL_CONTRACT_TYPE
   apiKind?: ApihubApiCompatibilityKind
   previousApiKind?: ApihubApiCompatibilityKind
   changeSummary: ChangeSummary<T>
@@ -128,7 +128,19 @@ export interface DdlChanges<T extends DiffType | DiffTypeDto = DiffType> {
   comparisonInternalDocumentId?: string
 }
 
-export interface DdlChangesDto extends Omit<DdlChanges<DiffTypeDto>, 'diffs' | 'impactedSummary'> {
+// Serialized per-pair change (the elements of `ddl-comparisons/<comparisonFileId>`'s `entities` array).
+// No `contractType` (redundant — the whole file is DDL) and the descriptor is flattened to root fields
+// (`kind`/`name`/`schemaName`/`description` for the current side, `previous*` for the previous side);
+// each is omitted for a pure add/remove where that side is absent.
+export interface DdlChangesDto extends Omit<DdlChanges<DiffTypeDto>, 'diffs' | 'impactedSummary' | 'metadata' | 'previousMetadata'> {
+  kind?: DdlKind
+  name?: string
+  schemaName?: string
+  description?: string
+  previousKind?: DdlKind
+  previousName?: string
+  previousSchemaName?: string
+  previousDescription?: string
   changes?: ChangeMessage<DiffTypeDto>[]
 }
 

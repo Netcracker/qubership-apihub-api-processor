@@ -178,6 +178,8 @@ export function toDdlChangesDto({
   diffs,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   impactedSummary,
+  metadata,
+  previousMetadata,
   ...rest
 }: DdlChanges, normalizedSpecFragmentsHashCache: ObjectHashCache, logError: (message: string) => void): DdlChangesDto {
   return {
@@ -185,6 +187,20 @@ export function toDdlChangesDto({
     changeSummary: replacePropertyInChangesSummary<DiffType, DiffTypeDto>(rest.changeSummary, {
       origin: risky,
       override: SEMI_BREAKING_CHANGE_TYPE,
+    }),
+    // flatten the entity descriptor to root fields, per side; the whole side (incl. an empty `description`)
+    // is present when that side's table exists, and omitted entirely for the absent side of a pure add/remove
+    ...(metadata && {
+      kind: metadata.kind,
+      name: metadata.name,
+      schemaName: metadata.schemaName,
+      description: metadata.description,
+    }),
+    ...(previousMetadata && {
+      previousKind: previousMetadata.kind,
+      previousName: previousMetadata.name,
+      previousSchemaName: previousMetadata.schemaName,
+      previousDescription: previousMetadata.description,
     }),
     changes: diffs?.map(diff => toChangeMessage(diff, normalizedSpecFragmentsHashCache, logError)),
   }

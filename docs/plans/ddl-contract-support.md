@@ -925,6 +925,17 @@ text). Revisit if a consumer needs to branch on codes without parsing message st
 
 > Tracks where the implementation departed from the plan as written. One entry per deviation.
 
+- **Post-impl contract change — per-pair `DdlChangesDto` drops `contractType` and flattens the
+  descriptor.** By request, the `ddl-comparisons/<comparisonFileId>` change entry no longer carries
+  `"contractType": "ddl"` (redundant — the whole file is DDL) nor the nested `metadata`/`previousMetadata`
+  objects. The entity descriptor is flattened to root fields: `kind`/`name`/`schemaName`/`description`
+  (current side) and `previousKind`/`previousName`/`previousSchemaName`/`previousDescription` (previous
+  side); each side's four fields are omitted for the absent side of a pure add/remove. This supersedes the
+  AD2 code block / contract-doc example that showed `contractType` + grouped `metadata`. Internally,
+  `DdlChanges` keeps `metadata`/`previousMetadata` (grouped) and `contractType` was removed (it was only
+  ever set, never read); `toDdlChangesDto` does the flattening. The summary-level `DdlContractType.contractType`
+  in `ddl-comparisons.json` is unaffected (it stays — that index file isn't DDL-only by construction).
+
 - **Task 1/2 — `FILE_FORMAT_SQL`/`FILE_FORMAT_DDL` ARE added to the `FILE_FORMAT` map (required, not
   optional).** Initially (Task 1) they were defined as standalone consts only, to avoid the `unknown`
   parser's format-fallback claiming `.sql`. Task 2 review found this is **mandatory**: `Builder.parseFile`

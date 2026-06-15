@@ -130,7 +130,6 @@ function createDdlChange(
     previousMetadata: previousDescriptor,
   }
   return {
-    contractType: DDL_CONTRACT_TYPE,
     ...createChangeBase(diffs, comparisonInternalDocumentId),
     ...currentFields,
     ...previousFields,

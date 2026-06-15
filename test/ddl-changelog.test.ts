@@ -145,28 +145,30 @@ describe('DDL changelog end-to-end (build with previousVersion)', () => {
     expect(Array.isArray(perPair.entities)).toBe(true)
     const byId = Object.fromEntries(perPair.entities.map((e: { ddlEntityId?: string; previousDdlEntityId?: string }) => [e.ddlEntityId ?? e.previousDdlEntityId, e]))
 
-    // changed table: both metadata + previousMetadata, descriptor-complete, with changes
+    // no redundant contractType in a DDL-only file; descriptor flattened to root fields (+ previous*)
     const users = byId['public-table-users']
-    expect(users.contractType).toBe('ddl')
+    expect(users).not.toHaveProperty('contractType')
+    expect(users).not.toHaveProperty('metadata')
+    // changed table: both sides present, descriptor-complete, with changes
     expect(users.ddlEntityId).toBe('public-table-users')
     expect(users.previousDdlEntityId).toBe('public-table-users')
-    expect(users.metadata).toEqual({ kind: 'table', name: 'users', schemaName: 'public', description: 'Registered users' })
-    expect(users.previousMetadata).toEqual({ kind: 'table', name: 'users', schemaName: 'public', description: 'Users' })
+    expect(users).toMatchObject({ kind: 'table', name: 'users', schemaName: 'public', description: 'Registered users' })
+    expect(users).toMatchObject({ previousKind: 'table', previousName: 'users', previousSchemaName: 'public', previousDescription: 'Users' })
     expect(users.changes.length).toBeGreaterThan(0)
 
-    // removed table: previous side only
+    // removed table: previous side only (current-side descriptor fields omitted)
     const legacy = byId['public-table-legacy']
     expect(legacy.ddlEntityId).toBeUndefined()
-    expect(legacy.metadata).toBeUndefined()
+    expect(legacy.name).toBeUndefined()
     expect(legacy.previousDdlEntityId).toBe('public-table-legacy')
-    expect(legacy.previousMetadata.name).toBe('legacy')
+    expect(legacy.previousName).toBe('legacy')
 
-    // added table: current side only
+    // added table: current side only (previous-side descriptor fields omitted)
     const orders = byId['public-table-orders']
     expect(orders.ddlEntityId).toBe('public-table-orders')
-    expect(orders.metadata.name).toBe('orders')
+    expect(orders.name).toBe('orders')
     expect(orders.previousDdlEntityId).toBeUndefined()
-    expect(orders.previousMetadata).toBeUndefined()
+    expect(orders.previousName).toBeUndefined()
 
 
     // merged Realm lands in the shared comparison-internal documents
