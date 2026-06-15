@@ -185,9 +185,13 @@ export async function compareVersionsDdl(
   }
 
   const pairs = pairByKey(indexByEntityId(prevDocInfos), indexByEntityId(currDocInfos))
-  // doc/realm pairs: dedupe identical doc pairs and drop partials absorbed by a complete pair (AD7)
+  // doc/realm pairs: dedupe identical doc pairs and drop partials absorbed by a complete pair (AD7).
   const realmPairs = removeRedundantPartialPairs(
-    dedupeTuples(Object.values(pairs).map(({ previous, current }) => [previous, current] as [DdlDocInfo | undefined, DdlDocInfo | undefined])),
+    dedupeTuples(
+      Object.values(pairs).map(
+        ({ previous, current }): [DdlDocInfo | undefined, DdlDocInfo | undefined] => [previous, current],
+      ),
+    ),
   )
 
   const changes: DdlChanges[] = []
