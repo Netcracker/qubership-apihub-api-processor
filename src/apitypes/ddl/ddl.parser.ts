@@ -15,9 +15,9 @@
  */
 
 import { buildFromDdl, DdlNonFatalError } from '@netcracker/qubership-apihub-ddlapi'
-import { FileFormat, FILE_KIND, TextFile } from '../../types'
+import { FILE_KIND, TextFile } from '../../types'
 import { getFileExtension } from '../../utils'
-import { DDL_DOCUMENT_TYPE, DDL_FILE_EXTENSIONS } from './ddl.consts'
+import { DDL_DOCUMENT_TYPE, isDdlFileExtension } from './ddl.consts'
 import { ParsedDdlData } from './ddl.types'
 
 /**
@@ -34,7 +34,7 @@ export const parseDdlFile = async (
   source: Blob,
 ): Promise<TextFile<ParsedDdlData, DdlNonFatalError> | undefined> => {
   const extension = getFileExtension(fileId)
-  if (!DDL_FILE_EXTENSIONS.includes(extension)) {
+  if (!isDdlFileExtension(extension)) {
     return undefined
   }
 
@@ -47,8 +47,7 @@ export const parseDdlFile = async (
   return {
     fileId,
     type: DDL_DOCUMENT_TYPE.DDL,
-    // extension is one of DDL_FILE_EXTENSIONS (both valid FileFormat values), preserved as-is (sql/ddl)
-    format: extension as FileFormat,
+    format: extension,
     // issues ride on ParsedDdlData (not TextFile.errors) so the generic parse→Error path is bypassed;
     // severity is mapped per-kind during build validation (Task 12)
     data: { realm, originalSql, issues },

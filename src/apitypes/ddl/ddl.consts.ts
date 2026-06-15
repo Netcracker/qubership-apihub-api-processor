@@ -25,12 +25,18 @@ export const DDL_DOCUMENT_TYPE = {
 
 export type DdlDocumentType = KeyOfConstType<typeof DDL_DOCUMENT_TYPE>
 
-// File extensions the DDL parser claims (detection is by extension — AD5).
-export const DDL_FILE_EXTENSIONS: readonly string[] = [FILE_FORMAT_SQL, FILE_FORMAT_DDL]
-
 export function isDdlDocument(document: ZippableDocument | ResolvedVersionDocument): boolean {
-  return Object.values(DDL_DOCUMENT_TYPE).includes(document.type as DdlDocumentType)
+  return Object.values(DDL_DOCUMENT_TYPE).some(type => document.type === type)
 }
+
+// File extensions the DDL parser claims (detection is by extension — AD5).
+export const DDL_FILE_EXTENSIONS = [FILE_FORMAT_SQL, FILE_FORMAT_DDL] as const
+
+export type DdlFileExtension = typeof DDL_FILE_EXTENSIONS[number]
+
+/** Type guard narrowing a raw extension to a `DdlFileExtension` (a subset of `FileFormat`). */
+export const isDdlFileExtension = (extension: string): extension is DdlFileExtension =>
+  DDL_FILE_EXTENSIONS.some(value => value === extension)
 
 // Normalize options for the DDL internal/comparison documents (AD3, Task 3). The DDL base options plus
 // `originsFlag` only: the unifier's DDL rules consult origins, but `hashFlag`/`syntheticTitleFlag` are
