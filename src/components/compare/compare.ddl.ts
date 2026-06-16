@@ -23,9 +23,10 @@ import {
   DdlComparison,
   DdlEntityDescriptor,
   DdlEntityId,
+  PackageId,
   VersionParams,
 } from '../../types'
-import { ApihubApiCompatibilityKind, DDL_CONTRACT_TYPE } from '../../consts'
+import { ApihubApiCompatibilityKind, DDL_CONTRACT_TYPE, REVISION_DELIMITER } from '../../consts'
 import {
   calculateChangeSummary,
   calculateDiffId,
@@ -56,16 +57,28 @@ interface DdlDocInfo {
   descriptors: Map<DdlEntityId, DdlEntityDescriptor>
 }
 
+// A document belongs to `packageId` when its `packageRef` is absent (own documents may carry none) or
+// its leading packageId segment matches. `packageRef` is encoded as `packageId@version[@revision]`
+// (REVISION_DELIMITER), so a non-empty value identifies the document's home package; foreign
+// (reference-package) docs are handled by the dashboard/references path (Task 11) and resolving their
+// raw SQL at THIS packageId would fail.
+export function isOwnPackageDocument(packageRef: string | undefined, packageId: PackageId): boolean {
+  if (!packageRef) { return true }
+  return packageRef.split(REVISION_DELIMITER)[0] === packageId
+}
+
 async function resolveDdlDocInfos(params: VersionParams, ctx: CompareContext): Promise<DdlDocInfo[]> {
   if (!params) { return [] }
   const [version, packageId] = params
   // OQ1: the host resolves DDL documents for apiType 'ddl' and serves their raw .sql
   //TODO: clarify backend API and remove `as never` cast here
   const resolved = await ctx.versionDocumentsResolver(version, packageId, DDL_CONTRACT_TYPE as never)
-  // Only this package's OWN DDL documents. `packageRef`-bearing docs belong to a reference package and
-  // are handled by the dashboard/references path (Task 11); resolving their raw SQL at this package id
-  // would fail. Belt-and-suspenders type check in case the host resolver doesn't filter refs by apiType.
-  const documents = (resolved?.documents ?? []).filter(document => !document.packageRef && document.type === DDL_DOCUMENT_TYPE.DDL)
+  // Only this package's OWN DDL documents (the host's documents endpoint populates `packageRef` for
+  // every document, so own docs cannot be detected by an empty value alone — match the packageId
+  // instead). Belt-and-suspenders type check in case the host resolver doesn't filter refs by apiType.
+  const documents = (resolved?.documents ?? []).filter(
+    document => isOwnPackageDocument(document.packageRef, packageId) && document.type === DDL_DOCUMENT_TYPE.DDL,
+  )
 
   const docInfos: DdlDocInfo[] = []
   for (const document of documents) {

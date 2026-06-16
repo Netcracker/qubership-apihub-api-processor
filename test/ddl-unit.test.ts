@@ -17,6 +17,7 @@
 import { parseDdlFile } from '../src/apitypes/ddl/ddl.parser'
 import { buildDdlDocument } from '../src/apitypes/ddl/ddl.document'
 import { DDL_DOCUMENT_TYPE } from '../src/apitypes/ddl/ddl.consts'
+import { isOwnPackageDocument } from '../src/components/compare/compare.ddl'
 import { BuildConfigFile } from '../src/types'
 import { FILE_FORMAT_SQL } from '../src/consts'
 
@@ -88,5 +89,25 @@ describe('DDL document builder', () => {
     expect(document.versionInternalDocument.versionDocumentId).toBe('shop')
     expect(document.versionInternalDocument.serializedVersionDocument).toBeTruthy()
     expect(typeof document.versionInternalDocument.serializedVersionDocument).toBe('string')
+  })
+})
+
+describe('isOwnPackageDocument (own/reference-package discrimination)', () => {
+  const packageId = 'group/shop'
+
+  test('treats an absent packageRef as an own document', () => {
+    expect(isOwnPackageDocument(undefined, packageId)).toBe(true)
+    expect(isOwnPackageDocument('', packageId)).toBe(true)
+  })
+
+  test('treats a packageRef whose packageId segment matches as own (real-backend shape)', () => {
+    // the host documents endpoint encodes own docs as `packageId@version[@revision]`
+    expect(isOwnPackageDocument(`${packageId}@v1`, packageId)).toBe(true)
+    expect(isOwnPackageDocument(`${packageId}@v1@2`, packageId)).toBe(true)
+  })
+
+  test('treats a packageRef pointing at a different package as foreign (reference-package doc)', () => {
+    expect(isOwnPackageDocument('group/other@v1@2', packageId)).toBe(false)
+    expect(isOwnPackageDocument('group/shop-extra@v1', packageId)).toBe(false)
   })
 })
