@@ -28,7 +28,7 @@ import {
   VersionId,
   VersionOperationsResolver,
 } from '../external'
-import { ChangeMessage, DdlChangesMetadata, DdlEntityId, DdlKind, NotificationMessage } from '../package'
+import { ChangeMessage, DdlChangesMetadata, DdlEntityDescriptor, DdlEntityId, NotificationMessage } from '../package'
 import {
   _RawDocumentResolver,
   _VersionReferencesResolver,
@@ -111,8 +111,8 @@ export interface VersionsComparisonDto extends Omit<VersionsComparison<DiffTypeD
 // The DDL analogs of OperationChanges / OperationType / VersionsComparison. Fields are renamed per AD2:
 // operationId → ddlEntityId, operationTypes → contractTypes, numberOfImpactedOperations →
 // numberOfImpactedEntities. DDL drops `tags` + `apiAudienceTransitions`. The internal change carries the
-// entity descriptor as `metadata`/`previousMetadata` (the shared DdlChangesMetadata); the DTO flattens
-// these into root `kind`/`name`/`schemaName`/`description` (+ `previous*`) fields — see DdlChangesDto.
+// per-side id/apiKind/descriptor flat (`ddlEntityId`/`apiKind`/`metadata` + `previous*`); the DTO groups
+// each side into a `ddlEntityData`/`previousDdlEntityData` object — see DdlChangesDto.
 
 export interface DdlChanges<T extends DiffType | DiffTypeDto = DiffType> {
   ddlEntityId?: DdlEntityId
@@ -128,19 +128,22 @@ export interface DdlChanges<T extends DiffType | DiffTypeDto = DiffType> {
   comparisonInternalDocumentId?: string
 }
 
+// The data of one side of a DDL change: the entity's id, its apiKind (D9, optional), and its descriptor
+// (kind/name/schemaName/description). Self-contained so a change entry can carry current + previous sides.
+export interface DdlEntityChangeData extends DdlEntityDescriptor {
+  ddlEntityId: DdlEntityId
+  apiKind?: ApihubApiCompatibilityKind
+}
+
 // Serialized per-pair change (the elements of `ddl-comparisons/<comparisonFileId>`'s `entities` array).
-// No `contractType` (redundant — the whole file is DDL) and the descriptor is flattened to root fields
-// (`kind`/`name`/`schemaName`/`description` for the current side, `previous*` for the previous side);
-// each is omitted for a pure add/remove where that side is absent.
-export interface DdlChangesDto extends Omit<DdlChanges<DiffTypeDto>, 'diffs' | 'impactedSummary' | 'metadata' | 'previousMetadata'> {
-  kind?: DdlKind
-  name?: string
-  schemaName?: string
-  description?: string
-  previousKind?: DdlKind
-  previousName?: string
-  previousSchemaName?: string
-  previousDescription?: string
+// No `contractType` (redundant — the whole file is DDL). The current/previous sides are grouped into
+// `ddlEntityData`/`previousDdlEntityData`: `ddlEntityData` is omitted for a pure remove, and
+// `previousDdlEntityData` for a pure add.
+export interface DdlChangesDto {
+  ddlEntityData?: DdlEntityChangeData
+  previousDdlEntityData?: DdlEntityChangeData
+  changeSummary: ChangeSummary<DiffTypeDto>
+  comparisonInternalDocumentId?: string
   changes?: ChangeMessage<DiffTypeDto>[]
 }
 

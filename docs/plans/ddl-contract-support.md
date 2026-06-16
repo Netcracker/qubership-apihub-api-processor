@@ -925,16 +925,17 @@ text). Revisit if a consumer needs to branch on codes without parsing message st
 
 > Tracks where the implementation departed from the plan as written. One entry per deviation.
 
-- **Post-impl contract change — per-pair `DdlChangesDto` drops `contractType` and flattens the
-  descriptor.** By request, the `ddl-comparisons/<comparisonFileId>` change entry no longer carries
-  `"contractType": "ddl"` (redundant — the whole file is DDL) nor the nested `metadata`/`previousMetadata`
-  objects. The entity descriptor is flattened to root fields: `kind`/`name`/`schemaName`/`description`
-  (current side) and `previousKind`/`previousName`/`previousSchemaName`/`previousDescription` (previous
-  side); each side's four fields are omitted for the absent side of a pure add/remove. This supersedes the
-  AD2 code block / contract-doc example that showed `contractType` + grouped `metadata`. Internally,
-  `DdlChanges` keeps `metadata`/`previousMetadata` (grouped) and `contractType` was removed (it was only
-  ever set, never read); `toDdlChangesDto` does the flattening. The summary-level `DdlContractType.contractType`
-  in `ddl-comparisons.json` is unaffected (it stays — that index file isn't DDL-only by construction).
+- **Post-impl contract change — per-pair `DdlChangesDto` drops `contractType` and groups each side into
+  `ddlEntityData`/`previousDdlEntityData`.** By request, the `ddl-comparisons/<comparisonFileId>` change
+  entry no longer carries `"contractType": "ddl"` (redundant — the whole file is DDL). Each side is a
+  self-contained object — `ddlEntityData` (current) / `previousDdlEntityData` (previous) — carrying that
+  side's `ddlEntityId`, optional `apiKind`, and descriptor (`kind`/`name`/`schemaName`/`description`).
+  `ddlEntityData` is omitted for a pure remove, `previousDdlEntityData` for a pure add. Top-level the entry
+  keeps `changeSummary`, `comparisonInternalDocumentId`, and `changes`. This supersedes both the original
+  AD2 grouped-`metadata` shape and the interim flattened shape. Internally, `DdlChanges` is unchanged (flat
+  `ddlEntityId`/`apiKind`/`metadata` + `previous*`); `toDdlChangesDto` does the regrouping, and the new
+  `DdlEntityChangeData` type (`= DdlEntityDescriptor + ddlEntityId + apiKind?`) describes a side. The
+  summary-level `DdlContractType.contractType` in `ddl-comparisons.json` is unaffected.
 
 - **Task 1/2 — `FILE_FORMAT_SQL`/`FILE_FORMAT_DDL` ARE added to the `FILE_FORMAT` map (required, not
   optional).** Initially (Task 1) they were defined as standalone consts only, to avoid the `unknown`

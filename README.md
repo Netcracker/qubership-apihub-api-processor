@@ -205,7 +205,7 @@ dashboards aggregate DDL-bearing refs. Each contract type is summarized independ
 **Changelog artifacts** (sibling to the operation comparisons, which are untouched):
 
 - `ddl-comparisons.json` — DDL comparison index; each comparison carries `contractTypes` (not `operationTypes`).
-- `ddl-comparisons/<comparisonFileId>` — per-pair change data under an `entities` key, keyed by `ddlEntityId`.
+- `ddl-comparisons/<comparisonFileId>` — per-pair change data under an `entities` key; each entry groups the current/previous entity data (`ddlEntityData`/`previousDdlEntityData`) plus its `changes`.
 - The merged `Realm` per document pair lands in the **shared** `comparison-internal-documents`.
 
 **Notable behaviors:** a renamed table is a remove + add (no rename detection); a table moved between

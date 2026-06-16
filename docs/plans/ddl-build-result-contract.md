@@ -136,23 +136,33 @@ Sibling of `comparisons.json`; same envelope, but each comparison carries **`con
 Sibling of `comparisons/<comparisonFileId>`. The wrapper key is **`entities`** (the DDL analog of
 REST's `operations`), each element a `DdlChangesDto`:
 
-No `contractType` (redundant — the whole file is DDL). The entity descriptor is **flattened to root
-fields**: `kind`/`name`/`schemaName`/`description` for the current side and `previousKind`/
-`previousName`/`previousSchemaName`/`previousDescription` for the previous side; each side's four fields
-are omitted entirely for the absent side of a pure add/remove.
+No `contractType` (redundant — the whole file is DDL). Each side is a self-contained object: the current
+side under **`ddlEntityData`** and the previous side under **`previousDdlEntityData`**, each carrying that
+side's `ddlEntityId`, optional `apiKind`, and descriptor (`kind`/`name`/`schemaName`/`description`).
+`ddlEntityData` is omitted for a pure remove; `previousDdlEntityData` for a pure add.
 
 ```jsonc
 {
   "entities": [
     {
-      "ddlEntityId": "public-table-users",
-      "previousDdlEntityId": "public-table-users",   // omitted for pure add/remove
+      "ddlEntityData": {                 // omitted for a pure remove
+        "ddlEntityId": "public-table-users",
+        "apiKind": "bwc",                // optional
+        "kind": "table",
+        "name": "users",
+        "schemaName": "public",
+        "description": "Registered users"
+      },
+      "previousDdlEntityData": {         // omitted for a pure add
+        "ddlEntityId": "public-table-users",
+        "apiKind": "bwc",                // optional
+        "kind": "table",
+        "name": "users",
+        "schemaName": "public",
+        "description": "Users"
+      },
       "changeSummary": { "breaking": 1, "non-breaking": 0, "semi-breaking": 0, "deprecated": 0, "annotation": 0, "unclassified": 0 },
       "comparisonInternalDocumentId": "shop_1.0.0_shop-pkg_shop_2.0.0_shop-pkg",
-      "apiKind": "bwc",                  // optional
-      "previousApiKind": "bwc",          // optional
-      "kind": "table", "name": "users", "schemaName": "public", "description": "Registered users",
-      "previousKind": "table", "previousName": "users", "previousSchemaName": "public", "previousDescription": "Users",
       "changes": [ /* ChangeMessage<DiffTypeDto>[] — same shape as REST */ ]
     }
   ]
