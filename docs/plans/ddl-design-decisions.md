@@ -108,7 +108,7 @@ unchanged.
 **Implications:** See contract doc C3 and Plan Task 6.
 
 ### D12 — Per-contract summaries only; the host rolls up
-**Decision:** api-processor emits `operationTypes` (REST) and `contractTypes` (DDL) independently; it
+**Decision:** api-processor emits `operationTypes` (REST) and `contractsChangesSummary` (DDL) independently; it
 does **not** produce a combined version-level rollup across contract types.
 **Rationale:** Keeps api-processor output orthogonal; avoids owning a cross-contract aggregation/dedup.
 **Implications:** Diff dedup for summaries is per-contract only. No unified summary file. (Contract

@@ -162,7 +162,7 @@ describe('Dashboard build', () => {
     // returns null in the test registry → cache-miss → fresh compareVersionsDdl for the ref)
     const refDdl = result.ddlComparisons.find(comparison => comparison.packageId === refId)
     expect(refDdl).toBeDefined()
-    expect(refDdl!.contractTypes[0].contractType).toBe('ddl')
+    expect(refDdl!.contractsChangesSummary).toHaveProperty('ddl')
     expect((refDdl!.data ?? []).map(change => change.ddlEntityId)).toContain('public-table-widgets')
   }, 100000)
 })

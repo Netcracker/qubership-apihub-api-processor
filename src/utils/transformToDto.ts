@@ -25,7 +25,7 @@ import {
   DdlChangesDto,
   DdlComparison,
   DdlComparisonDto,
-  DdlContractType,
+  DdlContractsChangesSummary,
   DiffTypeDto,
   OperationChanges,
   OperationChangesDto,
@@ -215,7 +215,7 @@ export function toDdlComparisonDto({
 }: DdlComparison, normalizedSpecFragmentsHashCache: ObjectHashCache, logError: (message: string) => void): DdlComparisonDto {
   return {
     ...rest,
-    contractTypes: convertDtoFieldContractTypes<DiffType, DiffTypeDto>(rest.contractTypes, {
+    contractsChangesSummary: convertDtoFieldContractsChangesSummary<DiffType, DiffTypeDto>(rest.contractsChangesSummary, {
       origin: risky,
       override: SEMI_BREAKING_CHANGE_TYPE,
     }),
@@ -223,18 +223,22 @@ export function toDdlComparisonDto({
   }
 }
 
-export function convertDtoFieldContractTypes<
+export function convertDtoFieldContractsChangesSummary<
   T extends DiffTypeDto | DiffType = DiffTypeDto,
   J extends DiffTypeDto | DiffType = DiffType>
-(contractTypes: ReadonlyArray<DdlContractType<T>>, {
+(contractsChangesSummary: DdlContractsChangesSummary<T>, {
   origin,
   override,
-}: OptionDiffReplacer = { origin: SEMI_BREAKING_CHANGE_TYPE, override: risky }): DdlContractType<J>[] {
-  return contractTypes?.map((type) => ({
-    ...type,
-    changesSummary: replacePropertyInChangesSummary<T, J>(type.changesSummary, { origin, override }),
-    numberOfImpactedEntities: replacePropertyInChangesSummary<T, J>(type.numberOfImpactedEntities, { origin, override }),
-  }))
+}: OptionDiffReplacer = { origin: SEMI_BREAKING_CHANGE_TYPE, override: risky }): DdlContractsChangesSummary<J> {
+  const result: DdlContractsChangesSummary<J> = {}
+  for (const [contractType, summary] of Object.entries(contractsChangesSummary) as [keyof DdlContractsChangesSummary<T>, DdlContractsChangesSummary<T>[keyof DdlContractsChangesSummary<T>]][]) {
+    if (!summary) { continue }
+    result[contractType] = {
+      changesSummary: replacePropertyInChangesSummary<T, J>(summary.changesSummary, { origin, override }),
+      numberOfImpactedEntities: replacePropertyInChangesSummary<T, J>(summary.numberOfImpactedEntities, { origin, override }),
+    }
+  }
+  return result
 }
 
 export function convertDtoFieldOperationTypes<

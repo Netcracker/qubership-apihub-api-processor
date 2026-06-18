@@ -127,8 +127,8 @@ describe('DDL changelog end-to-end (build with previousVersion)', () => {
     // in-memory result
     expect(result.ddlComparisons).toHaveLength(1)
     const [comparison] = result.ddlComparisons
-    expect(comparison.contractTypes).toHaveLength(1)
-    expect(comparison.contractTypes[0].contractType).toBe('ddl')
+    expect(Object.keys(comparison.contractsChangesSummary)).toEqual(['ddl'])
+    expect(comparison.contractsChangesSummary.ddl).toMatchObject({ changesSummary: expect.any(Object), numberOfImpactedEntities: expect.any(Object) })
     const changedIds = (comparison.data ?? []).map(c => c.ddlEntityId ?? c.previousDdlEntityId).sort()
     expect(changedIds).toEqual(['public-table-legacy', 'public-table-orders', 'public-table-users'])
 
@@ -136,7 +136,7 @@ describe('DDL changelog end-to-end (build with previousVersion)', () => {
     const index = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, `${PACKAGE_ID}/v2`, 'ddl-comparisons.json'))!)
     expect(index.comparisons).toHaveLength(1)
     const [indexEntry] = index.comparisons
-    expect(indexEntry.contractTypes[0].contractType).toBe('ddl')
+    expect(indexEntry.contractsChangesSummary).toHaveProperty('ddl')
     expect(indexEntry).not.toHaveProperty('data')
     const { comparisonFileId } = indexEntry
 

@@ -51,7 +51,8 @@ shared base interfaces; each variant extends the base and adds its own (consiste
 Extracting a base that the *existing* operation types extend keeps their field names byte-identical,
 so REST/async/graphql/MCP output is **unchanged** (non-breaking refactor).
 
-Field mapping (operation → DDL): `operationTypes → contractTypes`, `apiType → contractType` (`'ddl'`),
+Field mapping (operation → DDL): `operationTypes` array → `contractsChangesSummary` object keyed by
+contract type (`'ddl'`; the key replaces the per-entry `apiType`/`contractType` field),
 `numberOfImpactedOperations → numberOfImpactedEntities`, `operationId → ddlEntityId`,
 `previousOperationId → previousDdlEntityId`. DDL drops `tags` and `apiAudienceTransitions`; its
 `metadata`/`previousMetadata` is the shared `DdlChangesMetadata` (= `DdlEntityDescriptor`:
@@ -111,20 +112,20 @@ interface VersionsComparison<T> extends ComparisonBase {
 
 // ---- DDL variant (new — src/types/internal/compare.ts + src/types/package/ddl.ts) ----
 // DdlChangesMetadata = DdlEntityDescriptor = { kind, name, schemaName, description } (see Interface section)
-interface DdlContractType<T> extends ContractTypeBase<T> {
-  contractType: 'ddl'
+interface DdlContractChangesSummary<T> {        // value held under each contract-type key
+  changesSummary: ChangeSummary<T>
   numberOfImpactedEntities: ChangeSummary<T>
 }
+type DdlContractsChangesSummary<T> = Partial<Record<'ddl', DdlContractChangesSummary<T>>>
 interface DdlChanges<T> extends ChangesBase<T> {
   ddlEntityId?: DdlEntityId; previousDdlEntityId?: DdlEntityId
-  contractType: 'ddl'
   impactedSummary: ImpactedOperationSummary   // internal-only (drives numberOfImpactedEntities)
   diffs?: Diff[]                              // internal-only
   metadata?: DdlChangesMetadata
   previousMetadata?: DdlChangesMetadata
 }
 interface DdlComparison<T> extends ComparisonBase {
-  contractTypes: DdlContractType<T>[]
+  contractsChangesSummary: DdlContractsChangesSummary<T>   // keyed by contract type, not an array
   data?: DdlChanges[]
 }
 
@@ -161,7 +162,8 @@ stub data (concatenated args) with a `TODO` to move it to `ddlapi`.
 ### AD5 — New api type surface
 
 - `DDL_CONTRACT_TYPE = 'ddl'` (in `src/consts.ts`), added to the `BuilderType` union. (Named
-`DDL_CONTRACT_TYPE`, not `DDL_API_TYPE`, to align with the `contractType`/`contractTypes` DTO naming.)
+`DDL_CONTRACT_TYPE`, not `DDL_API_TYPE`, to align with the `contractsChangesSummary` DTO naming, where it
+is the contract-type key.)
 - One document type: `DDL_DOCUMENT_TYPE = { DDL: 'ddl' }`; `kind` (`table`) is per entity.
 - File format `sql` (and `ddl`); detection by extension in the parser.
 - `ApiBuilder` gains two optional members: `buildDdlEntities?: DdlEntitiesBuilder<T>` (mirrors
@@ -221,7 +223,7 @@ but it must **not copy-paste** the comparison machinery. The code splits into th
   `createNormalizedOperationId`; DDL reads raw `.sql` via `rawDocumentResolver`, `buildFromDdl`s, pairs
   by `ddlEntityId`, and walks the merged `Realm`. The `compareDocuments` vs `compareDdlDocuments` hooks
   take different inputs and produce different results.
-- The comparison envelope differs only in variant fields (`operationTypes`/`contractTypes`, …) — already
+- The comparison envelope differs only in variant fields (`operationTypes`/`contractsChangesSummary`, …) — already
   unified at the **type** level by `ComparisonBase` (AD2); no function sharing needed.
 
 **Guard:** every extraction in bucket (2) is covered by the **same regression guard as the type
@@ -252,7 +254,7 @@ prev/curr version params
        (pairing happens BEFORE apiDiff so a moved table lines up, not remove+add)
   → per pair: apiDiff(prevRealm, currRealm, DDL opts) → merged Realm + diffs            [Task 7]
   → walk merged Realm tables → per-ddlEntityId diff sets (+indexes/FK/objects)          [Task 7]
-  → dedup + summary → DdlComparison(contractTypes) + shared ComparisonInternalDocument[] [Tasks 9–10]
+  → dedup + summary → DdlComparison(contractsChangesSummary) + shared ComparisonInternalDocument[] [Tasks 9–10]
 ```
 
 ## Interface / Contract Definitions
@@ -633,10 +635,10 @@ version and, **before any `apiDiff` call**, pair by `ddlEntityId` (file-independ
 **cross-file table moves** using the extracted `pairByKey` (`keyOf = e => e.ddlEntityId`, AD7) and
 derive the document/realm pairs via the reused `dedupeTuples` / `removeRedundantPartialPairs`.
 Then run Task 7 per pair and emit `DdlChanges` via `createChangeBase` + DDL id/metadata (AD7)
-(`contractType: 'ddl'`, `ddlEntityId`,
+(`ddlEntityId`,
 `metadata` = `DdlChangesMetadata` `{ kind, name, schemaName, description }`, `changeSummary`,
 `impactedSummary`, `comparisonInternalDocumentId`) collected into a `DdlComparison`
-(`contractTypes: [{ contractType: 'ddl', changesSummary, numberOfImpactedEntities }]`). Build
+(`contractsChangesSummary: { ddl: { changesSummary, numberOfImpactedEntities } }`). Build
 `comparisonInternalDocumentId` via
 `createComparisonInternalDocumentId(prevVer, prevPkg, prevSlug, currVer, currPkg, currSlug)` and wrap
 the merged Realm as a `ComparisonInternalDocument` (D5 form). Pass a DDL `mode` into `apiDiff` via a

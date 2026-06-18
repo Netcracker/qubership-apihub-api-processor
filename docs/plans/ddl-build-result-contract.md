@@ -104,8 +104,10 @@ COMMENT ON COLUMN public.users.email IS 'Primary contact email';
 
 ### `ddl-comparisons.json` — DDL comparison index
 
-Sibling of `comparisons.json`; same envelope, but each comparison carries **`contractTypes`** (not
-`operationTypes`) and the per-pair change data is stripped (it lives in `ddl-comparisons/`):
+Sibling of `comparisons.json`; same envelope, but each comparison carries **`contractsChangesSummary`** —
+an object keyed by contract type (`ddl`), the DDL analog of REST's `operationTypes` array — and the
+per-pair change data is stripped (it lives in `ddl-comparisons/`). Because the key already carries the
+contract type, there is no per-entry `contractType` field:
 
 ```jsonc
 {
@@ -119,13 +121,12 @@ Sibling of `comparisons.json`; same envelope, but each comparison carries **`con
       "previousVersionPackageId": "shop-pkg",
       "previousVersionRevision": 1,
       "fromCache": false,
-      "contractTypes": [
-        {
-          "contractType": "ddl",
+      "contractsChangesSummary": {
+        "ddl": {
           "changesSummary":          { "breaking": 1, "non-breaking": 2, "semi-breaking": 0, "deprecated": 0, "annotation": 0, "unclassified": 0 },
           "numberOfImpactedEntities":{ "breaking": 1, "non-breaking": 1, "semi-breaking": 0, "deprecated": 0, "annotation": 0, "unclassified": 0 }
         }
-      ]
+      }
     }
   ]
 }
@@ -183,7 +184,7 @@ side's `ddlEntityId`, optional `apiKind`, and descriptor (`kind`/`name`/`schemaN
 | **`search` block** | `useOperationDataAsSearchText` | `useEntityDataAsSearchText` | `useEntityDataAsSearchText` | ✓ DDL mirrors **MCP** |
 | **`versionInternalDocumentId` on the entity** | yes (on each operation) | **no** | **yes** | ⚠ DDL mirrors **REST**, diverges from MCP — see **C4** |
 | **Changelog participation** | `comparisons.json` + `comparisons/` | none | `ddl-comparisons.json` + `ddl-comparisons/` | ✓ DDL like REST, in sibling files (no cross-talk) |
-| **Comparison summary type** | `operationTypes` (`apiType`, `changesSummary`, `numberOfImpactedOperations`, `tags`, `apiAudienceTransitions`) | n/a | `contractTypes` (`contractType`, `changesSummary`, `numberOfImpactedEntities`) | ✓ renamed/subset; `tags` + `apiAudienceTransitions` dropped (n/a for DDL) |
+| **Comparison summary type** | `operationTypes` array (`apiType`, `changesSummary`, `numberOfImpactedOperations`, `tags`, `apiAudienceTransitions`) | n/a | `contractsChangesSummary` object keyed by contract type → `{ changesSummary, numberOfImpactedEntities }` | ✓ object-keyed/subset; `tags` + `apiAudienceTransitions` dropped (n/a for DDL) |
 | **Per-pair change wrapper key** | `operations` | n/a | `entities` | △ deliberate rename for consistency with `numberOfImpactedEntities` — see **C2** |
 | **Change entry id** | `operationId` / `previousOperationId` | n/a | `ddlEntityId` / `previousDdlEntityId` | ✓ consistent rename |
 | **Comparison-internal documents** | shared file/dir | n/a | shared file/dir | ✓ DDL reuses, no new file |

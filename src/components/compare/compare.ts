@@ -31,7 +31,7 @@ export async function compareVersions(
   // DDL changelog runs as a parallel step (AD1), emitting its own sibling comparisons. Ref DDL is added
   // by compareVersionsReferences (cache-miss only — D15); here we add the root package's DDL comparison.
   const rootDdlComparison = await compareVersionsDdl(prev, curr, ctx)
-  if (rootDdlComparison.contractTypes.length) {
+  if (Object.keys(rootDdlComparison.contractsChangesSummary).length) {
     ddlComparisons.push(rootDdlComparison)
   }
 
@@ -97,7 +97,7 @@ export async function compareVersionsReferences(
 
     // cache miss: also compute this ref's DDL comparison so a DDL-bearing dashboard aggregates it (Task 11)
     const refDdlComparison = await compareVersionsDdl(prevParams, currParams, ctx)
-    if (refDdlComparison.contractTypes.length) {
+    if (Object.keys(refDdlComparison.contractsChangesSummary).length) {
       ddlComparisons.push(refDdlComparison)
     }
   }

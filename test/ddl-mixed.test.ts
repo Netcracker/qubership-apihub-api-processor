@@ -95,7 +95,7 @@ describe('Mixed REST + DDL content', () => {
     expect(operationComparisons.comparisons[0].operationTypes[0].apiType).toBe('rest')
 
     const ddlComparisons = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, `${PACKAGE_ID}/v2`, 'ddl-comparisons.json'))!)
-    expect(ddlComparisons.comparisons[0].contractTypes[0].contractType).toBe('ddl')
+    expect(ddlComparisons.comparisons[0].contractsChangesSummary).toHaveProperty('ddl')
   })
 
   test('dropping all DDL from one version is handled (tables show as removed)', async () => {

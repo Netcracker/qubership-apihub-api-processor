@@ -189,7 +189,7 @@ export async function compareVersionsDdl(
   // no DDL content in either version → nothing to compare; empty comparison
   const hasDdl = prevDocInfos.length > 0 || currDocInfos.length > 0
   if (!hasDdl) {
-    return { ...envelope, contractTypes: [], comparisonInternalDocuments: [] }
+    return { ...envelope, contractsChangesSummary: {}, comparisonInternalDocuments: [] }
   }
   // DDL documents ARE present but the compare hook is missing — a registration/wiring bug. Fail loudly
   // rather than silently dropping the DDL changes this version actually has.
@@ -261,7 +261,7 @@ export async function compareVersionsDdl(
 
   return {
     ...envelope,
-    contractTypes: [{ contractType: DDL_CONTRACT_TYPE, changesSummary, numberOfImpactedEntities }],
+    contractsChangesSummary: { [DDL_CONTRACT_TYPE]: { changesSummary, numberOfImpactedEntities } },
     ...changes.length ? { comparisonFileId, data: changes } : {},
     comparisonInternalDocuments,
   }

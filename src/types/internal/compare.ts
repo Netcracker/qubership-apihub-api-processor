@@ -109,9 +109,10 @@ export interface VersionsComparisonDto extends Omit<VersionsComparison<DiffTypeD
 
 // ---- DDL comparison types (AD2) ----
 // The DDL analogs of OperationChanges / OperationType / VersionsComparison. Fields are renamed per AD2:
-// operationId → ddlEntityId, operationTypes → contractTypes, numberOfImpactedOperations →
-// numberOfImpactedEntities. DDL drops `tags` + `apiAudienceTransitions`. The internal change carries the
-// per-side id/apiKind/descriptor flat (`ddlEntityId`/`apiKind`/`metadata` + `previous*`); the DTO groups
+// operationId → ddlEntityId, operationTypes → contractsChangesSummary (an object keyed by contract type,
+// not an array), numberOfImpactedOperations → numberOfImpactedEntities. DDL drops `tags` +
+// `apiAudienceTransitions`. The internal change carries the
+// per-side id/descriptor flat (`ddlEntityId`/`metadata` + `previous*`); the DTO groups
 // each side into a `ddlEntityData`/`previousDdlEntityData` object — see DdlChangesDto.
 
 export interface DdlChanges<T extends DiffType | DiffTypeDto = DiffType> {
@@ -147,11 +148,18 @@ export interface DdlChangesDto {
   changes?: ChangeMessage<DiffTypeDto>[]
 }
 
-export interface DdlContractType<T extends DiffType | DiffTypeDto = DiffType> {
-  contractType: typeof DDL_CONTRACT_TYPE
+// The change summary for one contract type within a comparison: the version-level change totals plus the
+// number of impacted entities. Held under its contract-type key in `contractsChangesSummary`.
+export interface DdlContractChangesSummary<T extends DiffType | DiffTypeDto = DiffType> {
   changesSummary: ChangeSummary<T>
   numberOfImpactedEntities: ChangeSummary<T>
 }
+
+// Per-contract change summaries, keyed by contract type (`ddl` — the only one today). Replaces the former
+// `contractTypes` array; since the key already carries the contract type, the redundant `contractType`
+// field is dropped. Empty (`{}`) when the comparison has no DDL content.
+export type DdlContractsChangesSummary<T extends DiffType | DiffTypeDto = DiffType> =
+  Partial<Record<typeof DDL_CONTRACT_TYPE, DdlContractChangesSummary<T>>>
 
 export interface DdlComparison<T extends DiffType | DiffTypeDto = DiffType> {
   comparisonFileId?: string
@@ -162,7 +170,7 @@ export interface DdlComparison<T extends DiffType | DiffTypeDto = DiffType> {
   previousVersionPackageId: PackageId
   previousVersionRevision?: number
   fromCache: boolean
-  contractTypes: DdlContractType<T>[]
+  contractsChangesSummary: DdlContractsChangesSummary<T>
   data?: DdlChanges[]
   comparisonInternalDocuments: ComparisonInternalDocument[]
 }
