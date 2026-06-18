@@ -139,8 +139,8 @@ REST's `operations`), each element a `DdlChangesDto`:
 
 No `contractType` (redundant — the whole file is DDL). Each side is a self-contained object: the current
 side under **`ddlEntityData`** and the previous side under **`previousDdlEntityData`**, each carrying that
-side's `ddlEntityId`, optional `apiKind`, and descriptor (`kind`/`name`/`schemaName`/`description`).
-`ddlEntityData` is omitted for a pure remove; `previousDdlEntityData` for a pure add.
+side's `ddlEntityId` and descriptor (`kind`/`name`/`schemaName`/`description`). `apiKind` is not surfaced
+per DDL entity. `ddlEntityData` is omitted for a pure remove; `previousDdlEntityData` for a pure add.
 
 ```jsonc
 {
@@ -148,7 +148,6 @@ side's `ddlEntityId`, optional `apiKind`, and descriptor (`kind`/`name`/`schemaN
     {
       "ddlEntityData": {                 // omitted for a pure remove
         "ddlEntityId": "public-table-users",
-        "apiKind": "bwc",                // optional
         "kind": "table",
         "name": "users",
         "schemaName": "public",
@@ -156,7 +155,6 @@ side's `ddlEntityId`, optional `apiKind`, and descriptor (`kind`/`name`/`schemaN
       },
       "previousDdlEntityData": {         // omitted for a pure add
         "ddlEntityId": "public-table-users",
-        "apiKind": "bwc",                // optional
         "kind": "table",
         "name": "users",
         "schemaName": "public",

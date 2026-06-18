@@ -16,7 +16,7 @@
 
 import { describe, expect, test } from '@jest/globals'
 import { buildFromDdl, Realm } from '@netcracker/qubership-apihub-ddlapi'
-import { breaking, Diff, risky } from '@netcracker/qubership-apihub-api-diff'
+import { Diff } from '@netcracker/qubership-apihub-api-diff'
 import { compareDdlDocuments } from '../src/apitypes/ddl/ddl.changes'
 import { DdlComparePairContext } from '../src/types'
 import { LocalRegistry, VERSIONS_PATH, loadFileAsStringFromRegistry } from './helpers'
@@ -87,19 +87,6 @@ describe('compareDdlDocuments (per-pair DDL diff attribution)', () => {
     const curr = await build('CREATE TABLE users (id bigint PRIMARY KEY); CREATE TABLE orders (id bigint PRIMARY KEY);')
     const { changesByEntityId } = compareDdlDocuments(undefined, curr, ctx())
     expect(ids(changesByEntityId)).toEqual(['public-table-orders', 'public-table-users'])
-  })
-
-  test('a no-bwc document softens a breaking change (D4)', async () => {
-    const prev = await build('CREATE TABLE a (id bigint PRIMARY KEY); CREATE TABLE b (id bigint PRIMARY KEY);')
-    const curr = await build('CREATE TABLE a (id bigint PRIMARY KEY);')
-
-    const bwc = compareDdlDocuments(prev, curr, ctx({ previousApiKind: 'bwc', currentApiKind: 'bwc' }))
-    expect(bwc.changesByEntityId.get('public-table-b')!.some(d => d.type === breaking)).toBe(true)
-
-    const noBwc = compareDdlDocuments(prev, curr, ctx({ previousApiKind: 'no-bwc', currentApiKind: 'no-bwc' }))
-    // the table removal is no longer classified breaking under a no-bwc document
-    expect(noBwc.changesByEntityId.get('public-table-b')!.some(d => d.type === breaking)).toBe(false)
-    expect(noBwc.changesByEntityId.get('public-table-b')!.some(d => d.type === risky)).toBe(true)
   })
 })
 

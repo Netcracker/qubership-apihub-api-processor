@@ -26,7 +26,7 @@ import {
   PackageId,
   VersionParams,
 } from '../../types'
-import { ApihubApiCompatibilityKind, DDL_CONTRACT_TYPE, REVISION_DELIMITER } from '../../consts'
+import { DDL_CONTRACT_TYPE, REVISION_DELIMITER } from '../../consts'
 import {
   calculateChangeSummary,
   calculateDiffId,
@@ -47,13 +47,12 @@ import {
   removeRedundantPartialPairs,
 } from './compare.utils'
 
-// One resolved DDL document of a version: its slug, the Realm built from its raw SQL, its apiKind (D9),
-// and the `ddlEntityId → descriptor` map for its tables. The same object reference is shared by all of
+// One resolved DDL document of a version: its slug, the Realm built from its raw SQL, and the
+// `ddlEntityId → descriptor` map for its tables. The same object reference is shared by all of
 // the document's entityIds during pairing, so doc-pair dedupe (by reference) works.
 interface DdlDocInfo {
   slug: string
   realm: Realm
-  apiKind?: ApihubApiCompatibilityKind
   descriptors: Map<DdlEntityId, DdlEntityDescriptor>
 }
 
@@ -87,7 +86,6 @@ async function resolveDdlDocInfos(params: VersionParams, ctx: CompareContext): P
     docInfos.push({
       slug: document.slug,
       realm,
-      apiKind: document.apiKind,
       descriptors: collectTableDescriptors(realm),
     })
   }
@@ -130,17 +128,13 @@ function createDdlChange(
   comparisonInternalDocumentId: string,
   previousDescriptor: DdlEntityDescriptor | undefined,
   currentDescriptor: DdlEntityDescriptor | undefined,
-  previousApiKind: ApihubApiCompatibilityKind | undefined,
-  currentApiKind: ApihubApiCompatibilityKind | undefined,
 ): DdlChanges {
   const currentFields = currentDescriptor && {
     ddlEntityId,
-    apiKind: currentApiKind,
     metadata: currentDescriptor,
   }
   const previousFields = previousDescriptor && {
     previousDdlEntityId: ddlEntityId,
-    previousApiKind,
     previousMetadata: previousDescriptor,
   }
   return {
@@ -224,8 +218,6 @@ export async function compareVersionsDdl(
       currentPackageId: envelope.packageId,
       notifications: ctx.notifications,
       normalizedSpecFragmentsHashCache: ctx.normalizedSpecFragmentsHashCache,
-      previousApiKind: prevDoc?.apiKind,
-      currentApiKind: currDoc?.apiKind,
     })
 
     const pairDiffs = new Set<Diff>()
@@ -239,8 +231,6 @@ export async function compareVersionsDdl(
         comparisonInternalDocumentId,
         prevDoc?.descriptors.get(ddlEntityId),
         currDoc?.descriptors.get(ddlEntityId),
-        prevDoc?.apiKind,
-        currDoc?.apiKind,
       ))
     }
     if (pairDiffs.size) {

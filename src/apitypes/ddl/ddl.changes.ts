@@ -28,7 +28,6 @@ import {
 } from '../../consts'
 import { DDL_KIND, DdlDiffResult, DdlDocumentsCompare, DdlEntityId, WithAggregatedDiffs, WithDiffMetaRecord } from '../../types'
 import { isEmpty } from '../../utils'
-import { createDdlApiCompatibilityScopeFunction } from '../../components/compare/ddl.bwc.validation'
 import { DDL_EFFECTIVE_NORMALIZE_OPTIONS } from './ddl.consts'
 import { calculateDdlEntityId } from './ddl.entities'
 
@@ -58,7 +57,7 @@ function emptyRealmLike(present: Realm): Realm {
  * a type referenced by no table never reaches a table node, so orphan-type diffs yield nothing). An
  * added/removed whole table is a single diff on the parent `tables[]` array's `DIFF_META_KEY`.
  */
-export const compareDdlDocuments: DdlDocumentsCompare = (prevRealm, currRealm, ctx): DdlDiffResult => {
+export const compareDdlDocuments: DdlDocumentsCompare = (prevRealm, currRealm): DdlDiffResult => {
   const present = currRealm ?? prevRealm
   if (!present) {
     // both sides empty — nothing to compare; return an empty (but valid) merged realm
@@ -68,6 +67,8 @@ export const compareDdlDocuments: DdlDocumentsCompare = (prevRealm, currRealm, c
   const before = prevRealm ?? emptyRealmLike(present)
   const after = currRealm ?? emptyRealmLike(present)
 
+  // No apiCompatibilityScopeFunction: DDL changes are classified with default severity. apiKind-driven
+  // bwc-mode reclassification (softening breaking → risky for no-bwc documents) is not applied to DDL.
   const { merged, diffs } = apiDiff(before, after, {
     ...DDL_EFFECTIVE_NORMALIZE_OPTIONS,
     metaKey: DIFF_META_KEY,
@@ -75,7 +76,6 @@ export const compareDdlDocuments: DdlDocumentsCompare = (prevRealm, currRealm, c
     normalizedResult: false,
     afterValueNormalizedProperty: AFTER_VALUE_NORMALIZED_PROPERTY,
     beforeValueNormalizedProperty: BEFORE_VALUE_NORMALIZED_PROPERTY,
-    apiCompatibilityScopeFunction: createDdlApiCompatibilityScopeFunction(ctx.previousApiKind, ctx.currentApiKind),
   }) as { merged: Realm; diffs: Diff[] }
 
   const changesByEntityId = new Map<DdlEntityId, Diff[]>()

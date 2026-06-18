@@ -46,7 +46,6 @@ import { Diff } from '@netcracker/qubership-apihub-api-diff'
 import { Realm } from '@netcracker/qubership-apihub-ddlapi'
 import { ResolvedPackage } from '../external/package'
 import {
-  ApihubApiCompatibilityKind,
   ASYNCAPI_API_TYPE,
   DDL_CONTRACT_TYPE,
   FILE_FORMAT_JSON,
@@ -161,8 +160,6 @@ export interface DdlComparePairContext {
   currentPackageId: PackageId
   notifications: NotificationMessage[]
   normalizedSpecFragmentsHashCache: ObjectHashCache
-  previousApiKind?: ApihubApiCompatibilityKind // drives the bwc compatibility scope (D4/D9)
-  currentApiKind?: ApihubApiCompatibilityKind
 }
 
 export interface DdlDiffResult {

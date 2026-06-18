@@ -118,8 +118,6 @@ export interface VersionsComparisonDto extends Omit<VersionsComparison<DiffTypeD
 export interface DdlChanges<T extends DiffType | DiffTypeDto = DiffType> {
   ddlEntityId?: DdlEntityId
   previousDdlEntityId?: DdlEntityId
-  apiKind?: ApihubApiCompatibilityKind
-  previousApiKind?: ApihubApiCompatibilityKind
   changeSummary: ChangeSummary<T>
   impactedSummary: ImpactedOperationSummary // internal-only (drives numberOfImpactedEntities)
   // @deprecated. OOM problem
@@ -129,11 +127,11 @@ export interface DdlChanges<T extends DiffType | DiffTypeDto = DiffType> {
   comparisonInternalDocumentId?: string
 }
 
-// The data of one side of a DDL change: the entity's id, its apiKind (D9, optional), and its descriptor
+// The data of one side of a DDL change: the entity's id and its descriptor
 // (kind/name/schemaName/description). Self-contained so a change entry can carry current + previous sides.
+// apiKind is not surfaced per DDL entity (not supported for DDL entities).
 export interface DdlEntityChangeData extends DdlEntityDescriptor {
   ddlEntityId: DdlEntityId
-  apiKind?: ApihubApiCompatibilityKind
 }
 
 // Serialized per-pair change (the elements of `ddl-comparisons/<comparisonFileId>`'s `entities` array).

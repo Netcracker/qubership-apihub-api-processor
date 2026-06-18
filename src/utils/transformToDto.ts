@@ -178,8 +178,6 @@ export function toDdlChangesDto(
   {
     ddlEntityId,
     previousDdlEntityId,
-    apiKind,
-    previousApiKind,
     metadata,
     previousMetadata,
     diffs,
@@ -190,13 +188,13 @@ export function toDdlChangesDto(
   logError: (message: string) => void,
 ): DdlChangesDto {
   return {
-    // group each side's id + apiKind + descriptor; the side is present when its table exists and
+    // group each side's id + descriptor; the side is present when its table exists and
     // omitted entirely for the absent side of a pure add/remove. The id guard narrows away `undefined`.
     ...(ddlEntityId !== undefined && metadata && {
-      ddlEntityData: { ddlEntityId, apiKind, ...metadata },
+      ddlEntityData: { ddlEntityId, ...metadata },
     }),
     ...(previousDdlEntityId !== undefined && previousMetadata && {
-      previousDdlEntityData: { ddlEntityId: previousDdlEntityId, apiKind: previousApiKind, ...previousMetadata },
+      previousDdlEntityData: { ddlEntityId: previousDdlEntityId, ...previousMetadata },
     }),
     changeSummary: replacePropertyInChangesSummary<DiffType, DiffTypeDto>(changeSummary, {
       origin: risky,

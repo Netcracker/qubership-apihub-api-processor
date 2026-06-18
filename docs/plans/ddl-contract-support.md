@@ -353,8 +353,7 @@ export interface DdlComparePairContext {
   currentPackageId: PackageId
   notifications: NotificationMessage[]
   normalizedSpecFragmentsHashCache: ObjectHashCache
-  previousApiKind?: ApihubApiCompatibilityKind   // drives the bwc compatibility scope (D4/D9)
-  currentApiKind?: ApihubApiCompatibilityKind
+  // (apiKind removed — D4 reverted: no apiKind-driven bwc-mode reclassification for DDL)
 }
 
 export interface DdlDiffResult {
@@ -641,9 +640,9 @@ Then run Task 7 per pair and emit `DdlChanges` via `createChangeBase` + DDL id/m
 (`contractsChangesSummary: { ddl: { changesSummary, numberOfImpactedEntities } }`). Build
 `comparisonInternalDocumentId` via
 `createComparisonInternalDocumentId(prevVer, prevPkg, prevSlug, currVer, currPkg, currSlug)` and wrap
-the merged Realm as a `ComparisonInternalDocument` (D5 form). Pass a DDL `mode` into `apiDiff` via a
-DDL compatibility-scope function (D4 — analog of `createRestApiCompatibilityScopeFunction`), derived
-from apiKind sourced from document metadata (D9). Apply diff **dedup** (`removeObjectDuplicates` +
+the merged Realm as a `ComparisonInternalDocument` (D5 form). (No DDL compatibility-scope / `mode` is
+passed into `apiDiff` — D4 reverted: DDL changes are classified with default severity.) Apply diff
+**dedup** (`removeObjectDuplicates` +
 `calculateDiffId`) and compute `changesSummary`/`numberOfImpactedEntities` mirroring
 `compareCurrentApiType` (per-contract only — D12). Compose the **shared core** (AD7) —
 `pairByKey`, `dedupeTuples`/`removeRedundantPartialPairs`, `createChangeBase`, the `createComparison*`
@@ -990,10 +989,10 @@ text). Revisit if a consumer needs to branch on codes without parsing message st
   `createCopyWithEmptyPathItems`) so each table is a clean per-table add/remove rather than one
   whole-schema diff.
 
-- **Task 7 — DDL bwc scope is root-only (`createDdlApiCompatibilityScopeFunction`).** Because DDL apiKind
-  is per-document (D9), the scope function only needs to mark the realm root NOT_BACKWARD_COMPATIBLE for a
-  `no-bwc`/`experimental` document; every node inherits it. Verified this softens `breaking → risky`
-  (semi-breaking). No per-table granularity needed, unlike REST's per-operation scope.
+- **Task 7 — DDL bwc scope (`createDdlApiCompatibilityScopeFunction`) — REMOVED.** Originally a root-only
+  scope marked the realm NOT_BACKWARD_COMPATIBLE for a `no-bwc`/`experimental` document, softening
+  `breaking → risky`. D4 was later reverted: the scope function and its `apiDiff` wiring were removed, so
+  DDL changes are now classified with default severity regardless of apiKind.
 
 - **Task 7 — `compareDdlDocuments` wired onto `ddlBuilder` now** (the builder was already registered in
   Task 6). Task 9 consumes it via the registry rather than adding it.

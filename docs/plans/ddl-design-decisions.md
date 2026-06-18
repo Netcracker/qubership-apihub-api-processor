@@ -36,13 +36,12 @@ api-processor builderVersion guard still applies — this decision is only about
 **Implications:** No version-skew check in `compareVersionsDdl`. Accept the small risk of
 misclassification if a future ddlapi major reshapes the Realm; revisit then. (Plan Task 9.)
 
-### D4 — Mirror REST bwc semantics for classification
-**Decision:** apiKind (`bwc`/`no-bwc`/`experimental`) relaxes DDL breaking-change classification the
-same way it does for REST: a `no-bwc`/`experimental` document softens breaking → semi-breaking.
-**Rationale:** Consistent cross-contract behavior; api-diff's ddl rules already accept a `mode`.
-**Implications:** Add a DDL compatibility-scope function (analog of
-`createRestApiCompatibilityScopeFunction`) and pass `mode` into the ddl `apiDiff` call, derived from
-apiKind (see D9). (Plan Task 9 — add to description + files.)
+### D4 — Mirror REST bwc semantics for classification — **REVERTED**
+**Original decision:** apiKind (`bwc`/`no-bwc`/`experimental`) relaxes DDL breaking-change classification
+the same way it does for REST: a `no-bwc`/`experimental` document softens breaking → semi-breaking.
+**Reverted:** apiKind-driven bwc-mode reclassification is **not** supported for DDL. DDL changes are
+classified with default severity regardless of apiKind. The DDL compatibility-scope function and its
+wiring into the ddl `apiDiff` call were removed; no `apiCompatibilityScopeFunction` is passed for DDL.
 
 ### D5 — Merged comparison document matches the REST convention
 **Decision:** Serialize api-diff's merged Realm with `normalizedResult: false` plus the
@@ -79,15 +78,14 @@ or escalate unresolved FKs to Error.
 **Implications:** No extra `partial`/`incomplete` field on the DDL entity. The entity looks complete
 in `ddl.json` despite the warning. (Plan Task 12; contract doc — no entity-shape change.)
 
-### D9 — apiKind sourced from document metadata
-**Decision:** DDL's apiKind comes from the `.sql` document's passthrough metadata / label
+### D9 — apiKind sourced from document metadata — **NO LONGER USED FOR DDL COMPARISON**
+**Original decision:** DDL's apiKind comes from the `.sql` document's passthrough metadata / label
 (e.g. `apihub/x-api-kind`) set by the publisher — mirroring REST's label fallback. SQL has no native
 api-kind.
-**Rationale:** Keeps `apiKind`/`previousApiKind` in the DTO meaningful and feeds D4's classification
-mode.
-**Implications:** The parser/document builder reads apiKind from file metadata; `compareVersionsDdl`
-uses it for both the DTO field and the bwc mode. Note this is the one place per-file metadata is
-consulted (entity *scope* still comes only from the SQL). (Plan Task 3/9.)
+**Current state:** apiKind is not surfaced per DDL entity (see DTO change) and no longer drives DDL
+classification (D4 reverted). The generic document builder may still carry the document-level `apiKind`
+metadata field (as for any document type), but the DDL compare path neither reads it nor emits it. Entity
+*scope* comes only from the SQL.
 
 ---
 
@@ -146,9 +144,9 @@ invalidation requirement; cover the cache-miss path only." (Plan Task 11; Risk R
 
 | Decision | Changes |
 |----------|---------|
-| D4 | Plan Task 9: add DDL compatibility-scope function + `mode` wiring. |
+| D4 | **Reverted** — DDL compatibility-scope function + `mode` wiring removed; no apiKind-driven reclassification for DDL. |
 | D5 | Plan Task 9 / contract doc: merged DDL Realm uses REST's `normalizedResult:false` convention. |
-| D9 | Plan Task 3/9: read apiKind from document metadata. |
+| D9 | apiKind no longer used for DDL comparison (DTO field removed, D4 reverted). |
 | D14 | Plan Task 6: drop the incremental-drop rationale for `ddlEntityIds`. |
 | D15 | Plan Risk R7 / Task 11: rely on host invalidation; cover cache-miss only. |
 | D13 | `ddlBuilder` has no `createExportDocument`; export out of scope. |
