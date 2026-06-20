@@ -17,9 +17,11 @@
 import * as path from 'path'
 import { defineConfig } from 'vite'
 import dts from 'vite-plugin-dts'
+import { libpgQueryBrowserPlugin } from './vite-libpg-query-browser.plugin'
 
 export default defineConfig({
   plugins: [
+    libpgQueryBrowserPlugin(),
     dts({
       insertTypesEntry: true,
     }),
