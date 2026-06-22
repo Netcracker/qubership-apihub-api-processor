@@ -17,7 +17,7 @@
 import { FILE_KIND, MCP_COLLECTION_KEY, MCP_KIND, McpKind, TextFile } from '../../types'
 import { getFileExtension, isObject, isString } from '../../utils'
 import { FILE_FORMAT_JSON } from '../../consts'
-import { MCP_DOCUMENT_TYPE } from './mcp.consts'
+import { MCP_DOCUMENT_TYPE, McpDocumentType } from './mcp.consts'
 import { McpEntityRaw, ParsedMcpData } from './mcp.types'
 import { serializeMcpDocument } from './mcp.utils'
 
@@ -31,7 +31,7 @@ export function unwrapJsonRpc(parsed: Record<string, unknown>): Record<string, u
   return isString(parsed.jsonrpc) && isObject(parsed.result) ? parsed.result : parsed
 }
 
-export function detectMcpDocumentType(obj: Record<string, unknown>): string | undefined {
+export function detectMcpDocumentType(obj: Record<string, unknown>): McpDocumentType | undefined {
   // Initialization documents are identified by the presence of `capabilities` and `serverInfo`.
   // Although the MCP specification defines `protocolVersion` as part of InitializeResult,
   // MCP Inspector output currently omits this field. To maintain compatibility, it is not
