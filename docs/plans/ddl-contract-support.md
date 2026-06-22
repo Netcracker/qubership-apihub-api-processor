@@ -926,6 +926,17 @@ text). Revisit if a consumer needs to branch on codes without parsing message st
 
 > Tracks where the implementation departed from the plan as written. One entry per deviation.
 
+- **DDL documents resolved via a new `contractType` query param (not `apiType: 'ddl'`).** The host's
+  "get version documents" endpoint gains a `contractType` query parameter; `VersionDocumentsResolver`
+  (external type) and the builder's wrapper now take an optional `contractType?: ContractType` (new type
+  in `consts.ts`, `= 'ddl'` for now), and `compareVersionsDdl` calls
+  `versionDocumentsResolver(version, pkg, undefined, DDL_CONTRACT_TYPE)` — removing the earlier
+  `apiType: 'ddl' as never` hack (this resolves Risk R3 / the OQ1 mapping more cleanly). The empty-result
+  warning is suppressed for any `contractType` query (additive contracts), not just by inspecting apiType.
+  The client-side `type === 'ddl'` post-filter is **kept as a precaution** (with a TODO) in case the
+  backend hasn't shipped the server-side filter yet; the test registry simulates the implemented backend
+  by honoring the param.
+
 - **Post-impl contract change — per-pair `DdlChangesDto` drops `contractType` and groups each side into
   `ddlEntityData`/`previousDdlEntityData`.** By request, the `ddl-comparisons/<comparisonFileId>` change
   entry no longer carries `"contractType": "ddl"` (redundant — the whole file is DDL). Each side is a

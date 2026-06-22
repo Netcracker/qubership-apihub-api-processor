@@ -69,12 +69,12 @@ export function isOwnPackageDocument(packageRef: string | undefined, packageId: 
 async function resolveDdlDocInfos(params: VersionParams, ctx: CompareContext): Promise<DdlDocInfo[]> {
   if (!params) { return [] }
   const [version, packageId] = params
-  // OQ1: the host resolves DDL documents for apiType 'ddl' and serves their raw .sql
-  //TODO: clarify backend API and remove `as never` cast here
-  const resolved = await ctx.versionDocumentsResolver(version, packageId, DDL_CONTRACT_TYPE as never)
-  // Only this package's OWN DDL documents (the host's documents endpoint populates `packageRef` for
-  // every document, so own docs cannot be detected by an empty value alone — match the packageId
-  // instead). Belt-and-suspenders type check in case the host resolver doesn't filter refs by apiType.
+  // request only DDL documents via the `contractType` query param (OQ1: the host serves their raw .sql)
+  const resolved = await ctx.versionDocumentsResolver(version, packageId, undefined, DDL_CONTRACT_TYPE)
+  // `isOwnPackageDocument`: this package's OWN documents only — reference-package docs are handled by the
+  // dashboard/references path (Task 11) and resolving their raw SQL at THIS packageId would fail.
+  // TODO: the `type === ddl` check is a precaution in case the backend doesn't yet honor the
+  // `contractType` query param — remove it once the backend filters by contract type server-side.
   const documents = (resolved?.documents ?? []).filter(
     document => isOwnPackageDocument(document.packageRef, packageId) && document.type === DDL_DOCUMENT_TYPE.DDL,
   )

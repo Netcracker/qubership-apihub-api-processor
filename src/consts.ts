@@ -224,5 +224,7 @@ export const API_KIND_SPECIFICATION_EXTENSION = 'x-api-kind'
 export const REST_API_TYPE = 'rest' as const
 export const GRAPHQL_API_TYPE = 'graphql' as const
 export const ASYNCAPI_API_TYPE = 'asyncapi' as const
-export const MCP_API_TYPE = 'mcp' as const
+// MCP and DDL are contract types (not operation api types) — see ContractType below.
+export const MCP_CONTRACT_TYPE = 'mcp' as const
 export const DDL_CONTRACT_TYPE = 'ddl' as const
+export type ContractType = typeof MCP_CONTRACT_TYPE | typeof DDL_CONTRACT_TYPE

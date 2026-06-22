@@ -66,11 +66,11 @@ import {
 import { filesDiff, findSharedPath, getCompositeKey, getFileExtension, getOperationsList } from './utils'
 import {
   BUILD_TYPE,
-  DDL_CONTRACT_TYPE,
+  ContractType,
   DEFAULT_BATCH_SIZE,
   DEFAULT_VALIDATION_RULES_SEVERITY_CONFIG,
   EXPORT_BUILD_TYPES,
-  MCP_API_TYPE,
+  MCP_CONTRACT_TYPE,
   MESSAGE_SEVERITY,
   REST_API_TYPE,
   SUPPORTED_FILE_FORMATS,
@@ -528,13 +528,16 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     version: VersionId,
     packageId: PackageId,
     apiType?: OperationsApiType,
+    contractType?: ContractType,
   ): Promise<ResolvedVersionDocuments | null> {
     packageId = packageId ?? this.config.packageId
     if (this.canBeResolvedLocally(version, packageId)) {
       // this is the case when a version has been built just now, and there's nothing to fetch yet, so
       // the only way to get the docs is to get them from buildResult, but the referenced packages map will be empty (packages: {})
-      if (apiType) {
-        const apiBuilder = this.findApiBuilderByApiType(apiType)
+      // apiType and contractType both map to a builder's apiType (e.g. 'rest', 'ddl') for local filtering
+      const filterType = apiType ?? contractType
+      if (filterType) {
+        const apiBuilder = this.findApiBuilderByApiType(filterType)
         return { documents: this.documentList.filter(({ type }) => apiBuilder.types.includes(type)), packages: {} }
       }
       return { documents: this.documentList, packages: {} }
@@ -549,12 +552,13 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       version,
       packageId,
       apiType,
+      contractType,
     )
 
-    // DDL is an additive contract (AD6): a package having no DDL documents is normal, not noteworthy.
-    // Unlike REST/graphql/asyncapi (gated upstream by the version's operationTypes), the DDL changelog
-    // resolves docs speculatively, so an empty DDL result must NOT emit a warning.
-    if (!documents?.documents.length && (apiType as string) !== DDL_CONTRACT_TYPE) {
+    // Contract-type queries (e.g. DDL — AD6) are additive and resolved speculatively, so an empty result
+    // is normal and must NOT warn. apiType queries are gated upstream by the version's operationTypes, so
+    // an empty result there is still worth a warning.
+    if (!documents?.documents.length && !contractType) {
       this.notifications.push({
         severity: MESSAGE_SEVERITY.Warning,
         message: `No documents for ${packageId}/${version} that match the criteria (apiType=${apiType})`,
@@ -923,7 +927,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       this.documents.set(document.fileId, document)
       if (!builder || document.publish === false) { continue }
 
-      if (builder.apiType === MCP_API_TYPE) {
+      if (builder.apiType === MCP_CONTRACT_TYPE) {
         processMcpDocument(file, document, builder, mcpCtx, handleDuplicateMcp)
         hasMcpChanges = true
       } else {
