@@ -32,9 +32,9 @@ import {
   isGraphqlDocument,
   isMcpDocument,
   isRestDocument,
+  ContractType,
   KIND_PACKAGE,
   Labels,
-  MCP_API_TYPE,
   MESSAGE_SEVERITY,
   NotificationMessage,
   OperationId,
@@ -269,6 +269,7 @@ export class LocalRegistry implements IRegistry {
     version: VersionId,
     packageId: PackageId,
     apiType?: OperationsApiType,
+    contractType?: ContractType,
   ): Promise<ResolvedVersionDocuments | null> {
     const { config: { refs = [] } = {}, documents } = await this.getVersion(packageId || this.packageId, version) ?? {}
 
@@ -276,7 +277,7 @@ export class LocalRegistry implements IRegistry {
 
     if (isNotEmpty(documentsFromVersion)) {
       return {
-        documents: this.resolveDocuments(documentsFromVersion, undefined, undefined, apiType),
+        documents: this.resolveDocuments(documentsFromVersion, undefined, undefined, apiType, contractType),
         packages: {},
       }
     }
@@ -328,9 +329,10 @@ export class LocalRegistry implements IRegistry {
     return (id: string): boolean => this.groupToOperationIdsMap[filterByOperationGroup]?.includes(id)
   }
 
-  private resolveDocuments(documents: VersionDocument[], filterOperationIdsByGroup?: (id: string) => boolean, refId?: string, apiType?: OperationsApiType): ResolvedGroupDocument[] {
+  private resolveDocuments(documents: VersionDocument[], filterOperationIdsByGroup?: (id: string) => boolean, refId?: string, apiType?: OperationsApiType, contractType?: ContractType): ResolvedGroupDocument[] {
     return documents
       .filter(versionDocument => (apiType ? this.getDocApiTypeGuard(apiType)(versionDocument) : true))
+      .filter(versionDocument => (contractType ? this.getDocApiTypeGuard(contractType)(versionDocument) : true))
       .filter(versionDocument => (filterOperationIdsByGroup ? versionDocument.operationIds.some(filterOperationIdsByGroup) : true))
       .map(document => ({
         version: document.version,
@@ -363,7 +365,7 @@ export class LocalRegistry implements IRegistry {
     return undefined
   }
 
-  private getDocApiTypeGuard(apiType: OperationsApiType | typeof MCP_API_TYPE | 'ddl'): (document: ZippableDocument | ResolvedVersionDocument) => void {
+  private getDocApiTypeGuard(apiType: OperationsApiType | ContractType): (document: ZippableDocument | ResolvedVersionDocument) => void {
     switch (apiType) {
       case 'rest':
         return isRestDocument

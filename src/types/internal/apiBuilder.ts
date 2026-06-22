@@ -51,7 +51,7 @@ import {
   FILE_FORMAT_JSON,
   FILE_FORMAT_YAML,
   GRAPHQL_API_TYPE,
-  MCP_API_TYPE,
+  MCP_CONTRACT_TYPE,
   REST_API_TYPE,
 } from '../../consts'
 import { OpenApiExtensionKey } from '@netcracker/qubership-apihub-api-unifier'
@@ -64,7 +64,7 @@ export type BuilderType =
   | typeof ASYNCAPI_API_TYPE
   | typeof TEXT_API_TYPE
   | typeof UNKNOWN_API_TYPE
-  | typeof MCP_API_TYPE
+  | typeof MCP_CONTRACT_TYPE
   | typeof DDL_CONTRACT_TYPE
 
 export interface BuilderContext<T = any> {

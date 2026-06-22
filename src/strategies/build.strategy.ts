@@ -30,7 +30,7 @@ import {
 import { createDuplicateDdlEntityHandler, processDdlDocument } from '../components/ddl'
 import { ParsedDdlData, validateDdlDocument } from '../apitypes/ddl'
 import { calculateHistoryForDeprecatedItems } from '../components/deprecated'
-import { DDL_CONTRACT_TYPE, MCP_API_TYPE, REST_API_TYPE } from '../consts'
+import { DDL_CONTRACT_TYPE, MCP_CONTRACT_TYPE, REST_API_TYPE } from '../consts'
 
 export class BuildStrategy implements BuilderStrategy {
   async execute(config: BuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
@@ -67,7 +67,7 @@ export class BuildStrategy implements BuilderStrategy {
         buildResult.documents.set(document.fileId, document)
         if (!builder || document.publish === false) { continue }
 
-        if (builder.apiType === MCP_API_TYPE) {
+        if (builder.apiType === MCP_CONTRACT_TYPE) {
           processMcpDocument(file, document, builder, buildResult, handleDuplicateMcp)
         } else if (builder.apiType === DDL_CONTRACT_TYPE) {
           // map parse issues to notifications (Warning for out-of-scope/unresolved, Error for
