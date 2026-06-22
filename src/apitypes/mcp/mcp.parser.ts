@@ -27,11 +27,11 @@ type McpParseError = { message: string }
 // result }`. Unwrap `result` once, at the entry of parsing, so the rest of the pipeline only handles a
 // plain MCP document. A JSON-RPC error response (no `result`) or an already-plain document is returned
 // unchanged.
-function unwrapJsonRpc(parsed: Record<string, unknown>): Record<string, unknown> {
+export function unwrapJsonRpc(parsed: Record<string, unknown>): Record<string, unknown> {
   return isString(parsed.jsonrpc) && isObject(parsed.result) ? parsed.result : parsed
 }
 
-function detectMcpDocumentType(obj: Record<string, unknown>): string | undefined {
+export function detectMcpDocumentType(obj: Record<string, unknown>): string | undefined {
   // Initialization documents are identified by the presence of `capabilities` and `serverInfo`.
   // Although the MCP specification defines `protocolVersion` as part of InitializeResult,
   // MCP Inspector output currently omits this field. To maintain compatibility, it is not
