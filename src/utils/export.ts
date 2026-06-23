@@ -18,6 +18,12 @@ import { getDocumentTitle } from './document'
 import { stringify } from 'yaml'
 import { FILE_FORMAT_GRAPHQL, FILE_FORMAT_JSON, FILE_FORMAT_YAML } from '../consts'
 
+const YAML_STRINGIFY_OPTIONS = { aliasDuplicateObjects: false, lineWidth: 0, singleQuote: true } as const
+
+export function stringifyYaml(value: unknown): string {
+  return stringify(value, YAML_STRINGIFY_OPTIONS)
+}
+
 export async function createCommonStaticExportDocuments(packageName: string, version: string, templateResolver: _TemplateResolver): Promise<ExportDocument[]> {
   return [
     createUnknownExportDocument('ls.html', await generateLegalStatementPage(packageName, version, await templateResolver('ls.html'), 'index.html')),
@@ -107,7 +113,7 @@ export const dump = (
 ): TextBlobConstructorParameters => {
   switch (format) {
     case FILE_FORMAT_YAML:
-      return [[stringify(value, { aliasDuplicateObjects: false, lineWidth: 0, singleQuote: true })], { type: 'application/yaml' }]
+      return [[stringifyYaml(value)], { type: 'application/yaml' }]
 
     case FILE_FORMAT_JSON:
       return [[JSON.stringify(value, undefined, 2)], { type: 'application/json' }]
