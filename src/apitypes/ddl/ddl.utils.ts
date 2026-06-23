@@ -32,16 +32,3 @@ export function serializeDdlInternalDocument(document: VersionDocument, realm: R
   const effectiveRealm = normalize(realm, { ...DDL_EFFECTIVE_NORMALIZE_OPTIONS, source: realm }) as Realm
   createSerializedInternalDocument(document, effectiveRealm, DDL_EFFECTIVE_NORMALIZE_OPTIONS)
 }
-
-/**
- * Per-entity SQL for one table — the content of `ddl/<ddlEntityId>` (AD4, Task 5).
- *
- * STUB: real extraction (the table's `CREATE TABLE` + `CREATE INDEX` + `COMMENT ON`, minimal and
- * valid) belongs in ddlapi. For v1 this returns a deterministic stub built from the arguments so the
- * `ddl/` file is populated and the build/packaging wiring can be exercised end-to-end.
- *
- * TODO(ddlapi): replace this stub with a real per-table statement extractor in ddlapi.
- */
-export function extractTableStatements(sourceSql: string, schema: string, tableName: string): string {
-  return `${schema}\n${tableName}\n${sourceSql}`
-}

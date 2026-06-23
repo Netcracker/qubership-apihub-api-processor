@@ -90,14 +90,18 @@ describe('DDL Build', () => {
     expect(productsIndex).toMatchObject(PRODUCTS_ENTITY)
     expect(productsIndex).not.toHaveProperty('data')
 
-    // ddl/<ddlEntityId> — per-entity SQL (no extension), equal to the stub extractTableStatements output
+    // ddl/<ddlEntityId> — per-entity SQL (no extension), the table's slice from the DDL extractor:
+    // the users slice carries its CREATE TABLE, COMMENT ON, and index — and nothing about products
     const usersSql = await loadFileAsStringFromRegistry(VERSIONS_PATH, `${PACKAGE_ID}/v1/ddl`, USERS_ENTITY.ddlEntityId)
     expect(usersSql).toBeTruthy()
-    expect(usersSql).toContain('users')
+    expect(usersSql).toContain('CREATE TABLE users')
+    expect(usersSql).toContain('idx_users_email')
+    expect(usersSql).not.toContain('products')
 
     const productsSql = await loadFileAsStringFromRegistry(VERSIONS_PATH, `${PACKAGE_ID}/v1/ddl`, PRODUCTS_ENTITY.ddlEntityId)
     expect(productsSql).toBeTruthy()
-    expect(productsSql).toContain('products')
+    expect(productsSql).toContain('CREATE TABLE shop.products')
+    expect(productsSql).not.toContain('users')
 
     // documents.json back-link: the entity references the document, the document carries no ddlEntityIds
     const documents = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, `${PACKAGE_ID}/v1`, 'documents.json'))!)
