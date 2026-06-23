@@ -33,9 +33,9 @@
   },
   "dependencies": {
     "@asyncapi/parser": "^3.6.0",
-    "@netcracker/qubership-apihub-api-diff": "bugfix-system-converts-table-to-string-2",
-    "@netcracker/qubership-apihub-api-unifier": "bugfix-system-converts-table-to-string-2",
-    "@netcracker/qubership-apihub-graphapi": "bugfix-system-converts-table-to-string-2",
+    "@netcracker/qubership-apihub-api-diff": "dev",
+    "@netcracker/qubership-apihub-api-unifier": "dev",
+    "@netcracker/qubership-apihub-graphapi": "dev",
     "@netcracker/qubership-apihub-json-crawl": "1.2.1",
     "adm-zip": "0.5.10",
     "ajv": "^8.12.0",
