@@ -1,10 +1,10 @@
 lockfile_version: '1'
-generated_at: '2026-06-12T10:50:32.271373+00:00'
+generated_at: '2026-06-23T10:52:10.100247+00:00'
 apm_version: 0.14.2
 dependencies:
 - repo_url: Netcracker/qubership-apihub-ddlapi
   host: github.com
-  resolved_commit: ceddf96bba9bbc81c47bd96781d9c068962c7ee8
+  resolved_commit: 258a4b6223e065e9239598595d50f3aec967c0db
   resolved_ref: feature/ddl
   virtual_path: agent-packages/ddlapi-using
   is_virtual: true
@@ -19,4 +19,4 @@ dependencies:
     .claude/rules/ddlapi-using.md: sha256:339a7086fb5cfd6df1374345ff577321f96197deb217d482fd9f36f4f9021584
     .cursor/rules/ddlapi-using.mdc: sha256:90554d14dcea6999074084c82cdabe92c9049452d6291ecc1570344c630a64f7
     .github/instructions/ddlapi-using.instructions.md: sha256:a12f9f14d89ba48e3ef6631e1727f9f26c908d573c7ea836c3b44873672be558
-  content_hash: sha256:f8607a5e2bd008b11a29fa9009e71d054447c85322ca7ee94d834bd87193ddf0
+  content_hash: sha256:c0c9d41c755edd40d11e618de2b6dc1b70f2d77639e32affe001a9672efa0c7d
