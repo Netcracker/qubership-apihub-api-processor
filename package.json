@@ -44,7 +44,7 @@
     "api-ref-bundler": "0.4.0",
     "fast-equals": "5.0.1",
     "graphql": "16.9.0",
-    "yaml": "^2.8.0",
+    "yaml": "2.9.0",
     "jszip": "^3.10.1",
     "object-hash": "^3.0.0",
     "slug": "^8.2.3",
