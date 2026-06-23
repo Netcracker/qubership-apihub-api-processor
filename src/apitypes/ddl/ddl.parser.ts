@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { buildFromDdl, DdlNonFatalError } from '@netcracker/qubership-apihub-ddlapi'
+import { buildFromDdl, DdlNonFatalError, prepareDdlExtractor } from '@netcracker/qubership-apihub-ddlapi'
 import { FILE_KIND, TextFile } from '../../types'
 import { getFileExtension } from '../../utils'
 import { DDL_DOCUMENT_TYPE, isDdlFileExtension } from './ddl.consts'
@@ -42,7 +42,12 @@ export const parseDdlFile = async (
 
   const issues: DdlNonFatalError[] = []
   // DdlParseError (invalid SQL syntax) is intentionally left to propagate — do not catch it here.
-  const realm = await buildFromDdl(originalSql, { onError: (issue) => issues.push(issue) })
+  // Both calls parse the SQL (WASM); run them together. The extractor indexes `originalSql` once so
+  // buildDdlEntities can slice per-table SQL synchronously.
+  const [realm, extractor] = await Promise.all([
+    buildFromDdl(originalSql, { onError: (issue) => issues.push(issue) }),
+    prepareDdlExtractor(originalSql),
+  ])
 
   return {
     fileId,
@@ -50,7 +55,7 @@ export const parseDdlFile = async (
     format: extension,
     // issues ride on ParsedDdlData (not TextFile.errors) so the generic parse→Error path is bypassed;
     // severity is mapped per-kind during build validation (Task 12)
-    data: { realm, originalSql, issues },
+    data: { realm, originalSql, extractor, issues },
     source,
     kind: FILE_KIND.TEXT,
   }
