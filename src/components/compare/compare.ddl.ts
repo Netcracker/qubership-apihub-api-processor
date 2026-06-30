@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-import { buildFromDdl, Realm } from '@netcracker/qubership-apihub-ddlapi'
+import { buildFromDdl } from '@netcracker/qubership-apihub-ddlapi/parser'
+import type { Realm } from '@netcracker/qubership-apihub-ddlapi'
 import { Diff } from '@netcracker/qubership-apihub-api-diff'
 import {
   CompareContext,

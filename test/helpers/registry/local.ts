@@ -68,7 +68,7 @@ import {
   VersionsComparison,
   VersionsComparisonDto,
   ZippableDocument,
-} from '../../../src'
+} from '../../../src/processor'
 import {
   getOperationsFileContent,
   saveComparisonInternalDocuments,

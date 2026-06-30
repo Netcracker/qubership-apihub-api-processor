@@ -17,11 +17,9 @@
 import * as path from 'path'
 import { defineConfig } from 'vite'
 import dts from 'vite-plugin-dts'
-import { libpgQueryBrowserPlugin } from './vite-libpg-query-browser.plugin'
 
 export default defineConfig({
   plugins: [
-    libpgQueryBrowserPlugin(),
     dts({
       insertTypesEntry: true,
     }),
@@ -32,19 +30,26 @@ export default defineConfig({
     minify: false,
     emptyOutDir: true,
     lib: {
-      entry: path.resolve(__dirname, 'src/index.ts'),
-      name: 'ApiHubBuilder',
-      formats: ['es', 'umd'],
-      fileName: (format) => `apihub-builder.${format}.js`,
+      // Two entries: the light root (parser-free) and the heavy '/processor'
+      // (the spec-processing engine, which pulls the ddlapi parser). Shared light
+      // code is hoisted into a common chunk; the parser/WASM graph stays only in
+      // the processor entry's chunks.
+      entry: {
+        'api-processor': path.resolve(__dirname, 'src/index.ts'),
+        'api-processor-engine': path.resolve(__dirname, 'src/processor.ts'),
+      },
+      formats: ['es'],
+      fileName: (_format, entryName) => `${entryName}.es.js`,
     },
     rollupOptions: {
-      external: ['@asyncapi/parser'],
-      output: {
-        // Map @asyncapi/parser to browser version in UMD builds
-        paths: {
-          '@asyncapi/parser': '@asyncapi/parser',
-        },
-      },
+      // Keep ddlapi (and its parser chain) external so the consuming bundler/runtime
+      // resolves it: the browser handles WASM via its own asset pipeline, Node reads
+      // libpg-query.wasm from node_modules. We no longer bundle/inline the WASM here.
+      external: [
+        '@asyncapi/parser',
+        /^@netcracker\/qubership-apihub-ddlapi(\/.*)?$/,
+        /^(libpg-query|pgsql-parser|pgsql-deparser)(\/.*)?$/,
+      ],
     },
   },
   resolve: {

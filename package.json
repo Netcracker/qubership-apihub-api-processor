@@ -3,6 +3,7 @@
   "version": "5.4.4",
   "description": "",
   "license": "Apache-2.0",
+  "sideEffects": false,
   "module": "dist/esm/src/index.js",
   "main": "dist/cjs/src/index.js",
   "types": "dist/cjs/src/index.d.ts",
@@ -11,8 +12,21 @@
   ],
   "exports": {
     ".": {
-      "import": "./dist/esm/apihub-builder.es.js",
+      "types": "./dist/cjs/src/index.d.ts",
+      "import": "./dist/esm/api-processor.es.js",
       "require": "./dist/cjs/src/index.js"
+    },
+    "./processor": {
+      "types": "./dist/cjs/src/processor.d.ts",
+      "import": "./dist/esm/api-processor-engine.es.js",
+      "require": "./dist/cjs/src/processor.js"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "processor": [
+        "./dist/cjs/src/processor.d.ts"
+      ]
     }
   },
   "scripts": {
@@ -33,9 +47,9 @@
   },
   "dependencies": {
     "@asyncapi/parser": "^3.6.0",
-    "@netcracker/qubership-apihub-api-diff": "feature-ddl",
-    "@netcracker/qubership-apihub-api-unifier": "feature-ddl",
-    "@netcracker/qubership-apihub-ddlapi": "feature-ddl",
+    "@netcracker/qubership-apihub-api-diff": "feature-externalize-pqparser",
+    "@netcracker/qubership-apihub-api-unifier": "feature-externalize-pqparser",
+    "@netcracker/qubership-apihub-ddlapi": "feature-externalize-pqparser",
     "@netcracker/qubership-apihub-graphapi": "dev",
     "@netcracker/qubership-apihub-json-crawl": "1.2.1",
     "adm-zip": "0.5.10",

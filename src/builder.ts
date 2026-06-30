@@ -56,13 +56,13 @@ import {
 import type { DdlEntityIndex, McpEntityIndex, NotificationMessage, PackageConfig } from './types/package'
 import {
   asyncApiBuilder,
-  ddlBuilder,
   graphqlApiBuilder,
   mcpBuilder,
   restApiBuilder,
   textApiBuilder,
   unknownApiBuilder,
 } from './apitypes'
+import { ddlBuilder } from './apitypes/ddl/ddl.builder'
 import { filesDiff, findSharedPath, getCompositeKey, getFileExtension, getOperationsList } from './utils'
 import {
   BUILD_TYPE,
