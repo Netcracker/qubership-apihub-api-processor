@@ -42,13 +42,13 @@ export default defineConfig({
       fileName: (_format, entryName) => `${entryName}.es.js`,
     },
     rollupOptions: {
-      // Keep ddlapi (and its parser chain) external so the consuming bundler/runtime
-      // resolves it: the browser handles WASM via its own asset pipeline, Node reads
-      // libpg-query.wasm from node_modules. We no longer bundle/inline the WASM here.
+      // Keep ddlapi external so the consuming bundler/runtime resolves it and its
+      // (self-contained) '/parser' entry — the browser gets ddlapi's WASM-inlined
+      // parser build, Node reads it from node_modules. The parser stack (libpg-query
+      // etc.) is bundled inside ddlapi/parser, so we never reference it directly here.
       external: [
         '@asyncapi/parser',
         /^@netcracker\/qubership-apihub-ddlapi(\/.*)?$/,
-        /^(libpg-query|pgsql-parser|pgsql-deparser)(\/.*)?$/,
       ],
     },
   },
