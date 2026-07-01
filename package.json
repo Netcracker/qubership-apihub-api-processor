@@ -49,9 +49,9 @@
   },
   "dependencies": {
     "@asyncapi/parser": "^3.6.0",
-    "@netcracker/qubership-apihub-api-diff": "feature-externalize-pqparser",
-    "@netcracker/qubership-apihub-api-unifier": "feature-externalize-pqparser",
-    "@netcracker/qubership-apihub-ddlapi": "feature-externalize-pqparser",
+    "@netcracker/qubership-apihub-api-diff": "feature-ddl",
+    "@netcracker/qubership-apihub-api-unifier": "feature-ddl",
+    "@netcracker/qubership-apihub-ddlapi": "feature-ddl",
     "@netcracker/qubership-apihub-graphapi": "dev",
     "@netcracker/qubership-apihub-json-crawl": "1.2.1",
     "adm-zip": "0.5.10",
