@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { buildFromDdl, DdlNonFatalError, prepareDdlExtractor } from '@netcracker/qubership-apihub-ddlapi'
+import { buildFromDdl, prepareDdlExtractor, type DdlNonFatalError } from '@netcracker/qubership-apihub-ddlapi/parser'
 import { FILE_KIND, TextFile } from '../../types'
 import { getFileExtension } from '../../utils'
 import { DDL_DOCUMENT_TYPE, isDdlFileExtension } from './ddl.consts'

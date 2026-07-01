@@ -17,7 +17,7 @@ import { describe, expect, jest, test } from '@jest/globals'
 import { LocalRegistry } from './helpers/registry'
 import { BUILD_TYPE, VERSION_STATUS } from '../src/consts'
 import { Editor } from './helpers/editor'
-import { PackageVersionBuilder } from '../src'
+import { PackageVersionBuilder } from '../src/processor'
 import { prepareChangelogDashboard } from './helpers'
 
 describe('Dashboard build', () => {

@@ -37,7 +37,7 @@ import {
   textApiBuilder,
   unknownApiBuilder,
   VersionId,
-} from '../../../src'
+} from '../../../src/processor'
 import { IRegistry } from './types'
 import AdmZip from 'adm-zip'
 import { registryFs } from './fs'
