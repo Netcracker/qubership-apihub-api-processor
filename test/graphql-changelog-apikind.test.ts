@@ -47,28 +47,28 @@ describe('GraphQL api-compatibility scope function', () => {
   const OP = ['queries', 'q1']
   const OBJ = {} // "exists"
 
-  describe('Root scope (document-level, keyed on current)', () => {
+  describe('Root scope (document-level, either side)', () => {
     it.each([
       // prev    | curr    | expected
       [BWC, BWC, BACKWARD_COMPATIBLE],
       [BWC, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, BWC, BACKWARD_COMPATIBLE],
+      [NO_BWC, BWC, NOT_BACKWARD_COMPATIBLE], // either side no-bwc → risky
       [NO_BWC, NO_BWC, NOT_BACKWARD_COMPATIBLE],
       [BWC, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, BWC, BACKWARD_COMPATIBLE],
+      [EXPERIMENTAL, BWC, NOT_BACKWARD_COMPATIBLE],
     ] as const)('should classify root scope prev(%s) curr(%s) as %s', (prev, curr, expected) => {
       expect(createGraphqlApiCompatibilityScopeFunction(prev, curr)([], OBJ, OBJ)).toBe(expected)
     })
   })
 
-  describe('Operation scope — modification (both sides present, keyed on current)', () => {
+  describe('Operation scope — modification (both sides present, either side)', () => {
     it.each([
       [BWC, BWC, BACKWARD_COMPATIBLE],
       [BWC, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, BWC, BACKWARD_COMPATIBLE],
+      [NO_BWC, BWC, NOT_BACKWARD_COMPATIBLE], // either side no-bwc → risky
       [NO_BWC, NO_BWC, NOT_BACKWARD_COMPATIBLE],
       [NO_BWC, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, BWC, BACKWARD_COMPATIBLE],
+      [EXPERIMENTAL, BWC, NOT_BACKWARD_COMPATIBLE],
     ] as const)('should classify operation modification prev(%s) curr(%s) as %s', (prev, curr, expected) => {
       expect(createGraphqlApiCompatibilityScopeFunction(prev, curr)(OP, OBJ, OBJ)).toBe(expected)
     })
@@ -86,12 +86,12 @@ describe('GraphQL api-compatibility scope function', () => {
     })
   })
 
-  describe('Operation scope — addition (after only, keyed on current)', () => {
+  describe('Operation scope — addition (after only, either side)', () => {
     it.each([
+      [BWC, BWC, BACKWARD_COMPATIBLE],
       [BWC, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, BWC, BACKWARD_COMPATIBLE],
-      [BWC, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, BWC, BACKWARD_COMPATIBLE],
+      [NO_BWC, BWC, NOT_BACKWARD_COMPATIBLE], // either side no-bwc → risky
+      [EXPERIMENTAL, BWC, NOT_BACKWARD_COMPATIBLE],
     ] as const)('should classify operation addition prev(%s) curr(%s) as %s', (prev, curr, expected) => {
       expect(createGraphqlApiCompatibilityScopeFunction(prev, curr)(OP, undefined, OBJ)).toBe(expected)
     })
@@ -105,9 +105,9 @@ describe('GraphQL api-compatibility scope function', () => {
     it.each([
       ['mutations', 'm1'],
       ['subscriptions', 's1'],
-    ] as const)('should classify %s modification by current', (segment, name) => {
+    ] as const)('should classify %s modification by either side', (segment, name) => {
       const fn = createGraphqlApiCompatibilityScopeFunction(NO_BWC, BWC)
-      expect(fn([segment, name], OBJ, OBJ)).toBe(BACKWARD_COMPATIBLE) // deviation
+      expect(fn([segment, name], OBJ, OBJ)).toBe(NOT_BACKWARD_COMPATIBLE) // either side no-bwc → risky
     })
   })
 
@@ -160,8 +160,9 @@ describe('GraphQL changelog api-kind (e2e)', () => {
     [EXPERIMENTAL]: 'apihub/x-api-kind: experimental',
   }
 
-  function expectedModifyType(currDoc: ApihubApiCompatibilityKind): ChangeType {
-    return isNoBwcLike(currDoc) ? RISKY_CHANGE_TYPE : BREAKING_CHANGE_TYPE
+  // Modification: risky if EITHER the previous or the current document api-kind is no-bwc-like.
+  function expectedModifyType(prevDoc: ApihubApiCompatibilityKind, currDoc: ApihubApiCompatibilityKind): ChangeType {
+    return (isNoBwcLike(prevDoc) || isNoBwcLike(currDoc)) ? RISKY_CHANGE_TYPE : BREAKING_CHANGE_TYPE
   }
 
   function expectedRemoveType(prevDoc: ApihubApiCompatibilityKind): ChangeType {
@@ -222,10 +223,10 @@ describe('GraphQL changelog api-kind (e2e)', () => {
     [BWC, BWC, BREAKING_CHANGE_TYPE],
     [BWC, NO_BWC, RISKY_CHANGE_TYPE],
     [BWC, EXPERIMENTAL, RISKY_CHANGE_TYPE],
-    [NO_BWC, BWC, BREAKING_CHANGE_TYPE],
+    [NO_BWC, BWC, RISKY_CHANGE_TYPE], // either side no-bwc → risky
     [NO_BWC, NO_BWC, RISKY_CHANGE_TYPE],
     [NO_BWC, EXPERIMENTAL, RISKY_CHANGE_TYPE],
-    [EXPERIMENTAL, BWC, BREAKING_CHANGE_TYPE],
+    [EXPERIMENTAL, BWC, RISKY_CHANGE_TYPE], // either side no-bwc → risky
     [EXPERIMENTAL, NO_BWC, RISKY_CHANGE_TYPE],
     [EXPERIMENTAL, EXPERIMENTAL, RISKY_CHANGE_TYPE],
   ]
@@ -242,10 +243,10 @@ describe('GraphQL changelog api-kind (e2e)', () => {
     [EXPERIMENTAL, EXPERIMENTAL, RISKY_CHANGE_TYPE],
   ]
 
-  describe('Modification (keyed on current)', () => {
+  describe('Modification (either side)', () => {
     test.each(modifyCases)('should classify modification prev(%s) curr(%s) as %s', async (prev, curr, expectedType) => {
       // Guard: hardcoded ER must match the reference rule.
-      expect(expectedType).toBe(expectedModifyType(curr))
+      expect(expectedType).toBe(expectedModifyType(prev, curr))
 
       const result = await buildGqlChangelogApiKind(
         `gql-apikind-modify/${prev}--${curr}`, MODIFY_BEFORE, MODIFY_AFTER,
@@ -280,11 +281,11 @@ describe('GraphQL changelog api-kind (e2e)', () => {
       expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }, GRAPHQL_API_TYPE))
     })
 
-    test('should classify modification as breaking when only the previous version label is no-BWC (deviation)', async () => {
+    test('should classify modification as risky when only the previous version label is no-BWC', async () => {
       const result = await buildGqlChangelogApiKind(
         'gql-apikind-modify-vlabel/prev-nb', MODIFY_BEFORE, MODIFY_AFTER, { prevVersionLabels: NB },
       )
-      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, GRAPHQL_API_TYPE))
+      expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }, GRAPHQL_API_TYPE))
     })
 
     test('should classify removal as risky when the previous version label is no-BWC', async () => {

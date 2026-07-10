@@ -14,30 +14,18 @@
  * limitations under the License.
  */
 
-import {
-  APIHUB_API_COMPATIBILITY_KIND_BWC,
-  ApihubApiCompatibilityKind,
-  isNoBwcLike,
-} from '../../consts'
+import { APIHUB_API_COMPATIBILITY_KIND_BWC } from '../../consts'
 import { isObject } from '../../utils'
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
-import {
-  API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE,
-  API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE,
-  ApiCompatibilityKind,
-} from '@netcracker/qubership-apihub-api-diff'
+import { ApiCompatibilityKind } from '@netcracker/qubership-apihub-api-diff'
 import { GRAPHQL_TYPE_KEYS } from '../../apitypes/graphql/graphql.consts'
 import { ApiCompatibilityScopeFunctionFactory } from './bwc.validation.types'
+import { toApiCompatibilityKind } from './bwc.validation.utils'
 
 const ROOT_PATH_LENGTH = 0
 const GRAPHQL_OPERATION_PATH_LENGTH = 2 // queries|mutations|subscriptions/<operationName>
 
 const OPERATION_ROOT_SEGMENTS: ReadonlySet<string> = new Set(GRAPHQL_TYPE_KEYS)
-
-const toApiCompatibilityKind = (documentApiKind: ApihubApiCompatibilityKind): ApiCompatibilityKind =>
-  (isNoBwcLike(documentApiKind)
-    ? API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
-    : API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE)
 
 /**
  * Creates an ApiCompatibilityScopeFunction for GraphQL documents.
@@ -47,17 +35,18 @@ const toApiCompatibilityKind = (documentApiKind: ApihubApiCompatibilityKind): Ap
  * api-kind. Because of that this function never inspects per-node markers — it
  * uses the resolved document api-kinds directly.
  *
- * Classification:
- * - modification (operation exists on both sides, or root-level document change):
- *     severity is keyed on the CURRENT document api-kind.
- * - removal (operation exists before, absent after):
- *     severity is keyed on the PREVIOUS document api-kind.
+ * Classification (consistent with REST/async):
+ * - modification (operation exists on both sides, an added operation, or a root-level
+ *     document change): risky if EITHER the previous or the current document api-kind
+ *     is no-bwc-like.
+ * - removal (operation exists before, absent after): keyed on the PREVIOUS document
+ *     api-kind.
  */
 export const createGraphqlApiCompatibilityScopeFunction: ApiCompatibilityScopeFunctionFactory = (
   prevDocumentApiKind = APIHUB_API_COMPATIBILITY_KIND_BWC,
   currDocumentApiKind = APIHUB_API_COMPATIBILITY_KIND_BWC,
 ) => {
-  const modificationApiCompatibilityKind = toApiCompatibilityKind(currDocumentApiKind)
+  const modificationApiCompatibilityKind = toApiCompatibilityKind(prevDocumentApiKind, currDocumentApiKind)
 
   return (
     path?: JsonPath,
