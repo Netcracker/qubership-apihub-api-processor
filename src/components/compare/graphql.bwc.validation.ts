@@ -46,7 +46,7 @@ export const createGraphqlApiCompatibilityScopeFunction: ApiCompatibilityScopeFu
   prevDocumentApiKind = APIHUB_API_COMPATIBILITY_KIND_BWC,
   currDocumentApiKind = APIHUB_API_COMPATIBILITY_KIND_BWC,
 ) => {
-  const modificationApiCompatibilityKind = toApiCompatibilityKind(prevDocumentApiKind, currDocumentApiKind)
+  const defaultApiCompatibilityKind = toApiCompatibilityKind(prevDocumentApiKind, currDocumentApiKind)
 
   return (
     path?: JsonPath,
@@ -56,7 +56,7 @@ export const createGraphqlApiCompatibilityScopeFunction: ApiCompatibilityScopeFu
     const pathLength = path?.length ?? 0
 
     if (pathLength === ROOT_PATH_LENGTH) {
-      return modificationApiCompatibilityKind
+      return defaultApiCompatibilityKind
     }
 
     // queries|mutations|subscriptions/<operationName>
@@ -72,7 +72,7 @@ export const createGraphqlApiCompatibilityScopeFunction: ApiCompatibilityScopeFu
         return toApiCompatibilityKind(prevDocumentApiKind)
       }
 
-      return modificationApiCompatibilityKind
+      return defaultApiCompatibilityKind
     }
 
     return undefined

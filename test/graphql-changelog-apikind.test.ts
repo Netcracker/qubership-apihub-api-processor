@@ -218,29 +218,18 @@ describe('GraphQL changelog api-kind (e2e)', () => {
     return editor.run()
   }
 
-  // Full (prev, curr) matrix over {BWC, no-BWC, experimental}. ER is hardcoded per row.
+  // Representative cases only — the exhaustive (prev, curr) × {BWC, no-BWC, experimental}
+  // classification is covered by the unit block above. Here e2e just proves the scope function is
+  // wired into graphql.changes and api-diff applies it. ER is hardcoded and guard-checked per row.
   const modifyCases: [ApihubApiCompatibilityKind, ApihubApiCompatibilityKind, ChangeType][] = [
     [BWC, BWC, BREAKING_CHANGE_TYPE],
     [BWC, NO_BWC, RISKY_CHANGE_TYPE],
-    [BWC, EXPERIMENTAL, RISKY_CHANGE_TYPE],
     [NO_BWC, BWC, RISKY_CHANGE_TYPE], // either side no-bwc → risky
-    [NO_BWC, NO_BWC, RISKY_CHANGE_TYPE],
-    [NO_BWC, EXPERIMENTAL, RISKY_CHANGE_TYPE],
-    [EXPERIMENTAL, BWC, RISKY_CHANGE_TYPE], // either side no-bwc → risky
-    [EXPERIMENTAL, NO_BWC, RISKY_CHANGE_TYPE],
-    [EXPERIMENTAL, EXPERIMENTAL, RISKY_CHANGE_TYPE],
   ]
 
   const removeCases: [ApihubApiCompatibilityKind, ApihubApiCompatibilityKind, ChangeType][] = [
     [BWC, BWC, BREAKING_CHANGE_TYPE],
-    [BWC, NO_BWC, BREAKING_CHANGE_TYPE],
-    [BWC, EXPERIMENTAL, BREAKING_CHANGE_TYPE],
-    [NO_BWC, BWC, RISKY_CHANGE_TYPE],
-    [NO_BWC, NO_BWC, RISKY_CHANGE_TYPE],
-    [NO_BWC, EXPERIMENTAL, RISKY_CHANGE_TYPE],
-    [EXPERIMENTAL, BWC, RISKY_CHANGE_TYPE],
-    [EXPERIMENTAL, NO_BWC, RISKY_CHANGE_TYPE],
-    [EXPERIMENTAL, EXPERIMENTAL, RISKY_CHANGE_TYPE],
+    [NO_BWC, BWC, RISKY_CHANGE_TYPE], // removal keyed on previous
   ]
 
   describe('Modification (either side)', () => {
@@ -281,25 +270,11 @@ describe('GraphQL changelog api-kind (e2e)', () => {
       expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }, GRAPHQL_API_TYPE))
     })
 
-    test('should classify modification as risky when only the previous version label is no-BWC', async () => {
-      const result = await buildGqlChangelogApiKind(
-        'gql-apikind-modify-vlabel/prev-nb', MODIFY_BEFORE, MODIFY_AFTER, { prevVersionLabels: NB },
-      )
-      expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }, GRAPHQL_API_TYPE))
-    })
-
     test('should classify removal as risky when the previous version label is no-BWC', async () => {
       const result = await buildGqlChangelogApiKind(
         'gql-apikind-remove-vlabel/prev-nb', REMOVE_BEFORE, REMOVE_AFTER, { prevVersionLabels: NB },
       )
       expect(result).toEqual(changesSummaryMatcher({ [RISKY_CHANGE_TYPE]: 1 }, GRAPHQL_API_TYPE))
-    })
-
-    test('should classify removal as breaking when only the current version label is no-BWC', async () => {
-      const result = await buildGqlChangelogApiKind(
-        'gql-apikind-remove-vlabel/curr-nb', REMOVE_BEFORE, REMOVE_AFTER, { currVersionLabels: NB },
-      )
-      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, GRAPHQL_API_TYPE))
     })
   })
 })

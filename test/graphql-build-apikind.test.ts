@@ -16,7 +16,6 @@
 
 import {
   APIHUB_API_COMPATIBILITY_KIND_BWC,
-  APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL,
   APIHUB_API_COMPATIBILITY_KIND_NO_BWC,
   ApihubApiCompatibilityKind,
   BuildResult,
@@ -26,11 +25,18 @@ import { buildPackageFromContent } from './helpers'
 
 const BWC = APIHUB_API_COMPATIBILITY_KIND_BWC
 const NO_BWC = APIHUB_API_COMPATIBILITY_KIND_NO_BWC
-const EXPERIMENTAL = APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL
 
 const FILE_ID = 'spec.gql'
 const SDL = 'type Query {\n  fruits: String\n  vegetables: String\n}' // two operations
 
+// Difference from `apiKinds.test.ts`:
+//   - `apiKinds.test.ts` covers REST and asserts only the DOCUMENT apiKind, exhaustively
+//     exercising the shared `calculateApiKindFromLabels` resolution (uppercase / experimental /
+//     invalid / file-vs-version priority).
+//   - This file covers the GraphQL-specific bit that resolution does NOT: every OPERATION of the
+//     document inherits the document apiKind (`graphql.operation.ts`). It therefore keeps only the
+//     representative label channels (default / file / version) and checks document + all operations,
+//     instead of re-testing the shared resolver.
 describe('GraphQL build api-kind', () => {
   // Document apiKind + apiKind of every operation — they must all match.
   const documentAndOperationsApiKind = (result: BuildResult): (ApihubApiCompatibilityKind | undefined)[] => {
@@ -42,9 +48,7 @@ describe('GraphQL build api-kind', () => {
   it.each<{ id: string; desc: string; fileLabels?: Labels; versionLabels?: Labels; expected: ApihubApiCompatibilityKind }>([
     { id: 'default', desc: 'no labels → BWC by default', expected: BWC },
     { id: 'file-nb', desc: 'file label no-BWC', fileLabels: ['apihub/x-api-kind: no-BWC'], expected: NO_BWC },
-    { id: 'file-exp', desc: 'file label experimental', fileLabels: ['apihub/x-api-kind: experimental'], expected: EXPERIMENTAL },
     { id: 'version-nb', desc: 'version label no-BWC', versionLabels: ['apihub/x-api-kind: no-BWC'], expected: NO_BWC },
-    { id: 'invalid', desc: 'invalid label value → BWC', fileLabels: ['apihub/x-api-kind: broken'], expected: BWC },
   ])('should apply $desc to the document and all its operations', async ({ id, fileLabels, versionLabels, expected }) => {
     const result = await buildPackageFromContent(`gql-build-apikind/${id}`, FILE_ID, SDL, fileLabels, versionLabels)
 
@@ -52,17 +56,6 @@ describe('GraphQL build api-kind', () => {
     expect(apiKinds).toHaveLength(3) // document + 2 operations
     for (const apiKind of apiKinds) {
       expect(apiKind).toEqual(expected)
-    }
-  })
-
-  it('should let the file label override the version label', async () => {
-    const result = await buildPackageFromContent(
-      'gql-build-apikind/file-over-version', FILE_ID, SDL,
-      ['apihub/x-api-kind: no-BWC'], ['apihub/x-api-kind: BWC'],
-    )
-
-    for (const apiKind of documentAndOperationsApiKind(result)) {
-      expect(apiKind).toEqual(NO_BWC)
     }
   })
 })
