@@ -49,7 +49,7 @@
   },
   "dependencies": {
     "@asyncapi/parser": "^3.6.0",
-    "@netcracker/qubership-apihub-api-diff": "bugfix-security-scheme-name-add-breaking",
+    "@netcracker/qubership-apihub-api-diff": "bugfix-security-scheme-name-add-breaking-asyncapi",
     "@netcracker/qubership-apihub-api-unifier": "dev",
     "@netcracker/qubership-apihub-ddlapi": "dev",
     "@netcracker/qubership-apihub-graphapi": "dev",
