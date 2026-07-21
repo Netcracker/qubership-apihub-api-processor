@@ -1,0 +1,22 @@
+# Same as before.yaml, only the root server url changed (root.local → root2.local).
+openapi: 3.0.0
+info:
+  title: t
+  version: 1.0.0
+servers:
+  - url: http://root2.local
+paths:
+  /{a}/{b}/{c}:
+    get:
+      servers:
+        - url: http://svc.local/api/v1
+      responses:
+        '200':
+          description: OK
+  /{x}/{y}/{z}:
+    get:
+      servers:
+        - url: http://svc.local/api/v1
+      responses:
+        '200':
+          description: OK

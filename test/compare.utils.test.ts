@@ -14,7 +14,75 @@
  * limitations under the License.
  */
 
-import { dedupeTuples, removeRedundantPartialPairs } from '../src/components/compare/compare.utils'
+import { createPairOperationsMap, dedupeTuples, normalizeOperationIds, removeRedundantPartialPairs } from '../src/components/compare/compare.utils'
+import { ApiBuilder, ResolvedOperation } from '../src/types'
+
+describe('normalizeOperationIds', () => {
+  const apiBuilder = {
+    createNormalizedOperationId: (operation: ResolvedOperation) => (operation as unknown as { normalizedId: string }).normalizedId,
+  } as unknown as ApiBuilder
+
+  const op = (operationId: string, normalizedId: string): ResolvedOperation =>
+    ({ operationId, normalizedId } as unknown as ResolvedOperation)
+
+  test('should keep distinct operations that share a normalized id by falling back to raw ids', () => {
+    // `/{a}/{b}` and `/{c}/{d}` both normalize to `*-*-get`
+    const op1 = op('a-b-get', '*-*-get')
+    const op2 = op('c-d-get', '*-*-get')
+
+    const [ids, map] = normalizeOperationIds([op1, op2], apiBuilder, '')
+
+    expect([...ids].sort()).toEqual(['a-b-get', 'c-d-get'])
+    expect(map['a-b-get']).toBe(op1)
+    expect(map['c-d-get']).toBe(op2)
+  })
+
+  test('should use the normalized id when it is unique so param-rename matching is preserved', () => {
+    const only = op('a-b-get', 'a-*-get')
+
+    const [ids, map] = normalizeOperationIds([only], apiBuilder, '')
+
+    expect(ids).toEqual(['a-*-get'])
+    expect(map['a-*-get']).toBe(only)
+  })
+})
+
+describe('createPairOperationsMap operation matching', () => {
+  const apiBuilder = {
+    createNormalizedOperationId: (operation: ResolvedOperation) => (operation as unknown as { normalizedId: string }).normalizedId,
+  } as unknown as ApiBuilder
+
+  const op = (operationId: string, normalizedId: string): ResolvedOperation =>
+    ({ operationId, normalizedId } as unknown as ResolvedOperation)
+
+  test('should match a renamed path parameter as one changed operation when the normalized id is unique', () => {
+    // `/users/{id}` -> `/users/{userId}`: same normalized id, so it is matched (not remove + add).
+    const previous = op('users-id-get', 'users-*-get')
+    const current = op('users-userId-get', 'users-*-get')
+
+    const map = createPairOperationsMap('', '', [previous], [current], apiBuilder)
+
+    expect(Object.keys(map)).toEqual(['users-*-get'])
+    expect(map['users-*-get']).toEqual({ previous, current })
+  })
+
+  test('should report a renamed path parameter as remove + add when the normalized id collides (expected)', () => {
+    // Two same-shape paths collide on the normalized id, so they are keyed by raw id. A parameter
+    // rename in one of them changes its raw id, and the collision makes it impossible to tell which
+    // operation it maps to — so it is intentionally reported as remove + add rather than a rename.
+    const renamedPrev = op('a-b-get', '*-*-get')   // /{a}/{b}
+    const renamedCurr = op('a-bb-get', '*-*-get')  // /{a}/{bb} (parameter renamed)
+
+    const stablePrev = op('c-d-get', '*-*-get')    // /{c}/{d}
+    const stableCurr = op('c-d-get', '*-*-get')    // /{c}/{d} (unchanged)
+
+    const map = createPairOperationsMap('', '', [renamedPrev, stablePrev], [renamedCurr, stableCurr], apiBuilder)
+
+    expect(map['c-d-get']).toEqual({ previous: stablePrev, current: stableCurr }) // matched
+    expect(map['a-b-get']).toEqual({ previous: renamedPrev })                     // removed
+    expect(map['a-bb-get']).toEqual({ current: renamedCurr })                     // added
+  })
+})
 
 describe('removeRedundantPartialPairs', () => {
   test('should return empty array when input is empty', () => {

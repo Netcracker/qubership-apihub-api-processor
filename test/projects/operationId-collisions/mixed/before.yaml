@@ -1,0 +1,27 @@
+# A document mixing both matching cases in one comparison:
+#   - `/{a}/{b}` and `/{c}/{d}` collide on the normalized id `*-*-get` -> keyed by their raw ids.
+#   - `/orders/{id}` has a unique normalized id `orders-*-get` -> keyed by the normalized id.
+# Only the server url changes in after.yaml, so all three operations change and each must be
+# reported exactly once (nothing dropped or duplicated).
+openapi: 3.0.0
+info:
+  title: t
+  version: 1.0.0
+servers:
+  - url: http://a.local
+paths:
+  /{a}/{b}:
+    get:
+      responses:
+        '200':
+          description: OK
+  /{c}/{d}:
+    get:
+      responses:
+        '200':
+          description: OK
+  /orders/{id}:
+    get:
+      responses:
+        '200':
+          description: OK

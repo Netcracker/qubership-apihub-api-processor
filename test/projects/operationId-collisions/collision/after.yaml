@@ -1,0 +1,18 @@
+# Same as before.yaml, only the server url changed (a.local → b.local).
+openapi: 3.0.0
+info:
+  title: t
+  version: 1.0.0
+servers:
+  - url: http://b.local
+paths:
+  /{name}/{profile}/{path}:
+    get:
+      responses:
+        '200':
+          description: OK
+  /{name}/{profiles}/{label}:
+    get:
+      responses:
+        '200':
+          description: OK

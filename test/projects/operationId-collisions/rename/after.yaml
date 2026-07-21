@@ -1,0 +1,18 @@
+# `/users/{id}` -> `/users/{userId}`: path parameter renamed and the response description changed,
+# so there is a genuine change to attribute to the single matched operation. `/orders/{ref}` is left
+# exactly as before.yaml.
+openapi: 3.0.0
+info:
+  title: t
+  version: 1.0.0
+paths:
+  /users/{userId}:
+    get:
+      responses:
+        '200':
+          description: Updated
+  /orders/{ref}:
+    get:
+      responses:
+        '200':
+          description: OK

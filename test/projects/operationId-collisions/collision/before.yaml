@@ -1,0 +1,19 @@
+# Two distinct fully-parametrized paths of the same shape → same normalized id (`*-*-*-get`).
+# Only the server url changes in after.yaml, which is a change for BOTH operations.
+openapi: 3.0.0
+info:
+  title: t
+  version: 1.0.0
+servers:
+  - url: http://a.local
+paths:
+  /{name}/{profile}/{path}:
+    get:
+      responses:
+        '200':
+          description: OK
+  /{name}/{profiles}/{label}:
+    get:
+      responses:
+        '200':
+          description: OK

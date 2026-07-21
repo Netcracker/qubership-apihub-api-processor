@@ -148,11 +148,31 @@ export function removeRedundantPartialPairs<T extends [object | undefined, objec
 
 export function normalizeOperationIds(operations: ResolvedOperation[], apiBuilder: ApiBuilder, groupSlug: string): [(NormalizedOperationId | OperationId)[], Record<NormalizedOperationId | OperationId, ResolvedOperation>] {
   const normalizedOperationIdToOperation: Record<NormalizedOperationId | OperationId, ResolvedOperation> = {}
+
+  // Group by normalized id first: distinct operations can collide on it (e.g. `/{a}/{b}` and `/{c}/{d}` both normalize to `*-*`)
+  const operationsByNormalizedId = new Map<NormalizedOperationId | OperationId, ResolvedOperation[]>()
   operations.forEach(operation => {
     const normalizedOperationId = apiBuilder.createNormalizedOperationId?.(operation) ?? operation.operationId
     // '-' is a slugified slash in the middle of a normalizedOperationId that should also be removed for a proper matching during comparison
-    normalizedOperationIdToOperation[removeGroupPrefixFromOperationId(normalizedOperationId, groupSlug)] = operation
+    const key = removeGroupPrefixFromOperationId(normalizedOperationId, groupSlug)
+
+    const groupedOperations = operationsByNormalizedId.get(key) ?? []
+    groupedOperations.push(operation)
+    operationsByNormalizedId.set(key, groupedOperations)
   })
+
+  for (const [normalizedOperationId, groupedOperations] of operationsByNormalizedId) {
+    if (groupedOperations.length === 1) {
+      const [operation] = groupedOperations
+      normalizedOperationIdToOperation[normalizedOperationId] = operation
+    } else {
+      // Ambiguous normalized id shared by several operations: key by the unique raw operationId so none is dropped
+      for (const operation of groupedOperations) {
+        normalizedOperationIdToOperation[removeGroupPrefixFromOperationId(operation.operationId, groupSlug)] = operation
+      }
+    }
+  }
+
   return [Object.keys(normalizedOperationIdToOperation), normalizedOperationIdToOperation]
 }
 
@@ -181,7 +201,25 @@ export type OperationPair = {
   current?: ResolvedOperation
 }
 
-export type OperationsMap = Record<NormalizedOperationId, OperationPair>
+// Keyed by normalized operation id for unique operations, and by raw operation id for
+// operations that collide on the normalized id (see normalizeOperationIds).
+export type OperationsMap = Record<NormalizedOperationId | OperationId, OperationPair>
+
+// Resolves the operation pair for a path by trying candidate ids in order: normalized ids
+// first (rename-tolerant), then raw ids as a fallback for operations that collide on the
+// normalized id. Returns an empty pair when nothing matches.
+export function resolveOperationPair(
+  operationsMap: OperationsMap,
+  ...candidateIds: (NormalizedOperationId | OperationId)[]
+): OperationPair {
+  for (const id of candidateIds) {
+    const pair = operationsMap[id]
+    if (pair) {
+      return pair
+    }
+  }
+  return {}
+}
 
 /**
  * Pair two `key -> item` maps into `key -> { previous?, current? }`, classifying each key as added

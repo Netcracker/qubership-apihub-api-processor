@@ -15,6 +15,7 @@
  */
 
 import {
+  buildChangelogPackage,
   changesSummaryMatcher,
   Editor,
   LocalRegistry,
@@ -24,7 +25,14 @@ import {
 } from './helpers'
 import { describe, expect, test } from '@jest/globals'
 import { calculateRestOperationId, calculateNormalizedRestOperationId, _calculateRestOperationIdV1 } from '../src/utils/operations.utils'
-import { BUILD_TYPE, MESSAGE_SEVERITY, VERSION_STATUS } from '../src'
+import { BUILD_TYPE, BuildResult, MESSAGE_SEVERITY, VERSION_STATUS } from '../src'
+
+function changedOperationIds(result: BuildResult): string[] {
+  return (result.comparisons ?? [])
+    .flatMap((comparison) => (comparison as { data?: { operationId?: string }[] }).data ?? [])
+    .map((change) => change.operationId ?? '')
+    .sort()
+}
 
 describe('Operation ID collisions', () => {
   describe('operationID and normalizedOperationId calculation', () => {
@@ -318,6 +326,61 @@ describe('Operation ID collisions', () => {
           type: 'annotation',
         }),
       ]))
+    })
+  })
+
+  // Changelog operation matching by normalized operation id.
+  //
+  // Operations are paired across versions by their normalized id (path params -> `*`). A unique
+  // normalized id lets a path-param rename match as one changed operation. Distinct same-shape
+  // fully-parametrized paths collide on that id (e.g. `/{a}/{b}/{c}` -> `*-*-*-get`); the changelog
+  // used to overwrite one with the other, dropping / duplicating it in the comparison.
+  describe('Changelog operation matching on normalized id', () => {
+
+    test('should match a renamed path parameter as one changed operation, leaving sibling operations untouched', async () => {
+      // Two operations with unique normalized ids: `/users/{id}` is renamed to `/users/{userId}`
+      // (same `users-*-get`), while `/orders/{ref}` is unchanged. The renamed operation must be
+      // matched to its counterpart and reported as a single change (not remove + add), and the
+      // untouched sibling must not appear as a change at all.
+      const result = await buildChangelogPackage('operationId-collisions/rename')
+
+      expect(changedOperationIds(result)).toEqual(['users-_userId_-get'])
+    })
+
+    test('should preserve both operations when normalized operation ids collide', async () => {
+      // before.yaml/after.yaml differ only by the server url, so both operations change.
+      const result = await buildChangelogPackage('operationId-collisions/collision')
+
+      expect(changedOperationIds(result)).toEqual([
+        '_name_-_profile_-_path_-get',
+        '_name_-_profiles_-_label_-get',
+      ].sort())
+    })
+
+    test('should resolve colliding operations that share an operation-level base path', async () => {
+      // Both operations carry the same operation-level base path (/api/v1). The raw-id fallback
+      // must recompute the id with that base path — otherwise the build fails with
+      // "Can't find operation".
+      const result = await buildChangelogPackage('operationId-collisions/operation-level-servers')
+
+      expect(changedOperationIds(result)).toEqual([
+        'api-v1-_a_-_b_-_c_-get',
+        'api-v1-_x_-_y_-_z_-get',
+      ].sort())
+    })
+
+    test('should resolve colliding and uniquely-normalized operations together in one document', async () => {
+      // `/{a}/{b}` and `/{c}/{d}` collide on `*-*-get` (keyed by raw id), while `/orders/{id}` has a
+      // unique normalized id `orders-*-get` (keyed by normalized id). A server url change touches all
+      // three; each must be reported exactly once, proving the raw-id fallback and normalized-id
+      // matching coexist without dropping or duplicating operations.
+      const result = await buildChangelogPackage('operationId-collisions/mixed')
+
+      expect(changedOperationIds(result)).toEqual([
+        '_a_-_b_-get',
+        '_c_-_d_-get',
+        'orders-_id_-get',
+      ].sort())
     })
   })
 })

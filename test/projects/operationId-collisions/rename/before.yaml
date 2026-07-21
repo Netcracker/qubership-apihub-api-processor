@@ -1,0 +1,19 @@
+# Two operations with unique normalized ids. In after.yaml the first one has its path parameter
+# renamed (`/users/{id}` -> `/users/{userId}`, same normalized id `users-*-get`) and must be matched
+# as ONE changed operation (not remove + add). The second one (`/orders/{ref}`) is unchanged and must
+# not surface as a change.
+openapi: 3.0.0
+info:
+  title: t
+  version: 1.0.0
+paths:
+  /users/{id}:
+    get:
+      responses:
+        '200':
+          description: OK
+  /orders/{ref}:
+    get:
+      responses:
+        '200':
+          description: OK

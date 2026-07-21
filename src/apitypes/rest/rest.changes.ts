@@ -18,6 +18,7 @@ import { RestOperationData } from './rest.types'
 import {
   areDeprecatedOriginsNotEmpty,
   calculateNormalizedRestOperationId,
+  calculateRestOperationId,
   isEmpty,
   isOperationRemove,
   isValidHttpMethod,
@@ -80,6 +81,7 @@ import {
   createOperationChange,
   getOperationTags,
   OperationsMap,
+  resolveOperationPair,
 } from '../../components'
 import { createRestApiCompatibilityScopeFunction } from '../../components/compare/rest.bwc.validation'
 import { calculateApiKindFromLabels, getApiKindProperty } from '../../components/document'
@@ -170,11 +172,17 @@ export const compareDocuments: DocumentsCompare = async (
       const currentBasePath = extractOperationBasePath(methodData?.servers || pathData?.servers || currDocData.servers || [])
       const prevNormalizedOperationId = calculateNormalizedRestOperationId(previousBasePath, path, inferredMethod)
       const currNormalizedOperationId = calculateNormalizedRestOperationId(currentBasePath, path, inferredMethod)
+      // Raw ids disambiguate operations that collide on the normalized id (same-shape parametrized paths)
+      const prevRawOperationId = calculateRestOperationId(previousBasePath, path, inferredMethod)
+      const currRawOperationId = calculateRestOperationId(currentBasePath, path, inferredMethod)
 
-      const {
-        current,
-        previous,
-      } = operationsMap[prevNormalizedOperationId] ?? operationsMap[currNormalizedOperationId] ?? {}
+      const { current, previous } = resolveOperationPair(
+        operationsMap,
+        prevNormalizedOperationId,
+        currNormalizedOperationId,
+        prevRawOperationId,
+        currRawOperationId,
+      )
       if (!current && !previous) {
         const missingOperations = prevNormalizedOperationId === currNormalizedOperationId ? `the ${prevNormalizedOperationId} operation` : `the ${prevNormalizedOperationId} and ${currNormalizedOperationId} operations`
         throw new Error(`Can't find ${missingOperations} from documents pair ${prevDoc?.fileId} and ${currDoc?.fileId}`)

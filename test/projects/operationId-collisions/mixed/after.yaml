@@ -1,0 +1,24 @@
+# Same as before.yaml, only the server url changed (a.local -> b.local), which is a change for all
+# three operations.
+openapi: 3.0.0
+info:
+  title: t
+  version: 1.0.0
+servers:
+  - url: http://b.local
+paths:
+  /{a}/{b}:
+    get:
+      responses:
+        '200':
+          description: OK
+  /{c}/{d}:
+    get:
+      responses:
+        '200':
+          description: OK
+  /orders/{id}:
+    get:
+      responses:
+        '200':
+          description: OK
