@@ -27,7 +27,11 @@ const BWC = APIHUB_API_COMPATIBILITY_KIND_BWC
 const NO_BWC = APIHUB_API_COMPATIBILITY_KIND_NO_BWC
 
 const FILE_ID = 'spec.gql'
-const SDL = 'type Query {\n  fruits: String\n  vegetables: String\n}' // two operations
+// Two operations
+const SPEC = `type Query {
+  fruits: String
+  vegetables: String
+}`
 
 // Difference from `apiKinds.test.ts`:
 //   - `apiKinds.test.ts` covers REST and asserts only the DOCUMENT apiKind, exhaustively
@@ -50,7 +54,7 @@ describe('GraphQL build api-kind', () => {
     { id: 'file-nb', desc: 'file label no-BWC', fileLabels: ['apihub/x-api-kind: no-BWC'], expected: NO_BWC },
     { id: 'version-nb', desc: 'version label no-BWC', versionLabels: ['apihub/x-api-kind: no-BWC'], expected: NO_BWC },
   ])('should apply $desc to the document and all its operations', async ({ id, fileLabels, versionLabels, expected }) => {
-    const result = await buildPackageFromContent(`gql-build-apikind/${id}`, FILE_ID, SDL, fileLabels, versionLabels)
+    const result = await buildPackageFromContent(`gql-build-apikind/${id}`, FILE_ID, SPEC, fileLabels, versionLabels)
 
     const apiKinds = documentAndOperationsApiKind(result)
     expect(apiKinds).toHaveLength(3) // document + 2 operations

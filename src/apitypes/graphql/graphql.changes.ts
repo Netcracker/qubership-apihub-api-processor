@@ -95,6 +95,8 @@ export const compareDocuments: DocumentsCompare = async (
   }
 
   const currDocumentApiKind = currDoc?.apiKind
+  // ApiKind is not guaranteed for the previous document: it is downloaded data and the field is optional.
+  // In this case, we calculate ApiKind by labels (file then version) in order of priority.
   const prevDocumentApiKind = prevDoc?.apiKind || calculateApiKindFromLabels(prevDoc?.labels, previousVersionLabels)
 
   const { merged, diffs } = apiDiff(
