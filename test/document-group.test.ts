@@ -149,6 +149,42 @@ describe('Document Group test', () => {
       expect(document.data).not.toHaveProperty('tags')
     })
 
+    test('should keep the union of tags when the group has operations with different tags', async () => {
+      const spec = `
+      openapi: "3.0.0"
+      info: { title: test, version: 0.1.0 }
+      paths:
+        /path1: { get: { tags: [Alpha], responses: { '200': { description: OK } } } }
+        /path2: { get: { tags: [Beta], responses: { '200': { description: OK } } } }
+      tags:
+        - { name: Alpha, description: alpha tag }
+        - { name: Beta, description: beta tag }
+      `
+      const result = await runReducedFromContent('tags-union', spec, ['path1-get', 'path2-get'])
+
+      const [document] = Array.from(result.documents.values())
+      expect(document.data.tags).toEqual([
+        { name: 'Alpha', description: 'alpha tag' },
+        { name: 'Beta', description: 'beta tag' },
+      ])
+    })
+
+    test('should drop all tags when the group operation has no tags field', async () => {
+      const spec = `
+      openapi: "3.0.0"
+      info: { title: test, version: 0.1.0 }
+      paths:
+        /path1: { get: { responses: { '200': { description: OK } } } }
+      tags:
+        - { name: Alpha, description: alpha tag }
+        - { name: Beta, description: beta tag }
+      `
+      const result = await runReducedFromContent('tags-no-tags-field', spec, ['path1-get'])
+
+      const [document] = Array.from(result.documents.values())
+      expect(document.data).not.toHaveProperty('tags')
+    })
+
     test('should have components schema object which is referenced', async () => {
       const { result } = await runPublishPackage(
         `document-group/${BASE_OPERATION_PATH}/referenced-json-schema-object`,
