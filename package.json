@@ -49,10 +49,10 @@
   },
   "dependencies": {
     "@asyncapi/parser": "^3.6.0",
-    "@netcracker/qubership-apihub-api-diff": "dev",
-    "@netcracker/qubership-apihub-api-unifier": "dev",
+    "@netcracker/qubership-apihub-api-diff": "bugfix-schema-block-default-root-name-collision",
+    "@netcracker/qubership-apihub-api-unifier": "bugfix-schema-block-default-root-name-collision",
     "@netcracker/qubership-apihub-ddlapi": "1.0.0",
-    "@netcracker/qubership-apihub-graphapi": "dev",
+    "@netcracker/qubership-apihub-graphapi": "bugfix-schema-block-default-root-name-collision",
     "@netcracker/qubership-apihub-json-crawl": "1.2.2",
     "adm-zip": "0.5.10",
     "ajv": "^8.12.0",
