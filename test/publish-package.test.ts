@@ -35,12 +35,14 @@ describe.skip('Publish Package Test', () => {
   })
 
   test('Update package operations dataHash', async () => {
-    await packageToPublish.updateOperationsHash(PACKAGE_ID, {
-      packageId: PACKAGE_ID,
-      version: PACKAGE_VERSION,
-      previousVersion: PREVIOUS_VERSION,
-      previousVersionPackageId: PREVIOUS_VERSION_PACKAGE_ID || PACKAGE_ID,
-    })
+    // `LocalRegistry.updateOperationsHash` was dropped in #733 (last serializer outside
+    // createVersionPackage). To revive: re-implement the isolated operations.json rewrite through it.
+    // await packageToPublish.updateOperationsHash(PACKAGE_ID, {
+    //   packageId: PACKAGE_ID,
+    //   version: PACKAGE_VERSION,
+    //   previousVersion: PREVIOUS_VERSION,
+    //   previousVersionPackageId: PREVIOUS_VERSION_PACKAGE_ID || PACKAGE_ID,
+    // })
   })
 
 })
