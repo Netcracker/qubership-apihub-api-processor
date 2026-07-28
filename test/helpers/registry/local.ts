@@ -698,7 +698,8 @@ export class LocalRegistry implements IRegistry {
 
       if (data) {
         const source = data
-        const isJson = document.format === FILE_FORMAT.JSON
+        // `format` is the source format, but a graphql document is always written as SDL.
+        const isJson = document.format === FILE_FORMAT.JSON && !isGraphqlDocument(document)
         versionCache.documents.set(document.slug, {
           ...document,
           data: isJson ? JSON.parse(data) : '',

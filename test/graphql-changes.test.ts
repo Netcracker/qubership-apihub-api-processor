@@ -15,6 +15,7 @@
  */
 
 import {
+  buildChangelogPackage,
   buildGqlChangelogPackage,
   changesSummaryMatcher,
   numberOfImpactedOperationsMatcher,
@@ -41,6 +42,21 @@ describe('Graphql changes test', () => {
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, GRAPHQL_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, GRAPHQL_API_TYPE))
     })
+  })
+
+  // A `.json` introspection source keeps `type: introspection` in the documents, but the changelog
+  // re-reads them as SDL, so the previous document has to be processed as a schema, not introspection.
+  test('should parse the previous document published from introspection to build a diff', async () => {
+    const result = await buildChangelogPackage(
+      'graphql-changes/introspection',
+      [{ fileId: 'before.json' }],
+      [{ fileId: 'after.json' }],
+    )
+
+    expect(result.notifications).toEqual([])
+    // after.json adds Query.author to before.json
+    expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, GRAPHQL_API_TYPE))
+    expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, GRAPHQL_API_TYPE))
   })
 
   test('Operation changes fields are correct', async () => {

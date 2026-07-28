@@ -15,6 +15,7 @@
  */
 
 import { calculateGraphqlOperationId, isEmpty, takeIf } from '../../utils'
+import { parseGraphQLSource } from '../../utils/graphql-transformer'
 import {
   aggregateDiffsWithRollup,
   apiDiff,
@@ -29,14 +30,11 @@ import {
   ORIGINS_SYMBOL,
 } from '../../consts'
 import { GraphApiOperation, GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
-import { buildSchema } from 'graphql/utilities'
-import { buildGraphQLDocument } from './graphql.document'
 import {
   CompareOperationsPairContext,
   ComparisonDocument,
   DocumentsCompare,
   DocumentsCompareData,
-  FILE_KIND,
   OperationChanges,
   ResolvedVersionDocument,
   WithAggregatedDiffs,
@@ -71,21 +69,9 @@ export const compareDocuments: DocumentsCompare = async (
   const comparisonInternalDocumentId = createComparisonInternalDocumentId(previousVersion, previousPackageId, prevDoc?.slug, currentVersion, currentPackageId, currDoc?.slug)
   const prevFile = prevDoc && await rawDocumentResolver(previousVersion, previousPackageId, prevDoc.slug)
   const currFile = currDoc && await rawDocumentResolver(currentVersion, currentPackageId, currDoc.slug)
-  const prevDocSchema = prevFile && buildSchema(await prevFile.text(), { noLocation: true })
-  const currDocSchema = currFile && buildSchema(await currFile.text(), { noLocation: true })
-
-  let prevDocData = prevDocSchema && (await buildGraphQLDocument({
-    ...prevDoc,
-    source: prevFile,
-    kind: FILE_KIND.TEXT,
-    data: prevDocSchema,
-  }, prevDoc)).data
-  let currDocData = currDocSchema && (await buildGraphQLDocument({
-    ...currDoc,
-    source: currFile,
-    kind: FILE_KIND.TEXT,
-    data: currDocSchema,
-  }, currDoc)).data
+  // The raw document is SDL whatever the version was published from, so parse it as a schema.
+  let prevDocData = prevFile && parseGraphQLSource(await prevFile.text())
+  let currDocData = currFile && parseGraphQLSource(await currFile.text())
 
   if (!prevDocData && currDocData) {
     prevDocData = getCopyWithEmptyOperations(currDocData)
