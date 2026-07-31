@@ -1,0 +1,4 @@
+name: api-processor-authoring
+version: 1.0.0
+description: Conventions for changing what api-processor writes into a package version build result.
+author: Qubership APIHUB
