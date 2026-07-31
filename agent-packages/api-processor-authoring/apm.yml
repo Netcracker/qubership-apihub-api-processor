@@ -1,4 +1,4 @@
 name: api-processor-authoring
 version: 1.0.0
-description: Conventions for changing what api-processor writes into a package version build result.
+description: Conventions for developing api-processor itself, one skill per aspect of the codebase.
 author: Qubership APIHUB
