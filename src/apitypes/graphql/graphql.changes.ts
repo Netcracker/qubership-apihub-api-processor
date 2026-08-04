@@ -15,7 +15,7 @@
  */
 
 import { calculateGraphqlOperationId, isEmpty, takeIf } from '../../utils'
-import { parseGraphQLSource } from '../../utils/graphql-transformer'
+import { parseGraphQLDocument } from './graphql.document'
 import {
   aggregateDiffsWithRollup,
   apiDiff,
@@ -69,9 +69,9 @@ export const compareDocuments: DocumentsCompare = async (
   const comparisonInternalDocumentId = createComparisonInternalDocumentId(previousVersion, previousPackageId, prevDoc?.slug, currentVersion, currentPackageId, currDoc?.slug)
   const prevFile = prevDoc && await rawDocumentResolver(previousVersion, previousPackageId, prevDoc.slug)
   const currFile = currDoc && await rawDocumentResolver(currentVersion, currentPackageId, currDoc.slug)
-  // The raw document is SDL whatever the version was published from, so parse it as a schema.
-  let prevDocData = prevFile && parseGraphQLSource(await prevFile.text())
-  let currDocData = currFile && parseGraphQLSource(await currFile.text())
+
+  let prevDocData = prevFile && prevDoc && parseGraphQLDocument(await prevFile.text(), prevDoc.type, prevDoc.format)
+  let currDocData = currFile && currDoc && parseGraphQLDocument(await currFile.text(), currDoc.type, currDoc.format)
 
   if (!prevDocData && currDocData) {
     prevDocData = getCopyWithEmptyOperations(currDocData)
