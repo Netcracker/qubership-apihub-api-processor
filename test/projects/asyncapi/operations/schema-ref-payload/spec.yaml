@@ -1,0 +1,48 @@
+asyncapi: 3.0.0
+info:
+  title: Schema Ref Payload Test
+  version: 1.0.0
+  description: Two operations whose messages share one reusable payload schema
+channels:
+  orders:
+    address: order-events
+    title: Order events
+    messages:
+      OrderPlaced:
+        $ref: '#/components/messages/OrderPlaced'
+  auditedOrders:
+    address: audited-order-events
+    title: Audited order events
+    messages:
+      OrderPlacedAudit:
+        $ref: '#/components/messages/OrderPlacedAudit'
+operations:
+  sendOrderPlaced:
+    action: send
+    channel:
+      $ref: '#/channels/orders'
+    messages:
+      - $ref: '#/channels/orders/messages/OrderPlaced'
+  sendOrderPlacedAudit:
+    action: send
+    channel:
+      $ref: '#/channels/auditedOrders'
+    messages:
+      - $ref: '#/channels/auditedOrders/messages/OrderPlacedAudit'
+components:
+  schemas:
+    OrderEvent:
+      type: object
+      properties:
+        orderId:
+          type: string
+          description: Identifier of the order
+  messages:
+    OrderPlaced:
+      title: Order Placed
+      payload:
+        $ref: '#/components/schemas/OrderEvent'
+    OrderPlacedAudit:
+      title: Order Placed (audit copy)
+      payload:
+        $ref: '#/components/schemas/OrderEvent'

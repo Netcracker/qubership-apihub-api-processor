@@ -549,6 +549,50 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
   })
 
   describe('E2E: build pipeline', () => {
+    describe('pairing metadata', () => {
+      let operations: VersionAsyncOperation[]
+
+      beforeAll(async () => {
+        const result = await buildPackageWithDefaultConfig('asyncapi/operations/schema-ref-payload')
+        operations = Array.from(result.operations.values()) as VersionAsyncOperation[]
+      })
+
+      it('should set payloadIdentity to the payload schema declaration path', () => {
+        // Readable on purpose: a mis-pairing can be diagnosed from stored metadata alone. Compared
+        // for equality only - the format is not stable.
+        for (const operation of operations) {
+          expect(operation.metadata.payloadIdentity).toBe('components/schemas/OrderEvent')
+        }
+      })
+
+      it('should give two operations sharing one payload schema the same payloadIdentity', () => {
+        // They are not the same operation - different addresses keep them apart - but the payload
+        // half of the identity has to agree, or a flip on either would fail to pair.
+        expect(operations).toHaveLength(2)
+        const [first, second] = operations
+        expect(first.metadata.payloadIdentity).toBe(second.metadata.payloadIdentity)
+        expect(first.metadata.address).not.toBe(second.metadata.address)
+      })
+
+      it('should not disturb the existing id metadata', () => {
+        // These feed `calculateAsyncOperationId`, so churn here would repair ids across the board.
+        const sorted = <T>(values: T[]): T[] => [...values].sort()
+
+        expect(sorted(operations.map(operation => operation.operationId))).toEqual([
+          'sendOrderPlaced-OrderPlaced',
+          'sendOrderPlacedAudit-OrderPlacedAudit',
+        ])
+        expect(sorted(operations.map(operation => operation.metadata.asyncOperationId))).toEqual([
+          'sendOrderPlaced',
+          'sendOrderPlacedAudit',
+        ])
+        expect(sorted(operations.map(operation => operation.metadata.messageId))).toEqual([
+          'OrderPlaced',
+          'OrderPlacedAudit',
+        ])
+      })
+    })
+
     describe('operation count', () => {
       test('should ignore operation without message', async () => {
         const result = await buildPackageWithDefaultConfig('asyncapi/operations/broken-operation')
@@ -593,6 +637,19 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
         expect(operation.metadata.messageId).toBe('UserSignedUp')
         expect(operation.metadata.asyncOperationId).toBe('sendUserSignedup')
         expect(operation.metadata.protocol).toBe('amqp')
+      })
+
+      // The pairing metadata: `address` is what a consumer binds to, `channel` above is a display
+      // title, and the two must not be confused.
+      it('should set address from the channel address, not its title', () => {
+        expect(operation.metadata.address).toBe('user/signedup')
+        expect(operation.metadata.address).not.toBe(operation.metadata.channel)
+      })
+
+      it('should not set payloadIdentity for an inline payload', () => {
+        // An inline payload declares under `components/messages/<id>/payload`, which embeds the
+        // message id - the very thing the identity exists to look past - so there is no anchor.
+        expect(operation.metadata.payloadIdentity).toBeUndefined()
       })
 
       // security (negative case)

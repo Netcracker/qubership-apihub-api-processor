@@ -1,8 +1,14 @@
-import { getCompatibilitySuite, TEST_SPEC_TYPE_ASYNC_API } from '@netcracker/qubership-apihub-compatibility-suites'
+import {
+  getCompatibilitySuite,
+  getCompatibilitySuites,
+  TEST_SPEC_TYPE_ASYNC_API,
+} from '@netcracker/qubership-apihub-compatibility-suites'
 
 import {
   buildChangelogFromContent,
+  buildChangelogFromFiles,
   changesSummaryMatcher,
+  LocalRegistry,
   noChangesMatcher,
   numberOfImpactedOperationsMatcher,
   operationChangesMatcher,
@@ -10,11 +16,13 @@ import {
 import {
   ANNOTATION_CHANGE_TYPE,
   ASYNCAPI_API_TYPE,
-  BREAKING_CHANGE_TYPE,
+  BUILD_TYPE,
   BuildResult,
   EMPTY_CHANGE_SUMMARY,
+  NON_BREAKING_CHANGE_TYPE,
+  NotificationMessage,
   OperationChanges,
-  UNCLASSIFIED_CHANGE_TYPE,
+  REST_API_TYPE,
 } from '../src'
 
 /**
@@ -33,10 +41,55 @@ const buildChangelogForCase = (testId: string): Promise<BuildResult> => {
 const changesOf = (result: BuildResult): OperationChanges[] =>
   result.comparisons?.flatMap(comparison => comparison.data ?? []) ?? []
 
+/** Every case of the corpus, so a case added there is covered here without a second edit. */
+const ALL_CASE_IDS: string[] = [
+  ...(getCompatibilitySuites(TEST_SPEC_TYPE_ASYNC_API).get(SUITE_ID) ?? []),
+].sort()
+
+const isPairingDisagreement = (notification: NotificationMessage): boolean =>
+  notification.message.includes('pairing disagreement')
+
+/** Names the build rejection in the failure message instead of leaving a bare unhandled reject. */
+const expectResolved = async (build: Promise<BuildResult>): Promise<BuildResult> => {
+  await expect(build).resolves.toBeDefined()
+  return build
+}
+
 const expectNoChanges = (result: BuildResult): void => {
   expect(result).toEqual(noChangesMatcher(ASYNCAPI_API_TYPE))
   expect(result).toEqual(numberOfImpactedOperationsMatcher(EMPTY_CHANGE_SUMMARY, ASYNCAPI_API_TYPE))
 }
+
+/** One AsyncAPI document whose message id is parameterised, so a flip is one argument away. */
+const ordersDocument = (messageId: string): string => `asyncapi: 3.0.0
+info:
+  title: Orders
+  version: 1.0.0
+channels:
+  orderEvents_1001:
+    address: order-events
+    messages:
+      ${messageId}:
+        $ref: '#/components/messages/${messageId}'
+operations:
+  sendOrderEvent_1001:
+    action: send
+    channel:
+      $ref: '#/channels/orderEvents_1001'
+    messages:
+      - $ref: '#/channels/orderEvents_1001/messages/${messageId}'
+components:
+  schemas:
+    OrderEvent:
+      type: object
+      properties:
+        orderId:
+          type: string
+  messages:
+    ${messageId}:
+      payload:
+        $ref: '#/components/schemas/OrderEvent'
+`
 
 describe('AsyncAPI semantic entity mapping changelog', () => {
   describe('an id flip alone produces no changelog record', () => {
@@ -126,6 +179,146 @@ describe('AsyncAPI semantic entity mapping changelog', () => {
         .toIncludeSameMembers(['sendOrderEvent_1001-OrderEvent_1001', undefined])
       expect(changes.map(change => change.operationId))
         .toIncludeSameMembers([undefined, 'sendOrderEvent_1001-OrderEvent_2002'])
+    })
+  })
+
+  describe('pairing spans documents', () => {
+
+    const AUDIT_DOCUMENT = `asyncapi: 3.0.0
+info:
+  title: Audit
+  version: 1.0.0
+channels:
+  auditEvents:
+    address: audit-events
+    messages:
+      AuditEvent:
+        $ref: '#/components/messages/AuditEvent'
+operations:
+  sendAuditEvent:
+    action: send
+    channel:
+      $ref: '#/channels/auditEvents'
+    messages:
+      - $ref: '#/channels/auditEvents/messages/AuditEvent'
+components:
+  schemas:
+    AuditEvent:
+      type: object
+      properties:
+        auditId:
+          type: string
+  messages:
+    AuditEvent:
+      payload:
+        $ref: '#/components/schemas/AuditEvent'
+`
+
+    it('matches an operation whose id flips and whose document is renamed', async () => {
+      // Pairing works off the flat operations map, which spans every document of a version, so a
+      // document rename is invisible to it - and `calculatePairedDocs` then derives the document
+      // pair from the operation pair, so the two documents line up because the operation did.
+      const result = await buildChangelogFromFiles(
+        'semantic-mapping-cross-document',
+        { 'orders.yaml': ordersDocument('OrderEvent_1001'), 'audit.yaml': AUDIT_DOCUMENT },
+        { 'orders-v2.yaml': ordersDocument('OrderEvent_2002'), 'audit.yaml': AUDIT_DOCUMENT },
+      )
+
+      expectNoChanges(result)
+      expect(result.notifications.filter(isPairingDisagreement)).toEqual([])
+    })
+
+    it('leaves REST pairing alone in a mixed-API version pair', async () => {
+      // `mapOperations` is opt-in per builder and REST declares none, so REST keeps plain id
+      // equality. This pins that: the AsyncAPI ids flip and report nothing, while a genuinely
+      // added REST operation is still reported as added.
+      const restDocument = (extraPath: string): string => `openapi: 3.0.0
+info:
+  title: Orders REST
+  version: 1.0.0
+paths:
+  /orders:
+    get:
+      responses:
+        '200':
+          description: ok${extraPath}
+`
+      const result = await buildChangelogFromFiles(
+        'semantic-mapping-mixed-api',
+        { 'orders.yaml': ordersDocument('OrderEvent_1001'), 'rest.yaml': restDocument('') },
+        {
+          'orders.yaml': ordersDocument('OrderEvent_2002'),
+          'rest.yaml': restDocument(`
+  /orders/{id}:
+    get:
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ok`),
+        },
+      )
+
+      expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }, REST_API_TYPE))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher(EMPTY_CHANGE_SUMMARY, ASYNCAPI_API_TYPE))
+      expect(result.notifications.filter(isPairingDisagreement)).toEqual([])
+    })
+  })
+
+  describe('dashboards inherit the pairing', () => {
+    it('reports no changes for a hash-flipping ref package', async () => {
+      // A dashboard aggregates its refs' comparisons rather than comparing anything itself, so a
+      // ref whose ids flip must reach the dashboard changelog as nothing at all - the same result
+      // the ref package gets on its own.
+      const refId = 'semantic-mapping/dashboard-ref'
+      const dashboardId = 'semantic-mapping/dashboard'
+
+      const ref = LocalRegistry.openPackage(refId)
+      for (const [version, messageId] of [['v1', 'OrderEvent_1001'], ['v2', 'OrderEvent_2002']]) {
+        await ref.publishFromContent(
+          { 'orders.yaml': ordersDocument(messageId) },
+          { packageId: refId, version, buildType: BUILD_TYPE.BUILD, files: [{ fileId: 'orders.yaml' }] },
+        )
+      }
+
+      const dashboard = LocalRegistry.openPackage(dashboardId)
+      await dashboard.publishFromContent(
+        {},
+        { packageId: dashboardId, version: 'v1', buildType: BUILD_TYPE.BUILD, refs: [{ refId, version: 'v1' }], files: [] },
+      )
+      const result = await dashboard.publishFromContent(
+        {},
+        {
+          packageId: dashboardId,
+          version: 'v2',
+          previousVersion: 'v1',
+          buildType: BUILD_TYPE.BUILD,
+          refs: [{ refId, version: 'v2' }],
+          files: [],
+        },
+      )
+
+      expect(changesOf(result)).toEqual([])
+      expect(result.notifications.filter(isPairingDisagreement)).toEqual([])
+    }, 100000)
+  })
+
+  describe('api-diff and the operation pairing agree', () => {
+    // api-diff decides which entities correspond, and everyone else reads that
+    // decision. Where the pre-pairing disagrees, `compareDocuments` resolves from the merged
+    // document *and* raises a Warning notification - so an empty notification list is what proves
+    // the two never had to be reconciled.
+    it.each(ALL_CASE_IDS)('%s', async testId => {
+      // The other failure mode is `compareDocuments` throwing `Can't find the <id> operation` when
+      // neither id resolves. That aborts the build rather than recording anything, so it is
+      // asserted as a non-rejection rather than by inspecting the result.
+      const result = await expectResolved(buildChangelogForCase(testId))
+
+      expect(result.notifications.filter(isPairingDisagreement)).toEqual([])
     })
   })
 

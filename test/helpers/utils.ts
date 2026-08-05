@@ -369,22 +369,39 @@ export async function buildChangelogFromContent(
   beforeContent: string,
   afterContent: string,
 ): Promise<BuildResult> {
+  return buildChangelogFromFiles(
+    packageId,
+    { 'before.yaml': beforeContent },
+    { 'after.yaml': afterContent },
+  )
+}
+
+/**
+ * Changelog between two versions built from in-memory files, where each version may hold several
+ * documents. Use when what is being tested spans documents - an operation moving between them, a
+ * document renamed - which the single-document `buildChangelogFromContent` cannot express.
+ */
+export async function buildChangelogFromFiles(
+  packageId: string,
+  beforeFiles: Record<string, string>,
+  afterFiles: Record<string, string>,
+): Promise<BuildResult> {
   const portal = new LocalRegistry(packageId)
 
   await portal.publishFromContent(
-    { 'before.yaml': beforeContent },
+    beforeFiles,
     {
       packageId: packageId,
       version: BEFORE_VERSION_ID,
-      files: [{ fileId: 'before.yaml', publish: true }],
+      files: Object.keys(beforeFiles).map(fileId => ({ fileId, publish: true })),
     },
   )
   await portal.publishFromContent(
-    { 'after.yaml': afterContent },
+    afterFiles,
     {
       packageId: packageId,
       version: AFTER_VERSION_ID,
-      files: [{ fileId: 'after.yaml' }],
+      files: Object.keys(afterFiles).map(fileId => ({ fileId })),
     },
   )
 
