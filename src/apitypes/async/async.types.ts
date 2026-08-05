@@ -32,6 +32,33 @@ export interface AsyncOperationMeta {
   customTags: CustomTags            // Custom x-* extensions
   messageId: string                 // Message key from the channel's messages map (e.g., 'UserSignedUp')
   asyncOperationId: string          // Operation key from the AsyncAPI operations map (e.g., 'sendUserSignedup')
+  /**
+   * The channel's `address` - the thing a consumer actually binds to, unlike `channel` above,
+   * which is a display title. Used to pair operations across versions when their generated ids
+   * differ.
+   *
+   * Optional because `ChannelObject.address` is `string | null`: a channel may genuinely have
+   * none.
+   */
+  address?: string
+  /**
+   * api-diff's `payloadIdentity()`: the declaration path of the message's payload schema, e.g.
+   * `components/schemas/OrderEvent`. Readable on purpose, so a mis-pairing can be diagnosed from
+   * stored metadata alone.
+   *
+   * **Compare for equality only - the format is not stable.** It is the pairing algorithm's
+   * internal anchor. Nothing may parse it; in particular, do not derive a display name from its
+   * last segment. If a schema name is ever wanted for display, add a separate field for it.
+   *
+   * Optional because an inline payload has no stable declaration path to anchor on.
+   *
+   * Declared `string` rather than api-diff's branded `SemanticIdentity`: the brand is for
+   * in-process computation and does not survive storage or a JSON response, so declaring it here
+   * would give false confidence and force a widening cast at the ui boundary.
+   *
+   * Mirrored by `AsyncApiOperationDto` in the ui repository - keep the two in step.
+   */
+  payloadIdentity?: string
 }
 
 /**

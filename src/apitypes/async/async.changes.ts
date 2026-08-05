@@ -24,8 +24,10 @@ import {
 } from '@netcracker/qubership-apihub-api-diff'
 import {
   AFTER_VALUE_NORMALIZED_PROPERTY,
+  BEFORE_KEY_PROPERTY,
   BEFORE_VALUE_NORMALIZED_PROPERTY,
   FIRST_REFERENCE_KEY_PROPERTY,
+  MESSAGE_SEVERITY,
   NORMALIZE_OPTIONS,
   ORIGINS_SYMBOL,
 } from '../../consts'
@@ -54,6 +56,41 @@ import {
   extractOwnPropertyDiff,
   getAsyncMessageId,
 } from './async.utils'
+
+/** The before-key api-diff recorded on a mapped node, or `undefined` when the node was added. */
+const beforeKeyOf = (node: unknown): string | undefined => {
+  if (!isObject(node)) {
+    return undefined
+  }
+  const beforeKey = (node as Record<PropertyKey, unknown>)[BEFORE_KEY_PROPERTY]
+  return typeof beforeKey === 'string' ? beforeKey : undefined
+}
+
+/**
+ * The APIHUB operation id this merged operation/message had in the previous version, read off
+ * api-diff's own mapping decision rather than re-derived.
+ *
+ * The message id comes from the **channel's** messages map, not from `operation.messages[]`: the
+ * latter is an array, whose elements carry a numeric before-key by construction, so it cannot name
+ * the previous message. Deliberately no `?? asyncOperationId` fallback - defaulting to the after
+ * key would invent a previous id for an operation that has no previous, which is exactly the
+ * ambiguity writing the symbol on every mapped node removes.
+ */
+const previousOperationIdOf = (
+  operationObject: AsyncAPIV3.OperationObject,
+  messageId: string,
+): string | undefined => {
+  const beforeAsyncOperationId = beforeKeyOf(operationObject)
+  const channel = operationObject.channel as AsyncAPIV3.ChannelObject | undefined
+  const messages = channel?.messages
+  const beforeMessageId = isObject(messages)
+    ? beforeKeyOf((messages as Record<string, unknown>)[messageId])
+    : undefined
+
+  return beforeAsyncOperationId !== undefined && beforeMessageId !== undefined
+    ? calculateAsyncOperationId(beforeAsyncOperationId, beforeMessageId)
+    : undefined
+}
 
 export const compareDocuments: DocumentsCompare = async (
   operationsMap: OperationsMap,
@@ -97,6 +134,9 @@ export const compareDocuments: DocumentsCompare = async (
       afterValueNormalizedProperty: AFTER_VALUE_NORMALIZED_PROPERTY,
       beforeValueNormalizedProperty: BEFORE_VALUE_NORMALIZED_PROPERTY,
       firstReferenceKeyProperty: FIRST_REFERENCE_KEY_PROPERTY,
+      // api-diff records the before-key of every node it mapped, so an entity whose generated id
+      // changed can be located by either side's id instead of by guessing.
+      beforeKeyProperty: BEFORE_KEY_PROPERTY,
       apiCompatibilityScopeFunction: createAsyncApiCompatibilityScopeFunction(),
     },
   ) as { merged: AsyncAPIV3.AsyncAPIObject; diffs: Diff[] }
@@ -140,12 +180,31 @@ export const compareDocuments: DocumentsCompare = async (
       for (const [messageIndex, message] of messages.entries()) {
         const messageId = getAsyncMessageId(message)
         const operationId = calculateAsyncOperationId(asyncOperationId, messageId)
+        // A mapped node is keyed by the after side, so `operationId` is the current id and finds
+        // the pair the pre-pairing emitted. The before-side id is the fallback: where the
+        // pre-pairing and api-diff disagree about which entities correspond, api-diff decided the
+        // merged document, so its verdict is the one that must resolve.
+        const previousOperationId = previousOperationIdOf(operationObject, messageId)
         const {
           current,
           previous,
-        } = operationsMap[operationId] ?? {}
+        } = operationsMap[operationId]
+          ?? (previousOperationId !== undefined ? operationsMap[previousOperationId] : undefined)
+          ?? {}
         if (!current && !previous) {
           throw new Error(`Can't find the ${operationId} operation from documents pair ${prevDoc?.fileId} and ${currDoc?.fileId}`)
+        }
+        if (previousOperationId !== undefined && previous && previous.operationId !== previousOperationId) {
+          // api-diff and the operation pre-pairing disagree about which entities correspond. The
+          // build still completes - api-diff's decision above already resolved the pair - so this
+          // is a warning, not an error.
+          ctx.notifications.push({
+            severity: MESSAGE_SEVERITY.Warning,
+            message: `AsyncAPI operation pairing disagreement: api-diff mapped '${previousOperationId}' onto ` +
+              `'${operationId}', while operation pairing chose '${previous.operationId}'. ` +
+              'api-diff\'s decision was used.',
+            fileId: currDoc?.fileId,
+          })
         }
 
         const operationPotentiallyChanged = Boolean(current && previous)

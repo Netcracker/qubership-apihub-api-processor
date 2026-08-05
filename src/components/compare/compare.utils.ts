@@ -219,7 +219,13 @@ export const createPairOperationsMap = (
   const [, prevNormalizedIdToOperation] = normalizeOperationIds(previousOperations, apiBuilder, previousGroupSlug)
   const [, currNormalizedIdToOperation] = normalizeOperationIds(currentOperations, apiBuilder, currentGroupSlug)
 
-  return pairByKey(prevNormalizedIdToOperation, currNormalizedIdToOperation)
+  // Which previous operation corresponds to which current one is the builder's call - AsyncAPI
+  // operation ids embed hashes of description text, so id equality alone reads a description edit
+  // as one operation removed and another added. Builders that have nothing to add get plain id
+  // equality; this function stays contract-agnostic either way.
+  const mapOperations = apiBuilder.mapOperations ?? pairByKey
+
+  return mapOperations(prevNormalizedIdToOperation, currNormalizedIdToOperation)
 }
 
 export const calculatePairedDocs = async (

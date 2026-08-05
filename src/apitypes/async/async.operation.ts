@@ -26,7 +26,9 @@ import {
   isOperationDeprecated,
   normalizeOperationIds,
   takeIf,
+  takeIfDefined,
 } from '../../utils'
+import { asyncApi } from '@netcracker/qubership-apihub-api-diff'
 import {
   ASYNCAPI_API_TYPE,
   DEPRECATED_MESSAGE_PREFIX,
@@ -124,6 +126,10 @@ export const buildAsyncApiOperation = (
       customTags,
       messageId,
       asyncOperationId,
+      // Both omitted rather than stored as `undefined`, so a document without them reads the same
+      // as a version published before they existed.
+      ...takeIfDefined({ address: typeof channel.address === 'string' ? channel.address : undefined }),
+      ...takeIfDefined({ payloadIdentity: asyncApi.payloadIdentity(message, ORIGINS_SYMBOL) }),
     },
     tags,
     data: specWithSingleOperation,

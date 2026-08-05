@@ -135,6 +135,23 @@ export type DocumentsCompareData = {
 }
 export type DocumentsCompare = (operationsMap: OperationsMap, currDoc: ResolvedVersionDocument | undefined, prevDoc: ResolvedVersionDocument | undefined, ctx: CompareOperationsPairContext) => Promise<DocumentsCompareData>
 export type OperationIdNormalizer = (operation: ResolvedOperation) => NormalizedOperationId
+/**
+ * Decides which previous operation corresponds to which current one, given both sides already
+ * keyed by normalized operation id.
+ *
+ * Optional: an api type that omits it gets `pairByKey`, plain id equality. Declared as the whole
+ * mapping rather than as a fixup pass over an id-paired result, so an api type is free to
+ * correspond operations however its contract demands - `pairByKey` is a building block available
+ * to implementations, not a step they are obliged to run first.
+ *
+ * Whatever an implementation does, every operation from either side must end up in exactly one
+ * entry of the returned map: a one-sided entry reads as added or removed, a two-sided one as
+ * potentially changed, and an operation appearing in neither silently vanishes from the changelog.
+ */
+export type OperationsMapper = (
+  previousByKey: Record<NormalizedOperationId, ResolvedOperation>,
+  currentByKey: Record<NormalizedOperationId, ResolvedOperation>,
+) => OperationsMap
 export type DocumentExporter = (
   filename: string,
   data: string,
@@ -186,6 +203,7 @@ export interface ApiBuilder<T = any, O = any, M = any> {
   compareDocuments?: DocumentsCompare
   compareDdlDocuments?: DdlDocumentsCompare
   createNormalizedOperationId?: OperationIdNormalizer
+  mapOperations?: OperationsMapper
   createExportDocument?: DocumentExporter
 }
 

@@ -23,6 +23,8 @@ import { compareDocuments } from './async.changes'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { ASYNCAPI_API_TYPE } from '../../consts'
 
+import { mapAsyncApiOperations } from '../../components/compare/async.semantic-pairing'
+
 export * from './async.consts'
 export * from './async.types'
 
@@ -34,5 +36,6 @@ export const asyncApiBuilder: ApiBuilder<AsyncAPIV3.AsyncAPIObject> = {
   buildOperations: buildAsyncApiOperations,
   dumpDocument: dumpAsyncApiDocument,
   compareDocuments: compareDocuments,
+  mapOperations: mapAsyncApiOperations,
 }
 

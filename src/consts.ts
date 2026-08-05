@@ -172,6 +172,7 @@ export const INLINE_REFS_FLAG = Symbol('inline-refs')
 export const AFTER_VALUE_NORMALIZED_PROPERTY = Symbol('after-value-normalized')
 export const BEFORE_VALUE_NORMALIZED_PROPERTY = Symbol('before-value-normalized')
 export const FIRST_REFERENCE_KEY_PROPERTY = Symbol('first-reference-key-property')
+export const BEFORE_KEY_PROPERTY = Symbol('before-key-property')
 
 export const SERIALIZE_SYMBOL_STRING_MAPPING = new Map([
   [HASH_FLAG, 'HASH_FLAG'],
@@ -180,6 +181,7 @@ export const SERIALIZE_SYMBOL_STRING_MAPPING = new Map([
   [DIFF_META_KEY, 'DIFF_META_KEY'],
   [DIFFS_AGGREGATED_META_KEY, 'DIFFS_AGGREGATED_META_KEY'],
   [FIRST_REFERENCE_KEY_PROPERTY, 'FIRST_REFERENCE_KEY_PROPERTY'],
+  [BEFORE_KEY_PROPERTY, 'BEFORE_KEY_PROPERTY'],
 ])
 
 export const NORMALIZE_OPTIONS: NormalizeOptions = {
