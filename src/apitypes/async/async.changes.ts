@@ -19,6 +19,7 @@ import {
   aggregateDiffsWithRollup,
   apiDiff,
   Diff,
+  DiffAction,
   DIFF_META_KEY,
   DIFFS_AGGREGATED_META_KEY,
 } from '@netcracker/qubership-apihub-api-diff'
@@ -57,13 +58,26 @@ import {
   getAsyncMessageId,
 } from './async.utils'
 
-/** The before-key api-diff recorded on a mapped node, or `undefined` when the node was added. */
-const beforeKeyOf = (node: unknown): string | undefined => {
-  if (!isObject(node)) {
+/**
+ * The key this node had in the previous version, or `undefined` when it had none.
+ *
+ * api-diff records a before-key only where it mapped a node onto a *different* key, so an absent
+ * symbol means one of two opposite things: the node was mapped onto the key it already has, or it
+ * was added. The parent map's diff metadata is what tells them apart - it is the authoritative
+ * record of additions, and the symbol only ever encoded that a second time.
+ */
+const previousKeyOf = (parent: unknown, key: string): string | undefined => {
+  if (!isObject(parent)) {
     return undefined
   }
-  const beforeKey = (node as Record<PropertyKey, unknown>)[BEFORE_KEY_PROPERTY]
-  return typeof beforeKey === 'string' ? beforeKey : undefined
+  const container = parent as Record<PropertyKey, unknown>
+  const diff = (container[DIFF_META_KEY] as Record<string, Diff> | undefined)?.[key]
+  if (diff?.action === DiffAction.add) {
+    return undefined
+  }
+  const beforeKey = (container[key] as Record<PropertyKey, unknown> | undefined)?.[BEFORE_KEY_PROPERTY]
+  // Renamed by api-diff, or mapped onto the key it already has.
+  return typeof beforeKey === 'string' ? beforeKey : key
 }
 
 /**
@@ -72,23 +86,23 @@ const beforeKeyOf = (node: unknown): string | undefined => {
  *
  * The message id comes from the **channel's** messages map, not from `operation.messages[]`: the
  * latter is an array, whose elements carry a numeric before-key by construction, so it cannot name
- * the previous message. Deliberately no `?? asyncOperationId` fallback - defaulting to the after
- * key would invent a previous id for an operation that has no previous, which is exactly the
- * ambiguity writing the symbol on every mapped node removes.
+ * the previous message.
+ *
+ * Either half being absent means the pair has no previous operation - an addition - and no id is
+ * invented for it.
  */
 const previousOperationIdOf = (
+  operations: unknown,
+  asyncOperationId: string,
   operationObject: AsyncAPIV3.OperationObject,
   messageId: string,
 ): string | undefined => {
-  const beforeAsyncOperationId = beforeKeyOf(operationObject)
+  const previousAsyncOperationId = previousKeyOf(operations, asyncOperationId)
   const channel = operationObject.channel as AsyncAPIV3.ChannelObject | undefined
-  const messages = channel?.messages
-  const beforeMessageId = isObject(messages)
-    ? beforeKeyOf((messages as Record<string, unknown>)[messageId])
-    : undefined
+  const previousMessageId = previousKeyOf(channel?.messages, messageId)
 
-  return beforeAsyncOperationId !== undefined && beforeMessageId !== undefined
-    ? calculateAsyncOperationId(beforeAsyncOperationId, beforeMessageId)
+  return previousAsyncOperationId !== undefined && previousMessageId !== undefined
+    ? calculateAsyncOperationId(previousAsyncOperationId, previousMessageId)
     : undefined
 }
 
@@ -134,8 +148,8 @@ export const compareDocuments: DocumentsCompare = async (
       afterValueNormalizedProperty: AFTER_VALUE_NORMALIZED_PROPERTY,
       beforeValueNormalizedProperty: BEFORE_VALUE_NORMALIZED_PROPERTY,
       firstReferenceKeyProperty: FIRST_REFERENCE_KEY_PROPERTY,
-      // api-diff records the before-key of every node it mapped, so an entity whose generated id
-      // changed can be located by either side's id instead of by guessing.
+      // api-diff records a before-key wherever it mapped a node onto a different key, so an entity
+      // whose generated id changed can be located by either side's id instead of by guessing.
       beforeKeyProperty: BEFORE_KEY_PROPERTY,
       apiCompatibilityScopeFunction: createAsyncApiCompatibilityScopeFunction(),
     },
@@ -184,7 +198,9 @@ export const compareDocuments: DocumentsCompare = async (
         // the pair the pre-pairing emitted. The before-side id is the fallback: where the
         // pre-pairing and api-diff disagree about which entities correspond, api-diff decided the
         // merged document, so its verdict is the one that must resolve.
-        const previousOperationId = previousOperationIdOf(operationObject, messageId)
+        const previousOperationId = previousOperationIdOf(
+          asyncOperations, asyncOperationId, operationObject, messageId,
+        )
         const {
           current,
           previous,
