@@ -209,6 +209,10 @@ export interface BuildConfigFile {
   fileId: FileId
   slug?: string // for rebuild
   apiKind?: ApihubApiCompatibilityKind
+  /**
+   * Api kind the Agent discovered for this document
+   */
+  xApiKind?: string
 
   // deprecated
   publish?: boolean

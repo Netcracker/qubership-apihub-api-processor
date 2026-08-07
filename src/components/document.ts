@@ -33,7 +33,7 @@ import {
 import { buildBinaryDocument, unknownApiBuilder } from '../apitypes'
 
 export const buildErrorDocument = (file: BuildConfigFile, parsedFile?: TextFile): VersionDocument => {
-  const { fileId, slug = '', publish = true, ...metadata } = file
+  const { fileId, slug = '', publish = true, xApiKind: _xApiKind, ...metadata } = file
   return {
     fileId: fileId,
     type: DOCUMENT_TYPE.UNKNOWN,
@@ -66,7 +66,7 @@ export const buildDocument = async (parsedFile: SourceFile, file: BuildConfigFil
   const apiBuilder = ctx.apiBuilders.find(({ types }) => types.includes(parsedFile.type)) || unknownApiBuilder
 
   try {
-    file.apiKind = calculateApiKindFromLabels(file.labels, ctx.versionLabels)
+    file.apiKind = calculateFileApiKind(file, ctx.versionLabels)
 
     const document = await apiBuilder.buildDocument(parsedFile, file, ctx)
     return { document, builder: apiBuilder }
@@ -75,27 +75,51 @@ export const buildDocument = async (parsedFile: SourceFile, file: BuildConfigFil
   }
 }
 
-export const calculateApiKindFromLabels = (fileLabels: unknown, versionLabels: unknown): ApihubApiCompatibilityKind => {
-  if (!Array.isArray(fileLabels) && !Array.isArray(versionLabels)) {
-    return APIHUB_API_COMPATIBILITY_KIND_BWC
+const findApiKindInLabels = (labels: unknown): ApihubApiCompatibilityKind | undefined => {
+  if (!Array.isArray(labels)) {
+    return undefined
   }
-
-  const labels = [
-    ...(Array.isArray(fileLabels) ? fileLabels : []),
-    ...(Array.isArray(versionLabels) ? versionLabels : []),
-  ]
 
   for (const label of labels) {
     if (!label || typeof label !== 'string') {
       continue
     }
 
-    const match = new RegExp(`${API_KIND_LABEL}:`).exec(label)
+    const match = new RegExp(`^${API_KIND_LABEL}:`).exec(label)
     if (match) {
       return rawToApiKind(label.slice(match[0].length).trim(), APIHUB_API_COMPATIBILITY_KIND_BWC)
     }
   }
-  return APIHUB_API_COMPATIBILITY_KIND_BWC
+  return undefined
+}
+
+export const calculateApiKindFromLabels = (fileLabels: unknown, versionLabels: unknown): ApihubApiCompatibilityKind => {
+  return findApiKindInLabels(fileLabels) ?? findApiKindInLabels(versionLabels) ?? APIHUB_API_COMPATIBILITY_KIND_BWC
+}
+
+/**
+ * The api kind of one file of a build config, from the strongest source to the weakest:
+ *
+ * - the file label `apihub/x-api-kind`
+ * - `xApiKind` of the file
+ * - the version label `apihub/x-api-kind`
+ * - BWC, when none of them states one
+ *
+ * A per-file source beats a per-version one. Only the build config is read here: an api kind declared
+ * inside the specification is resolved by the callers, and outranks this answer wherever they support it.
+ */
+export const calculateFileApiKind = (file: BuildConfigFile, versionLabels: unknown): ApihubApiCompatibilityKind => {
+  // Trimmed, because the label branch trims the value it extracts: the same text must mean the same
+  // thing whichever source carries it. Nothing left after trimming means the Agent stated nothing
+  const trimmedXApiKind = isString(file.xApiKind) ? file.xApiKind.trim() : ''
+  const statedXApiKind = trimmedXApiKind
+    ? rawToApiKind(trimmedXApiKind, APIHUB_API_COMPATIBILITY_KIND_BWC)
+    : undefined
+
+  return findApiKindInLabels(file.labels) ??
+    statedXApiKind ??
+    findApiKindInLabels(versionLabels) ??
+    APIHUB_API_COMPATIBILITY_KIND_BWC
 }
 
 export const getApiKindProperty = (

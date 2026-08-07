@@ -26,7 +26,7 @@ import {
 import { FILE_FORMAT } from '../../consts'
 
 export const buildUnknownDocument: DocumentBuilder<unknown> = async (parsedFile, file, ctx): Promise<VersionDocument> => {
-  const { fileId, slug = '', publish, ...metadata } = file
+  const { fileId, slug = '', publish, xApiKind: _xApiKind, ...metadata } = file
   const { type, format, source } = parsedFile
   const parsedData = parsedFile.data
 
@@ -67,7 +67,7 @@ export const buildUnknownDocument: DocumentBuilder<unknown> = async (parsedFile,
 }
 
 export const buildBinaryDocument: (parsedFile: SourceFile, file: BuildConfigFile) => Promise<VersionDocument> = async (parsedFile, file): Promise<VersionDocument> => {
-  const { fileId, slug = '', publish, ...metadata } = file
+  const { fileId, slug = '', publish, xApiKind: _xApiKind, ...metadata } = file
   const { type, format, source } = parsedFile
 
   return {

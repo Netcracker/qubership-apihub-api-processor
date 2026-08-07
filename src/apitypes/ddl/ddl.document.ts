@@ -23,7 +23,7 @@ export const buildDdlDocument: DocumentBuilder<ParsedDdlData> = async (parsedFil
   // `apiKind` is the label-derived compatibility kind set by the buildDocument component (D9 — SQL has
   // no native api-kind). Pull `metadata` out separately so its keys land directly under document.metadata
   // (mirrors the MCP builder), the rest spreads through as passthrough config.
-  const { fileId, slug = '', publish = true, apiKind, metadata: fileMetadata, ...passThroughFields } = file
+  const { fileId, slug = '', publish = true, apiKind, xApiKind: _xApiKind, metadata: fileMetadata, ...passThroughFields } = file
   const { data, format, source, errors } = parsedFile
 
   const document: VersionDocument<ParsedDdlData> = {

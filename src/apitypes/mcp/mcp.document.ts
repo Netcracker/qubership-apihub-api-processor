@@ -24,7 +24,7 @@ export const buildMcpDocument: DocumentBuilder<ParsedMcpData> = async (parsedFil
   // pull the file's `metadata` object out of the rest-spread and merge its contents onto the document's
   // metadata AFTER the other pass-through fields, so its keys (e.g. mcpEndpoint) live directly under
   // document.metadata rather than nested as document.metadata.metadata
-  const { fileId, slug = '', publish = true, metadata: fileMetadata, ...passThroughFields } = file
+  const { fileId, slug = '', publish = true, xApiKind: _xApiKind, metadata: fileMetadata, ...passThroughFields } = file
   const { data } = parsedFile
   return {
     fileId,

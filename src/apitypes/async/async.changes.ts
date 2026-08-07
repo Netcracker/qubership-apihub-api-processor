@@ -46,6 +46,7 @@ import {
   OperationsMap,
 } from '../../components'
 import { createAsyncApiCompatibilityScopeFunction } from '../../components/compare/async.bwc.validation'
+import { calculateApiKindFromLabels } from '../../components/document'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import {
   extractAggregatedDiffs,
@@ -70,6 +71,7 @@ export const compareDocuments: DocumentsCompare = async (
     currentPackageId,
     currentGroup,
     previousGroup,
+    previousVersionLabels,
   } = ctx
 
   const comparisonInternalDocumentId = createComparisonInternalDocumentId(previousVersion, previousPackageId, prevDoc?.slug, currentVersion, currentPackageId, currDoc?.slug)
@@ -86,6 +88,11 @@ export const compareDocuments: DocumentsCompare = async (
     currDocData = createCopyWithEmptyOperations(prevDocData)
   }
 
+  const currDocumentApiKind = currDoc?.apiKind
+  // ApiKind is not guaranteed for the previous document: it is downloaded data and the field is optional.
+  // In this case, we calculate ApiKind by labels (file then version) in order of priority.
+  const prevDocumentApiKind = prevDoc?.apiKind || calculateApiKindFromLabels(prevDoc?.labels, previousVersionLabels)
+
   const { merged, diffs } = apiDiff(
     prevDocData,
     currDocData,
@@ -97,7 +104,7 @@ export const compareDocuments: DocumentsCompare = async (
       afterValueNormalizedProperty: AFTER_VALUE_NORMALIZED_PROPERTY,
       beforeValueNormalizedProperty: BEFORE_VALUE_NORMALIZED_PROPERTY,
       firstReferenceKeyProperty: FIRST_REFERENCE_KEY_PROPERTY,
-      apiCompatibilityScopeFunction: createAsyncApiCompatibilityScopeFunction(),
+      apiCompatibilityScopeFunction: createAsyncApiCompatibilityScopeFunction(prevDocumentApiKind, currDocumentApiKind),
     },
   ) as { merged: AsyncAPIV3.AsyncAPIObject; diffs: Diff[] }
 
