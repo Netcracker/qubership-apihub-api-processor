@@ -323,16 +323,41 @@ paths:
   })
 
   describe('an ambiguous group pairs deterministically', () => {
-    it('both-channel-ids-changed reports nothing', async () => {
-      // Two channels on one address with one identical-payload message each: they share an
-      // identity exactly, so any 1-1 pairing is defensible and the tie-break decides which. The
-      // tie-break happens to pick the swap, which api-diff surfaces as channel and message
-      // *description* changes.
+    it('message-ids-swapped-in-ambiguous-group reports one annotation per swapped message', async () => {
+      // Two messages of one operation share `components/schemas/OrderEvent` and differ only by
+      // description, so they are indistinguishable and both ids flip. api-diff pairs each with the
+      // *other* one - asserted exactly in api-diff's own suite - and this is where that costs
+      // something: each APIHUB operation lands against the predecessor whose description differs,
+      // so both report an annotation.
       //
-      // None of that reaches an operation. Both operation ids are unchanged, so they pair by key,
-      // and a channel description is not part of any operation's own subtree - so the changelog
-      // is empty. Without semantic mapping this pair would have reported operations removed and
-      // added.
+      // That is the trade D6 accepts, and it is what this fixture exists to demonstrate. It is
+      // strictly less noise than the alternative - two operations removed and two added - and
+      // nothing here is breaking. What it must never be is *silence*: until the pairing was
+      // decided once per document pair, the operation's `messages[]` paired these two the other
+      // way round from the channel above it, so this operation's subtree reported nothing while
+      // the document-level diff reported two changes.
+      const result = await buildChangelogForCase('message-ids-swapped-in-ambiguous-group')
+      const changes = changesOf(result)
+
+      expect(result).toEqual(changesSummaryMatcher({ [ANNOTATION_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
+      expect(changes).toHaveLength(2)
+      // Pinned exactly, because this is the point of contact between the two pairings: these are
+      // the same couples api-diff records in `beforeKeyProperty`, read back as APIHUB ids.
+      expect(changes.map(change => [change.previousOperationId, change.operationId]).sort())
+        .toEqual([
+          ['sendOrderEvent-OrderEvent_1001', 'sendOrderEvent-OrderEvent_3003'],
+          ['sendOrderEvent-OrderEvent_2002', 'sendOrderEvent-OrderEvent_9001'],
+        ])
+    })
+
+    it('both-channel-ids-changed reports nothing', async () => {
+      // Two channels on one address with one identical-payload message each, so an
+      // address-and-payload identity leaves them indistinguishable. Their member message ids did
+      // not churn, though, so api-diff separates them on the member key and pairs them the way a
+      // reader would - it reports no diffs at all for this pair.
+      //
+      // Nothing reaches an operation either way: both operation ids are unchanged, so they pair by
+      // key. Without semantic mapping this pair would have reported operations removed and added.
       expectNoChanges(await buildChangelogForCase('both-channel-ids-changed'))
     })
   })
