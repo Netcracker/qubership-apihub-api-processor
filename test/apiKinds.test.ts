@@ -120,10 +120,56 @@ describe('API Kinds test', () => {
     expect(document?.metadata).not.toHaveProperty('xApiKind')
   })
 
+  test('rebuilt document must keep the api kind resolved from xApiKind', async () => {
+    const editor = await Editor.openProject(AFTER_PACKAGE_ID, afterPackage)
+    await editor.run({
+      version: AFTER_VERSION_ID,
+      packageId: AFTER_PACKAGE_ID,
+      files: [{
+        fileId: 'Petstore.yaml',
+        publish: true,
+        xApiKind: 'no-BWC',
+      }],
+    })
+
+    const result = await editor.update({}, 'Petstore.yaml')
+
+    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
+  })
+
+  test('published document must carry the api kind resolved from xApiKind', async () => {
+    const packageId = 'api-kinds/no-api-kind-in-documents'
+    const portal = new LocalRegistry(packageId)
+
+    await portal.publish(packageId, {
+      packageId,
+      version: AFTER_VERSION_ID,
+      files: [{ fileId: '1.yaml', xApiKind: 'no-BWC' }],
+    })
+
+    const resolved = await portal.versionDocumentsResolver(AFTER_VERSION_ID, packageId)
+
+    expect(resolved?.documents).toEqual([
+      expect.objectContaining({ fileId: '1.yaml', apiKind: APIHUB_API_COMPATIBILITY_KIND_NO_BWC }),
+    ])
+  })
+
   test('metadata of a document without an api type must not carry xApiKind either', async () => {
     const result = await buildPackageFromContent('api-kinds-readme', 'readme.md', '# Readme', undefined, undefined, 'no-BWC')
 
     expect(result.documents.get('readme.md')?.metadata).not.toHaveProperty('xApiKind')
+  })
+
+  test('metadata of a binary document must not carry xApiKind either', async () => {
+    const packageId = 'unsupported'
+    const editor = await Editor.openProject(packageId, LocalRegistry.openPackage(packageId))
+    const result = await editor.run({
+      packageId,
+      version: AFTER_VERSION_ID,
+      files: [{ fileId: 'Test.png', xApiKind: 'no-BWC' }],
+    })
+
+    expect(result.documents.get('Test.png')?.metadata).not.toHaveProperty('xApiKind')
   })
 
   test('version with label must have no-bwc api kind', async () => {

@@ -19,7 +19,7 @@ import { TEXT_DOCUMENT_TYPE } from './text.consts'
 import { createVersionInternalDocument } from '../../utils'
 
 export const buildTextDocument: DocumentBuilder<string> = async (parsedFile, file): Promise<VersionDocument<string>> => {
-  const { fileId, slug = '', publish = true, xApiKind: _xApiKind, ...metadata } = file
+  const { fileId, slug = '', publish = true, ...metadata } = file
   return {
     fileId,
     type: TEXT_DOCUMENT_TYPE.MARKDOWN,

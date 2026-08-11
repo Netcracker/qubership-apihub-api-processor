@@ -65,7 +65,7 @@ const openApiDocumentMeta = (data: OpenAPIV3.Document): RestDocumentInfo => {
 }
 
 export const buildRestDocument: DocumentBuilder<OpenAPIV3.Document> = async (parsedFile, file, ctx): Promise<VersionDocument> => {
-  const { fileId, slug = '', publish = true, apiKind, xApiKind: _xApiKind, ...fileMetadata } = file
+  const { fileId, slug = '', publish = true, apiKind, ...fileMetadata } = file
 
   const {
     data,

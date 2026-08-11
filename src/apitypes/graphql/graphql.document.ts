@@ -38,7 +38,7 @@ export const buildGraphQLDocument = async (parsedFile: TextFile, file: BuildConf
     graphapi = parsedFile.data as GraphApiSchema
   }
 
-  const { fileId, slug = '', publish = true, apiKind, xApiKind: _xApiKind, ...metadata } = file
+  const { fileId, slug = '', publish = true, apiKind, ...metadata } = file
   const { format, type, source } = parsedFile
   return {
     fileId,
