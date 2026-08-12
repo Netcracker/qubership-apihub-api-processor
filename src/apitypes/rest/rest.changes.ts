@@ -66,7 +66,6 @@ import {
   OperationsMap,
 } from '../../components'
 import { createRestApiCompatibilityScopeFunction } from '../../components/compare/rest.bwc.validation'
-import { calculateApiKindFromLabels, getApiKindProperty } from '../../components/document'
 import { createDeprecatedRemovalRules } from './rest.deprecated.classification'
 
 export const compareDocuments: DocumentsCompare = async (
@@ -84,8 +83,6 @@ export const compareDocuments: DocumentsCompare = async (
     currentPackageId,
     currentGroup,
     previousGroup,
-    previousVersionLabels,
-    currentVersionLabels,
   } = ctx
   const comparisonInternalDocumentId = createComparisonInternalDocumentId(previousVersion, previousPackageId, prevDoc?.slug, currentVersion, currentPackageId, currDoc?.slug)
   const prevFile = prevDoc && await rawDocumentResolver(previousVersion, previousPackageId, prevDoc.slug)
@@ -109,10 +106,9 @@ export const compareDocuments: DocumentsCompare = async (
     currDocData = createCopyWithEmptyPathItems(prevDocData)
   }
 
+  // Both documents carry the api kind their own build resolved from the specification, labels and `xApiKind`
   const currDocumentApiKind = currDoc?.apiKind
-  // ApiKind is not guaranteed for the previous document, since we are downloaded this data and ApiKind is not a required field.
-  // In this case, we calculate ApiKind by labels in order of priority
-  const prevDocumentApiKind = prevDoc?.apiKind || getApiKindProperty(prevDocData?.info) || calculateApiKindFromLabels(prevDoc?.labels, previousVersionLabels)
+  const prevDocumentApiKind = prevDoc?.apiKind
 
   const { merged, diffs } = apiDiff(
     prevDocData,
