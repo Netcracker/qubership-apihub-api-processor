@@ -18,11 +18,7 @@ import {
   RISKY_CHANGE_TYPE,
   UNCLASSIFIED_CHANGE_TYPE,
 } from '../src'
-import { createAsyncApiCompatibilityScopeFunction } from '../src/components/compare/async.bwc.validation'
-import {
-  API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE,
-  API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE,
-} from '@netcracker/qubership-apihub-api-diff'
+import { createAsyncApiKindValueAt } from '../src/components/compare/async.api-kind'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 
 const BWC = APIHUB_API_COMPATIBILITY_KIND_BWC
@@ -68,13 +64,13 @@ function buildExpected(changeType: typeof BREAKING | typeof RISKY, unclassified:
   }
 }
 
-describe('Changelog backward compatibility scope function', () => {
+describe('AsyncAPI api kind dimension', () => {
   const BWC = APIHUB_API_COMPATIBILITY_KIND_BWC
   const NO_BWC = APIHUB_API_COMPATIBILITY_KIND_NO_BWC
   const EXPERIMENTAL = APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL
 
-  const BACKWARD_COMPATIBLE = API_COMPATIBILITY_KIND_BACKWARD_COMPATIBLE
-  const NOT_BACKWARD_COMPATIBLE = API_COMPATIBILITY_KIND_NOT_BACKWARD_COMPATIBLE
+  const BACKWARD_COMPATIBLE = APIHUB_API_COMPATIBILITY_KIND_BWC
+  const NOT_BACKWARD_COMPATIBLE = APIHUB_API_COMPATIBILITY_KIND_NO_BWC
 
   // null = object absent (added/removed), undefined = object exists without x-api-kind
   type ApiKindInput = ApihubApiCompatibilityKind | undefined | null
@@ -104,7 +100,7 @@ describe('Changelog backward compatibility scope function', () => {
       [EXPERIMENTAL, NO_BWC, NOT_BACKWARD_COMPATIBLE],
       [NO_BWC, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
     ] as const)('should classify root scope prev(%s) curr(%s) as %s', (prev, curr, expected) => {
-      const scopeFunction = createAsyncApiCompatibilityScopeFunction(prev, curr)
+      const scopeFunction = createAsyncApiKindValueAt(prev, curr)
       expect(scopeFunction([], {}, {})).toBe(expected)
     })
   })
@@ -154,7 +150,7 @@ describe('Changelog backward compatibility scope function', () => {
       afterKind,
       expected,
     ) => {
-      const scopeFunction = createAsyncApiCompatibilityScopeFunction(documentApiKind, documentApiKind)
+      const scopeFunction = createAsyncApiKindValueAt(documentApiKind, documentApiKind)
       expect(scopeFunction(['channels', 'ch1'], buildChannel(beforeKind), buildChannel(afterKind))).toBe(expected)
     })
   })
@@ -210,12 +206,12 @@ describe('Changelog backward compatibility scope function', () => {
       afterKind,
       expected,
     ) => {
-      const scopeFunction = createAsyncApiCompatibilityScopeFunction(documentApiKind, documentApiKind)
+      const scopeFunction = createAsyncApiKindValueAt(documentApiKind, documentApiKind)
       expect(scopeFunction(['operations', 'op1'], buildOperation(beforeKind), buildOperation(afterKind))).toBe(expected)
     })
 
     it('should use channel x-api-kind as fallback when operation has no x-api-kind', () => {
-      const scopeFunction = createAsyncApiCompatibilityScopeFunction()
+      const scopeFunction = createAsyncApiKindValueAt()
       const before = {
         action: 'send' as const,
         channel: { [API_KIND_SPECIFICATION_EXTENSION]: NO_BWC },
@@ -225,7 +221,7 @@ describe('Changelog backward compatibility scope function', () => {
     })
 
     it('should let operation x-api-kind override channel x-api-kind', () => {
-      const scopeFunction = createAsyncApiCompatibilityScopeFunction()
+      const scopeFunction = createAsyncApiKindValueAt()
       const before = {
         action: 'send' as const,
         [API_KIND_SPECIFICATION_EXTENSION]: BWC,
@@ -251,15 +247,15 @@ describe('Changelog backward compatibility scope function', () => {
 
     it.each(documentKinds)('should produce same root scope results as no-BWC (document=%s)', (doc) => {
       for (const otherDoc of documentKinds) {
-        const noBwcResult = createAsyncApiCompatibilityScopeFunction(doc, otherDoc)([], {}, {})
-        const expResult = createAsyncApiCompatibilityScopeFunction(replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind, replaceNoBwcWithExperimental(otherDoc) as ApihubApiCompatibilityKind)([], {}, {})
+        const noBwcResult = createAsyncApiKindValueAt(doc, otherDoc)([], {}, {})
+        const expResult = createAsyncApiKindValueAt(replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind, replaceNoBwcWithExperimental(otherDoc) as ApihubApiCompatibilityKind)([], {}, {})
         expect(expResult).toBe(noBwcResult)
       }
     })
 
     it.each(documentKinds)('should produce same channel scope results as no-BWC (document=%s)', (doc) => {
-      const scope = createAsyncApiCompatibilityScopeFunction(doc, doc)
-      const expDocScope = createAsyncApiCompatibilityScopeFunction(replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind, replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind)
+      const scope = createAsyncApiKindValueAt(doc, doc)
+      const expDocScope = createAsyncApiKindValueAt(replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind, replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind)
       for (const before of allKinds) {
         for (const after of allKinds) {
           const noBwcResult = scope(['channels', 'ch1'], buildChannel(before), buildChannel(after))
@@ -270,8 +266,8 @@ describe('Changelog backward compatibility scope function', () => {
     })
 
     it.each(documentKinds)('should produce same operation scope results as no-BWC (document=%s)', (doc) => {
-      const scope = createAsyncApiCompatibilityScopeFunction(doc, doc)
-      const expDocScope = createAsyncApiCompatibilityScopeFunction(replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind, replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind)
+      const scope = createAsyncApiKindValueAt(doc, doc)
+      const expDocScope = createAsyncApiKindValueAt(replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind, replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind)
       for (const before of allKinds) {
         for (const after of allKinds) {
           const noBwcResult = scope(['operations', 'op1'], buildOperation(before), buildOperation(after))
@@ -283,7 +279,7 @@ describe('Changelog backward compatibility scope function', () => {
   })
 
   describe('Other paths', () => {
-    const scopeFunction = createAsyncApiCompatibilityScopeFunction()
+    const scopeFunction = createAsyncApiKindValueAt()
 
     it('should return undefined for non-operations/non-channels paths', () => {
       expect(scopeFunction(['components', 'messages'], {}, {})).toBeUndefined()

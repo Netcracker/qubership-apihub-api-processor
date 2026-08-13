@@ -19,10 +19,9 @@ import {
   DiffAction,
   extractOperationBasePath,
   type DiffClassificationContext,
-  type DiffClassificationOverride,
+  type DiffClassificationRule,
   type DiffType,
-  type TraversalPartition,
-  type TraversalPartitionFunction,
+  type TraversalDimension,
   risky,
 } from '@netcracker/qubership-apihub-api-diff'
 import {
@@ -51,6 +50,7 @@ import {
 import { calculateHash } from '../../utils/hashes'
 import { declarationPathsKey } from '../../utils/path'
 import { OperationsMap } from '../../components'
+import { DIMENSION_DEPRECATION } from '../../components/compare/traversal.dimensions'
 
 /** The notice must have been carried by more than one released version: a single release is not enough. */
 const SUFFICIENT_DEPRECATION_HISTORY = 1
@@ -58,13 +58,18 @@ const SUFFICIENT_DEPRECATION_HISTORY = 1
 const OPERATION_PATH_LENGTH = 3 // paths/<path>/<method>
 
 /**
- * api-diff options implementing the APIHUB rule for removal of long-deprecated elements.
- * The partition function says which traversals may disagree, the override says what each of them decides.
+ * The APIHUB rule for removal of long-deprecated elements: the dimension says which traversals may
+ * disagree, the rule says what each decides. Both empty when nothing was announced long enough.
  */
-export type DeprecatedRemovalRules = {
-  traversalPartitionFunction?: TraversalPartitionFunction
-  diffClassificationOverride?: DiffClassificationOverride
+type DeprecatedRemovalRules = {
+  dimensions: readonly TraversalDimension[]
+  rules: readonly DiffClassificationRule[]
 }
+
+const NOTHING_TO_DOWNGRADE: DeprecatedRemovalRules = { dimensions: [], rules: [] }
+
+/** Value of the deprecation dimension: the group of operations allowed to disagree about a removal. */
+type DeprecationPartition = string
 
 /** Hash plus declaration paths, the same pair that identifies a stored `DeprecateItem`. */
 type DeprecatedElementId = string
@@ -77,7 +82,7 @@ type SeasonedDeprecations = ReadonlySet<DeprecatedElementId>
 /** What the traversal asks about an operation, settled up front. One lookup answers both. */
 type PreparedOperation = {
   isOperationSeasoned: boolean
-  partition: TraversalPartition | undefined
+  partition: DeprecationPartition | undefined
 }
 
 /** What was announced long enough for one operation. */
@@ -106,13 +111,13 @@ export async function createDeprecatedRemovalRules(
 ): Promise<DeprecatedRemovalRules> {
   // No deprecation notice in the document means nothing here can be downgraded, so skip the lookup
   if (!containsDeprecatedElement(previousDocumentData)) {
-    return {}
+    return NOTHING_TO_DOWNGRADE
   }
 
   const previousOperations = await resolvePreviousDeprecations(operationsMap, previousDocument, ctx)
   const seasonedByOperationId = collectSeasonedDeprecations(previousOperations ?? [])
   if (!seasonedByOperationId.size) {
-    return {}
+    return NOTHING_TO_DOWNGRADE
   }
 
   const { preparedByOperationId, seasonedByPartition } = assignPartitions(seasonedByOperationId)
@@ -120,11 +125,14 @@ export async function createDeprecatedRemovalRules(
   const reportBrokenOrigins = createBrokenOriginsReporter(ctx)
 
   return {
-    traversalPartitionFunction: (path, beforeJso) => (
-      path && isOperationPath(path) ? preparedOf(path[1], path[2], beforeJso)?.partition : undefined
-    ),
+    dimensions: [{
+      name: DIMENSION_DEPRECATION,
+      valueAt: (path, beforeJso) => (
+        path && isOperationPath(path) ? preparedOf(path[1], path[2], beforeJso)?.partition : undefined
+      ),
+    }],
 
-    diffClassificationOverride: (context) => {
+    rules: [(context) => {
       if (context.type !== breaking || context.action !== DiffAction.remove) {
         return undefined
       }
@@ -134,13 +142,14 @@ export async function createDeprecatedRemovalRules(
         return operationVerdict
       }
 
-      const seasoned = context.partition ? seasonedByPartition.get(context.partition) : undefined
+      const partition = context.dimensions[DIMENSION_DEPRECATION]
+      const seasoned = partition ? seasonedByPartition.get(partition) : undefined
       if (!seasoned?.size) {
         return undefined
       }
 
       return classifyElementRemoval(context.beforeValue, seasoned, ctx, reportBrokenOrigins)
-    },
+    }],
   }
 }
 
@@ -190,10 +199,10 @@ type PreparedOperationLookup = (
  */
 function assignPartitions(seasonedByOperationId: Map<string, OperationDeprecations>): {
   preparedByOperationId: Map<string, PreparedOperation>
-  seasonedByPartition: Map<TraversalPartition, SeasonedDeprecations>
+  seasonedByPartition: Map<DeprecationPartition, SeasonedDeprecations>
 } {
-  const partitionBySignature = new Map<string, TraversalPartition>()
-  const seasonedByPartition = new Map<TraversalPartition, Set<DeprecatedElementId>>()
+  const partitionBySignature = new Map<string, DeprecationPartition>()
+  const seasonedByPartition = new Map<DeprecationPartition, Set<DeprecatedElementId>>()
   const preparedByOperationId = new Map<string, PreparedOperation>()
 
   for (const [operationId, { isOperationSeasoned, elements, shareableElements }] of seasonedByOperationId) {

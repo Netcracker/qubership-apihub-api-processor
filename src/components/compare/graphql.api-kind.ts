@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-import { APIHUB_API_COMPATIBILITY_KIND_BWC } from '../../consts'
+import { APIHUB_API_COMPATIBILITY_KIND_BWC, ApihubApiCompatibilityKind } from '../../consts'
 import { isObject } from '../../utils'
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
-import { ApiCompatibilityKind } from '@netcracker/qubership-apihub-api-diff'
 import { GRAPHQL_TYPE_KEYS } from '../../apitypes/graphql/graphql.consts'
-import { ApiCompatibilityScopeFunctionFactory } from './bwc.validation.types'
-import { toApiCompatibilityKind } from './bwc.validation.utils'
+import { ApiKindDimensionFactory } from './api-kind.types'
+import { toApiKind } from './api-kind.utils'
 
 const ROOT_PATH_LENGTH = 0
 const GRAPHQL_OPERATION_PATH_LENGTH = 2 // queries|mutations|subscriptions/<operationName>
@@ -28,7 +27,7 @@ const GRAPHQL_OPERATION_PATH_LENGTH = 2 // queries|mutations|subscriptions/<oper
 const OPERATION_ROOT_SEGMENTS: ReadonlySet<string> = new Set(GRAPHQL_TYPE_KEYS)
 
 /**
- * Creates an ApiCompatibilityScopeFunction for GraphQL documents.
+ * Answers the api kind dimension for GraphQL documents.
  *
  * GraphQL api-kind is document-level only: there is no per-operation `x-api-kind`
  * in the SDL (out of scope), so every operation inherits the document
@@ -42,21 +41,21 @@ const OPERATION_ROOT_SEGMENTS: ReadonlySet<string> = new Set(GRAPHQL_TYPE_KEYS)
  * - removal (operation exists before, absent after): keyed on the PREVIOUS document
  *     api-kind.
  */
-export const createGraphqlApiCompatibilityScopeFunction: ApiCompatibilityScopeFunctionFactory = (
+export const createGraphqlApiKindValueAt: ApiKindDimensionFactory = (
   prevDocumentApiKind = APIHUB_API_COMPATIBILITY_KIND_BWC,
   currDocumentApiKind = APIHUB_API_COMPATIBILITY_KIND_BWC,
 ) => {
-  const defaultApiCompatibilityKind = toApiCompatibilityKind(prevDocumentApiKind, currDocumentApiKind)
+  const documentApiKind = toApiKind(prevDocumentApiKind, currDocumentApiKind)
 
   return (
     path?: JsonPath,
     beforeJson?: unknown,
     afterJson?: unknown,
-  ): ApiCompatibilityKind | undefined => {
+  ): ApihubApiCompatibilityKind | undefined => {
     const pathLength = path?.length ?? 0
 
     if (pathLength === ROOT_PATH_LENGTH) {
-      return defaultApiCompatibilityKind
+      return documentApiKind
     }
 
     // queries|mutations|subscriptions/<operationName>
@@ -69,10 +68,10 @@ export const createGraphqlApiCompatibilityScopeFunction: ApiCompatibilityScopeFu
       }
 
       if (beforeExists && !afterExists) {
-        return toApiCompatibilityKind(prevDocumentApiKind)
+        return toApiKind(prevDocumentApiKind)
       }
 
-      return defaultApiCompatibilityKind
+      return documentApiKind
     }
 
     return undefined

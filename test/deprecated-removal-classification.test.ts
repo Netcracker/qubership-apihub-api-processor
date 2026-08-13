@@ -28,7 +28,7 @@ import { calculateChangeSummary } from '../src/utils'
 /**
  * Removing an element deprecated in more than one released version is risky rather than breaking. How long
  * it has been announced is a property of the consumer, so two operations reaching the same removed element
- * through one shared schema must be able to disagree about it. `traversalPartitionFunction` groups them by
+ * through one shared schema must be able to disagree about it. The deprecation dimension groups them by
  * what they were warned about, and apiDiff classifies each group's instance on its own.
  * The failure this suite prevents is a summary frozen per operation contradicting its own diffs:
  *
@@ -62,7 +62,7 @@ const registry = LocalRegistry.openPackage(PACKAGE_ID)
  * `/late-comer` is declared first, which is the order the comparison walks. Both operations reach the
  * schema in the request and in the response, so the removal of one property reaches each of them twice.
  * Run with DEPRECATED_REMOVAL_DUMP=1 to print every summary and diff. Places worth a breakpoint:
- * `assignPartitions` and `diffClassificationOverride` in rest.deprecated.classification.ts,
+ * `assignPartitions` and the classification rule in rest.deprecated.classification.ts,
  * `createChangeBase` in compare.utils.ts.
  */
 describe('Removal of a long-deprecated element', () => {
@@ -133,6 +133,39 @@ describe('Removal of a long-deprecated element', () => {
  * disagree about, so the operations share a partition and the removal stays one difference. This is the
  * reuse that keeps partitioning from costing a traversal per operation.
  */
+/**
+ * The two rules of a REST changelog meet here: the api kind rule runs first and softens every breaking
+ * removal of a no-BWC document, so the deprecated-removal rule, which claims only differences still
+ * breaking, has nothing left to decide. The verdict is the same one it would have reached anyway.
+ */
+describe('Removal of a long-deprecated element in a no-BWC document', () => {
+  let result: BuildResult
+
+  beforeAll(async () => {
+    result = await publishSeries('minimal', ['apihub/x-api-kind: no-BWC'], 'no-bwc-')
+  })
+
+  test('softens the removal for both operations, warned long enough or not', () => {
+    const longLived = operationChanges(result, LONG_LIVED_ID)
+    expect(requestRemoval(longLived)?.type).toBe(RISKY_CHANGE_TYPE)
+    expect(longLived.changeSummary[BREAKING_CHANGE_TYPE]).toBe(0)
+
+    // Breaking without the api kind, as the suite above pins; risky here, and by the other rule
+    const lateComer = operationChanges(result, LATE_COMER_ID)
+    expect(requestRemoval(lateComer)?.type).toBe(RISKY_CHANGE_TYPE)
+    expect(lateComer.changeSummary[BREAKING_CHANGE_TYPE]).toBe(0)
+  })
+
+  test('every operation summary matches the diffs it carries', () => {
+    const data = result.comparisons[0]?.data ?? []
+    expect(data.length).toBeGreaterThan(0)
+
+    for (const changes of data) {
+      expect(changes.changeSummary).toEqual(calculateChangeSummary(changes.diffs ?? []))
+    }
+  })
+})
+
 describe('Operations with the same deprecation history', () => {
   let result: BuildResult
 
@@ -178,17 +211,19 @@ describe('Deprecation history across a reworded notice', () => {
 })
 
 /** Publishes `<fixture>-v1` to `-v3` in order, each against the one before, and returns the last build. */
-async function publishSeries(fixture: string): Promise<BuildResult> {
+async function publishSeries(fixture: string, versionLabels?: string[], versionPrefix = ''): Promise<BuildResult> {
   let result: BuildResult | undefined
   let previousVersion: string | undefined
 
   for (const step of [1, 2, 3]) {
-    const version = `${fixture}-v${step}`
+    const source = `${fixture}-v${step}`
+    const version = `${versionPrefix}${source}`
     result = await registry.publish(PACKAGE_ID, {
       packageId: PACKAGE_ID,
       version,
       ...previousVersion ? { previousVersion } : {},
-      files: [{ fileId: `${version}.yaml`, publish: true }],
+      ...versionLabels ? { metadata: { versionLabels } } : {},
+      files: [{ fileId: `${source}.yaml`, publish: true }],
     })
     previousVersion = version
   }

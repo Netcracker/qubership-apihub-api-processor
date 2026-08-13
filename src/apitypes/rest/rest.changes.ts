@@ -65,7 +65,8 @@ import {
   getOperationTags,
   OperationsMap,
 } from '../../components'
-import { createRestApiCompatibilityScopeFunction } from '../../components/compare/rest.bwc.validation'
+import { createRestApiKindValueAt } from '../../components/compare/rest.api-kind'
+import { apiKindClassificationRule, DIMENSION_API_KIND } from '../../components/compare/traversal.dimensions'
 import { createDeprecatedRemovalRules } from './rest.deprecated.classification'
 
 export const compareDocuments: DocumentsCompare = async (
@@ -110,6 +111,8 @@ export const compareDocuments: DocumentsCompare = async (
   const currDocumentApiKind = currDoc?.apiKind
   const prevDocumentApiKind = prevDoc?.apiKind
 
+  const deprecatedRemovalRules = await createDeprecatedRemovalRules(operationsMap, prevDoc, prevDocData, ctx)
+
   const { merged, diffs } = apiDiff(
     prevDocData,
     currDocData,
@@ -121,8 +124,14 @@ export const compareDocuments: DocumentsCompare = async (
       normalizedResult: false,
       afterValueNormalizedProperty: AFTER_VALUE_NORMALIZED_PROPERTY,
       beforeValueNormalizedProperty: BEFORE_VALUE_NORMALIZED_PROPERTY,
-      apiCompatibilityScopeFunction: createRestApiCompatibilityScopeFunction(prevDocumentApiKind, currDocumentApiKind),
-      ...await createDeprecatedRemovalRules(operationsMap, prevDoc, prevDocData, ctx),
+      dimensions: [
+        {
+          name: DIMENSION_API_KIND,
+          valueAt: createRestApiKindValueAt(prevDocumentApiKind, currDocumentApiKind),
+        },
+        ...deprecatedRemovalRules.dimensions,
+      ],
+      classificationRules: [apiKindClassificationRule, ...deprecatedRemovalRules.rules],
       openApiPathItemPerOperationDiffs: true,
     },
   ) as { merged: OpenAPIV3.Document; diffs: Diff[] }
