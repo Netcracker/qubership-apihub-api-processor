@@ -1,6 +1,6 @@
 # Tolerant Publication: Per-Document Errors
 
-Status: **Draft for review** · 2026-07-24
+Status: **Draft for review** · 2026-08-12
 
 Today a `build` (publication) in api-processor fails entirely when processing of a single document throws.
 This design makes publication tolerant: errors are caught per document, collected as notifications, associated
@@ -8,7 +8,8 @@ with the document(s), and — for `draft` publications — the version is still 
 A `release` publication still fails, but reports the specific errors that blocked it.
 
 The `changelog` build type is affected too: a changelog calculation may complete even when the version it
-describes has errors, but a version with errors may not serve as the *previous* version of a comparison.
+describes has errors, but a version that is *unsound* — errors of its own, or an unreliable changelog — may not
+serve as the *previous* version of a comparison.
 
 ## Why
 
@@ -25,43 +26,78 @@ This is a diagnostic affordance, not a relaxation of quality gates — `release`
 
 Two build types are in scope: **`build`** (version publication — the tolerant path) and **`changelog`**
 (comparison calculation — its own rule below). The transform and export build types raise no notifications at
-all and are unaffected; see [§2a](#2a-reachability-by-build-type).
+all and are unaffected; see [Current Notification Revision](#current-notification-revision).
 
 Governing rules after the latest decisions:
 
-- **No automatic status downgrade.** Publishing in `release` status while any `Error`-severity notification
-  exists is a **fatal** error (publication fails). Publishing in `draft` status succeeds and the version is
-  marked as having errors.
+- **`Error` severity is the blocking condition.** An `Error`-severity notification in either stream blocks a
+  `release`; everything below follows from that.
+- **No automatic status downgrade.** Publishing in `release` status while any `Error` exists is a **fatal**
+  error (publication fails). Publishing in `draft` status succeeds and the version is marked as having errors.
 - **`release-candidate` is unused** — disregarded everywhere below.
-- **Changelog build** is allowed to complete even when the *current* version has `Error` notifications, but a
-  version with errors **must not be usable as the previous version** in a changelog calculation.
-- **Dashboards:** a package version with errors **cannot be added** to a dashboard. If a dashboard somehow
-  already references an errored version, the UI must indicate it when viewing the dashboard's packages.
-- An `Error`-severity notification is what "critical" meant in the previous draft — the terms are unified: for
-  this story, **severity `Error` is the blocking condition** for `release` publication.
+- **Changelog build** is allowed to complete even when the *current* version has `Error` notifications, but an
+  **unsound** version **must not be usable as the previous version** in a changelog calculation. A version is
+  unsound when it has errors of its own *or* its changelog has errors — the single predicate all four backend
+  refusals gate on, defined under [Backend — new refusals](#public-api-changes-at-a-glance).
+- **Dashboards:** an unsound package version **cannot be added** to a dashboard. If a dashboard somehow already
+  references one, the UI must indicate it when viewing the dashboard's packages.
 
 UI implementation is **out of scope**; UI source was analyzed only to identify the backend APIs that change.
 
 ## High-level design
 
 1. **Publication becomes tolerant per document.** A failure while processing one document no longer aborts the
-   build. It is recorded against that document, the document is still published (as an empty placeholder that
-   exposes no operations or entities), and every other document builds and publishes normally.
+   build. It is recorded against that document; the document is still published — carrying its original
+   content, so the user can inspect it, but exposing no operations or entities — and every other document
+   builds and publishes normally.
 2. **Notifications are the single reporting mechanism.** Failures that used to abort the build become
-   notifications. Each message carries a *category* and is attributed to the document or documents it concerns.
-3. **`Error` severity is the blocking condition.** A `draft` version publishes with errors and is marked. A
-   `release` version does not publish at all — the build fails and reports what is wrong.
-4. **Two summary flags describe the outcome.** api-processor computes `hasErrors` for the version and for each
-   document, and carries both in the build result. The backend stores them and derives a third view: which API
-   types and contract types contain errored documents.
-5. **A small set of failures stays fatal**, for two distinct reasons: nothing publishable survives them (there
+   notifications. Each message carries a *category* and is attributed to the document it concerns.
+3. **Build-phase and comparison-phase notifications are kept apart.** A version build and a changelog
+   calculation are separate concerns that can occur separately or together, so their messages go to separate
+   files: `notifications.json` for building the version's own documents, `comparison-notifications.json` for
+   calculating a changelog. A problem in the comparison marks the *comparison*, never the version.
+4. **`Error` severity is the blocking condition, in either stream.** A `draft` version publishes with errors
+   and is marked. A `release` version does not publish at all — the build fails and reports what is wrong. A
+   changelog error blocks a release too: a release that declares a `previousVersion` is expected to ship
+   reliable changes, so an unreliable changelog disqualifies it just as a bad document does.
+5. **Summary flags describe the outcome.** api-processor computes `hasErrors` for the version, for each
+   document, and for each comparison, and carries them in the build result. The backend stores them and derives
+   a further view: which API types and contract types contain errored documents.
+6. **A small set of failures stays fatal**, for two distinct reasons: nothing publishable survives them (there
    is no version, or no artifact), or publishing degraded output would hide a defect that is hard to diagnose
    afterwards.
-6. **Errored versions are quarantined from composition.** A version with errors cannot serve as the baseline of
-   a changelog calculation, and cannot be referenced by a dashboard.
-7. **Some errors belong to the version, not to a document** (a missing previous version, unresolvable
-   references). These mark the version without marking any document, and are reachable through a new
-   notifications endpoint.
+7. **Unsound versions are quarantined from composition.** A version with errors of its own, or with an
+   unreliable changelog, cannot serve as the baseline of a changelog calculation and cannot be referenced by a
+   dashboard.
+8. **Some errors belong to a version pair, not to a document** (a missing previous version, unresolvable
+   references). These are comparison-phase only: they mark the comparison without marking any document, and
+   are reachable through the comparison notifications endpoint. Every build-phase error is attributed to a
+   document.
+
+## Build phases and the shape of a build result
+
+A version build and a changelog calculation are distinct phases. They combine into three possible build
+results, and the notification files present in each follow directly:
+
+| Build | Phases | Artifacts | Notification files |
+|-------|--------|-----------|--------------------|
+| `build`, no `previousVersion` | version build | version artifacts | `notifications.json` |
+| `build` with `previousVersion` | version build, then comparison | version + comparison artifacts | `notifications.json`, `comparison-notifications.json` |
+| `changelog` | comparison only | comparison artifacts | `comparison-notifications.json` |
+
+Note the middle row is **one** build producing **one** archive — `BuildStrategy` calculates the comparison
+inline after building the documents, it does not spawn a second build. The `changelog` build type is used when
+both versions already exist: on demand via `POST /api/v2/compare`, and automatically by the backend's
+`reCalculateChangelogs`, which refreshes the changelogs of every version that declares the just-published
+version as its previous version.
+
+The split matters because the two phases have different subjects. A build-phase error is about a **document**
+of the version being published, and rolls up to the version's `hasErrors`. A comparison-phase error is about a
+**version pair**, and rolls up to that comparison's `hasErrors` — it must never mark the version itself, which
+may be perfectly sound while its changelog against some baseline is not.
+
+The split governs the *flags*, not the `release` gate: an `Error` in either stream blocks a `release`
+publication, because a release is expected to ship both sound documents and a reliable changelog.
 
 ## Public API changes at a glance
 
@@ -74,121 +110,58 @@ Detail in [api-processor](#api-processor) and [Backend](#backend); this is the s
 | `NotificationMessage` | `fileId` → `documentId` (a single document slug); new required `category`; `operationId` / `previousOperationId` removed. A problem concerning several documents yields one message per document. |
 | `documents.json` — each document | new optional `hasErrors` (default `false`) |
 | `info.json` — the version | new optional `hasErrors` (default `false`) |
-| `notifications.json` | unchanged location; entries follow the new `NotificationMessage` shape |
+| `notifications.json` | build-phase messages only; entries follow the new `NotificationMessage` shape |
+| **new** `comparison-notifications.json` | comparison-phase messages, **grouped by comparison** so each maps to its version pair; same message shape as `notifications.json` |
+| `comparisons.json`, `ddl-comparisons.json` — each comparison | new optional `hasErrors` (default `false`) |
 
 **Backend — REST API**
 
 | Endpoint | Change |
 |----------|--------|
 | `GET /api/v3/packages/{packageId}/versions` | `hasErrors` per version |
-| `GET /api/v3/packages/{packageId}/versions/{version}` | `hasErrors` for the version; `hasErrors` per `operationTypes` entry and per `contractsSummary.ddl` / `.mcp` |
+| `GET /api/v3/packages/{packageId}/versions/{version}` | `hasErrors` for the version; `hasErrors` per `operationTypes` entry and per `contractsSummary.ddl` / `.mcp`; `comparisonHasErrors` when `includeSummary=true` |
 | `GET /api/v2/packages/{packageId}/versions/{version}/documents` | `hasErrors` per document |
 | `GET /api/v3/packages/{packageId}/versions/{version}/documents/{slug}` | `hasErrors` for the document |
+| `GET /api/v2/packages/{packageId}/versions/{version}/changes/summary` | `hasErrors` for the comparison |
 | **new** `GET /api/v2/packages/{packageId}/versions/{version}/notifications` | version's build notifications, filterable by `documentId`, `severity`, `category` |
-
-**Backend — new refusals**
-
-Publishing a `release` version that has errors; using a version with errors as the previous version of a
-changelog; and referencing a version with errors from a dashboard.
+| **new** `GET /api/v2/packages/{packageId}/versions/{version}/changes/notifications` | comparison notifications, same filters plus `previousVersion` and `previousVersionPackageId` |
 
 All added response fields are optional and default to `false`, so existing clients are unaffected.
 
-## Error catalogue (api-processor, `build` path)
+**Backend — new refusals**
+
+All four gate on the same predicate. A version is **unsound** when either is true:
+
+- the version itself has `hasErrors` — a problem in its own documents; or
+- the version's comparison against its `previousVersion` has `hasErrors` — an unreliable changelog. Versions
+  with no `previousVersion` have no comparison, and this half simply does not apply.
+
+| Action | Refused when |
+|--------|--------------|
+| Publishing a version in `release` status | the version being published is unsound |
+| `PATCH /api/v2/packages/{packageId}/versions/{version}` promoting `status` to `release` | the version is unsound |
+| Using a version as the previous version of a changelog | that version is unsound |
+| Referencing a version from a dashboard | that version is unsound |
+
+One predicate for all four keeps the rules coherent: a version is fit to be released, or to be built upon as a
+baseline or a dashboard member, only when both its content and its changelog are trustworthy. Gating some
+refusals on content alone would let an unreliable changelog propagate into exactly the places that consume it.
+
+The `PATCH` refusal closes the back door around the publish-time gate: a version can legitimately be published
+as a `draft` while unsound, and `PatchVersion` would otherwise let it be promoted straight to `release` without
+any of the publish-time checks being re-run. It is scoped to promotion into `release` — other status changes,
+notably `draft` → `archived`, stay allowed so an unsound version can still be cleaned up.
+
+## api-processor
 
 The publication path is `PackageVersionBuilder.run()` → `BuildStrategy.execute()`:
 `validateConfig` → `buildFiles` (parse + build document per file) → per-document processing loop
 (operations / MCP / DDL) → whole-set MCP validations → deprecated history → `compareVersions` (changelog) →
 `createVersionPackage` (zip). Any uncaught throw currently fails the whole publication.
 
-The work splits every failure into: **(a)** already-a-notification (keep, but review severity + assign
-category), or **(b)** an uncaught throw to be converted into an `Error` notification attributed to the
-document(s), leaving the document present but empty.
+### Notifications Mechanism Redesign
 
-**The primary test for keeping a failure fatal is whether anything publishable survives it** — not whether it
-can be attributed to a document. If a partial version would still give the user something worth looking at, the
-failure becomes a notification and the draft publishes. Attribution is a separate concern: some failures that
-cannot be pinned to a single document (a duplicate spanning two documents, a whole-set MCP check) are still
-tolerated, because the rest of the version survives them.
-
-Two reasons keep a failure fatal:
-
-- **Nothing to salvage** (Group C) — no version can be constructed, or no artifact is produced at all.
-- **Deliberate design decision** (Group D) — a partial version *could* be published, but doing so would mask a
-  defect that is hard to diagnose later. Publishing degraded output would defer the problem to whoever
-  eventually notices the data is wrong, long after the cause is traceable.
-
-### Group A — document-attributable, single document (throws → convert to notification)
-
-| # | Source | Failure | documentId |
-|---|--------|---------|------------|
-| A1 | `builder.ts:764` `parseFile` | `Cannot parse file <fileId>` — parser threw (e.g. `async.parser.ts:78/170`) | file's slug |
-| A2 | `components/document.ts:74` `buildDocument` | `Cannot process the "<fileId>" document` — wraps every `apiBuilder.buildDocument` throw | slug |
-| A2a | `apitypes/rest/rest.document.ts:84` | swagger→openapi 3.0 transform failed | via A2 |
-| A2b | `utils/document.ts:166` | broken `$ref` (`REF_NOT_FOUND`/`REF_NOT_VALID_FORMAT`) when `brokenRefs=error` | via A2 |
-| A2c | `apitypes/unknown/unknown.document.ts:93` | document has no source | via A2 |
-| A3 | `components/operations.ts:45` `buildOperations` throws | e.g. `graphql.operation.ts:197,238`, `async.operation.ts:275,345`, `async.utils.ts:183`, `utils/operations.utils.ts:247` | slug |
-| A4 | `apitypes/ddl/ddl.validation.ts:53` | DDL intra-document duplicate object | slug |
-| A5 | `apitypes/ddl/ddl.entities.ts:56,66` | invalid DDL entity construction | slug |
-| A6 | `apitypes/mcp/mcp.entities.ts:45,51,70` | MCP missing `mcpEndpoint` / invalid kind / intra-document duplicate | slug |
-| A7 | `components/mcp.ts:144,158,164` | MCP missing endpoint / unsupported `protocolVersion` / schema non-conformance | slug |
-| A8 | `components/deprecated.ts:128` | component type/name not a string | operation's document slug |
-
-### Group B — document-attributable, multiple documents (throws → one notification per affected document)
-
-Each of these produces **one notification per document**, all with the same message text (see §1,
-denormalization).
-
-| # | Source | Failure | Notifications emitted |
-|---|--------|---------|-----------------------|
-| B1 | `components/operations.ts:23` | duplicate AsyncAPI `operationId` across documents | one per document in the pair |
-| B2 | `components/mcp.ts:56` | duplicate MCP entity id across documents | one per document in the pair |
-| B3 | `components/ddl.ts:43` | duplicate DDL entity id across documents | one per document in the pair |
-| B4 | `components/mcp.ts:110` | MCP endpoint publishes entities but has no init | one per document of the endpoint |
-| B5 | `rest.operations.ts:143` `createDuplicatesError` | duplicate REST operationId within/across documents | one per affected document |
-
-### Group C — stays fatal (nothing salvageable)
-
-Reviewed against the "is anything publishable left?" test:
-
-| # | Source | Failure | Why nothing survives |
-|---|--------|---------|----------------------|
-| C1 | `validators.ts:22` / `build.strategy.ts:56` | invalid config: no `packageId`/`version`; no files and no refs | There is no version to publish. Nothing has been built and nothing can be — the build has no subject. |
-| C2 | `createVersionPackage` / zip tooling | packaging / zip failure | No artifact is produced. Even a fully-built version cannot be delivered, so there is nothing for the backend to receive. |
-
-### Group D — stays fatal by design decision
-
-These failures are recoverable in principle — by the time they fire the version's own documents and operations
-are already built, so a partial version *could* be published. They are kept fatal deliberately, because
-publishing a degraded version would mask a defect that is hard to diagnose after the fact.
-
-| # | Source | Failure | Why fatal is deliberate |
-|---|--------|---------|-------------------------|
-| D1 | `builder.ts` resolver guards: `:446` `versionOperationsResolver`, `:548` `versionDocumentsResolver`, `:591` `versionDeprecatedResolver`, `:627` `versionResolver`, `:663` `versionReferencesResolver` | a resolver the host must supply is not provided | A defect in the embedding host, not in the content. It fails identically for every build, so tolerance buys nothing; degrading it would silently ship changelog-less drafts from a broken deployment forever. |
-| D2 | `validators.ts:51,58` via `compare.operations.ts:68,69` | api-processor version mismatch on the previous or current resolved version | **Design decision:** a version-mismatch must not be hidden. Publishing a draft with a silently-missing or partial changelog would defer the problem to whoever later notices the data is wrong — by then the mismatch is hard to trace back. Failing the build reports the real cause at the point it occurs. |
-
-Both are only reached for the **previous** version or the deprecated-history pass; the current version resolves
-locally via `canBeResolvedLocally`. Note D2 therefore also fails a `changelog` build outright — that is
-intended, and is the one exception to the "a changelog may complete with errors" rule in §5.
-
-Distinguish D1 from `builder.ts:636` / `:682`, which fire when the resolver *is* present but returns nothing
-(version or references not found). Those are already notifications today and stay that way.
-
-`packageResolver` (`:516`, `:521`) and `templateResolver` / `rawDocumentResolver` (`:366`, `:392`, `:397`) are
-reached **only from export strategies** and never during a `build`, so they are out of scope here.
-
-### Changelog-phase throws — open
-
-`compareVersions` internals (`rest.changes.ts:180`, `graphql.changes.ts:136`, `async.changes.ts:148`,
-`compare.ddl.ts:192`) currently throw and would abort a build after all documents are built. By the salvageable
-test they are candidates for conversion to notifications — the version content survives, only the comparison is
-lost. They are left open because they signal an internal inconsistency (an operation present in the index but
-missing from its document pair), and the D2 reasoning arguably extends to them: a silently-degraded changelog
-hides a defect that is hard to trace later. Recommend resolving them the same way as D2 (keep fatal) unless the
-review finds they are routine and user-caused.
-
-## api-processor
-
-### 1. New `NotificationMessage` shape
+#### Message shape
 
 ```ts
 export interface NotificationMessage {
@@ -216,138 +189,586 @@ containment. The cost is repeated message text, which is a fair trade — each c
 because a user looking at one document wants that document's problems regardless of what else the problem
 touches.
 
-**fileId→slug resolution.** Some notifications are raised where only `fileId` is known (parse-time,
-pre-build). Slugs are assigned in `buildFiles` (`createFileSlugs`) before per-file build, and every built
-document is in `buildResult.documents` keyed by `fileId` with `.slug`. Implementation: raise with `fileId`
-internally, then normalize to `documentId` in a single pass at package-creation time using the
-`fileId → document.slug` map. A file that never became a document (hard parse failure with no
-`buildErrorDocument`) still gets a slug because `buildErrorDocument` is produced for the parse/build failure
-cases (see catch points).
+**Attribute with the slug at the raising site — no late conversion.** Every site that knows which document it
+is talking about passes `document.slug` directly. There is no `fileId → documentId` normalization pass.
 
-This applies only to the **file-level** sites (`files.ts`, `builder.ts:754`, `document.ts:173`,
-`rest.operations.ts` path validation), which know a `fileId`. **Operation-level** sites need no normalization:
-`ApiOperation.documentId` already holds the slug (see §2b).
+`fileId` and slug are different strings — `createFileSlugs` strips the base path and extension, slugifies and
+resolves collisions (`specs/petstore.yaml` → `petstore`; a second `specs/v2/petstore.json` → `petstore-1`).
+Both are plain strings, so a mix-up is silent, and a `fileId` that reaches `documentId` names a document that
+does not exist: `?documentId=specs/petstore.yaml` matches nothing and the document's `hasErrors` is never set.
 
-**Open question — notification id.** Not required for this story: the new endpoint returns a filtered list and
-the `(documentId, category, severity, message)` tuple is enough for the UI. Recommendation: do **not** add an
-id to the api-processor shape; if the backend needs stable row identity it can add a synthetic id on persist.
+The decisive argument against a late conversion pass is `parseFile` (`builder.ts:754`). It is reached not only
+for configured files but for `$ref` targets — `getBundledFileDataWithDependencies` calls
+`parsedFileResolver(filepath)` for arbitrary referenced paths (`utils/document.ts:189`), and such a file need
+not appear in `config.files` at all. It never becomes a document and has no slug of its own. A conversion pass
+has no map entry for it, so the raw `fileId` would **survive the pass and ship as if it were a slug** — a
+plausible-looking wrong value, the worst failure mode.
 
-### 2. `MessageCategory` string enum
+Such a notification is not left unattributed, though: it is attributed to the **root document** that pulled the
+file in — see [Errors in `$ref`-ed files](#errors-in-ref-ed-files) below.
 
-Derived from analysis of every notification-creation site (current + new catch points). Proposed values:
+This is cheap because the slug is available before parsing starts. `createFileSlugs` runs at the top of
+`buildFiles`, and `BuildConfigFile.slug` is populated from then on; `VersionDocument.slug` carries it
+afterwards. Of the sites that carry a document identifier, nearly all already have it in scope — several
+destructure it on the line above and pass `fileId` anyway, e.g. `rest.document.ts:68` destructures `slug` and
+then hands `fileId` to `createBundlingErrorHandler`. `validatePath` (`rest.operations.ts:71`) is called with
+`document.fileId` while `document.slug` sits right there.
+
+**Operation-level sites** need nothing extra: `ApiOperation.documentId` already holds the slug
+(`rest.operation.ts:143`, `async.operation.ts:115`, `graphql.operation.ts:96`). **MCP and DDL entity sites do
+not** — their `documentId` holds a `fileId` today, which is a pre-existing defect corrected by
+[`documentId` Unification](#documentid-unification-mcp-and-ddl-entities) below. Once that lands, the
+cross-document duplicate handlers (`mcp.ts:56`, `ddl.ts:43`) can use `entity.documentId` directly.
+
+**Side effect of the rename.** `operations.ts:29` currently writes `fileId: duplicate.documentId` — a *slug*
+stored in a field named `fileId`. The rename corrects this latent inconsistency rather than introducing a
+change; no value conversion is needed at that site.
+
+#### Errors in `$ref`-ed files
+
+A file reached only through a `$ref` has no slug, but it is always pulled in *by* a document that does. That
+root document is the right subject: its bundle is what ends up broken, and it is the thing the user can open
+and fix.
+
+Half of this already works. `createBundlingErrorHandler(ctx, fileId)` is constructed with the **root**
+document's id (`rest.document.ts:73`, `async.document.ts:58`, `unknown.document.ts:44`), so
+`broken-refs` is already attributed to the root — it only needs the slug instead of the `fileId`, which the
+source-attribution change covers.
+
+What is missing is `invalid-text-file` (`builder.ts:754`), raised inside `parseFile`, which knows nothing about
+who asked for the file.
+
+**Decision: move the emission out of `parseFile` and into the document build.** Parse errors are already stored
+on the cached `SourceFile` (`TextFile.errors` — `rest.document.ts:95` already destructures `errors` from the
+parsed file), and every bundling document already records its `dependencies`. So after bundling, the document
+build emits one `Error` notification per parse error found in **its own file and in each of its dependencies**,
+attributed to that document's slug:
+
+```text
+for each parse error in [own parsed file, ...dependencies.map(parsedFiles.get)]:
+    notifications.push({
+      category: <parse-file | invalid-text-file>,
+      severity: Error,
+      documentId: document.slug,
+      message: <see message format below>,
+    })
+```
+
+`parseFile` stops pushing notifications entirely; it keeps storing `errors` on the `SourceFile` as it does
+today. Only REST, AsyncAPI and unknown documents bundle (`dependencies` is `[]` for GraphQL, DDL, MCP and
+text), so for every other type this reduces to "report the errors of my own file", which is what happens now.
+
+The alternative — threading a root-slug argument through `parsedFileResolver` into `parseFile` — was rejected:
+`parseFile` caches by `fileId` and emits on first parse only, so a file `$ref`-ed by two documents would be
+attributed to whichever parsed it first and the second document would never be flagged. Emitting at build time
+gives every root that includes a broken file its own notification, which is exactly the denormalization rule
+the design already applies to multi-document problems.
+
+##### Message format
+
+**The message must name the file the error came from.** Once a notification is attached to a document other
+than the file that produced it, the existing text (`Invalid <type> file. <parser message>`) is unactionable —
+the reader cannot tell which of the bundle's files is broken. The offending `fileId` is the one piece of
+locating information available, and it is what the user needs to open.
+
+| Case | Message |
+|------|---------|
+| Error in the document's **own** file | `Invalid <type> file. <parser message>` — unchanged |
+| Error in a **`$ref`-ed** file | `Invalid <type> file '<fileId>' referenced from this document. <parser message>` |
+
+Use the referenced file's raw `fileId` in the text: it is the path the user wrote in the `$ref` and the path
+they will edit. Note this is the one place a `fileId` legitimately appears in a notification — inside the
+human-readable `message`, never in the `documentId` field.
+
+##### Other consequences
+
+- **A `$ref` target that is itself a configured file** has its own slug and its own document, so it is flagged
+  directly *and* its dependents are flagged. That is correct: both the file and everything bundling it are
+  affected.
+- The eager `parseFile` loop in the constructor (`fileSources`) stops emitting notifications; emission moves to
+  build time. A file that is parsed but never used by any document then reports nothing, which is right.
+- `invalid-text-file` is always attributed after this change and leaves the unattributed set.
+
+#### No notification id
+
+**Design decision.** `NotificationMessage` carries no identifier. The endpoints return a
+filtered list, and the `(documentId, category, severity, message)` tuple is enough to render and filter it;
+nothing in the UI addresses a single message. Adding an id would mean either inventing a stable identity
+across rebuilds — which does not exist, since a rebuild recomputes messages from scratch — or emitting a
+positional value that changes meaning between builds and invites clients to depend on it.
+
+If the backend later needs stable row identity for storage or pagination, it can add a synthetic id on
+persist, without changing the api-processor contract.
+
+#### Two notification streams
+
+`BuildResult` carries two independent collections of the same `NotificationMessage` type:
+
+| Field | Emitted to | Populated during | Rolls up to |
+|-------|-----------|------------------|-------------|
+| `notifications` | `notifications.json` | building the version's own documents and operations | `hasErrors` on documents and on the version (`info.json`) |
+| per-comparison `notifications` | `comparison-notifications.json` | `compareVersions` and comparison serialization | `hasErrors` on the matching entry of `comparisons.json` / `ddl-comparisons.json` — each message belongs to exactly one version pair, see [Every comparison notification belongs to one version pair](#every-comparison-notification-belongs-to-one-version-pair) |
+
+The split falls out of the existing context separation almost for free: `builderContext()` and
+`compareContext()` are already distinct, and today both point `notifications` at the same array. Pointing
+`compareContext().notifications` at the comparison stream routes everything reached through the compare path.
+Within that stream the scope narrows further to the version pair being compared — the apitype `*.changes.ts`
+modules receive `ctx.notifications` from the *pair* context, so every message lands on the comparison it
+belongs to; see
+[Every comparison notification belongs to one version pair](#every-comparison-notification-belongs-to-one-version-pair).
+
+The builder's own resolver methods are the one place this does not happen automatically: they push to
+`this.notifications` directly rather than to a `ctx`, so they do not see which context invoked them.
+
+**Route them through the context too, rather than by hand.** Manual routing is not merely clumsy here, it is
+*wrong*: `builderContext()` and `compareContext()` bind the **same** method objects, and three resolvers —
+`versionDeprecatedResolver`, `versionDocumentsResolver`, `rawDocumentResolver` — appear in **both**
+(`builder.ts:229/239/232` and `:256/257/258`). A method cannot know its caller's stream, so any fixed
+assignment misroutes one of its two call paths. `versionDocumentsResolver` makes this concrete: it pushes
+`:563` and is reached from `compare.utils.ts:239/240` and `compare.ddl.ts:74` (comparison) *and* from
+`export-version.strategy.ts:41` (build).
+
+The fix is to let the context supply the target array, since the context already *is* the stream. Give each
+notification-pushing resolver the array as a leading parameter and bind it at context construction:
+
+```ts
+private async versionDocumentsResolver(
+  notifications: NotificationMessage[],        // NEW leading parameter
+  version: VersionId,
+  packageId: PackageId,
+  apiType?: OperationsApiType,
+  contractType?: ContractType,
+): Promise<ResolvedVersionDocuments | null>
+```
+
+```ts
+builderContext(config) {
+  return {
+    notifications: this.notifications,
+    versionDocumentsResolver: this.versionDocumentsResolver.bind(this, this.notifications),
+    ...
+  }
+}
+
+private compareContext(config) {
+  return {
+    notifications: this.comparisonNotifications,
+    versionDocumentsResolver: this.versionDocumentsResolver.bind(this, this.comparisonNotifications),
+    ...
+  }
+}
+```
+
+`bind` supplies the leading argument, so the `CompareContext` / `BuilderContext` types and **every call site
+stay unchanged** — `ctx.versionDocumentsResolver(version, packageId, apiType)` still reads the same. Routing
+becomes structural: a resolver writes to whichever stream the context that produced it belongs to, and a future
+resolver added to both contexts is correct without anyone reasoning about it.
+
+Apply it to the five context resolvers that push notifications:
+
+| Resolver | Notification | Contexts it appears in |
+|----------|--------------|------------------------|
+| `versionResolver` (`builder.ts:610`) | `:636` no such version | compare only |
+| `versionReferencesResolver` (`:651`) | `:682` no version references | compare only |
+| `versionOperationsResolver` (`:423`) | `:465` no data for operation | compare only |
+| `versionDocumentsResolver` (`:527`) | `:563` no documents match | **both** |
+| `groupDocumentsResolver` (`:474`) | `:496/:502` no group documents | builder only |
+
+`parseFile` needs no routing at all: it stops emitting notifications entirely (see
+[Errors in `$ref`-ed files](#errors-in-ref-ed-files)) and only records `errors` on the `SourceFile`. The
+document build reads them and emits through `ctx.notifications` — the build context — so parse problems reach
+the build stream structurally, like everything else.
+
+**One site the automatic routing misses.** `comparison-serialization` (`components/package.ts:63`) belongs to
+the comparison stream, but its `ctx` is the **builder** context — `createVersionPackage` is called with
+`this.builderContext(this.config)` (`builder.ts:164`, `:170`). Pointing `compareContext().notifications` at the
+comparison array therefore does nothing for it, and left alone it would land in `notifications.json` as an
+unattributed build-stream error. It has to be moved deliberately, which the per-comparison `logError` closure
+described in
+[the attribution rule](#every-comparison-notification-belongs-to-one-version-pair) does anyway.
+
+**Cost.** Two existing call sites reach these methods directly and need the extra argument:
+`test/graphql.test.ts:76` (`pkg.versionOperationsResolver(...)`) and `test/helpers/registry/local.ts:768`,
+a test-helper subclass that overrides `versionResolver` and calls `super`. Both are test code; no production
+call site outside `builder.ts` invokes them.
+
+**One hazard to close.** `bind` captures the array *reference*, and `clearCaches` / `clearRuntimeCachesOnly`
+currently **reassign** (`this.notifications = []`), which would leave an already-built context writing to a
+discarded array. Today's `ctx.notifications` has exactly the same exposure and is safe only because contexts
+are constructed lazily, after clearing. Make it robust rather than incidental: clear with `length = 0` instead
+of reassigning, for both arrays.
+
+**The streams separate the flags, not the release gate.** The two streams determine *what gets marked*: a
+comparison-phase error sets `hasErrors` on the comparison and never on the version or its documents. They do
+**not** partition the `release` gate — an `Error` in either stream blocks a `release` publication. A release
+version that declares a `previousVersion` is expected to ship a reliable changelog, so a failure while
+calculating it means the published changes would be untrustworthy, which is not acceptable for a release even
+when every document built cleanly.
+
+Consequence for the severity review: comparison-phase `Error` severities carry the same release-blocking
+weight as build-phase ones, and must be confirmed with that in mind.
+
+#### `MessageCategory` string enum
+
+**One category per diagnostic, named by its Id.** The category *is* the Id used throughout the revision
+tables — a stable machine-readable code identifying exactly which check produced the message. Broad buckets
+(`validation`, `duplicate`, `references`) were rejected: they cannot answer "which check fired", which is the
+one question a category has to answer, and they would force consumers back to matching message text — text
+that interpolates values and indices and therefore fragments the same defect across many groups.
 
 ```ts
 export const MESSAGE_CATEGORY = {
-  DocumentParsing: 'document-parsing',   // file could not be parsed (A1, builder.ts:754)
-  DocumentBuild:   'document-build',     // buildDocument failed (A2, files.ts:60)
-  OperationBuild:  'operation-build',    // buildOperations failed (A3)
-  Validation:      'validation',         // spec validation (paths, mcp schema) (A6/A7, rest.operations paths)
-  Duplicate:       'duplicate',          // duplicate ids across/within documents (A4, B1-B5, operations.ts:29)
-  References:      'references',          // broken $ref / bundling (A2b, document.ts:173)
-  Changelog:       'changelog',          // comparison / risky / deprecated-hash (rest.changes, deprecated.ts)
-  Resolution:      'resolution',         // version/document/data resolution (builder.ts warnings + :636,:682)
-  Mcp:             'mcp',                 // MCP capability cross-check (mcp.ts:196) and MCP-specific issues
-  Packaging:       'packaging',          // package/zip creation (package.ts:64)
+  // parsing and document build
+  ParseFile:               'parse-file',
+  InvalidTextFile:         'invalid-text-file',
+  FileNotParsed:           'file-not-parsed',
+  BuildDocument:           'build-document',
+  SwaggerConversion:       'swagger-conversion',
+  // references
+  RefHasSiblings:          'ref-has-siblings',
+  RefNotAllowed:           'ref-not-allowed',
+  RefNotFound:             'ref-not-found',
+  RefNotValidFormat:       'ref-not-valid-format',
+  // operations
+  BuildOperations:         'build-operations',
+  DuplicateOperationId:    'duplicate-operation-id',
+  RestDuplicateOperation:  'rest-duplicate-operation',
+  EmptyPathParameter:      'empty-path-parameter',
+  DoubleSlashPath:         'double-slash-path',
+  // DDL
+  DdlDuplicateObject:      'ddl-duplicate-object',
+  DdlParseIssue:           'ddl-parse-issue',
+  DdlEntityBuild:          'ddl-entity-build',
+  DdlDuplicateEntity:      'ddl-duplicate-entity',
+  // MCP
+  McpEntityBuild:          'mcp-entity-build',
+  McpDocumentSchema:       'mcp-document-schema',
+  McpInitRequired:         'mcp-init-required',
+  McpDuplicateEntity:      'mcp-duplicate-entity',
+  McpCapabilityUnused:     'mcp-capability-unused',
+  // deprecated items
+  TolerantHashMissing:     'tolerant-hash-missing',
+  TolerantHashFailed:      'tolerant-hash-failed',
+  DeprecatedComponentPath: 'deprecated-component-path',
+  // comparison phase
+  VersionNotResolved:      'version-not-resolved',
+  VersionRefsNotResolved:  'version-refs-not-resolved',
+  VersionDocumentsMissing: 'version-documents-missing',
+  OperationDataMissing:    'operation-data-missing',
+  RiskyBeforeValue:        'risky-before-value',
+  RiskyOrigins:            'risky-origins',
+  ComparisonSerialization: 'comparison-serialization',
+  PreviousVersionMissing:  'previous-version-missing',
+  // transform build types (no notification file emitted)
+  GroupDocumentsMissing:   'group-documents-missing',
+  PartialGroupDocuments:   'partial-group-documents',
 } as const
 ```
 
-Site-by-site assignment (to be applied when each notification is created/converted). The **Build types**
-column is the reachability analysis — which build types can actually raise the message:
+**The coarse view comes free from the prefixes.** `ref-*`, `mcp-*`, `ddl-*`, `tolerant-hash-*`, `risky-*` and
+`version-*` group by domain without a second field, so a UI that wants "all reference problems" filters on a
+prefix rather than needing a parallel taxonomy.
 
-| Site | Severity today | Category | Build types | Severity decision |
-|------|----------------|----------|-------------|-------------------|
-| `builder.ts:465` no data for operation | Warning | Resolution | build, changelog, prefix-groups-changelog | keep Warning |
-| `builder.ts:496/502` no/partial group documents match | Warning | Resolution | documentGroup, mergedSpecification | keep Warning |
-| `builder.ts:563` no version documents match | Warning | Resolution | build, changelog, prefix-groups-changelog | keep Warning |
-| `builder.ts:636` no such version | Error | Resolution | build, changelog, prefix-groups-changelog | **review** |
-| `builder.ts:682` no version references | Error | Resolution | build, changelog, prefix-groups-changelog | **review** |
-| `builder.ts:754` invalid `<type>` file | Error | DocumentParsing | build | keep Error |
-| `files.ts:46` file was not parsed | Error | DocumentParsing | build | keep Error |
-| `files.ts:60` cannot build document | Error | DocumentBuild | build | keep Error |
-| `document.ts:173` broken refs (warning mode) | Error | References | build | **review** |
-| `operations.ts:29` duplicate AsyncAPI operationId | Error | Duplicate | build | keep Error (was a throw for AsyncAPI) |
-| `rest.operations.ts:126` empty path parameter | Error | Validation | build | **review** |
-| `rest.operations.ts:134` double slash in path | Warning | Validation | build | keep Warning |
-| `ddl.validation.ts:31` DDL `duplicate-object` issue | Error | Duplicate | build | keep Error (B3-adjacent, intra-document) |
-| `ddl.validation.ts:31` DDL out-of-scope / unresolved ref | Warning | Validation | build | keep Warning |
-| `deprecated.ts:141/149` tolerant hash | Error | Changelog | build | **review** |
-| `rest.changes.ts:269/278` risky validation internal | Error | Changelog | build, changelog, prefix-groups-changelog | **review** |
-| `package.ts:64` comparison serialization | Error | Packaging | build, changelog, prefix-groups-changelog | **review** |
-| `changelog.strategy.ts:36` previous version missing | Error | Changelog | **changelog only** | keep Error |
-| `mcp.ts:196` capability without entities | Warning | Mcp | build | keep Warning |
+There is deliberately **no `changelog` category**: the phase is expressed by *which file* the message lands
+in, so a category would duplicate it and mislead — the tolerant-hash messages would have carried `changelog`
+while actually firing during operation building.
 
-### 2a. Reachability by build type
+**Ids that do not become categories.** Three Ids from the throws table are absent, because after the change no
+notification originates from them:
 
-Only `build` and the two changelog build types raise notifications at all. This matters because the story
-treats `build` and `changelog` differently (a changelog may complete with errors; a `release` build may not).
+| Id | Why it has no category |
+|----|------------------------|
+| `broken-refs-fatal` | The throw disappears — `createBundlingErrorHandler` assigns severity by `errorType` instead of throwing, so these failures surface as `ref-not-found` / `ref-not-valid-format` |
+| `document-no-source` | Eliminated; `dumpUnknownDocument` returns an empty Blob |
+| `async-duplicate-operation` | The same handler and message as `duplicate-operation-id`; today it only differs by throwing for AsyncAPI instead of notifying. Once it notifies, the two are one diagnostic |
 
-**`build`-specific** (unreachable from any other build type) — the document-attributable set this story makes
-tolerant, plus the deprecated-hash pair:
+`ddl-duplicate-object` also merges its throw and notification rows: `ddl.validation.ts` pushes the message and
+then throws for the same defect, and only the notification survives.
 
-`builder.ts:754`, `files.ts:46`, `files.ts:60`, `document.ts:173`, `operations.ts:29`,
-`rest.operations.ts:126`, `rest.operations.ts:134`, `ddl.validation.ts:31`, `deprecated.ts:141`,
-`deprecated.ts:149`, `mcp.ts:196` — plus every new notification introduced by the Group A/B catch points.
+**`document-not-built` is removed**, along with the code that would have raised it. `buildDocument` is typed
+`Promise<BuildDocumentResult>` and either returns an object or throws, so the `if (!result)` branch at
+`files.ts:58-68` is unreachable — which the production data confirms with zero occurrences ever recorded.
+Delete the branch and the `Cannot build document` notification with it; a genuine build failure arrives as an
+exception and is handled by the catch described in
+[Catch Points](#catch-points--make-publish-tolerant).
 
-**`changelog`-specific** (raised only by `ChangelogStrategy`):
+##### Carrying a category out of a nested throw
 
-| Site | Severity | Category | Note |
-|------|----------|----------|------|
-| `changelog.strategy.ts:36` previous version has been deleted or does not exist | Error | Changelog | Baseline missing — the comparison is meaningless. Keep Error; this is also the natural place to raise the "previous version has errors" refusal (§5). |
+`swagger-conversion` gets its own category, which needs one small mechanism. The conversion failure is thrown
+inside `buildRestDocument` (`rest.document.ts:84`) and then re-wrapped by `buildDocument`
+(`components/document.ts:74`), so by the time `buildFile` catches it, only a generic
+`Cannot process the "…" document. …` remains and the origin is lost.
 
-**Shared by `build` + `changelog` + `prefix-groups-changelog`** (everything that runs inside `compareVersions`
-or package creation):
+Let the throw carry its own category:
 
-| Site | Severity | Category |
-|------|----------|----------|
-| `builder.ts:636` no such version | Error | Resolution |
-| `builder.ts:682` no version references | Error | Resolution |
-| `rest.changes.ts:269` risky validation — `beforeNormalizedValue` | Error | Changelog |
-| `rest.changes.ts:278` risky validation — origins | Error | Changelog |
-| `package.ts:64` comparison serialization | Error | Packaging |
-| `builder.ts:465` no data for operation | Warning | Resolution |
-| `builder.ts:563` no version documents match | Warning | Resolution |
+```ts
+export class DocumentBuildError extends Error {
+  constructor(message: string, readonly category: MessageCategory) { super(message) }
+}
+```
 
-`prefix-groups-changelog` reaches the shared set only; it has no notifications of its own (its group-prefix
-validation throws). Note the shared Error sites are exactly the ones that make the "may a changelog complete
-with errors?" question concrete — see the open decision in §5 and the final section.
+- `rest.document.ts:84` throws `new DocumentBuildError(…, MESSAGE_CATEGORY.SwaggerConversion)`.
+- `components/document.ts:74` keeps enriching the message with the file id but **preserves the category** when
+  re-throwing, instead of flattening it into a plain `Error`.
+- the catch in `buildFile` reads `error instanceof DocumentBuildError ? error.category :
+  MESSAGE_CATEGORY.BuildDocument`.
 
-**No notifications at all:** `documentGroup`, `reducedSourceSpecifications`, `mergedSpecification` (apart from
-the two group-resolution warnings above) and all five export build types. Export builds return the artifact
-early from `createVersionPackage` and never emit `notifications.json`; every failure there is a fatal throw.
-These build types are out of scope for this story.
+`build-document` therefore stays the honest default for an unclassified failure, and any other nested site can
+opt into its own category later by throwing the same typed error — no further plumbing.
 
-**Severity review is a required human step.** Every current `Error` becomes a `release`-publication blocker, so
-each must be explicitly confirmed as `Error` or downgraded to `Warning`. To inform the decision, **analyze the
-existing `builder_notifications` rows from the production database** (frequency of each message, whether it
-historically accompanied usable published versions). This analysis is an input to the design, tracked as a
-task; the "review" rows above are the candidates.
+**Severity was reviewed per site.** Every `Error` in **either** stream becomes a `release`-publication
+blocker, so each was explicitly confirmed as `Error` or downgraded to `Warning` against usage data. The
+`Severity decision` column in the tables below records the outcome; the reasoning is on each row.
 
-### 2b. Error notifications without a `documentId`
+#### Severity must come from the source
 
-Every notification introduced by the Group A/B catch points is attributed. Of the notifications that already
-exist, six `Error` sites still produce no `documentId` after this change. This matters because `documentId`
-drives three consumers: the per-document `hasErrors` flag, the `operationTypes`/`contractsSummary` per-API-type
-flags (computed from documents), and the `documentId` filter on the notifications endpoint. An unattributed
-`Error` sets **version-level** `hasErrors` only — the UI shows an error mark on the version with nothing to
-drill into, and no API type highlighted in the dropdown.
+Two sites hardcode `MESSAGE_SEVERITY.Error` for families that, based on usage data, need different answers.
+In both the severity has to travel with the error rather than being fixed at the push site:
 
-**Genuinely version-level** — no document exists to attribute them to; leave unattributed:
+- **`createBundlingErrorHandler` (`utils/document.ts:157`)** already distinguishes error types — but only to
+  decide whether to throw; every notification is pushed as `Error`. Assign severity by `errorType` instead:
+  `RICH_REF_NOT_ALLOWED` / `REF_NOT_ALLOWED` → Warning, `REF_NOT_FOUND` / `REF_NOT_VALID_FORMAT` → Error. This
+  is the single highest-impact change in the whole severity review: `ref-has-siblings` alone accounts for the
+  large majority of all `Error` notifications ever recorded, and it is not a broken reference.
+- **`builder.ts:754`** applies one constant to three different parsers. Severity should come from the parser
+  that produced the error (`TextFile<T, E>` already allows it): REST/AJV → Warning, AsyncAPI → use the
+  `@asyncapi/parser` diagnostic's own severity, MCP → Error. Without this, MCP's structural errors would be
+  silently downgraded along with AJV noise the moment MCP reaches production — usage data shows the current
+  volume is entirely REST, so the constant has never been exercised by the other two parsers.
 
-| Site | Message | Why not attributable |
-|------|---------|----------------------|
-| `builder.ts:636` | no such version | About the *previous* version as a whole. |
-| `builder.ts:682` | no version references | Version-level reference resolution. |
-| `changelog.strategy.ts:36` | previous version deleted or does not exist | Baseline version, not a document. |
-| `package.ts:64` | comparison serialization failed | Raised per comparison during packaging; relates to a version pair, not one document. |
+Both are why `ref-*` appear as four separate rows in the tables below rather than one `broken-refs` row: they
+come from one site but need four different answers.
 
-**Attributable in principle — attribution to be added by this change.** Both sites have the document in scope
-already; only the plumbing is missing. Note `ApiOperation.documentId` **already holds the document slug**
-(`documentId: documentSlug` in `rest.operation.ts:143`, `async.operation.ts:115`, `graphql.operation.ts:96`), so
-no `fileId → slug` normalization is needed on either path.
+### `documentId` Unification (MCP and DDL Entities)
 
-**(i) Tolerant hash — `deprecated.ts:141/149`**
+A pre-existing defect, corrected as part of this activity because the notification design depends on
+`documentId` meaning one thing.
 
-Add a `documentId` parameter to `calculateTolerantHash` and populate the notification with it:
+#### The mix-up
+
+`documentId` is emitted by three producers and means two different things:
+
+| Producer | Code emits | Internal spec says | Public API says |
+|----------|-----------|--------------------|-----------------|
+| `ApiOperation` (`rest.operation.ts:143`, `async.operation.ts:115`, `graphql.operation.ts:96`) | **slug** | slug, pattern `^[a-z0-9-]`, e.g. `qitmf-v5-11-json` | slug |
+| `DdlEntity` (`ddl.entities.ts:43`) | **fileId** | "fileId of the source DDL document", e.g. `ddl/shop.sql` | slug-shaped, e.g. `shop-sql` |
+| `McpEntity` (`mcp.entities.ts:59`) | **fileId** | slug-shaped, e.g. `tools-forecast-json` | slug-shaped, e.g. `tools-forecast-json` |
+
+Both contract documents already advertise a slug for MCP, and the public API advertises a slug for DDL too —
+while the code ships a `fileId` in both cases. A consumer that takes `documentId` from `mcp.json` / `ddl.json`
+(or from the corresponding REST responses) and looks the document up by it gets nothing back.
+
+#### Decision — unify on the slug
+
+The slug wins: it is what `ApiOperation` already uses, what both contracts already advertise, and the only id
+the backend exposes documents under (`/documents/{slug}`, and the `documentId` filter on the notification
+endpoints). `fileId` is an internal, build-time path.
+
+#### Changes
+
+**api-processor**
+
+- `apitypes/mcp/mcp.entities.ts:59` — `const documentId = document.fileId` → `document.slug`.
+- `apitypes/ddl/ddl.entities.ts:43` — same.
+- Both files interpolate `documentId` into their throw messages (`mcp.entities.ts:51/70`,
+  `ddl.entities.ts:57/67`); those messages will now name the slug, which is what a reader can act on.
+- `components/mcp.ts:56` and `components/ddl.ts:43` build their duplicate-entity messages from
+  `existing.documentId` / `duplicate.documentId`; after this change they can attribute notifications straight
+  from `entity.documentId` with no lookup.
+
+**Build result contract — `APIHUB_API_internal.yaml`**
+
+- `BuildResultDdlContracts` entity `documentId`: description "fileId of the source DDL document…" → slug, and
+  the example `ddl/shop.sql` → `shop-sql`.
+- `BuildResultMcpContracts` entity `documentId`: description sharpened to say slug; the example
+  (`tools-forecast-json`) is already correct.
+
+**Public API — `APIHUB_API.yaml`**
+
+No field or example changes: `DdlEntity` (`shop-sql`) and `McpEntity` (`tools-forecast-json`) already document
+slugs. The change makes the documented behavior true. Sharpen both descriptions from "Source document
+identifier" to name the slug explicitly.
+
+**Backend**
+
+`document_id` is persisted in `ddl_tables` and `mcp_entities` (`37_contracts.up.sql:20/104`, both indexed) and
+returned as `documentId` by the DDL/MCP contract views. No Go change is required — the value simply becomes a
+slug — but the stored data changes meaning.
+
+No backfill is needed for already-published data: migration rebuilds published versions from their own sources
+with the new api-processor, so `document_id` is rewritten to the slug as part of that pass.
+
+### Current Throws Revision
+
+The **Id is also the notification's `category`** — see
+[`MessageCategory` string enum](#messagecategory-string-enum). Every uncaught throw on the publication path,
+and what happens to it. A throw becomes an `Error` notification
+when a partial version survives it. It stays fatal for one of two reasons, noted per row below: **nothing
+publishable survives** it (no version can be built, or no artifact is produced), or it is a **deliberate design
+decision** — a partial result *could* be published, but doing so would mask a defect that is hard to diagnose
+afterwards.
+
+Attribution is a separate concern from tolerance: some failures that cannot be pinned to a single document (a
+duplicate spanning two documents, a whole-set MCP check) are still tolerated, because the rest of the version
+survives them. Those emit one notification per affected document (denormalization).
+
+**No usage data exists for throws, by construction.** `builder_notifications` rows are written by
+`ReadBuilderNotificationsToEntities`, which runs inside `PublishPackage` — only for builds that completed. A
+throw aborts the build before anything is published, so no row is ever written for it. The Occurrence column
+is therefore empty for every row below, and its absence says nothing about how often these fire. The same
+caveat bounds the notification tables: their grades reflect **successful** builds only.
+
+#### `build` phase
+
+| Id | Site | Severity today | DocumentId | Occurrence | Severity decision |
+|----|------|----------------|------------|------------|-------------------|
+| `parse-file` | `builder.ts:764` `parseFile` | Throw | slug | — | Error |
+| `build-document` | `components/document.ts:74` | Throw | slug | — | Error |
+| `swagger-conversion` | `rest.document.ts:84`, surfaced through `build-document` | Throw | slug | — | Error, with its own category — carried out of the wrapper by `DocumentBuildError` |
+| `broken-refs-fatal` | `utils/document.ts:166` (via `build-document`) | Throw | slug | — | **throw removed** — severity comes from `errorType`, so these surface as `ref-not-found` / `ref-not-valid-format` |
+| `document-no-source` | `unknown.document.ts:93` `dumpUnknownDocument` — fires at **packaging/dump** time, not during document build | Throw | — | — | **eliminated** — the dumper returns an empty Blob instead of throwing, see [Error documents must carry their source](#error-documents-must-carry-their-source) |
+| `build-operations` | `components/operations.ts:45` — `buildOperations` throws | Throw | slug | — | Error |
+| `rest-duplicate-operation` | `rest.operations.ts:111` (message built by `createDuplicatesError`) | Throw | slug — a single document | — | Error |
+| `async-duplicate-operation` | `components/operations.ts:23` | Throw | slug, one per document in the pair | — | Error, reported under category `duplicate-operation-id` — same handler and message |
+| `mcp-duplicate-entity` | `components/mcp.ts:56` | Throw | slug, one per document in the pair | — | Error |
+| `ddl-duplicate-entity` | `components/ddl.ts:43` | Throw | slug, one per document in the pair | — | Error |
+| `ddl-duplicate-object` | `ddl.validation.ts:53` | Throw | slug | — | **throw removed** — the notification at `ddl.validation.ts:31` already reports it |
+| `ddl-entity-build` | `ddl.entities.ts:56,66` | Throw | slug | — | Error |
+| `mcp-entity-build` | `mcp.entities.ts:45,51,70` | Throw | slug | — | Error |
+| `mcp-document-schema` | `components/mcp.ts:144,158,164` | Throw | slug | — | Error |
+| `mcp-init-required` | `components/mcp.ts:110` | Throw | slug, one per document of the endpoint | — | Error |
+| `deprecated-component-path` | `components/deprecated.ts:128` `matchSharedComponent` | Throw | operation's slug | — | Error |
+| `config-invalid` | `validators.ts:22`, `build.strategy.ts:56` | Throw | — | — | **stays fatal** |
+| `packaging-failure` | `createVersionPackage` / zip tooling | Throw | — | — | **stays fatal** |
+
+`config-invalid` (no `packageId`/`version`; no files and no refs) and `packaging-failure` stay fatal because
+nothing survives them: there is no version to publish, or no artifact is produced at all.
+
+#### `changelog` phase
+
+Every throw reachable from `compareVersions` stays fatal. By the "is anything publishable left?" test they
+could be converted — the version's documents are already built when they fire — but each would mask a defect
+that is hard to trace afterwards, so they are kept fatal by design decision.
+
+| Id | Site | Severity today | DocumentId | Occurrence | Severity decision |
+|----|------|----------------|------------|------------|-------------------|
+| `processor-version-mismatch` | `validators.ts:51,58` via `compare.operations.ts:68,69` | Throw | — | — | **stays fatal** (design decision) |
+| `resolver-missing` | `builder.ts:446`, `:548`, `:591`, `:627`, `:663` | Throw | — | — | **stays fatal** (design decision) |
+| `compare-missing-operation-rest` | `rest.changes.ts:180` | Throw | — | — | **stays fatal** |
+| `compare-missing-operation-graphql` | `graphql.changes.ts:136` | Throw | — | — | **stays fatal** |
+| `compare-missing-operation-async` | `async.changes.ts:148` | Throw | — | — | **stays fatal** |
+| `ddl-compare-hook-missing` | `compare.ddl.ts:192` | Throw | — | — | **stays fatal** |
+
+- `processor-version-mismatch` — a version-mismatch must not be hidden. Publishing a draft with a silently
+  missing or partial changelog would defer the problem to whoever later notices the data is wrong, by which
+  point the mismatch is hard to trace back. Note this also fails a standalone `changelog` build outright, the
+  one exception to "a changelog may complete with errors".
+- `resolver-missing` — a defect in the embedding host, not in the content. It fails identically for every
+  build, so tolerance buys nothing; degrading it would silently ship changelog-less drafts from a broken
+  deployment forever. Distinguish from `version-not-resolved` / `version-refs-not-resolved` below, which fire
+  when the resolver *is* present but returns nothing — those are already notifications and stay that way.
+  `packageResolver` (`:516`, `:521`) and `templateResolver` / `rawDocumentResolver` (`:366`, `:392`, `:397`)
+  are reached only from export strategies and are out of scope.
+- `compare-missing-operation-*` and `ddl-compare-hook-missing` — internal index/document inconsistencies
+  rather than user-caused input problems: an operation is present in the index but missing from its document
+  pair, or a DDL compare hook is not registered. The salvageable test alone would convert them — the version's
+  documents are already built when they fire — but the `processor-version-mismatch` reasoning applies equally:
+  a silently-degraded changelog defers a hard-to-diagnose defect to whoever later notices the changes are
+  wrong. Kept fatal, consistent with `processor-version-mismatch`.
+
+### Current Notification Revision
+
+Every notification site that exists today, with its stream and attribution. The **Id is the message's
+`category`** — see [`MessageCategory` string enum](#messagecategory-string-enum). **DocumentId** shows
+the target state — *add* marks the sites where attribution is newly introduced by this change. The stream
+follows from the phase, so each row lands in `notifications.json` under `build` and in
+`comparison-notifications.json` under `changelog`.
+
+**Occurrence** grades how many existing **release** versions carry the message. That is the population that
+would stop republishing if the message stays `Error`, so it is what the severity decision turns on.
+
+#### `build` phase
+
+| Id | Site | Severity today | DocumentId | Occurrence | Severity decision |
+|----|------|----------------|------------|------------|-------------------|
+| `ref-has-siblings` | `utils/document.ts:173`, `RICH_REF_NOT_ALLOWED` | Error | fileId → slug | often | **→ Warning.** Not a broken reference: a `$ref` with sibling keys, which OpenAPI 3.0 disallows stylistically and 3.1 permits. Resolution succeeds and operations build. Largest single blast radius in the whole set |
+| `invalid-text-file` | `builder.ts:754` → moves to the document build | Error | *move* — slug of the document whose bundle contains the file; **message names the offending `fileId`** when it is a dependency | often | **→ Warning**, and take severity from the parser rather than the constant — see [Severity must come from the source](#severity-must-come-from-the-source). Usage data shows the volume is entirely REST/AJV metaschema nitpicking, and nearly every affected release version still has operations — the documents work |
+| `ref-not-allowed` | `utils/document.ts:173`, `REF_NOT_ALLOWED` | Error | fileId → slug | often | **→ Warning.** The reference is valid, just not permitted at that position in the schema. Does not prevent the build, and thousands of releases already live with it |
+| `duplicate-operation-id` | `components/operations.ts:29` | Error | slug (already carried) | sometimes | **→ Warning now, Error later.** The problem is real — one operation overwrites another — but the check is recent and hundreds of releases already contain it. Blocking retroactively is not acceptable. Deferred, see [Follow-up — severity tightening](#follow-up--severity-tightening) |
+| `ref-not-found` | `utils/document.ts:173`, `REF_NOT_FOUND` | Error | fileId → slug | sometimes | **→ Warning now, Error later.** The reference genuinely does not resolve and the document is incomplete, so Error is the right end state — but hundreds of releases already carry it. Deferred, see [Follow-up — severity tightening](#follow-up--severity-tightening). The grade understates it: the `Unable to resolve the file …` messages counted separately in the analysis are the same family, raised with api-processor's own text (`utils/document.ts:194/203`) |
+| `double-slash-path` | `rest.operations.ts:134` | Warning | fileId → slug | rare | keep Warning |
+| `file-not-parsed` | `files.ts:46` | Error | fileId → slug | rare | **keep Error.** The file did not parse at all. Last occurrence 2024-07-29 — two years quiet, negligible risk |
+| `empty-path-parameter` | `rest.operations.ts:126` | Error | fileId → slug | rare | **→ Warning now, Error later.** The path is syntactically invalid, so Error is the right end state, and the affected set is small enough to fix — but not retroactively. Deferred, see [Follow-up — severity tightening](#follow-up--severity-tightening) |
+| `tolerant-hash-missing` | `components/deprecated.ts:141` | Error | *add* — operation's slug | rare | **→ Warning.** An internal builder failure, not a defect in the user's contract — publication should not be blocked for it |
+| `ref-not-valid-format` | `utils/document.ts:173`, `REF_NOT_VALID_FORMAT` | Error | fileId → slug | rare | **keep Error.** The reference is syntactically broken. Negligible volume |
+| `tolerant-hash-failed` | `components/deprecated.ts:149` | Error | *add* — operation's slug | never | **→ Warning**, for consistency with `tolerant-hash-missing`: same function, same class of internal failure. Zero occurrences makes either choice safe, but splitting them would be arbitrary |
+| `mcp-capability-unused` | `components/mcp.ts:196` | Warning | slug (already carried) | never | keep Warning |
+| `ddl-duplicate-object` | `ddl.validation.ts:31` (`duplicate-object`) | Error | fileId → slug | never | keep Error — no data; DDL has never been published to production |
+| `ddl-parse-issue` | `ddl.validation.ts:31` (out-of-scope / unresolved ref) | Warning | fileId → slug | never | **→ Error.** An out-of-scope statement or unresolved reference means the built Realm is incomplete, and a release should not ship an incomplete DDL contract. Zero blast radius — DDL has never been published, so nothing existing is affected |
+
+`ref-*` are four families raised from the **same** site, `createBundlingErrorHandler`, which today hardcodes
+`Error` for all of them. They are listed separately because usage data splits them sharply and their
+severities differ — see [Severity must come from the source](#severity-must-come-from-the-source).
+
+`tolerant-hash-*` belong to the build phase despite concerning deprecated items: they are called from
+`rest.operation.ts:105` and `async.operation.ts:196/211` during *operation building*, not during comparison.
+
+#### `changelog` phase
+
+| Id | Site | Severity today | DocumentId | Occurrence | Severity decision |
+|----|------|----------------|------------|------------|-------------------|
+| `risky-before-value` | `rest.changes.ts:269` | Error | *add* — operation's slug | sometimes | **→ Warning.** Diagnostics of the changelog calculation, not validation of a document. Every one of its messages is unattributed today |
+| `version-not-resolved` | `builder.ts:636` | Error | none (version-level) | rare | **keep Error.** A reference to a version that does not exist. The overwhelming majority of affected versions never published at all — the build was already failing |
+| `risky-origins` | `rest.changes.ts:278` | Error | *add* — operation's slug | never | **→ Warning**, as `risky-before-value`. No release version affected |
+| `version-refs-not-resolved` | `builder.ts:682` | Error | none (version-level) | never | keep Error — zero occurrences |
+| `version-documents-missing` | `builder.ts:563` | Warning | none (version-level) | rare | **keep Warning now, Error later.** A comparison side whose documents cannot be resolved yields an unreliable changelog, so Error is the right end state — but releases already carry it. Deferred, see [Follow-up — severity tightening](#follow-up--severity-tightening) |
+| `operation-data-missing` | `builder.ts:465` | Warning | none (version-level) | never | **→ Error.** Missing operation data makes the comparison silently incomplete, which is exactly what the changelog gate exists to catch. Zero blast radius — no occurrences on record |
+| `comparison-serialization` | `components/package.ts:64` | Error | none (comparison-level) | never | keep Error — zero occurrences |
+| `previous-version-missing` | `strategies/changelog.strategy.ts:36` | Error | none (version-level) | never | keep Error — but the zero is **not** evidence of safety, see below |
+
+¹ `version-documents-missing` (`:563`) and `group-documents-missing` (`:496`, transform build types) share the
+message text `No documents for …`, so usage data counts them in one bucket. The grade is therefore an upper
+bound for either alone.
+
+The zero for `previous-version-missing` is an artifact of how notifications are stored, not a sign the case
+never happens. It is raised **only** by `ChangelogStrategy`, and standalone `changelog` builds publish through
+`PublishChanges`, which never calls `ReadBuilderNotificationsToEntities` — so their notifications are
+**discarded today**. Comparison messages appear in the data only when the comparison ran *inline* inside a
+`build`, which is why `risky-before-value` is the only comparison-phase site with a substantial grade. This is
+independent confirmation that comparison notifications need the separate storage the plan already specifies.
+
+`previous-version-missing` is raised **only** by `ChangelogStrategy`; `BuildStrategy` has no equivalent — it
+silently skips the comparison when the baseline does not resolve, relying on `version-not-resolved` having
+already reported it. It is also the natural place to raise the "previous version has errors" refusal.
+
+`risky-before-value` and `risky-origins` fire inside `reclassifyBreakingChanges`, which reclassifies
+breaking→risky by matching the previous version's deprecated items — deprecated-item matching failures that
+happen to occur during comparison, which is why they sit in the comparison stream while `tolerant-hash-*` do
+not.
+
+#### Out of scope — transform build types
+
+| Id | Site | Severity today | DocumentId | Occurrence | Severity decision |
+|----|------|----------------|------------|------------|-------------------|
+| `group-documents-missing` | `builder.ts:496` | Warning | none | rare | keep Warning |
+| `partial-group-documents` | `builder.ts:502` | Warning | none | never | keep Warning |
+
+¹ Shared bucket with `version-documents-missing` — see the footnote under the `changelog` phase table.
+
+`documentGroup`, `reducedSourceSpecifications` and `mergedSpecification` emit no notification file, so these
+two warnings have nowhere to go. All five export build types emit no notification file either — they return
+the artifact early from `createVersionPackage` and every failure there is a fatal throw.
+
+One channel exists but is unused: `compare.ddl.ts:220` passes `ctx.notifications` into the
+`compareDdlDocuments` hook, so a DDL comparison *could* emit notifications. None are emitted today; if any are
+added they land in `comparison-notifications.json` automatically.
+
+#### Attribution to add
+
+Both *add* sites have the document in scope already; only the plumbing is missing.
+
+**(i) `tolerant-hash-missing` / `tolerant-hash-failed`** — add a required `documentId` parameter to
+`calculateTolerantHash` and populate the notification with it:
 
 ```ts
 export function calculateTolerantHash(
@@ -357,22 +778,13 @@ export function calculateTolerantHash(
 ): string | undefined
 ```
 
-Both call sites already have the slug in scope:
+Both call sites already have the slug in scope: `rest.operation.ts:105` (`documentSlug`, destructured at
+`rest.operation.ts:87`) and `async.operation.ts:196/211` (`documentSlug`, used at `:115`). Making the
+parameter required means the compiler enforces attribution at any future call site.
 
-| Call site | Slug source |
-|-----------|-------------|
-| `rest.operation.ts:105` | `documentSlug`, destructured from `document` at `rest.operation.ts:87` |
-| `async.operation.ts:196` and `:211` | `documentSlug`, in scope in `buildAsyncApiOperation` (used at `:115`) |
-
-Making the parameter required (rather than optional) means the compiler enforces attribution at any future call
-site.
-
-**(ii) Risky validation — `rest.changes.ts:269/278`**
-
-`reclassifyBreakingChanges(previousOperationId, mergedJso, diffs, ctx)` (`rest.changes.ts:231`) needs the
-document. At its only call site (`rest.changes.ts:212`) the operation pair `previous` / `current` is in scope,
-and each carries `documentId` as a slug. Pass the current operation's document, falling back to the previous
-one for a removed operation:
+**(ii) `risky-before-value` / `risky-origins`** — `reclassifyBreakingChanges` (`rest.changes.ts:231`) needs
+the document. At its only call site (`rest.changes.ts:212`) the operation pair is in scope and each operation
+carries `documentId` as a slug:
 
 ```ts
 await reclassifyBreakingChanges(
@@ -386,86 +798,292 @@ await reclassifyBreakingChanges(
 
 A removed operation attributes to the *previous* version's document slug, which may not exist in the current
 version. That is acceptable: the notification is still returned by an unfiltered query, and the `documentId`
-filter simply will not match a current document. Alternative — leave it unattributed when `current` is absent —
-is simpler but loses the only locating information available; recommend attributing.
+filter simply will not match a current document. The alternative — leave it unattributed when `current` is
+absent — is simpler but loses the only locating information available, so it attributes.
 
-Both rows remain flagged **review** for a possible downgrade to `Warning` (§2), which is an orthogonal decision:
-attribution is worth doing either way, since it improves the notifications endpoint's filtering even for
-warnings, and is required if they stay `Error` so a blocked `release` can be explained.
+Attribution is worth doing regardless of the severity review outcome for these four rows: it improves endpoint
+filtering even for warnings, and is required if they stay `Error` so a blocked `release` can be explained.
 
-**Side effect of the rename.** `operations.ts:29` currently writes `fileId: duplicate.documentId` — a *slug*
-stored in a field named `fileId`. The rename to `documentId` (§1) corrects this latent inconsistency rather
-than introducing a change; no value conversion is needed at that site.
+#### Notifications with no `documentId`
 
-**Consequence to accept:** the four version-level rows mean a version can have `hasErrors: true` while every
-document has `hasErrors: false`. The UI must handle that — the version-level mark cannot assume a document to
-point at, and the notifications endpoint (unfiltered) is the only place those messages surface. This is correct
-behavior, not a gap: a missing previous version really is a version-level problem.
+Five sites remain unattributed by design, all in the comparison stream: `version-not-resolved`,
+`version-refs-not-resolved`, `operation-data-missing`, `version-documents-missing` and
+`comparison-serialization`. The first four are about a *version* as a whole; the last is about a version
+*pair*. There is no document to point at, and inventing one would be wrong.
 
-### 3. Catch points (make Groups A and B tolerant)
+Consequence to accept: a comparison can have `hasErrors: true` while no document is flagged, and — for the
+build stream — the same shape would arise for any future version-level build error. The UI must handle a mark
+with no drill-down target; the unfiltered notifications endpoint is the only place those messages surface.
+This is correct behavior, not a gap: a missing previous version really is a version-level problem.
 
-- `components/files.ts` `buildFile`: wrap `parsedFileResolver` and `buildDocument` in `try/catch`; on throw
-  push an `Error` notification (category `DocumentParsing`/`DocumentBuild`) and return `buildErrorDocument(file)`
-  so the file stays visible as `type: unknown` with a slug.
+### Catch Points — make publish tolerant
+
+Where the `build`-phase throws from [Current Throws Revision](#current-throws-revision) are caught and turned
+into notifications.
+
+- `components/files.ts` `buildFile`: wrap `buildDocument` in `try/catch`; on throw push an `Error` notification
+  — category from `DocumentBuildError.category` when the throw carries one (so a swagger conversion failure
+  reports as `swagger-conversion`), otherwise `build-document` — and return
+  `buildErrorDocument(file, parsedFile)` so the file stays
+  visible as `type: unknown` with a slug and its raw bytes — see
+  [Error documents must carry their source](#error-documents-must-carry-their-source). Covers
+  `build-document`, `swagger-conversion`, `broken-refs-fatal`. The `if (!result)` branch that produced
+  `document-not-built` is deleted as dead code.
+- `parseFile` degrades instead of throwing, so `parse-file` never reaches `buildFile` as an exception — see
+  [Handling a parse throw](#handling-a-parse-throw).
+- document build: after bundling, emit the parse errors of the document's own file and of each of its
+  `dependencies`, attributed to the document's slug — see
+  [Errors in `$ref`-ed files](#errors-in-ref-ed-files), including the required message format when the error
+  comes from a `$ref`-ed file. Covers `invalid-text-file`, whose emission moves out of `parseFile`.
 - `BuildStrategy.execute` per-document loop: wrap `processOperationDocument`, `validateDdlDocument` +
   `processDdlDocument`, `processMcpDocument` per document → `Error` notification, continue. The failed document
-  stays published but exposes no operations/entities.
-- duplicate handlers (B1–B5): emit one `Error` notification **per involved document**, same text, and keep the
-  first-seen entity/operation (do not overwrite); do not throw.
-- whole-set MCP validations (`validateMcpInitRequired`, `validateMcpProtocolVersion`): convert throws to `Error`
-  notifications, one per affected document (for `validateMcpInitRequired`, one per document of the endpoint);
-  validate all documents rather than stopping at the first failure.
-- `calculateHistoryForDeprecatedItems` (A8): wrap per-operation processing; attribute to the operation's
-  document slug.
+  stays published but exposes no operations or entities. Covers `build-operations`, `ddl-duplicate-object`,
+  `ddl-entity-build`, `mcp-entity-build`.
+- cross-document duplicate handlers: emit one `Error` notification **per involved document**, same text; do
+  not throw. Which entity survives is decided by the rule in
+  [Duplicate resolution](#duplicate-resolution) below. Covers `async-duplicate-operation`,
+  `mcp-duplicate-entity`, `ddl-duplicate-entity`, all of which take the slug straight from
+  `entity.documentId` / `operation.documentId` — for the MCP and DDL pair this depends on
+  [`documentId` Unification](#documentid-unification-mcp-and-ddl-entities) landing first.
+- `buildRestOperations` (`rest.operations.ts:109-112`): the duplicate check is **intra-document** —
+  `operationIdMap` is built inside the function for a single document, and a collision means two
+  `(path, method)` pairs compute the same operationId. Replace the throw with one `Error` notification
+  (`rest-duplicate-operation`) attributed to that document, and keep building the remaining operations.
+  Distinct from `duplicate-operation-id`, which is the cross-document case.
+- whole-set MCP validations (`validateMcpInitRequired`, `validateMcpProtocolVersion`): convert throws to
+  `Error` notifications, one per affected document (for `validateMcpInitRequired`, one per document of the
+  endpoint); validate all documents rather than stopping at the first failure. Covers `mcp-init-required`,
+  `mcp-document-schema`.
+- `calculateHistoryForDeprecatedItems`: wrap per-operation processing; attribute to the operation's document
+  slug. Covers `deprecated-component-path`.
 
-The two `validateApiProcessorVersion` calls in `compare.operations.ts:68/69` are **not** wrapped — see D2.
+The two `validateApiProcessorVersion` calls in `compare.operations.ts:68/69` are **not** wrapped — see
+`processor-version-mismatch`.
 
-Tolerant behavior applies to the **`build`** buildType. Export / document-group strategies keep fail-fast —
+Tolerant behavior applies to the **`build`** buildType. Export and document-group strategies keep fail-fast —
 their result is a single artifact that is unusable on failure, and there is no partial version to salvage.
 
-### 4. `release` publication is fatal when errors exist
+**Changelog baseline guard.** An unsound version must not be used as `previousVersion`. This is enforced
+primarily by the backend (Backend §2). Defense in depth in api-processor: `versionResolver`, when resolving the
+*previous* version, can raise an `Error` comparison notification (category `version-not-resolved`) if that version is
+flagged, so a misconfigured build does not silently diff against a broken baseline. `VersionCache` would need
+to carry the flags for this check. The natural raise point is `ChangelogStrategy`, next to
+`previous-version-missing` — the two are the same class of baseline problem.
 
-There is **no downgrade**. After document processing, `BuildStrategy.execute` collects the `Error`-severity
-notifications and, if the requested status is `release` and there is at least one, throws.
+#### Error documents must carry their source
+
+Without this the tolerant design does not work at all: an error document cannot be packaged.
+
+`buildErrorDocument` produces `type: DOCUMENT_TYPE.UNKNOWN`, which resolves to `unknownApiBuilder` (its `types`
+include `UNKNOWN`), whose dumper throws when the document has no `source`:
+
+```ts
+export const dumpUnknownDocument: DocumentDumper<unknown> = (document) => {
+  if (!document.source) {
+    throw new Error(`Document with fileId = ${document.fileId} does not have source`)
+  }
+  return document.source
+}
+```
+
+Both `buildFile` call sites pass `buildErrorDocument(file)` **without** the optional `parsedFile`, so `source`
+is `undefined`; error documents have `publish: true`, so `writeDocumentsToZip` does not skip them. Every error
+document therefore fails in `createVersionPackage` — a `packaging-failure`, which stays fatal.
+
+Today this is nearly unreachable, which is why it has gone unnoticed: content failures *throw* rather than
+producing an error document, and the one path that does produce one (`parsedFileResolver` returning nothing —
+the file could not be fetched) is rare. Even then the build dies, just with a misleading `does not have source`
+message instead of the notification's real explanation. The tolerance is already illusory.
+
+The catch points make it the normal path — every malformed spec now routes here — so the build would catch the
+parse error, record a good notification, assemble a draft containing all the healthy documents, and then die at
+packaging. That is exactly the outcome this story exists to eliminate.
+
+**Save `source`, not `data`.** `data` is the parsed model and feeds operations, search and
+`/files/{slug}/doc`; for an unparseable file there is no meaningful parsed model, so `data: ''` remains
+correct. `source` is the raw bytes — what is written to `documents/<filename>` in the zip and served by
+`/files/{slug}/raw`. That is the troubleshooting artifact: the broken file itself, downloadable.
+
+**Sourcing per catch point:**
+
+| Catch point | Where `source` comes from |
+|-------------|---------------------------|
+| parse throw (`parse-file`) | `parseFile` degrades instead of throwing — see [Handling a parse throw](#handling-a-parse-throw). The fallback carries `source`, and `buildDocument` → `buildBinaryDocument` yields a dumpable document, reusing working machinery instead of `buildErrorDocument`. |
+| `buildDocument` throw (`build-document`, `swagger-conversion`, `broken-refs-fatal`) | `buildErrorDocument(file, parsedFile)` — the optional second parameter exists for exactly this and already sets `source: parsedFile?.source`; `parsedFile` is in scope at the catch. |
+| `fileResolver` returned nothing (`file-not-parsed`) | Nothing to save — the content was never retrieved. |
+
+##### Handling a parse throw
+
+`parse-file` needs care because the throw happens *before* there is any `SourceFile`, so neither the source nor
+an `errors` entry exists for the document build to pick up. Catching it in `buildFile` would produce a
+sourceless error document — the very problem this subsection exists to prevent.
+
+**`parseFile` degrades rather than throws.** Its existing `try/catch` (`builder.ts:763`) stops re-throwing and
+instead returns a fallback `SourceFile` carrying **both** the raw `source` and an `errors` entry describing the
+parse failure. Everything downstream then works unchanged:
+
+- the document is dumpable, because `source` is present;
+- the notification is emitted by the single document-build emission point defined in
+  [Errors in `$ref`-ed files](#errors-in-ref-ed-files), attributed to the root document, with the offending
+  `fileId` named in the message — no separate code path;
+- a `$ref`-ed file that fails to parse is handled identically to one that parses but reports errors.
+
+This eliminates the `parse-file` throw at its origin rather than catching it downstream, so `buildFile`'s
+`try/catch` is needed only for `buildDocument`.
+
+One small type change: `unknownParsedFile` returns a `BinaryFile`, which has no `errors` field. Either add an
+optional `errors` to it or introduce a sibling helper (`unparsableFile(fileId, source, error)`) that returns
+the same shape plus the error. The `errors` array is what the emission loop reads, so it has to be there.
+
+**`dumpUnknownDocument` must stop throwing.** The last row above is unavoidable, so the dumper becomes:
+
+```ts
+export const dumpUnknownDocument: DocumentDumper<unknown> = (document) =>
+  document.source ?? new Blob([])
+```
+
+A zero-byte entry plus the notification explaining why is the honest outcome. The alternative — setting
+`publish: false` on a sourceless error document — was rejected: it removes the document from the version
+entirely, so the user never sees that the file failed, which defeats the purpose.
+
+This eliminates the `document-no-source` throw rather than converting it to a notification: there is nothing to
+report that the originating notification has not already said.
+
+**Unify `filename` while here.** `buildErrorDocument` sets `filename: ${slug}.${getFileExtension(fileId)}`
+while `buildUnknownDocument` and `buildBinaryDocument` set `filename: fileId`. Routing parse failures through
+the binary path and build failures through `buildErrorDocument` would give the two flavors of error document
+different filename conventions in the same build result. Pick one — `fileId` matches what unknown documents
+already ship today.
+
+#### Duplicate resolution
+
+Once duplicates stop throwing, both claimants survive the build and one of them ends up in the published
+index. That makes "which one wins" a contract question, and today the answer depends on input ordering.
+
+**Today: last-wins, ordered by `config.files`.** `setReportingDuplicate` (`utils/document.ts:120`) calls
+`map.set(key, value)` unconditionally after invoking the handler, so the last document processed overwrites
+the earlier one. Processing order is `config.files` order — `buildFiles` uses `Promise.all`, which preserves
+input order, and `BuildStrategy` iterates the result sequentially. That order is deterministic for a given
+config but carries no meaning: publishing the same set of files in a different order publishes a different
+entity.
+
+**Decision: keep the entity whose `documentId` sorts first lexicographically.** In `setReportingDuplicate`,
+overwrite only when the incoming value wins the comparison:
+
+```ts
+const existing = map.get(key)
+if (existing !== undefined) {
+  onDuplicate?.(existing, value)
+  if (!incomingWins(existing, value)) { return }   // keep the existing entry
+}
+map.set(key, value)
+```
+
+where `incomingWins` compares the two `documentId` slugs. The notification is still emitted for **both**
+documents either way — the tie-break decides only which entity is indexed, never what is reported.
+
+The result no longer depends on `config.files` ordering: the same set of files produces the same published
+index however the config lists them. The winner is still arbitrary in the sense that neither document is more
+correct — but it is *reproducible*, which is what a build artifact needs.
+
+**This changes existing behavior** for REST and GraphQL duplicates, which are notification-only today and
+therefore already publish a winner: republishing an affected version may flip which operation is indexed. That
+is acceptable precisely because of this story — a duplicate now flags both documents with `hasErrors` and
+blocks `release`, so it is a loud, visible error state rather than a silent one, and reproducibility is worth
+more than preserving an arbitrary incumbent. For AsyncAPI, MCP and DDL there is no behavior to change: they
+throw today.
+
+**Incremental rebuild needs a matching fix.** `processOperationDocument` sets `document.operationIds` to every
+operation it built, winner or not, and `processMcpDocument` does the same for `mcpEntityIds`. So a losing
+document still lists the shared id, and when `rebuildFiles` (`builder.ts:914`) later rebuilds that loser, its
+delete pass evicts the *winner's* entry before re-adding its own — flipping the winner although neither
+document's content changed. Scope the delete to entries the document actually owns:
+
+```ts
+previousDocument.operationIds?.forEach(operationId => {
+  if (this.operations.get(operationId)?.documentId === previousDocument.slug) {
+    this.operations.delete(operationId)
+  }
+})
+```
+
+and the same for `mcpEntityIds`. This affects the editor preview path (`update()`), not the published artifact
+(`run()`), so it is lower stakes — but without it the preview and the publish disagree. DDL is unaffected:
+`processDdlDocument` deliberately tracks no entity ids on the document, so it has no incremental rebuild.
+
+### `release` publication is fatal when errors exist
+
+There is **no downgrade**. If the requested status is `release` and any `Error`-severity notification exists in
+**either stream**, `BuildStrategy.execute` throws.
+
+**Both streams block.** Build-phase errors mean the version's own documents are unsound. Comparison-phase
+errors mean the changelog is unreliable — and a release version that declares a `previousVersion` is expected
+to ship reliable changes, so an unreliable changelog is as disqualifying as a bad document. A version with no
+`previousVersion` simply has no comparison stream, so nothing changes for it.
+
+**Two checkpoints.** The build stream is checked first, right after the document loop and before
+`compareVersions`, so a doomed release fails fast without spending time on a changelog that would be discarded.
+The combined check runs after the comparison phase and covers both streams. The early checkpoint is an
+optimization only — the late one is authoritative.
+
+Note the flags stay partitioned even though the gate does not: a comparison-phase error blocks the release but
+still sets `hasErrors` on the comparison only, never on the version or its documents. The gate asks "is this
+release trustworthy?", the flags answer "what exactly is marked?", and those are different questions.
 
 **The thrown message must not lose the specific problem.** A publisher who requested `release` should see what
 is actually wrong without having to re-publish as a draft and go hunting. The message therefore depends on how
 many errors there are:
 
 **Exactly one error** — throw the notification's own message, enriched with the document when the notification
-is attributed:
+is attributed, and followed by the same draft-publication hint the multi-error message carries:
 
 ```text
-<notification.message> (document: <documentId>)
+<notification.message> (document: <documentId>). You can publish version in draft status for troubleshooting
 ```
 
-and the bare `<notification.message>` when the notification has no `documentId` (a version-level error). This
-gives the publisher the precise, actionable cause — the same text they would see in the notifications list.
+with the `(document: …)` part omitted when the notification has no `documentId`. The message gives the
+publisher the precise, actionable cause — the same text they would see in the notifications list — and the
+hint names the way forward. Both branches end on the same sentence, so the escape hatch is discoverable
+regardless of how many errors there are.
 
-**More than one error** — summarize, and point at the draft-publication escape hatch:
+**More than one error** — summarize, and point at the same escape hatch. Let `N` be the total number of
+`Error` notifications **across both streams** and `M` the number of them in the comparison stream. There are
+three forms:
 
-```text
-Cannot publish version in release status: N critical errors in following documents: <documentIds>.
-You can publish version in draft status for troubleshooting
-```
+| Case | Message |
+|------|---------|
+| `M == 0` — all failures are in documents | `Cannot publish version in release status: N critical errors in following documents: <documentIds>. You can publish version in draft status for troubleshooting` |
+| `0 < M < N` — mixed | `Cannot publish version in release status: N critical errors in following documents: <documentIds>, including M changelog errors. You can publish version in draft status for troubleshooting` |
+| `M == N` — the changelog alone | `Cannot publish version in release status: N critical errors in the changelog. You can publish version in draft status for troubleshooting` |
 
-where `N` is the total number of `Error` notifications and `<documentIds>` is the distinct, sorted list of slugs
-they are attributed to.
+`<documentIds>` is the distinct, sorted list of slugs the errors are attributed to.
 
-Because messages are denormalized (§1), `N` counts *document-level* errors: a problem spanning two documents
-has already become two notifications and counts as two. That reads correctly next to the document list — "2
+**Why the changelog share is named.** `N` counts both streams, so a bare document list would under-describe a
+mixed failure — a publisher would hunt through documents for what is actually a changelog problem. The
+changelog-only form gets its own wording rather than degenerating to
+`N critical errors, including N changelog errors`, which is both redundant and, since those errors are mostly
+unattributed, would come with no document list to explain it.
+
+**The three forms are exhaustive**, because after this change **every build-phase error is attributed to a
+document** (see [Notifications with no `documentId`](#notifications-with-no-documentid)). So `N - M > 0`
+guarantees a non-empty document list, and an empty one can only mean `M == N` — the third form. There is no
+fourth case where the list is empty but the message still needs a document clause.
+
+That is an invariant the design maintains, not something the code structure enforces: it holds because every
+build-stream site either carries a slug already or gains one here, and because `comparison-serialization` —
+the one unattributed site that writes through the *builder* context — is moved to the comparison stream. A
+future unattributed notification added to the build stream would silently reintroduce the fourth case, so the
+invariant is asserted directly in the tests rather than left implicit.
+
+Because messages are denormalized, `N` counts *document-level* errors: a problem spanning two documents has
+already become two notifications and counts as two. That reads correctly next to the document list — "2
 critical errors in following documents: a, b" — and it means a cross-document duplicate never lands in the
-single-error branch below.
+single-error branch.
 
-Two edge cases in the multi-error message:
-
-- **Errors with no `documentId`** still count toward `N` but contribute no slug. If *some* errors are
-  attributed, list the slugs that exist — the count already signals that more errors exist than documents
-  listed.
-- **No error carries a `documentId`** (all version-level): the "in following documents" clause has nothing to
-  list, so drop it and use
-  `Cannot publish version in release status: N critical errors. You can publish version in draft status for
-  troubleshooting`.
+One consequence of the counting: comparison-phase errors that *are* attributed (`risky-before-value`,
+`risky-origins`) contribute slugs in the mixed form, so a document can appear in the list for a changelog
+problem rather than a problem with its own content. The `including M changelog errors` clause is what keeps
+that from being misleading. In the changelog-only form their slugs are dropped along with the list.
 
 The throw makes the publish fail (build status `error`) exactly as a fatal build does today, and the message
 reaches the user through the existing build-error reporting path — no new transport is needed. `draft`
@@ -473,78 +1091,273 @@ publications proceed and set `hasErrors`. Doing the check in api-processor keeps
 `deprecatedInPreviousVersions`) from ever running for an errored release. The backend enforces the same
 invariant defensively (see Backend §2).
 
-Minor open point: whether the single-error message should also carry the "You can publish version in draft
-status for troubleshooting" hint. Omitted above per the specified behavior — the single-error message is
-deliberately the raw cause — but it is a one-line change if the hint is wanted in both branches.
+### `hasErrors` flags in the build result
 
-### 5. Changelog build rule
+All optional, default `false`, computed by api-processor at package-creation time from the final notification
+lists.
 
-- A `changelog` build for a *current* version that has `Error` notifications is **allowed** to complete and
-  publish its comparison result. The one exception is D2 (api-processor version mismatch), which fails the
-  changelog build outright by design — a mismatch must not be masked by a partial comparison.
-- A version with errors **must not be used as `previousVersion`.** Enforced primarily by the **backend** when
-  it composes the changelog build config / resolves the previous version (Backend §2): refuse to start a
-  changelog (or a `build` with `previousVersion`) whose previous version has `hasErrors = true`.
-- Defense in depth in api-processor: `versionResolver`, when resolving the *previous* version, can surface an
-  `Error` notification (category `Changelog`) if that version is flagged with errors, so a misconfigured build
-  does not silently diff against a broken baseline. `VersionCache` would need to carry `hasErrors` (resolved
-  from the backend's version view) for this check. The natural raise point is `ChangelogStrategy` next to the
-  existing `changelog.strategy.ts:36` "previous version has been deleted or does not exist" message — the two
-  are the same class of baseline problem.
+- **Document** (`documents.json`, via `toPackageDocument` / `PackageDocument`) — `true` when at least one
+  `Error`-severity **build** notification is attributed to that document's slug.
+- **`info.json`** (the package version) — `true` when any `Error`-severity **build** notification exists.
+  Comparison notifications never contribute.
+- **Comparison** (each entry of `comparisons.json` and `ddl-comparisons.json`) — `true` when the comparison
+  was calculated with at least one `Error`-severity **comparison** notification.
 
-**Which notifications can a changelog build actually raise?** Per §2a: one changelog-specific site
-(`changelog.strategy.ts:36`) plus the five shared Error sites (`builder.ts:636`, `builder.ts:682`,
-`rest.changes.ts:269`, `rest.changes.ts:278`, `package.ts:64`). Since "a changelog may complete with errors"
-is now the rule, these five need an explicit decision in the severity review: they are *changelog-internal*
-faults, so an `Error` here degrades the comparison quality rather than describing a bad document. Options:
+**Which flags each build type emits.** The document and version flags are emitted **only by a `build`**. A
+`changelog` produces no `documents.json`, and its `info.json` describes a comparison rather than a publishable
+version, so neither flag has a consumer there — emitting them would invite a reader to treat a changelog
+artifact as if it said something about the version's own content, which it does not. A `changelog` therefore
+carries the comparison flags and `comparison-notifications.json`, nothing else.
 
-1. keep them `Error` — a changelog build still completes (the rule allows it), but the same sites also fire
-   during a `build`, where they would then block a `release` publication;
-2. downgrade the risky-validation pair (`rest.changes.ts:269/278`) and `package.ts:64` to `Warning` — they are
-   internal diff/serialization anomalies, not user-fixable document problems;
-3. keep `Error` but exclude category `Changelog` / `Packaging` from the `hasErrors` computation, so
-   changelog-phase faults never block a `release` build.
+| Build | `info.json.hasErrors` | document `hasErrors` | comparison `hasErrors` |
+|-------|:---------------------:|:--------------------:|:----------------------:|
+| `build`, no `previousVersion` | ✓ | ✓ | — (no comparisons) |
+| `build` with `previousVersion` | ✓ | ✓ | ✓ |
+| `changelog` | — | — | ✓ |
 
-Recommendation: option 2 for the risky-validation pair (they are diagnostics about api-processor internals, and
-a user cannot act on them), and confirm `builder.ts:636/682` as `Error` since an unresolvable version or
-reference genuinely invalidates the result. Decide during the DB-driven review.
+#### Every comparison notification belongs to one version pair
 
-### 6. `hasErrors` flag in the build result
+A build can produce several comparisons — the root pair plus one per dashboard reference, with a DDL
+comparison alongside each. A flat `comparisonNotifications` array cannot say which pair a message belongs to.
 
-- **Document** (`documents.json`, via `toPackageDocument` / `PackageDocument`): add
-  `hasErrors?: boolean` (optional, default `false`) — `true` when at least one `Error`-severity notification is
-  attributed to that document's slug.
-- **`info.json`** (the package version): add `hasErrors?: boolean` (optional, default `false`) — `true` when
-  any `Error`-severity notification exists in the build.
+**This is not only an attribution question — a flat array under-specifies the contract.** The backend stores
+comparison notifications in `comparison_notifications` keyed by `comparison_id`, and with a flat array it has
+no way to derive that key for a multi-comparison build. Inferring it works only when there is exactly one
+comparison, which is precisely the case dashboards violate.
 
-Both are computed by api-processor from the final notifications list at package-creation time. `notifications.json`
-ships the full list (new shape) so the backend can serve the notifications endpoint.
+**Every comparison-phase notification is attributable to a single version pair — there is no build-level
+bucket.** A message raised while comparing `A@2 → A@3` is reported for that comparison and for no other, even
+when a dashboard build happens to be computing a dozen comparisons around it.
 
-### 7. Tests
+**The notifications live on the comparison itself.** Rather than a map keyed by an identity tuple, each
+comparison carries its own list:
 
-- per catch point: one bad document among good ones → good docs/operations published; bad doc present with
-  `hasErrors: true`; build completes; `info.json.hasErrors: true`.
-- `release` + Error notification → build/publish fails; `draft` + Error → succeeds with flags set.
-- release-failure message (§4): a single attributed error throws the notification's own message plus the
-  document; a single unattributed error throws the bare message; several errors throw the summary with the
-  correct count and the distinct sorted slug list; several errors none of which are attributed throw the
-  summary without the "in following documents" clause.
-- cross-document duplicates (B1–B5): one notification emitted per involved document with identical text and
-  distinct `documentId`, all involved documents flagged, first entity kept.
-- D2: an api-processor version mismatch on the previous version fails the build outright, for both `draft` and
-  `release`, and for a `changelog` build too — no partial version is emitted.
+```ts
+interface VersionsComparison {
+  // …existing fields…
+  notifications: NotificationMessage[]
+}
+```
+
+`DdlComparison` gains the same field. This removes the key entirely — no tuple to construct, no lookup, no way
+for a key mismatch to silently drop messages — and the grouping needed by the file and by the backend falls
+out of walking the comparisons that already exist.
+
+**Scoping.** One array per **version pair**, created when comparison of that pair begins and shared by the
+pair's operation and DDL comparison entries — a failure to resolve one side degrades both, so both should
+report it:
+
+- `compareVersions` creates the root pair's array and passes it to `compareVersionsReferences`,
+  `compareVersionsOperations` and `compareVersionsDdl` for the root pair.
+- Inside `compareVersionsReferences`, each referenced pair gets its own array before its
+  `compareVersionsOperations` / `compareVersionsDdl` calls.
+- The pair context already exists and is today just an alias of the shared array
+  (`compare.operations.ts:151`, `compare.ddl.ts:220`); point it at the pair's array and everything reached
+  through it — `rest.changes.ts:268/277` included — lands in the right place.
+- The compare-scoped resolvers take the pair's array as their notifications argument, the same
+  leading-parameter mechanism used to separate the two streams, so `version-not-resolved`,
+  `version-refs-not-resolved`, `operation-data-missing` and `version-documents-missing` attribute to the pair
+  being computed when they fire.
+- `comparison-serialization` (`components/package.ts:64`) is raised from the `logError` closure passed to
+  `toVersionsComparisonDto` / `toDdlComparisonDto`, and each of those calls is already *for* one comparison —
+  build the closure per comparison instead of once for the whole package.
+
+**Resolver failures are not cached, so per-pair attribution is exact.** `versionResolver` and
+`versionReferencesResolver` write to their caches **only on success** (`builder.ts:646`, `:703`); the failure
+paths return `null` / `[]` without caching. A second pair involving the same unresolvable version therefore
+calls the host resolver again and raises its own notification. Every pair that is genuinely affected reports
+the problem, and no pair reports a problem it did not hit.
+
+`version-refs-not-resolved` belongs to the **root** pair: `compareVersionsReferences` resolves the references
+of the root versions, and a failure there means the reference set could not be enumerated at all.
+
+**`hasErrors` per comparison** is then a direct read of that comparison's own list — nothing else contributes.
+
+**File shape.** `comparison-notifications.json` groups by version pair, carrying the same identity as
+`comparisons.json` entries:
+
+```jsonc
+{
+  "comparisons": [
+    {
+      "packageId": "...", "version": "...", "revision": 3,
+      "previousVersionPackageId": "...", "previousVersion": "...", "previousVersionRevision": 7,
+      "notifications": [ /* everything raised while comparing this pair, and nothing else */ ]
+    }
+  ]
+}
+```
+
+Identity is the version-pair tuple rather than `comparisonFileId`, because that field is optional — a
+refs-only dashboard comparison has none. There is no top-level `notifications` array: a message with no owning
+pair cannot occur.
+
+The backend maps each entry to the `version_comparison` row it is already creating for that pair and writes
+the rows with its `comparison_id`. Every row has one, so `comparison_id` is non-nullable.
+
+### Tests
+
+Grouped by the decision each group guards, so a change to one part of the design maps to one group. Groups
+**T1–T3** are the load-bearing ones: they cover the behaviors that do not exist today at all.
+
+#### T1. Tolerant publication
+
+The core promise: one bad document does not cost the version.
+
+- per catch point: one bad document among good ones → good documents and operations published; bad document
+  present with `hasErrors: true`; build completes; `info.json.hasErrors: true`.
+- `parseFile` no longer throws: a file whose parser raises is returned as a fallback `SourceFile` carrying
+  `source` and an `errors` entry — nothing escapes to `buildFile` as an exception.
+- whole-set MCP validations report **everything**: with several non-conforming MCP documents,
+  `validateMcpProtocolVersion` emits a notification for each rather than stopping at the first, and
+  `validateMcpInitRequired` emits one per document of the endpoint that lacks an init — the denormalization
+  rule applied to a non-duplicate check.
+- the per-document loop isolates failures: a document that throws in `processOperationDocument`,
+  `processDdlDocument` or `processMcpDocument` does not prevent later documents in the same build from being
+  processed.
 - the motivating scenario end to end: a version with valid REST documents and a broken AsyncAPI document
   publishes as `draft` with every REST operation present and browsable, `hasErrors: true` on the version and on
   the AsyncAPI document only, and the REST documents unflagged.
-- changelog: current version with errors still produces comparisons; a previous version flagged with errors is
-  rejected as a baseline.
-- category assignment: each notification carries the expected `category`.
-- attribution (§2b): a tolerant-hash failure and a risky-validation failure each carry the expected
-  `documentId`, and the owning document is flagged `hasErrors: true`.
-- unattributed errors (§2b): a version-level `Error` (e.g. missing previous version) sets
-  `info.json.hasErrors: true` while every document keeps `hasErrors: false` — assert the flags and that the
-  notification is returned by an unfiltered query.
-- regression: no-error build unchanged.
+- regression: for a build with no errors, documents, operations, entities and comparisons are unchanged from
+  today. Not byte-identical — `notifications.json` entries carry `category` and `documentId` instead of
+  `fileId` even when nothing failed, and the new `hasErrors` fields may be present.
+
+#### T2. Error documents
+
+Guards the finding that a tolerated document must still survive packaging.
+
+- **packageable**: a build whose only document fails to parse produces a **complete zip** — the regression that
+  would otherwise surface as `does not have source` at `createVersionPackage`. Assert for both the parse-throw
+  and `buildDocument`-throw catch points.
+- content: `documents/<filename>` holds the **original bytes** of the failed file, so `/files/{slug}/raw`
+  returns something a user can inspect; `data` stays empty and the document exposes no operations.
+- sourceless: when the file could not be fetched at all, the document is still published, the zip entry is
+  empty, and packaging does not throw.
+- filename convention is the same whichever catch point produced the error document — a build containing both
+  flavors has one naming scheme, not two.
+
+#### T3. The `release` gate
+
+- `release` + build-phase Error → build fails; `draft` + Error → succeeds with flags set.
+- `release` + comparison-phase Error only (documents all clean) → build fails; the same build with `draft`
+  succeeds, with `hasErrors` on the comparison and `false` on the version and every document.
+- early checkpoint: a `release` blocked by a build-phase error fails before `compareVersions` runs (assert no
+  comparison work is performed).
+- message construction — one case each: a single attributed error throws the notification's own message plus
+  the document; a single unattributed error throws it without the `(document: …)` part; several errors throw
+  the summary with the correct count and the distinct sorted slug list; several errors none of which are
+  attributed throw the summary without the "in following documents" clause. **Every** branch ends with the
+  draft-publication hint.
+- the three multi-error forms: `M == 0` produces the document list alone; `0 < M < N` appends
+  `, including M changelog errors` with the correct `M`; `M == N` produces `N critical errors in the
+  changelog` with no document list. Assert an empty document list occurs **only** in the third form.
+- mixed streams: `N` counts errors from both streams, and a release blocked purely by changelog failures
+  produces the no-document-list variant.
+- a standalone `changelog` build completes and publishes its comparisons even when they carry `Error`
+  notifications — it has no status to gate, so the release check never applies to it.
+
+#### T4. Notification streams and routing
+
+- stream routing: a comparison-phase error lands in `comparison-notifications.json` only, sets `hasErrors` on
+  the comparison, and leaves `info.json.hasErrors` and every document flag `false` — including the case where
+  the same build also has build-phase errors, to prove the streams do not leak into each other.
+- build result shapes: a `build` without `previousVersion` emits `notifications.json` and no
+  `comparison-notifications.json`; a `build` with `previousVersion` emits both; a `changelog` emits only
+  `comparison-notifications.json`.
+- context-routed resolvers: `versionDocumentsResolver` writes `version-documents-missing` to the **build**
+  stream when reached from `export-version.strategy.ts` and to the **comparison** stream when reached from
+  `compare.utils.ts` — the dual-context case that a fixed assignment would get wrong.
+- arrays are cleared in place: two successive `run()` calls on the same builder do not leak notifications
+  between them, and a context built before the second run still writes to the live array — guards the
+  `bind`-captured reference against a reintroduced `= []` reassignment.
+- category assignment: each notification carries the `category` matching its Id, and every value emitted is a
+  member of `MESSAGE_CATEGORY`. No notification carries a `changelog` category — the value does not exist.
+- nested category survives the wrapper: a Swagger document that fails conversion yields a notification with
+  category `swagger-conversion`, not `build-document`, even though `buildDocument` re-wraps the error; an
+  unclassified `buildDocument` failure still reports `build-document`.
+
+#### T5. Attribution — `documentId`
+
+- **invariant**: every `Error` notification in `notifications.json` carries a `documentId`. This is what makes
+  the release-message forms exhaustive, and it is not enforced by the code structure — assert it directly.
+- **invariant**: every `documentId` emitted anywhere in a build result — notifications, `operations.json`,
+  `mcp.json`, `ddl.json` — matches a `slug` in `documents.json`. A single assertion over the whole result
+  catches both a leaked `fileId` and a regression of the MCP/DDL unification (T6).
+- `tolerant-hash-*` and `risky-*` each carry the expected `documentId`, and the owning document is flagged
+  `hasErrors: true`.
+- unattributed errors: a comparison-level `Error` (e.g. `previous-version-missing`) flags the comparison while
+  every document keeps `hasErrors: false` — assert the flags and that the notification is returned by an
+  unfiltered query.
+
+#### T6. `documentId` unification (MCP and DDL)
+
+- `mcp.json` and `ddl.json` entries carry the document **slug**, not a `fileId` path.
+- a cross-document duplicate message for MCP or DDL names slugs rather than paths.
+
+#### T7. Errors in `$ref`-ed files
+
+- a broken file pulled in only through a `$ref` raises `invalid-text-file` attributed to the **root**
+  document's slug, and the message contains the referenced file's `fileId` — never a bare `fileId` in the
+  `documentId` field.
+- message format: an error in the document's *own* file keeps the unchanged text; an error in a `$ref`-ed file
+  uses the `… file '<fileId>' referenced from this document …` form. Assert both texts.
+- shared target: one broken file referenced by two documents produces one notification per root, both
+  documents flagged `hasErrors: true` — the case the rejected threading approach would have got wrong.
+
+#### T8. Duplicate resolution
+
+- cross-document duplicates (`*-duplicate-*`): one notification per involved document with identical text and
+  distinct `documentId`, all involved documents flagged.
+- `rest-duplicate-operation` is **intra-document**: two `(path, method)` pairs in one document computing the
+  same operationId produce a single notification on that document, the remaining operations of the document
+  are still built, and no other document is flagged. Distinct from `duplicate-operation-id`.
+- order-independence: building the same file set with `config.files` in two different orders yields the same
+  winner — the entity from the lexicographically-smallest `documentId` — and identical notifications. Cover all
+  four duplicate kinds.
+- incremental rebuild: with documents `a` and `b` claiming the same id and `a` winning, rebuilding `b` via
+  `update()` leaves `a` the winner; the map still holds `a`'s entity.
+
+#### T9. `hasErrors` flags
+
+- the three flags are computed from the right stream: a build-phase Error sets the document's and the version's
+  flags; a comparison-phase Error sets only the comparison's.
+- per-comparison attribution: a dashboard build with several comparisons and an error raised while computing
+  only one of them reports the message on that comparison and on **no** other, and flags only that comparison.
+- resolver failures attribute per pair: two comparisons that both reference the same unresolvable version each
+  report their own `version-not-resolved` — the failure is not cached, so neither pair is silently omitted.
+- `version-refs-not-resolved` attributes to the **root** pair.
+- `comparison-serialization` attributes to the comparison whose serialization failed, not to all of them.
+- no message in `comparison-notifications.json` lacks an owning comparison — the file has no top-level
+  `notifications` array.
+- a `changelog` build emits **no** version or document `hasErrors` — only the comparison flags — because it
+  produces no `documents.json` and its `info.json` describes a comparison.
+
+#### T10. Severity assignment
+
+Severity is what the `release` gate turns on, so the sites where it stops being a constant need direct
+coverage — see [Severity must come from the source](#severity-must-come-from-the-source).
+
+- `createBundlingErrorHandler` assigns by `errorType`, not one constant: a document producing all four
+  reference problems yields `ref-has-siblings` and `ref-not-allowed` as **Warning** and `ref-not-found` and
+  `ref-not-valid-format` as **Error**, in one build. This is the highest-impact severity change in the design.
+- the same handler no longer throws for `REF_NOT_FOUND` / `REF_NOT_VALID_FORMAT` under
+  `validationRulesSeverity.brokenRefs = error`; it notifies and the build continues.
+- `builder.ts:754` takes severity from the parser rather than a constant: a REST/AJV metaschema complaint is
+  **Warning**, an MCP structural error is **Error**, and an AsyncAPI diagnostic uses the severity
+  `@asyncapi/parser` reported — asserted in one build containing all three document types, since the whole
+  point is that one site now produces different severities.
+- each deferred site ships at its interim severity: `duplicate-operation-id`, `ref-not-found` and
+  `empty-path-parameter` emit **Warning**, so a `release` build carrying only those succeeds. Guards against
+  the tightening being applied early — see
+  [Follow-up — severity tightening](#follow-up--severity-tightening).
+- the promoted sites emit **Error**: `ddl-parse-issue` and `operation-data-missing`.
+
+#### T11. Failures that stay fatal
+
+- `processor-version-mismatch`: fails the build outright for both `draft` and `release`, and for a `changelog`
+  build too — no partial version is emitted.
+- changelog baseline: an unsound previous version is rejected as a baseline.
+
 
 ## Backend
 
@@ -578,8 +1391,16 @@ In the `BuildResult` schema ("Build result for build"):
               type: string
   ```
 
+- **Add `comparison-notifications.json`** to the **build** and **changelog** variants. Same message shape as
+  `notifications.json`, but **grouped by version pair** — a `comparisons` array whose entries carry the same
+  identity as `comparisons.json` entries, each with its own `notifications`. No top-level `notifications`
+  array: every message has an owning pair — see
+  [the attribution rule](#every-comparison-notification-belongs-to-one-version-pair).
+  `notifications.json` stays on the build variant only.
 - `documents.json` item: add `hasErrors: { type: boolean, default: false }`.
 - `info.json`: add `hasErrors: { type: boolean, default: false }`.
+- `comparisons.json` and `ddl-comparisons.json` entries: add `hasErrors: { type: boolean, default: false }`.
+  Both indexes share the `BuildResultComparisonData` base schema, so this is one addition covering both.
 
 ### 2. Publish flow changes (`qubership-apihub-service`)
 
@@ -587,26 +1408,74 @@ In the `BuildResult` schema ("Build result for build"):
   `entity/BuilderNotificationsEntity.go`, `archive/BuildResultToEntities.go:608`): replace `FileId` with
   `DocumentId` (a plain string) and add `Category`. SQL: `builder_notifications` table (`1_init.up.sql:476`) —
   rename `file_id` → `document_id`, add `category`. Requires a new migration. Because api-processor emits
-  messages already denormalized by document (§1), the reader stays a straight one-notification-to-one-row map:
+  messages already denormalized by document, the reader stays a straight one-notification-to-one-row map:
   no splitting, no array column, and `documentId` filtering is a plain `WHERE document_id = ?`.
+- **Comparison notifications storage.** `comparison-notifications.json` needs its own home, because
+  `builder_notifications` is keyed by `build_id` and a comparison outlives the build that produced it (a
+  `changelog` build publishes only comparisons, and `PublishChanges` — not `PublishPackage` — handles it). Add
+  a `comparison_notifications` table keyed by the comparison identity already used for
+  `version_comparison` (`comparison_id`), with `severity`, `category`, `message`, `document_id`. Both publish
+  paths write it: `PublishPackage` for the inline comparison of a `build`, `PublishChanges` for a standalone
+  `changelog`. Republishing a comparison replaces its rows, matching how comparison data is already refreshed.
+
+  The `comparison_id` comes straight from the file: each `comparisons[]` entry in
+  `comparison-notifications.json` carries the version-pair identity, which matches the `version_comparison`
+  row the backend is already creating for that pair. Every message has an owning pair, so `comparison_id` is
+  non-nullable. Without the grouping the backend would have no way to derive the key at all for a build with
+  several comparisons, which is the normal case for dashboards.
+- **Comparison `hasErrors`.** Persist the per-comparison flag from `comparisons.json` /
+  `ddl-comparisons.json` onto the `version_comparison` row, so `/changes/summary` and the version-content
+  `comparisonHasErrors` can be served without aggregating notifications.
 - **`ValidateBuildResultAgainstConfig`** (`service/validation/PublishedValidator.go:121`): keep the strict
   `info.status == buildConfig.status` check (no downgrade). **Add** a defensive rule: if
-  `buildConfig.status == release` and `info.hasErrors == true`, reject with a dedicated error code
-  (`ReleasePublishWithErrors`). This backstops the api-processor check for non-standard build paths.
+  `buildConfig.status == release` and **either** `info.hasErrors == true` **or** any entry of
+  `comparisons.json` / `ddl-comparisons.json` has `hasErrors == true`, reject with
+  `ReleasePublishWithErrorsMsg` (see the shared error code below). This is the same unsound-version predicate
+  as the guards below, evaluated
+  against the incoming build result rather than stored rows, because the version does not exist yet. It
+  backstops the api-processor check for non-standard build paths.
 - **`ReadDocumentsToEntities`** (`archive/BuildResultToEntities.go:30`): persist per-document `hasErrors` into
   `published_version_content.metadata` (jsonb) — e.g. `fileEntMetadata.SetHasErrors(true)`. No content-table
   schema change.
 - **`PublishPackage`** (`service/PublishedService.go`): persist version-level `hasErrors` (from `info.json`)
   into `published_version.metadata` (jsonb). No schema change.
+- **One error code for all four refusals.** They are one class — "the version is unsound" — so they share a
+  single code constant with four message constants, exactly as `InvalidReleaseVersionChain` (`8600`) already
+  serves three messages across `BuildService`, `PublishedService` and `VersionService`. Add
+  `VersionHasErrors = "8700"` to `exception/ErrorCodes.go` — `8700` is the next free class code, since the
+  existing allocation runs `8000`, `8100`–`8102`, `8200`, `8300`–`8305`, `8400`, `8500`, `8600` — plus
+  `ReleasePublishWithErrorsMsg`, `VersionStatusChangeWithErrorsMsg`, `PreviousVersionHasErrorsMsg` and
+  `ReferencedVersionHasErrorsMsg`. Do **not** use `86xx` sub-codes: that range belongs to
+  `InvalidReleaseVersionChain` and would imply these are variants of it.
+- **Shared `isVersionUnsound` helper.** The three guards below and the `PATCH` guard all gate on the same
+  predicate: the version has `hasErrors` on its `published_version` row, **or** its comparison against its
+  `previousVersion` has `hasErrors` on the corresponding `version_comparison` row. A version with no
+  `previousVersion` has no comparison and is judged on its own flag alone. Implement it once — as a repository
+  query returning both flags for a `(packageId, version, revision)` — so all four guards cannot drift apart.
 - **Changelog previous-version guard:** where the backend resolves/validates the previous version for a
   changelog or a `build` with `previousVersion` (previous-version lookup in `PublishPackage` around
   `GetVersionIncludingDeleted`, and wherever changelog build configs are assembled), reject when the previous
-  version has `hasErrors = true` with a dedicated error (`PreviousVersionHasErrors`). This is the primary
-  enforcement of the changelog rule.
+  version is unsound, with `PreviousVersionHasErrorsMsg`. This is the primary enforcement of
+  the changelog rule. Remember `reCalculateChangelogs` (`service/PublishedService.go:939`) creates changelog
+  builds automatically after a publish — it must skip unsound baselines rather than fail, since it runs inside
+  someone else's publish and has no user-facing request to reject.
 - **Dashboard references guard:** when publishing a package of kind `dashboard` (refs present), reject any ref
-  pointing to a version with `hasErrors = true` (new error `ReferencedVersionHasErrors`). This implements
-  "cannot add an errored version to a dashboard." The reference resolution already happens in
-  `makePublishedReferencesEntities`; add the flag check there.
+  pointing to an unsound version, with `ReferencedVersionHasErrorsMsg`. This implements "cannot add an
+  errored version to a dashboard." The reference resolution already happens in
+  `makePublishedReferencesEntities`; add the check there.
+- **Release promotion guard — `PatchVersion`** (`service/VersionService.go:471`): reject promotion to
+  `release` when the version is unsound, with `VersionStatusChangeWithErrorsMsg`. Without
+  this the endpoint is a back door around the publish-time gate: publishing a `draft` while unsound is allowed
+  by design, and `PatchVersion` would then promote it to `release` without re-running any publish-time
+  validation.
+
+  Scoped to promotion into `release` only, so it belongs **inside** the existing
+  `if newStatus == string(view.Release)` block (`:500`), alongside the release-version-pattern and
+  previous-version-status checks that already live there. Every other status change stays allowed — notably
+  `draft` → `archived`, so an unsound version can still be cleaned up — and `versionLabels`-only patches are
+  untouched.
+
+  The check reads the *stored* flags; it recomputes nothing.
 
 ### 3. Public API — `APIHUB_API.yaml`
 
@@ -616,7 +1485,16 @@ In the `BuildResult` schema ("Build result for build"):
 | `GET /api/v3/packages/{packageId}/versions/{version}` — `PackageVersionContent` | add `hasErrors: boolean` (from build result); add `hasErrors: boolean` on each `operationTypes.*` item and on `contractsSummary.ddl` / `contractsSummary.mcp` — **calculated by the backend** from the version's documents (a document with `hasErrors` contributes to its apiType/contractType) |
 | `GET /api/v2/packages/{packageId}/versions/{version}/documents` — `PackageVersionFile` | add `hasErrors: boolean` (default `false`) — from build result (`published_version_content.metadata`) |
 | `GET /api/v3/packages/{packageId}/versions/{version}/documents/{slug}` | add `hasErrors: boolean` (per-document detail already an on-demand fetch) |
-| **NEW** `GET /api/v2/packages/{packageId}/versions/{version}/notifications` | returns the version's build notifications, **filterable** by `documentId`, `severity`, `category` (repeatable query params). Served from `builder_notifications`. |
+| `GET /api/v3/packages/{packageId}/versions/{version}` — `includeSummary=true` | add `comparisonHasErrors: boolean` — `true` when the version's own comparison (against its `previousVersion`) has `hasErrors` |
+| `GET /api/v2/packages/{packageId}/versions/{version}/changes/summary` | add `hasErrors: boolean` — `true` when the comparison for the requested version pair has `hasErrors`. For a dashboard comparison the flag also appears per `refs[]` entry, since each ref is its own comparison. |
+| **NEW** `GET /api/v2/packages/{packageId}/versions/{version}/notifications` | returns the version's **build** notifications, **filterable** by `documentId`, `severity`, `category` (repeatable query params). Served from `builder_notifications`. |
+| **NEW** `GET /api/v2/packages/{packageId}/versions/{version}/changes/notifications` | returns the **comparison** notifications, same filters plus `previousVersion` and `previousVersionPackageId` to select the comparison. Served from `comparison_notifications`. |
+
+The two endpoints are deliberately separate rather than one endpoint with a phase filter: they identify
+different subjects. A build notification is addressed by *(packageId, version)*; a comparison notification by
+*(packageId, version, previousVersionPackageId, previousVersion)* — the same key `/changes/summary` already
+uses. Merging them would make `previousVersion` a conditionally-required parameter and force callers to
+disambiguate results by inspecting them.
 
 New endpoint sketch:
 
@@ -664,15 +1542,28 @@ New endpoint sketch:
                       documentId: { type: string }
 ```
 
-Because messages are denormalized by document (§1), an unfiltered response repeats the text of a
+`/changes/notifications` is the same, plus the two comparison-selecting query parameters:
+
+```yaml
+      - $ref: "#/components/parameters/previousVersion"
+      - $ref: "#/components/parameters/previousVersionPackageId"
+```
+
+Because messages are denormalized by document, an unfiltered response repeats the text of a
 multi-document problem once per document, each row naming its own `documentId`. A UI listing all notifications
 may group by `message` if it prefers to show such a problem once.
+
+Comparison notifications carry a `documentId` only when the problem is about a specific document of one of the
+compared versions; the resolution failures listed in
+[Current Notification Revision](#current-notification-revision) have none, so `documentId` is empty more often on
+`/changes/notifications` than on `/notifications`.
 
 Notes:
 
 - `operationTypes.*.hasErrors` and `contractsSummary.*.hasErrors` are computed by the backend from stored
   per-document `hasErrors`. Two cases produce a version-level mark with no API type highlighted, and the UI must
-  tolerate both (see §2b): a document that failed before its type could be determined maps to no
+  tolerate both (see [Notifications with no `documentId`](#notifications-with-no-documentid)): a document that
+failed before its type could be determined maps to no
   apiType/contractType; and a version-level `Error` (missing previous version, reference resolution) flags no
   document at all. In both cases `hasErrors` on the version is the only signal, and the notifications endpoint
   is where the explanation lives.
@@ -682,21 +1573,140 @@ Notes:
   propagates to the dashboard document list automatically, satisfying "indicate an errored referenced version
   when viewing the dashboard's packages."
 
-### 4. Suggested implementation order
+### 4. Tests
 
-1. api-processor: new `NotificationMessage` shape + `MessageCategory` + fileId→slug normalization; catch
-   points; attribution plumbing for the two operation-level sites (§2b); `release`-with-errors fatal check;
-   `hasErrors` on `documents.json`/`info.json`. (New optional fields — backward compatible for the no-error
-   case.)
-2. **Severity review** of existing `Error` notifications informed by production `builder_notifications`
-   analysis; downgrade where agreed.
-3. backend: internal spec + `builder_notifications` migration (`document_id`, `category`) + validator rules
-   (release-with-errors, previous-version-has-errors, referenced-version-has-errors) + metadata persistence.
-4. backend: public API fields + new notifications endpoint + `operationTypes`/`contractsSummary` computation.
-5. UI (separate activity): consume the new fields/endpoint on the identified screens.
+The api-processor groups above cover the build result. These cover what the backend adds on top of it — the
+persistence, the derived views and the refusals, none of which the api-processor tests can reach.
 
-Steps 1 and 3 must land together for the fatal/guard behavior to be consistent; step 2 gates which messages
-actually block `release`.
+**Ingestion**
+
+- a build result with build-phase and comparison-phase notifications lands in `builder_notifications` and
+  `comparison_notifications` respectively, with `category` and `document_id` populated and `severity` stored as
+  `0` for `Error` — the `use_zero` fix, without which the `?severity=error` filter silently returns nothing.
+- `comparison_id` is resolved from the version-pair identity in the file, including a dashboard build with
+  several comparisons where each notification lands on the right one.
+- a standalone `changelog` publish (`PublishChanges`) persists its comparison notifications — the path that
+  discards them today.
+- per-document and per-version `hasErrors` are persisted from the build result; comparison `hasErrors` lands on
+  the `version_comparison` row.
+- republishing a comparison replaces its notification rows rather than appending to them.
+
+**Derived views**
+
+- `operationTypes.*.hasErrors` and `contractsSummary.ddl|mcp.hasErrors` are computed from the documents: a
+  version with one errored REST document flags `rest` and nothing else.
+- a document that failed before its type could be determined flags the **version** but no API type — the
+  mark-with-no-highlight case the UI has to tolerate.
+- `comparisonHasErrors` on version content reflects the version's own comparison against its
+  `previousVersion`, and is absent when there is none.
+
+**Endpoints**
+
+- both notification endpoints filter by `documentId`, `severity` and `category`, singly and combined, and
+  repeated `severity` / `category` parameters OR together.
+- `/changes/notifications` selects the comparison by `previousVersion` + `previousVersionPackageId`, and
+  returns only that pair's messages in a build that produced several.
+- an unfiltered query returns messages that carry no `documentId`.
+
+**Refusals** — one test each, all four on the same `isVersionUnsound` predicate
+
+- publishing `release` when the version has errors, and when only its comparison has errors;
+- `PATCH` promoting to `release` in both those cases, while `draft` → `archived` on the same version still
+  succeeds;
+- a changelog whose previous version is unsound is refused, and `reCalculateChangelogs` **skips** rather than
+  fails when it encounters one during someone else's publish;
+- publishing a dashboard that references an unsound version.
+
+### 5. Suggested implementation order
+
+1. api-processor: `documentId` unification for MCP and DDL entities — small, self-contained, and a
+   prerequisite for attributing the entity duplicate handlers.
+2. api-processor: new `NotificationMessage` shape + `MessageCategory` + slug attribution at every raising
+   site; catch points; attribution plumbing for the four operation-level sites; `release`-with-errors fatal
+   check; `hasErrors` on `documents.json`/`info.json`. (New optional fields — backward compatible for the
+   no-error case.)
+3. api-processor: apply the severities from
+   [Current Notification Revision](#current-notification-revision), including the two severity-from-source
+   changes (`createBundlingErrorHandler` by `errorType`, `builder.ts:754` from the parser). The
+   `BuilderNotificationsEntity` `use_zero` fix belongs with the backend migration below — without it the
+   `?severity=error` filter cannot work.
+4. backend: internal spec + `builder_notifications` migration (`document_id`, `category`) +
+   `comparison_notifications` table + metadata persistence + the shared `isVersionUnsound` helper and the four
+   guards built on it (release publish, release promotion via `PATCH`, previous-version, dashboard reference).
+5. backend: public API fields + the two notifications endpoints + `operationTypes`/`contractsSummary`
+   computation.
+6. agent packages: extend `api-processor-using` for the new library contract, and decide whether an
+   `api-processor-authoring` package is created — see [Agent packages](#agent-packages).
+7. UI (separate activity): consume the new fields/endpoint on the identified screens.
+
+Step 1 stands alone and can land first. Steps 2 and 4 must land together for the fatal/guard behavior to be
+consistent; step 3 gates which messages actually block `release`.
+
+## Agent packages
+
+The change alters the api-processor library contract, so the repo's APM packages have to move with it —
+otherwise an agent working in a consumer repo will keep generating code against the old shape.
+
+**`agent-packages/api-processor-using`** exists today and is affected. Its current scope is narrow — the light
+root vs `/processor` import boundary — and says nothing about notifications or the build result, so this is an
+extension rather than a correction:
+
+- `NotificationMessage` is `{ category, severity, message, documentId? }`. `fileId` is gone; `documentId` is a
+  document **slug**, never a path, and a problem touching several documents arrives as one message per
+  document rather than one message with a list.
+- `BuildResult` carries two notification collections, not one: build-phase messages, and comparison-phase
+  messages that belong to a specific version pair.
+- `hasErrors` on the version, on each document and on each comparison, and what each one is computed from.
+- A `release` build now **throws** when any `Error` notification exists; a `draft` build publishes and is
+  marked. A consumer that treats a failed release build as an infrastructure fault will misreport it.
+- Error documents are published carrying their original source, with no operations — consumers iterating
+  documents must not assume a document has parsed content.
+
+**No `api-processor-authoring` package exists in this repo.** The sibling `apihub-ui-authoring` package in the
+UI repo is the precedent for one, and the conventions this change introduces are exactly the kind that a
+contributor to api-processor needs and cannot infer from the code:
+
+- notifications are raised with a `category` from `MESSAGE_CATEGORY` — one stable code per diagnostic — and
+  attributed with the document **slug** at the raising site, never a `fileId` and never converted later;
+- which of the two streams a message belongs to, and that the stream follows from the context that produced it
+  rather than from a decision at the call site;
+- when a failure may be caught and turned into a notification, and when it must stay fatal — the "is anything
+  publishable left?" test, and the deliberate exceptions to it;
+- duplicate resolution is order-independent by lexicographically-smallest `documentId`.
+
+Whether to create it is a scoping decision, not a technical one. If it is created, it should be authored with
+the `apm-authoring` skill and follow the layout `apihub-ui-authoring` already uses. If it is not, these
+conventions live only in this plan, which is a document that will stop being read once the work lands — so at
+minimum they should move into `AGENTS.md`.
+
+## Follow-up — severity tightening
+
+Four messages ship as `Warning` and are meant to become `Error` once the existing population is clean. In each
+case `Error` is the correct end state — the condition genuinely makes a document or a changelog unreliable —
+but promoting it now would block release versions that already carry the message, retroactively punishing
+content that was accepted when it was published.
+
+| Category | Phase | Releases affected | Why it must end as `Error` |
+|----------|-------|------------------------:|----------------------------|
+| `duplicate-operation-id` | build | sometimes | One operation silently overwrites another; the published version is missing an operation it appears to declare |
+| `ref-not-found` | build | sometimes | The reference does not resolve, so the document is incomplete |
+| `version-documents-missing` | changelog | rare¹ | A comparison side whose documents cannot be resolved produces an unreliable changelog |
+| `empty-path-parameter` | build | rare | The path is syntactically invalid |
+
+¹ Shared bucket with `group-documents-missing`; an upper bound.
+
+**The sequence for each.** Ship as `Warning`, so the affected versions publish and are marked; use the
+notifications endpoints to enumerate the affected packages and versions (filter by `category`); drive those to
+be fixed and republished; then flip the severity to `Error` in a later release. The flip is a one-line change
+per site — the only thing gating it is the population.
+
+Two properties make this workable. The category is a stable code, so "list every version still carrying
+`ref-not-found`" is a single filtered query rather than a text match. And because migration republishes
+existing versions with the new builder, the flags on historical versions stay current without a separate
+backfill — the remaining population shrinks as content is fixed, and can be measured at any time.
+
+Do not tighten all four at once: each has a different owner population, and a single flip that blocks several
+unrelated teams at once is how a gate gets rolled back.
 
 ## UI follow-up (out of scope here, to be planned separately)
 
@@ -706,7 +1716,7 @@ of it; no further backend work is implied.
 ### Version-level errors with no document
 
 **The UI must provide a way to see errors that are not attributable to any specific document.** Four `Error`
-notifications are inherently version-level (§2b): missing previous version, unresolvable version references,
+notifications are inherently version-level: missing previous version, unresolvable version references,
 previous version deleted or non-existent, and comparison serialization failure. They set the version's
 `hasErrors` flag but flag **no document** and **no API type**, so a UI that only surfaces errors through the
 documents list or the API type dropdown would show an error mark the user cannot explain or act on.
@@ -737,23 +1747,44 @@ remains the right entry point for it.
   `operationTypes.*.hasErrors` and `contractsSummary.ddl|mcp.hasErrors`.
 - dashboard package list: indicate a referenced package version that has errors (publishing such a reference is
   refused going forward, but pre-existing dashboards may already contain one).
-- notifications view with filtering by `documentId`, `severity` and `category`.
+- notifications view with filtering by `documentId`, `severity` and `category`. Based on usage data this is a
+  **log, not a short list** — an affected version routinely carries hundreds of messages — so it needs text
+  search, grouping by document, pagination or virtualization, and a severity filter. Downgrading severities
+  moves volume from `Error` to `Warning` rather than removing it, so the view must cope either way.
+- a version-level error mark with no document to drill into is the **exception, not the rule** once the
+  severity downgrades are applied, so a tooltip is likely sufficient; a dedicated version-level
+  notifications screen is probably unnecessary.
 
-## Decisions still to confirm
+## Decisions
 
-1. Final `MessageCategory` value set (proposed above) — confirm during the severity review.
-2. Per-message severity confirmations (the **review** rows in §2) — human decision, DB-analysis driven.
-3. Notification id in the api-processor shape — recommended **not** to add (see §1).
-4. Changelog-phase notifications (`rest.changes.ts:269/278`, `package.ts:64`, `deprecated.ts:141/149`): keep as
-   `Error` and let them count toward the current version's `hasErrors`, downgrade to `Warning`, or exclude the
-   `Changelog`/`Packaging` categories from the `hasErrors` computation? Three options weighed in §5;
-   recommendation is to downgrade the risky-validation pair. Needs the review.
-5. Whether `hasErrors` should be written into the changelog build result at all. A `changelog` build produces no
-   `documents.json` and its `info.json` describes a comparison, not a publishable version — so the flag has no
-   consumer there. Proposal: emit `hasErrors` only for `build`, and let changelog builds carry notifications
-   without the flag.
-6. Changelog-phase throws (`rest.changes.ts:180`, `graphql.changes.ts:136`, `async.changes.ts:148`,
-   `compare.ddl.ts:192`): convert to notifications, or keep fatal? The salvageable test alone would convert
-   them, but the D2 reasoning (do not mask a hard-to-diagnose defect behind a partial changelog) points the
-   other way, and these are internal index/document inconsistencies rather than user-caused. Recommend keeping
-   them fatal, consistent with D2.
+All open questions are closed. Recorded here so they are not reopened:
+
+- **Severities are confirmed per site** — the `Severity decision` column in
+  [Current Notification Revision](#current-notification-revision) is the decision, not a proposal. Four
+  messages ship as `Warning` and are scheduled to tighten later; see
+  [Follow-up — severity tightening](#follow-up--severity-tightening).
+- **Comparison notifications attribute per version pair** — there is no build-wide bucket and no
+  build-wide `hasErrors` fallback; see
+  [the attribution rule](#every-comparison-notification-belongs-to-one-version-pair).
+- **No notification id** in the api-processor shape — see
+  [Notifications Mechanism Redesign](#notifications-mechanism-redesign).
+- **Comparison-phase errors block a `release`** — a release that declares a `previousVersion` is expected to
+  ship a reliable changelog. The two-stream split governs which entity gets flagged, not the release gate, so
+  the severity of every comparison-phase `Error` carries release-blocking weight, and was reviewed on that
+  basis.
+- **One unsound-version predicate for all four backend refusals** — version `hasErrors` **or** its comparison's
+  `hasErrors`. See [Backend — new refusals](#public-api-changes-at-a-glance).
+- **Version and document `hasErrors` are emitted only by a `build`** — a `changelog` carries the comparison
+  flags and `comparison-notifications.json` only. See
+  [`hasErrors` flags in the build result](#haserrors-flags-in-the-build-result).
+- **All changelog-phase throws stay fatal** — `processor-version-mismatch`, `resolver-missing`,
+  `compare-missing-operation-*` and `ddl-compare-hook-missing`. None is converted to a notification; see
+  [Current Throws Revision](#current-throws-revision).
+- **The release-failure message names the changelog share** — `, including M changelog errors` when both
+  streams contribute, and a dedicated `N critical errors in the changelog` when the changelog alone is at
+  fault. See [`release` publication is fatal when errors exist](#release-publication-is-fatal-when-errors-exist).
+- **The `PATCH` guard covers promotion to `release` only** — other status changes, including
+  `draft` → `archived`, stay allowed so an unsound version can be cleaned up.
+- **Duplicates resolve by lexicographically-smallest `documentId`**, replacing today's order-dependent
+  last-wins — see [Duplicate resolution](#duplicate-resolution). Accepts a behavior change for REST and GraphQL
+  duplicates in exchange for reproducible output.
