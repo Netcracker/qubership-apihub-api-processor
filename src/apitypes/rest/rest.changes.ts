@@ -142,8 +142,6 @@ export const compareDocuments: DocumentsCompare = async (
 
   aggregateDiffsWithRollup(merged, DIFF_META_KEY, DIFFS_AGGREGATED_META_KEY)
 
-  // Every difference already carries its final type, and nothing below rewrites one, so the summaries
-  // frozen per operation cannot go stale
   const tags = new Set<string>()
   const operationChanges: OperationChanges[] = []
   for (const path of Object.keys(merged.paths)) {

@@ -85,15 +85,6 @@ type PreparedOperation = {
   partition: DeprecationPartition | undefined
 }
 
-/** What was announced long enough for one operation. */
-type OperationDeprecations = {
-  isOperationSeasoned: boolean
-  /** Every seasoned element of the operation, matched against removals reached from it. */
-  elements: SeasonedDeprecations
-  /** Only those another operation could reach as well, which is what the partition keys on. */
-  shareableElements: SeasonedDeprecations
-}
-
 /**
  * Builds the deprecated-removal rules for one document pair.
  * Two operations sharing a schema can disagree about the same removed element, since whether a removal
@@ -115,12 +106,10 @@ export async function createDeprecatedRemovalRules(
   }
 
   const previousOperations = await resolvePreviousDeprecations(operationsMap, previousDocument, ctx)
-  const seasonedByOperationId = collectSeasonedDeprecations(previousOperations ?? [])
-  if (!seasonedByOperationId.size) {
+  const { preparedByOperationId, seasonedByPartition } = prepareOperations(previousOperations ?? [])
+  if (!preparedByOperationId.size) {
     return NOTHING_TO_DOWNGRADE
   }
-
-  const { preparedByOperationId, seasonedByPartition } = assignPartitions(seasonedByOperationId)
   const preparedOf = createPreparedOperationLookup(operationsMap, previousDocumentData?.servers, preparedByOperationId)
   const reportBrokenOrigins = createBrokenOriginsReporter(ctx)
 
@@ -190,14 +179,18 @@ type PreparedOperationLookup = (
 ) => PreparedOperation | undefined
 
 /**
- * Groups the operations into partitions and settles, per operation, everything the comparison will ask.
+ * Settles, per operation of the previous version, everything the comparison will ask: whether the
+ * operation itself was announced long enough, and which partition it belongs to.
+ *
  * Operations need separate partitions only where they can disagree, which means only about an element
- * another operation can reach (see `isPrivateToOperation`). Keying on those alone keeps the common
- * cleanup pattern, every operation retiring a field of its own, in one partition.
+ * another operation can reach (see `isPrivateToOperation`). Keying on those alone keeps the common cleanup
+ * pattern, every operation retiring a field of its own, in one partition. That is not tidiness: the number
+ * of distinct partitions is what the traversal costs, and one partition per operation has been measured to
+ * exhaust the heap on a densely shared document.
  * A partition answers with the union of its operations' seasoned elements, which is sound because its
  * shareable elements are identical by construction and the private ones reach a single operation.
  */
-function assignPartitions(seasonedByOperationId: Map<string, OperationDeprecations>): {
+function prepareOperations(operations: ResolvedDeprecatedOperation[]): {
   preparedByOperationId: Map<string, PreparedOperation>
   seasonedByPartition: Map<DeprecationPartition, SeasonedDeprecations>
 } {
@@ -205,22 +198,37 @@ function assignPartitions(seasonedByOperationId: Map<string, OperationDeprecatio
   const seasonedByPartition = new Map<DeprecationPartition, Set<DeprecatedElementId>>()
   const preparedByOperationId = new Map<string, PreparedOperation>()
 
-  for (const [operationId, { isOperationSeasoned, elements, shareableElements }] of seasonedByOperationId) {
+  for (const operation of operations) {
+    const isOperationSeasoned = (operation.deprecatedInPreviousVersions?.length ?? 0) > SUFFICIENT_DEPRECATION_HISTORY
+    const seasonedItems = (operation.deprecatedItems ?? []).filter(item =>
+      // An item for the deprecation of the operation itself carries no hash and could never match a removed
+      // element; `isOperationSeasoned` answers that case, and keeping it here would cost a partition
+      item.hash !== undefined &&
+      (item.deprecatedInPreviousVersions?.length ?? 0) > SUFFICIENT_DEPRECATION_HISTORY,
+    )
+
     // Nothing matchable, so nothing to disagree about: no partition, and the operation goes on sharing
-    // difference instances. Kept only because `classifyOperationRemoval` still reads `isOperationSeasoned`
-    if (!elements.size) {
-      preparedByOperationId.set(operationId, { isOperationSeasoned, partition: undefined })
+    // difference instances. Recorded only because `classifyOperationRemoval` still reads the flag
+    if (!seasonedItems.length) {
+      if (isOperationSeasoned) {
+        preparedByOperationId.set(operation.operationId, { isOperationSeasoned, partition: undefined })
+      }
       continue
     }
 
-    const signature = [...shareableElements].sort().join('\n')
+    const signature = seasonedItems
+      .filter(item => !isPrivateToOperation(item))
+      .map(deprecatedItemId)
+      .sort()
+      .join('\n')
     const partition = partitionBySignature.get(signature) ?? `deprecated-${partitionBySignature.size}`
-    const pooled = seasonedByPartition.get(partition) ?? new Set<DeprecatedElementId>()
-
     partitionBySignature.set(signature, partition)
+
+    const pooled = seasonedByPartition.get(partition) ?? new Set<DeprecatedElementId>()
     seasonedByPartition.set(partition, pooled)
-    elements.forEach(element => pooled.add(element))
-    preparedByOperationId.set(operationId, { isOperationSeasoned, partition })
+    seasonedItems.forEach(item => pooled.add(deprecatedItemId(item)))
+
+    preparedByOperationId.set(operation.operationId, { isOperationSeasoned, partition })
   }
 
   return { preparedByOperationId, seasonedByPartition }
@@ -270,31 +278,6 @@ async function resolvePreviousDeprecations(
   }, DEFAULT_BATCH_SIZE)
 
   return operations
-}
-
-/** Keeps only what has been announced long enough to be removed, per operation of the previous version. */
-function collectSeasonedDeprecations(operations: ResolvedDeprecatedOperation[]): Map<string, OperationDeprecations> {
-  const seasonedByOperationId = new Map<string, OperationDeprecations>()
-
-  for (const operation of operations) {
-    const isOperationSeasoned = (operation.deprecatedInPreviousVersions?.length ?? 0) > SUFFICIENT_DEPRECATION_HISTORY
-    const seasonedItems = (operation.deprecatedItems ?? []).filter(item =>
-      // An item for the deprecation of the operation itself carries no hash and could never match a removed
-      // element; `isOperationSeasoned` answers that case, and keeping it here would cost a partition
-      item.hash !== undefined &&
-      (item.deprecatedInPreviousVersions?.length ?? 0) > SUFFICIENT_DEPRECATION_HISTORY,
-    )
-    const elements: SeasonedDeprecations = new Set(seasonedItems.map(deprecatedItemId))
-    const shareableElements: SeasonedDeprecations = new Set(
-      seasonedItems.filter(item => !isPrivateToOperation(item)).map(deprecatedItemId),
-    )
-
-    if (isOperationSeasoned || elements.size) {
-      seasonedByOperationId.set(operation.operationId, { isOperationSeasoned, elements, shareableElements })
-    }
-  }
-
-  return seasonedByOperationId
 }
 
 /**
