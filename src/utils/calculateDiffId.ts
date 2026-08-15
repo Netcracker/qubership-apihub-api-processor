@@ -15,6 +15,7 @@
  */
 
 import { Diff } from '@netcracker/qubership-apihub-api-diff'
+import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import { calculateHash } from './hashes'
 import { ChangeMessage } from '../types'
 import { AFTER_VALUE_NORMALIZED_PROPERTY, BEFORE_VALUE_NORMALIZED_PROPERTY } from '../consts'
@@ -28,7 +29,17 @@ export function calculateDiffId(diff: Diff): string {
     beforeKey: previousKey = undefined,
     afterKey: currentKey = undefined,
     type: severity,
-  } = { ...diff }
+  // `Diff`/`ChangeMessage` are discriminated unions and these fields exist on some
+  // members only. Spreading a union used to collapse it to a single object type; from
+  // TypeScript 5 onward the spread keeps the union, so destructuring a non-common field
+  // is an error (TS2339) where it previously widened to the field's type. The defaults
+  // below already handle the absent case at runtime, so the read is widened explicitly.
+  } = { ...diff } as Diff & {
+    beforeDeclarationPaths?: JsonPath[]
+    afterDeclarationPaths?: JsonPath[]
+    beforeKey?: unknown
+    afterKey?: unknown
+  }
 
   const beforeValueNormalized = (diff as Record<symbol, unknown>)[BEFORE_VALUE_NORMALIZED_PROPERTY]
   const afterValueNormalized = (diff as Record<symbol, unknown>)[AFTER_VALUE_NORMALIZED_PROPERTY]
@@ -58,7 +69,19 @@ export function calculateChangeId(change: ChangeMessage): string {
     previousKey = '',
     currentKey = '',
     severity,
-  } = { ...change }
+  // `Diff`/`ChangeMessage` are discriminated unions and these fields exist on some
+  // members only. Spreading a union used to collapse it to a single object type; from
+  // TypeScript 5 onward the spread keeps the union, so destructuring a non-common field
+  // is an error (TS2339) where it previously widened to the field's type. The defaults
+  // below already handle the absent case at runtime, so the read is widened explicitly.
+  } = { ...change } as ChangeMessage & {
+    previousDeclarationJsonPaths?: JsonPath[]
+    currentDeclarationJsonPaths?: JsonPath[]
+    previousValueHash?: string
+    currentValueHash?: string
+    previousKey?: unknown
+    currentKey?: unknown
+  }
 
   const previousPaths = `[${previousDeclarationJsonPaths.map(path => `[${path.join()}]`).sort().join()}]`
   const currentPaths = `[${currentDeclarationJsonPaths.map(path => `[${path.join()}]`).sort().join()}]`

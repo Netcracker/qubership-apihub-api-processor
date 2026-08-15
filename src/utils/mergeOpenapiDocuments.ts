@@ -105,7 +105,15 @@ function extractDeclarationPaths(diff: Diff): JsonPath[] {
   const {
     afterDeclarationPaths = [],
     beforeDeclarationPaths = [],
-  } = { ...diff }
+  // `Diff`/`ChangeMessage` are discriminated unions and these fields exist on some
+  // members only. Spreading a union used to collapse it to a single object type; from
+  // TypeScript 5 onward the spread keeps the union, so destructuring a non-common field
+  // is an error (TS2339) where it previously widened to the field's type. The defaults
+  // below already handle the absent case at runtime, so the read is widened explicitly.
+  } = { ...diff } as Diff & {
+    afterDeclarationPaths?: JsonPath[]
+    beforeDeclarationPaths?: JsonPath[]
+  }
 
   return [...afterDeclarationPaths, ...beforeDeclarationPaths]
 }

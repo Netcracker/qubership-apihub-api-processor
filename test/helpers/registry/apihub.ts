@@ -109,7 +109,9 @@ export class ApihubRegistry implements IRegistry {
     }
 
     const buffer = this.sources.readFile(fullPath)
-    return buffer ? new Blob([buffer]) : null
+    // Buffer is a Uint8Array at runtime and is a valid BlobPart. @types/node 24 types it
+    // as Buffer<ArrayBufferLike>, which no longer matches BlobPart's ArrayBufferView<ArrayBuffer>.
+    return buffer ? new Blob([buffer as unknown as BlobPart]) : null
   }
 
   async versionResolver(
