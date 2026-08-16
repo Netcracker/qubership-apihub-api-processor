@@ -109,9 +109,11 @@ export class ApihubRegistry implements IRegistry {
     }
 
     const buffer = this.sources.readFile(fullPath)
-    // Buffer is a Uint8Array at runtime and is a valid BlobPart. @types/node 24 types it
-    // as Buffer<ArrayBufferLike>, which no longer matches BlobPart's ArrayBufferView<ArrayBuffer>.
-    return buffer ? new Blob([buffer as unknown as BlobPart]) : null
+    // @types/node 24 types Buffer as Buffer<ArrayBufferLike>, which no longer satisfies
+    // BlobPart. Copying into a Uint8Array gives a concrete ArrayBuffer-backed view and
+    // needs no cast. Note buffer.buffer would be wrong: Buffers under ~4KB are views into
+    // a shared allocation pool, so it yields the whole pool rather than these bytes.
+    return buffer ? new Blob([new Uint8Array(buffer)]) : null
   }
 
   async versionResolver(
