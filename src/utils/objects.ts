@@ -86,3 +86,31 @@ export const extractSymbolProperty = <T extends object>(
   const value = getSymbolValueIfDefined(obj, symbol)
   return value !== undefined ? { [symbol]: value } : {}
 }
+
+/**
+ * Every key declared by any member of a union.
+ */
+type KeysOfUnion<T> = T extends unknown ? keyof T : never
+
+/**
+ * The type of key `K` across whichever union members declare it. Distributes over the
+ * union and uses an indexed access rather than `infer`, so optional properties keep
+ * their `| undefined` instead of collapsing to `never`.
+ */
+type ValueOfUnion<T, K extends PropertyKey> = T extends unknown ? (K extends keyof T ? T[K] : never) : never
+
+/**
+ * A view of a discriminated union in which every member's fields are visible, each
+ * optional and carrying its real type.
+ *
+ * Reading a field that only some members declare is an error on the union itself
+ * (TS2339). Spreading no longer helps: TypeScript 5 onward preserves the union across
+ * a spread rather than collapsing it to a single object type. Assigning to this type
+ * states the intent - "any member's fields, each possibly absent" - and is a plain
+ * assignment, so it is fully type-checked. A cast would suppress the error but would
+ * equally accept a misspelled field or a wrong type.
+ *
+ * Symbol keys are excluded: the api-diff types carry a `[key: symbol]: unknown` index
+ * signature for metadata, which is read through `getSymbolValueIfDefined` instead.
+ */
+export type UnionFields<T> = { [K in KeysOfUnion<T> & (string | number)]?: ValueOfUnion<T, K> }

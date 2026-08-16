@@ -17,7 +17,7 @@
 import { apiDiff, COMPARE_MODE_DEFAULT, CompareResult, Diff } from '@netcracker/qubership-apihub-api-diff'
 import { trimPath } from './path'
 import { OpenAPIV3 } from 'openapi-types'
-import { takeIf, takeIfDefined } from './objects'
+import { takeIf, takeIfDefined, UnionFields } from './objects'
 import { isEmpty, isNotEmpty } from './arrays'
 import { removeObjectDuplicates } from './builder'
 import { matchPaths, resolveSpec } from '@netcracker/qubership-apihub-api-unifier'
@@ -102,18 +102,13 @@ function validateSpecs(spec1: unknown, spec2: unknown): void {
 }
 
 function extractDeclarationPaths(diff: Diff): JsonPath[] {
+  // `Diff` is a discriminated union and these fields exist on some members only.
+  // `UnionFields` exposes every member's fields as optional with their real types,
+  // which is what the defaults below already assume at runtime.
   const {
     afterDeclarationPaths = [],
     beforeDeclarationPaths = [],
-  // `Diff`/`ChangeMessage` are discriminated unions and these fields exist on some
-  // members only. Spreading a union used to collapse it to a single object type; from
-  // TypeScript 5 onward the spread keeps the union, so destructuring a non-common field
-  // is an error (TS2339) where it previously widened to the field's type. The defaults
-  // below already handle the absent case at runtime, so the read is widened explicitly.
-  } = { ...diff } as Diff & {
-    afterDeclarationPaths?: JsonPath[]
-    beforeDeclarationPaths?: JsonPath[]
-  }
+  }: UnionFields<Diff> = { ...diff }
 
   return [...afterDeclarationPaths, ...beforeDeclarationPaths]
 }
