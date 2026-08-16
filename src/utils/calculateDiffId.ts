@@ -16,13 +16,13 @@
 
 import { Diff } from '@netcracker/qubership-apihub-api-diff'
 import { calculateHash } from './hashes'
-import { UnionFields } from './objects'
+import { FillKeys } from './objects'
 import { ChangeMessage } from '../types'
 import { AFTER_VALUE_NORMALIZED_PROPERTY, BEFORE_VALUE_NORMALIZED_PROPERTY } from '../consts'
 
 export function calculateDiffId(diff: Diff): string {
   // `Diff` is a discriminated union and these fields exist on some members only.
-  // `UnionFields` exposes every member's fields as optional with their real types,
+  // `FillKeys` gives every member the keys it lacks, as optional and undefined,
   // which is what the defaults below already assume at runtime.
   const {
     scope,
@@ -32,7 +32,7 @@ export function calculateDiffId(diff: Diff): string {
     beforeKey: previousKey = undefined,
     afterKey: currentKey = undefined,
     type: severity,
-  }: UnionFields<Diff> = { ...diff }
+  }: FillKeys<Diff> = { ...diff }
 
   const beforeValueNormalized = (diff as Record<symbol, unknown>)[BEFORE_VALUE_NORMALIZED_PROPERTY]
   const afterValueNormalized = (diff as Record<symbol, unknown>)[AFTER_VALUE_NORMALIZED_PROPERTY]
@@ -63,7 +63,7 @@ export function calculateChangeId(change: ChangeMessage): string {
     previousKey = '',
     currentKey = '',
     severity,
-  }: UnionFields<ChangeMessage> = { ...change }
+  }: FillKeys<ChangeMessage> = { ...change }
 
   const previousPaths = `[${previousDeclarationJsonPaths.map(path => `[${path.join()}]`).sort().join()}]`
   const currentPaths = `[${currentDeclarationJsonPaths.map(path => `[${path.join()}]`).sort().join()}]`

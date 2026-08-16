@@ -17,7 +17,7 @@
 import { apiDiff, COMPARE_MODE_DEFAULT, CompareResult, Diff } from '@netcracker/qubership-apihub-api-diff'
 import { trimPath } from './path'
 import { OpenAPIV3 } from 'openapi-types'
-import { takeIf, takeIfDefined, UnionFields } from './objects'
+import { takeIf, takeIfDefined, FillKeys } from './objects'
 import { isEmpty, isNotEmpty } from './arrays'
 import { removeObjectDuplicates } from './builder'
 import { matchPaths, resolveSpec } from '@netcracker/qubership-apihub-api-unifier'
@@ -103,12 +103,12 @@ function validateSpecs(spec1: unknown, spec2: unknown): void {
 
 function extractDeclarationPaths(diff: Diff): JsonPath[] {
   // `Diff` is a discriminated union and these fields exist on some members only.
-  // `UnionFields` exposes every member's fields as optional with their real types,
+  // `FillKeys` gives every member the keys it lacks, as optional and undefined,
   // which is what the defaults below already assume at runtime.
   const {
     afterDeclarationPaths = [],
     beforeDeclarationPaths = [],
-  }: UnionFields<Diff> = { ...diff }
+  }: FillKeys<Diff> = { ...diff }
 
   return [...afterDeclarationPaths, ...beforeDeclarationPaths]
 }

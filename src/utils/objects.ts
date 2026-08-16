@@ -88,29 +88,33 @@ export const extractSymbolProperty = <T extends object>(
 }
 
 /**
- * Every key declared by any member of a union.
- */
-type KeysOfUnion<T> = T extends unknown ? keyof T : never
-
-/**
- * The type of key `K` across whichever union members declare it. Distributes over the
- * union and uses an indexed access rather than `infer`, so optional properties keep
- * their `| undefined` instead of collapsing to `never`.
- */
-type ValueOfUnion<T, K extends PropertyKey> = T extends unknown ? (K extends keyof T ? T[K] : never) : never
-
-/**
- * A view of a discriminated union in which every member's fields are visible, each
- * optional and carrying its real type.
+ * A view of a discriminated union in which every member also declares the keys it lacks,
+ * as optional and `undefined`. That makes it safe to destructure a field only some
+ * members carry - which is otherwise TS2339, because TypeScript 5 onward preserves the
+ * union across a spread instead of collapsing it to one object type.
  *
- * Reading a field that only some members declare is an error on the union itself
- * (TS2339). Spreading no longer helps: TypeScript 5 onward preserves the union across
- * a spread rather than collapsing it to a single object type. Assigning to this type
- * states the intent - "any member's fields, each possibly absent" - and is a plain
- * assignment, so it is fully type-checked. A cast would suppress the error but would
- * equally accept a misspelled field or a wrong type.
+ * Unlike flattening the union into a single all-optional object, this keeps the union
+ * intact, so narrowing still works downstream: after `if (diff.action === 'add')`,
+ * `afterDeclarationPaths` is `JsonPath[]` rather than `JsonPath[] | undefined`.
  *
- * Symbol keys are excluded: the api-diff types carry a `[key: symbol]: unknown` index
- * signature for metadata, which is read through `getSymbolValueIfDefined` instead.
+ * Annotating with this type is a plain assignment and is fully checked, unlike an
+ * assertion, which would equally accept a misspelled key or a wrong type.
+ *
+ * Community utility, known as `FillKeys`:
+ * https://dev.to/suin/introducing-fillkeys-utility-type-for-easier-destructuring-of-discriminated-unions-in-typescript-1h46
+ * The underlying language limitation is microsoft/TypeScript#46318.
+ *
+ * Symbol keys are intentionally not filled - the api-diff types carry a
+ * `[key: symbol]: unknown` metadata index signature, read via `getSymbolValueIfDefined`.
  */
-export type UnionFields<T> = { [K in KeysOfUnion<T> & (string | number)]?: ValueOfUnion<T, K> }
+export type FillKeys<T> = (
+  (T extends T ? keyof T : never) extends infer AllKeys
+    ? T extends T
+      ? { [K in keyof T]: T[K] } & {
+          [K in AllKeys extends keyof T ? never : AllKeys extends string ? AllKeys : never]?: undefined
+        }
+      : never
+    : never
+) extends infer U
+  ? { [K in keyof U]: U[K] }
+  : never
