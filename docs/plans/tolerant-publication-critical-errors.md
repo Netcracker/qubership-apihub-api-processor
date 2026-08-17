@@ -1562,6 +1562,11 @@ In the `BuildResult` schema ("Build result for build"):
 | **NEW** `GET /api/v2/packages/{packageId}/versions/{version}/notifications` | returns the version's **build** notifications, **filterable** by `documentId`, `severity`, `category` (repeatable query params) and paged with the shared `limit` / `page` parameters. Served from `builder_notifications`. |
 | **NEW** `GET /api/v2/packages/{packageId}/versions/{version}/changes/notifications` | returns the **comparison** notifications, same filters and paging plus `previousVersion` and `previousVersionPackageId` to select the comparison. Served from `comparison_notifications`. |
 
+Both require **read permission on the package**, the same access the version content and documents endpoints
+need — a notification exposes document slugs and message text from the version, so it is no less sensitive
+than the documents it describes. Enforced with the existing package-read check; `403` when the caller lacks
+it.
+
 The two endpoints are deliberately separate rather than one endpoint with a phase filter: they identify
 different subjects. A build notification is addressed by *(packageId, version)*; a comparison notification by
 *(packageId, version, previousVersionPackageId, previousVersion)* — the same key `/changes/summary` already
@@ -1687,6 +1692,8 @@ persistence, the derived views and the refusals, none of which the api-processor
 - `/changes/notifications` selects the comparison by `previousVersion` + `previousVersionPackageId`, and
   returns only that pair's messages in a build that produced several.
 - an unfiltered query returns messages that carry no `documentId`.
+- both endpoints require read permission on the package: a caller without it gets `403` from each, and a
+  caller with it gets the notifications.
 
 **Refusals** — one test each, all four on the same `isVersionUnsound` predicate
 
