@@ -658,6 +658,7 @@ that is hard to trace afterwards, so they are kept fatal by design decision.
 | `compare-missing-operation-graphql` | `graphql.changes.ts:136` | Throw | — | — | **stays fatal** |
 | `compare-missing-operation-async` | `async.changes.ts:148` | Throw | — | — | **stays fatal** |
 | `ddl-compare-hook-missing` | `compare.ddl.ts:192` | Throw | — | — | **stays fatal** |
+| `ref-comparison-has-errors` | `compare.ts` `compareVersionsReferences` (**new**) — any dashboard reference comparison has `hasErrors`, whether recalculated or reused from cache | — | — | — | **fatal** (new) |
 
 - `processor-version-mismatch` — a version-mismatch must not be hidden. Publishing a draft with a silently
   missing or partial changelog would defer the problem to whoever later notices the data is wrong, by which
@@ -669,6 +670,33 @@ that is hard to trace afterwards, so they are kept fatal by design decision.
   when the resolver *is* present but returns nothing — those are already notifications and stay that way.
   `packageResolver` (`:516`, `:521`) and `templateResolver` / `rawDocumentResolver` (`:366`, `:392`, `:397`)
   are reached only from export strategies and are out of scope.
+- `ref-comparison-has-errors` — **new**, and the only fatal added by this design. When comparing a dashboard,
+  `compareVersionsReferences` obtains a changelog for every referenced package, and the dashboard's changelog
+  is the **aggregate** of those. If any of them has `hasErrors`, the aggregate is computed from a component
+  already known to be wrong, so the build throws rather than publishing it.
+
+  This is the "is anything publishable left?" test reaching the opposite conclusion from usual, for a reason
+  specific to aggregates. For a package version, a bad document still leaves every other document useful — the
+  artifact has salvageable parts. For a dashboard changelog the aggregate **is** the artifact; there is no
+  part of it that is unaffected by a wrong input. Marking it and publishing anyway would ship a changes summary
+  whose numbers are wrong, with nothing to indicate which of them.
+
+  **Both origins trigger it.** A reference comparison reused from cache carries `hasErrors` from the backend,
+  so it puts the same known-bad component into the same aggregate as one calculated here — the argument does
+  not distinguish them, so neither does the check. In practice a flagged cached comparison should not reach
+  api-processor at all: the backend already refuses to reference an unsound version from a dashboard and
+  refuses an unsound previous version. This is the last line of defence for when one does anyway, not the
+  primary guard.
+
+  **Both build types trigger it.** `compareVersionsReferences` runs on the same path when a dashboard version
+  is published with a `previousVersion`, so this also fails a dashboard `build`, including a `draft`. That is
+  a deliberate exception to the rule that comparison errors never block a draft, and the only one: for an
+  ordinary version a draft is still worth publishing because its documents are individually useful, whereas a
+  dashboard changelog built on a wrong component has nothing worth looking at.
+
+  It follows the same rule as the backend refusals — an unsound comparison must not be built upon. The
+  difference is only where it is enforced: mid-build, because a recalculated reference comparison does not
+  exist until this build produces it, so no up-front guard could have rejected it.
 - `compare-missing-operation-*` and `ddl-compare-hook-missing` — internal index/document inconsistencies
   rather than user-caused input problems: an operation is present in the index but missing from its document
   pair, or a DDL compare hook is not registered. The salvageable test alone would convert them — the version's
@@ -1385,6 +1413,10 @@ coverage — see [Severity must come from the source](#severity-must-come-from-t
 - `processor-version-mismatch`: fails the build outright for both `draft` and `release`, and for a `changelog`
   build too — no partial version is emitted.
 - changelog baseline: an unsound previous version is rejected as a baseline.
+- `ref-comparison-has-errors`: a dashboard fails the build when a reference comparison has `hasErrors`,
+  asserted for both origins — one recalculated here, and one reused from cache carrying the flag from the
+  resolver — and for both build types: `changelog`, and a `build` publishing a `draft` with a
+  `previousVersion`. A dashboard whose references all compare cleanly is unaffected.
 
 
 ## Backend
@@ -1821,6 +1853,10 @@ All open questions are closed. Recorded here so they are not reopened:
 - **All changelog-phase throws stay fatal** — `processor-version-mismatch`, `resolver-missing`,
   `compare-missing-operation-*` and `ddl-compare-hook-missing`. None is converted to a notification; see
   [Current Throws Revision](#current-throws-revision).
+- **A dashboard build fails when any reference comparison has errors** (`ref-comparison-has-errors`) —
+  recalculated or reused from cache, and in a `build` as well as a `changelog`. An aggregate built from a
+  component known to be wrong has no salvageable part. This is the one case where a comparison error blocks a
+  `draft`.
 - **The release-failure message names the changelog share** — `, including M changelog errors` when both
   streams contribute, and a dedicated `N critical errors in the changelog` when the changelog alone is at
   fault. See [`release` publication is fatal when errors exist](#release-publication-is-fatal-when-errors-exist).
