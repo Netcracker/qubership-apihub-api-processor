@@ -1101,7 +1101,9 @@ lists.
 - **`info.json`** (the package version) — `true` when any `Error`-severity **build** notification exists.
   Comparison notifications never contribute.
 - **Comparison** (each entry of `comparisons.json` and `ddl-comparisons.json`) — `true` when the comparison
-  was calculated with at least one `Error`-severity **comparison** notification.
+  was calculated with at least one `Error`-severity **comparison** notification. For an entry with
+  `fromCache: true` the flag is **passed through from the resolver** rather than derived; see
+  [Cached comparisons](#cached-comparisons).
 
 **Which flags each build type emits.** The document and version flags are emitted **only by a `build`**. A
 `changelog` produces no `documents.json`, and its `info.json` describes a comparison rather than a publishable
@@ -1194,6 +1196,29 @@ pair cannot occur.
 
 The backend maps each entry to the `version_comparison` row it is already creating for that pair and writes
 the rows with its `comparison_id`. Every row has one, so `comparison_id` is non-nullable.
+
+##### Cached comparisons
+
+`comparison-notifications.json` carries an entry **only for comparisons this build actually calculated**. A
+comparison resolved from the backend — `fromCache: true`, pushed by `compareVersionsReferences`
+(`compare.ts:83-93`) after `versionComparisonResolver` returns a stored summary — gets no entry at all.
+
+This is not merely tidiness. Nothing is computed for a cached comparison, so its entry would be an **empty**
+notification list, and the backend replaces a comparison's rows on republish
+([Publish flow changes](#2-publish-flow-changes-qubership-apihub-service)). An empty entry would therefore
+**delete the notifications recorded when that comparison was genuinely calculated** — losing the real
+diagnostics every time an unrelated dashboard is republished. Omitting the entry leaves the stored rows
+untouched, which is the correct outcome: the cached comparison has not been recalculated, so nothing about it
+has changed.
+
+**`hasErrors` still travels with it.** The flag is a property of the comparison, not of this build, so a
+cached entry carries the value the backend already holds: `versionComparisonResolver` returns it as part of
+the resolved summary and the existing `...comparison` spread copies it onto the pushed entry.
+`ResolvedComparisonSummary` gains `hasErrors` for this. Hosts serving the resolver over REST already have it —
+`/api/v2/packages/{packageId}/versions/{version}/changes/summary` returns `hasErrors` for exactly this pair.
+
+So a dashboard build reports accurate `hasErrors` for every reference, whether recalculated or reused, while
+only the recalculated ones ship notifications.
 
 ### Tests
 
@@ -1329,6 +1354,9 @@ Guards the finding that a tolerated document must still survive packaging.
 - `comparison-serialization` attributes to the comparison whose serialization failed, not to all of them.
 - no message in `comparison-notifications.json` lacks an owning comparison — the file has no top-level
   `notifications` array.
+- cached comparisons: a dashboard build where one reference resolves from cache emits **no**
+  `comparison-notifications.json` entry for it — not an empty one — while its `comparisons.json` entry still
+  carries the `hasErrors` the resolver returned, and the recalculated references are unaffected.
 - a `changelog` build emits **no** version or document `hasErrors` — only the comparison flags — because it
   produces no `documents.json` and its `info.json` describes a comparison.
 
@@ -1416,7 +1444,9 @@ In the `BuildResult` schema ("Build result for build"):
   a `comparison_notifications` table keyed by the comparison identity already used for
   `version_comparison` (`comparison_id`), with `severity`, `category`, `message`, `document_id`. Both publish
   paths write it: `PublishPackage` for the inline comparison of a `build`, `PublishChanges` for a standalone
-  `changelog`. Republishing a comparison replaces its rows, matching how comparison data is already refreshed.
+  `changelog`. Republishing a comparison replaces its rows, matching how comparison data is already refreshed —
+  which is why a cached comparison ships no entry: replacing its rows with an empty set would discard the
+  notifications from the build that actually calculated it (see [Cached comparisons](#cached-comparisons)).
 
   The `comparison_id` comes straight from the file: each `comparisons[]` entry in
   `comparison-notifications.json` carries the version-pair identity, which matches the `version_comparison`
