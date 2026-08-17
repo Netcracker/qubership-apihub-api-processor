@@ -1456,9 +1456,19 @@ In the `BuildResult` schema ("Build result for build"):
   changelog or a `build` with `previousVersion` (previous-version lookup in `PublishPackage` around
   `GetVersionIncludingDeleted`, and wherever changelog build configs are assembled), reject when the previous
   version is unsound, with `PreviousVersionHasErrorsMsg`. This is the primary enforcement of
-  the changelog rule. Remember `reCalculateChangelogs` (`service/PublishedService.go:939`) creates changelog
-  builds automatically after a publish — it must skip unsound baselines rather than fail, since it runs inside
-  someone else's publish and has no user-facing request to reject.
+  the changelog rule.
+
+  `reCalculateChangelogs` (`service/PublishedService.go:939`) creates these builds automatically after a
+  publish, and the baseline it uses is **the version just published**. It **fails** on an unsound baseline
+  rather than skipping: its error already propagates through `PublishPackage`
+  (`service/PublishedService.go:824`), so the publish is rejected.
+
+  The consequence is deliberate and worth stating: publishing a version in an unsound state is refused **when
+  other versions declare it as their previous version**. A version nothing depends on still publishes as a
+  `draft` with errors, which is the troubleshooting path this story exists for; a version others build their
+  changelogs from does not, because doing so would silently invalidate every one of those changelogs. This
+  mirrors the existing `VersionReferencedAsPreviousByRelease` rule, which already refuses to degrade a version
+  that a release depends on. Skipping instead would leave those changelogs stale with no signal to anyone.
 - **Dashboard references guard:** when publishing a package of kind `dashboard` (refs present), reject any ref
   pointing to an unsound version, with `ReferencedVersionHasErrorsMsg`. This implements "cannot add an
   errored version to a dashboard." The reference resolution already happens in
@@ -1613,8 +1623,9 @@ persistence, the derived views and the refusals, none of which the api-processor
 - publishing `release` when the version has errors, and when only its comparison has errors;
 - `PATCH` promoting to `release` in both those cases, while `draft` → `archived` on the same version still
   succeeds;
-- a changelog whose previous version is unsound is refused, and `reCalculateChangelogs` **skips** rather than
-  fails when it encounters one during someone else's publish;
+- a changelog whose previous version is unsound is refused, and `reCalculateChangelogs` **fails** on one —
+  publishing an unsound version is rejected when another version declares it as its previous version, while an
+  unsound version nothing depends on still publishes as a `draft`;
 - publishing a dashboard that references an unsound version.
 
 ### 5. Suggested implementation order
