@@ -36,9 +36,6 @@ const BWC = APIHUB_API_COMPATIBILITY_KIND_BWC
 const NO_BWC = APIHUB_API_COMPATIBILITY_KIND_NO_BWC
 const EXPERIMENTAL = APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL
 
-const BACKWARD_COMPATIBLE = APIHUB_API_COMPATIBILITY_KIND_BWC
-const NOT_BACKWARD_COMPATIBLE = APIHUB_API_COMPATIBILITY_KIND_NO_BWC
-
 describe('GraphQL api kind dimension', () => {
   const OP = ['queries', 'q1']
   const OBJ = {} // "exists"
@@ -46,12 +43,12 @@ describe('GraphQL api kind dimension', () => {
   describe('Root scope (document-level, either side)', () => {
     it.each([
       // prev    | curr    | expected
-      [BWC, BWC, BACKWARD_COMPATIBLE],
-      [BWC, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, BWC, NOT_BACKWARD_COMPATIBLE], // either side no-bwc → risky
-      [NO_BWC, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [BWC, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, BWC, NOT_BACKWARD_COMPATIBLE],
+      [BWC, BWC, BWC],
+      [BWC, NO_BWC, NO_BWC],
+      [NO_BWC, BWC, NO_BWC], // either side no-bwc → risky
+      [NO_BWC, NO_BWC, NO_BWC],
+      [BWC, EXPERIMENTAL, NO_BWC],
+      [EXPERIMENTAL, BWC, NO_BWC],
     ] as const)('should classify root scope prev(%s) curr(%s) as %s', (prev, curr, expected) => {
       expect(createGraphqlApiKindValueAt(prev, curr)([], OBJ, OBJ)).toBe(expected)
     })
@@ -59,12 +56,12 @@ describe('GraphQL api kind dimension', () => {
 
   describe('Operation scope — modification (both sides present, either side)', () => {
     it.each([
-      [BWC, BWC, BACKWARD_COMPATIBLE],
-      [BWC, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, BWC, NOT_BACKWARD_COMPATIBLE], // either side no-bwc → risky
-      [NO_BWC, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, BWC, NOT_BACKWARD_COMPATIBLE],
+      [BWC, BWC, BWC],
+      [BWC, NO_BWC, NO_BWC],
+      [NO_BWC, BWC, NO_BWC], // either side no-bwc → risky
+      [NO_BWC, NO_BWC, NO_BWC],
+      [NO_BWC, EXPERIMENTAL, NO_BWC],
+      [EXPERIMENTAL, BWC, NO_BWC],
     ] as const)('should classify operation modification prev(%s) curr(%s) as %s', (prev, curr, expected) => {
       expect(createGraphqlApiKindValueAt(prev, curr)(OP, OBJ, OBJ)).toBe(expected)
     })
@@ -72,11 +69,11 @@ describe('GraphQL api kind dimension', () => {
 
   describe('Operation scope — removal (before only, keyed on previous)', () => {
     it.each([
-      [BWC, BWC, BACKWARD_COMPATIBLE],
-      [BWC, NO_BWC, BACKWARD_COMPATIBLE],
-      [NO_BWC, BWC, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [EXPERIMENTAL, BWC, NOT_BACKWARD_COMPATIBLE],
+      [BWC, BWC, BWC],
+      [BWC, NO_BWC, BWC],
+      [NO_BWC, BWC, NO_BWC],
+      [NO_BWC, NO_BWC, NO_BWC],
+      [EXPERIMENTAL, BWC, NO_BWC],
     ] as const)('should classify operation removal prev(%s) curr(%s) as %s', (prev, curr, expected) => {
       expect(createGraphqlApiKindValueAt(prev, curr)(OP, OBJ, undefined)).toBe(expected)
     })
@@ -84,10 +81,10 @@ describe('GraphQL api kind dimension', () => {
 
   describe('Operation scope — addition (after only, either side)', () => {
     it.each([
-      [BWC, BWC, BACKWARD_COMPATIBLE],
-      [BWC, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, BWC, NOT_BACKWARD_COMPATIBLE], // either side no-bwc → risky
-      [EXPERIMENTAL, BWC, NOT_BACKWARD_COMPATIBLE],
+      [BWC, BWC, BWC],
+      [BWC, NO_BWC, NO_BWC],
+      [NO_BWC, BWC, NO_BWC], // either side no-bwc → risky
+      [EXPERIMENTAL, BWC, NO_BWC],
     ] as const)('should classify operation addition prev(%s) curr(%s) as %s', (prev, curr, expected) => {
       expect(createGraphqlApiKindValueAt(prev, curr)(OP, undefined, OBJ)).toBe(expected)
     })
@@ -103,7 +100,7 @@ describe('GraphQL api kind dimension', () => {
       ['subscriptions', 's1'],
     ] as const)('should classify %s modification by either side', (segment, name) => {
       const fn = createGraphqlApiKindValueAt(NO_BWC, BWC)
-      expect(fn([segment, name], OBJ, OBJ)).toBe(NOT_BACKWARD_COMPATIBLE) // either side no-bwc → risky
+      expect(fn([segment, name], OBJ, OBJ)).toBe(NO_BWC) // either side no-bwc → risky
     })
   })
 

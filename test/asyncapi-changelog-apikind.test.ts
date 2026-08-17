@@ -65,12 +65,6 @@ function buildExpected(changeType: typeof BREAKING | typeof RISKY, unclassified:
 }
 
 describe('AsyncAPI api kind dimension', () => {
-  const BWC = APIHUB_API_COMPATIBILITY_KIND_BWC
-  const NO_BWC = APIHUB_API_COMPATIBILITY_KIND_NO_BWC
-  const EXPERIMENTAL = APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL
-
-  const BACKWARD_COMPATIBLE = APIHUB_API_COMPATIBILITY_KIND_BWC
-  const NOT_BACKWARD_COMPATIBLE = APIHUB_API_COMPATIBILITY_KIND_NO_BWC
 
   // null = object absent (added/removed), undefined = object exists without x-api-kind
   type ApiKindInput = ApihubApiCompatibilityKind | undefined | null
@@ -92,13 +86,13 @@ describe('AsyncAPI api kind dimension', () => {
   describe('Root level', () => {
     it.each([
       // prev    | curr    | expected
-      [BWC, BWC, BACKWARD_COMPATIBLE],
-      [BWC, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, BWC, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, NO_BWC, NOT_BACKWARD_COMPATIBLE],
+      [BWC, BWC, BWC],
+      [BWC, NO_BWC, NO_BWC],
+      [NO_BWC, BWC, NO_BWC],
+      [NO_BWC, NO_BWC, NO_BWC],
       // mixed no-bwc and experimental (unique cross-interaction cases)
-      [EXPERIMENTAL, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
+      [EXPERIMENTAL, NO_BWC, NO_BWC],
+      [NO_BWC, EXPERIMENTAL, NO_BWC],
     ] as const)('should classify root scope prev(%s) curr(%s) as %s', (prev, curr, expected) => {
       const scopeFunction = createAsyncApiKindValueAt(prev, curr)
       expect(scopeFunction([], {}, {})).toBe(expected)
@@ -109,41 +103,41 @@ describe('AsyncAPI api kind dimension', () => {
     it.each([
       // document | before    | after     | expected
       // null = channel added/removed
-      [BWC, undefined, undefined, BACKWARD_COMPATIBLE],
-      [BWC, undefined, BWC, BACKWARD_COMPATIBLE],
-      [BWC, undefined, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [BWC, BWC, undefined, BACKWARD_COMPATIBLE],
-      [BWC, BWC, BWC, BACKWARD_COMPATIBLE],
-      [BWC, BWC, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [BWC, NO_BWC, undefined, NOT_BACKWARD_COMPATIBLE],
-      [BWC, NO_BWC, BWC, NOT_BACKWARD_COMPATIBLE],
-      [BWC, NO_BWC, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [BWC, null, undefined, BACKWARD_COMPATIBLE],
-      [BWC, null, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [BWC, undefined, null, BACKWARD_COMPATIBLE],
-      [BWC, NO_BWC, null, NOT_BACKWARD_COMPATIBLE],
+      [BWC, undefined, undefined, BWC],
+      [BWC, undefined, BWC, BWC],
+      [BWC, undefined, NO_BWC, NO_BWC],
+      [BWC, BWC, undefined, BWC],
+      [BWC, BWC, BWC, BWC],
+      [BWC, BWC, NO_BWC, NO_BWC],
+      [BWC, NO_BWC, undefined, NO_BWC],
+      [BWC, NO_BWC, BWC, NO_BWC],
+      [BWC, NO_BWC, NO_BWC, NO_BWC],
+      [BWC, null, undefined, BWC],
+      [BWC, null, NO_BWC, NO_BWC],
+      [BWC, undefined, null, BWC],
+      [BWC, NO_BWC, null, NO_BWC],
       // Unrealistic: diff engine never calls scope for a path absent in both versions. Defensive guard.
       [BWC, null, null, undefined],
 
-      [NO_BWC, undefined, undefined, BACKWARD_COMPATIBLE],
-      [NO_BWC, undefined, BWC, BACKWARD_COMPATIBLE],
-      [NO_BWC, undefined, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, BWC, undefined, BACKWARD_COMPATIBLE],
-      [NO_BWC, BWC, BWC, BACKWARD_COMPATIBLE],
-      [NO_BWC, BWC, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, NO_BWC, undefined, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, NO_BWC, BWC, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, NO_BWC, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, null, undefined, BACKWARD_COMPATIBLE],
-      [NO_BWC, null, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, undefined, null, BACKWARD_COMPATIBLE],
-      [NO_BWC, NO_BWC, null, NOT_BACKWARD_COMPATIBLE],
+      [NO_BWC, undefined, undefined, BWC],
+      [NO_BWC, undefined, BWC, BWC],
+      [NO_BWC, undefined, NO_BWC, NO_BWC],
+      [NO_BWC, BWC, undefined, BWC],
+      [NO_BWC, BWC, BWC, BWC],
+      [NO_BWC, BWC, NO_BWC, NO_BWC],
+      [NO_BWC, NO_BWC, undefined, NO_BWC],
+      [NO_BWC, NO_BWC, BWC, NO_BWC],
+      [NO_BWC, NO_BWC, NO_BWC, NO_BWC],
+      [NO_BWC, null, undefined, BWC],
+      [NO_BWC, null, NO_BWC, NO_BWC],
+      [NO_BWC, undefined, null, BWC],
+      [NO_BWC, NO_BWC, null, NO_BWC],
       // Unrealistic: diff engine never calls scope for a path absent in both versions. Defensive guard.
       [NO_BWC, null, null, undefined],
 
       // mixed no-bwc and experimental on channel
-      [BWC, NO_BWC, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
-      [BWC, EXPERIMENTAL, NO_BWC, NOT_BACKWARD_COMPATIBLE],
+      [BWC, NO_BWC, EXPERIMENTAL, NO_BWC],
+      [BWC, EXPERIMENTAL, NO_BWC, NO_BWC],
     ] as const)('should classify channel scope document(%s) before(%s) after(%s) as %s', (
       documentApiKind,
       beforeKind,
@@ -159,47 +153,47 @@ describe('AsyncAPI api kind dimension', () => {
     it.each([
       // document | before    | after     | expected
       // null = operation added/removed
-      [BWC, undefined, undefined, BACKWARD_COMPATIBLE],
-      [BWC, undefined, BWC, BACKWARD_COMPATIBLE],
-      [BWC, undefined, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [BWC, undefined, null, BACKWARD_COMPATIBLE],
-      [BWC, BWC, undefined, BACKWARD_COMPATIBLE],
-      [BWC, BWC, BWC, BACKWARD_COMPATIBLE],
-      [BWC, BWC, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [BWC, BWC, null, BACKWARD_COMPATIBLE],
-      [BWC, NO_BWC, undefined, NOT_BACKWARD_COMPATIBLE],
-      [BWC, NO_BWC, BWC, NOT_BACKWARD_COMPATIBLE],
-      [BWC, NO_BWC, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [BWC, NO_BWC, null, NOT_BACKWARD_COMPATIBLE],
-      [BWC, null, undefined, BACKWARD_COMPATIBLE],
-      [BWC, null, BWC, BACKWARD_COMPATIBLE],
-      [BWC, null, NO_BWC, NOT_BACKWARD_COMPATIBLE],
+      [BWC, undefined, undefined, BWC],
+      [BWC, undefined, BWC, BWC],
+      [BWC, undefined, NO_BWC, NO_BWC],
+      [BWC, undefined, null, BWC],
+      [BWC, BWC, undefined, BWC],
+      [BWC, BWC, BWC, BWC],
+      [BWC, BWC, NO_BWC, NO_BWC],
+      [BWC, BWC, null, BWC],
+      [BWC, NO_BWC, undefined, NO_BWC],
+      [BWC, NO_BWC, BWC, NO_BWC],
+      [BWC, NO_BWC, NO_BWC, NO_BWC],
+      [BWC, NO_BWC, null, NO_BWC],
+      [BWC, null, undefined, BWC],
+      [BWC, null, BWC, BWC],
+      [BWC, null, NO_BWC, NO_BWC],
       // Unrealistic: diff engine never calls scope for a path absent in both versions. Defensive guard.
       [BWC, null, null, undefined],
 
-      [NO_BWC, undefined, undefined, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, undefined, BWC, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, undefined, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, undefined, null, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, BWC, undefined, NOT_BACKWARD_COMPATIBLE], //BACKWARD_COMPATIBLE
-      [NO_BWC, BWC, BWC, BACKWARD_COMPATIBLE],
-      [NO_BWC, BWC, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, BWC, null, NOT_BACKWARD_COMPATIBLE],//BACKWARD_COMPATIBLE
-      [NO_BWC, NO_BWC, undefined, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, NO_BWC, BWC, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, NO_BWC, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, NO_BWC, null, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, null, undefined, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, null, BWC, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, null, NO_BWC, NOT_BACKWARD_COMPATIBLE],
+      [NO_BWC, undefined, undefined, NO_BWC],
+      [NO_BWC, undefined, BWC, NO_BWC],
+      [NO_BWC, undefined, NO_BWC, NO_BWC],
+      [NO_BWC, undefined, null, NO_BWC],
+      [NO_BWC, BWC, undefined, NO_BWC], //BWC
+      [NO_BWC, BWC, BWC, BWC],
+      [NO_BWC, BWC, NO_BWC, NO_BWC],
+      [NO_BWC, BWC, null, NO_BWC],//BWC
+      [NO_BWC, NO_BWC, undefined, NO_BWC],
+      [NO_BWC, NO_BWC, BWC, NO_BWC],
+      [NO_BWC, NO_BWC, NO_BWC, NO_BWC],
+      [NO_BWC, NO_BWC, null, NO_BWC],
+      [NO_BWC, null, undefined, NO_BWC],
+      [NO_BWC, null, BWC, NO_BWC],
+      [NO_BWC, null, NO_BWC, NO_BWC],
       // Unrealistic: diff engine never calls scope for a path absent in both versions. Defensive guard.
       [NO_BWC, null, null, undefined],
 
       // mixed no-bwc and experimental on operation
-      [BWC, NO_BWC, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
-      [BWC, EXPERIMENTAL, NO_BWC, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, NO_BWC, EXPERIMENTAL, NOT_BACKWARD_COMPATIBLE],
-      [NO_BWC, EXPERIMENTAL, NO_BWC, NOT_BACKWARD_COMPATIBLE],
+      [BWC, NO_BWC, EXPERIMENTAL, NO_BWC],
+      [BWC, EXPERIMENTAL, NO_BWC, NO_BWC],
+      [NO_BWC, NO_BWC, EXPERIMENTAL, NO_BWC],
+      [NO_BWC, EXPERIMENTAL, NO_BWC, NO_BWC],
     ] as const)('should classify operation scope document(%s) before(%s) after(%s) as %s', (
       documentApiKind,
       beforeKind,
@@ -217,7 +211,7 @@ describe('AsyncAPI api kind dimension', () => {
         channel: { [API_KIND_SPECIFICATION_EXTENSION]: NO_BWC },
       }
       const after = { action: 'send' as const, channel: {} }
-      expect(scopeFunction(['operations', 'op1'], before, after)).toBe(NOT_BACKWARD_COMPATIBLE)
+      expect(scopeFunction(['operations', 'op1'], before, after)).toBe(NO_BWC)
     })
 
     it('should let operation x-api-kind override channel x-api-kind', () => {
@@ -232,7 +226,7 @@ describe('AsyncAPI api kind dimension', () => {
         [API_KIND_SPECIFICATION_EXTENSION]: BWC,
         channel: { [API_KIND_SPECIFICATION_EXTENSION]: NO_BWC },
       }
-      expect(scopeFunction(['operations', 'op1'], before, after)).toBe(BACKWARD_COMPATIBLE)
+      expect(scopeFunction(['operations', 'op1'], before, after)).toBe(BWC)
     })
   })
 

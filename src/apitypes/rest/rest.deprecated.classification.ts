@@ -91,8 +91,8 @@ type PreparedOperation = {
  * breaks consumers depends on how long they were warned. api-diff yields one difference per change, not
  * per route to it, so partitions are what keep the two verdicts apart. Deciding inside apiDiff, instead
  * of rewriting types afterwards, makes the result independent of the order operations are visited.
- * History comes from the previous version, so it is fetched up front and both returned functions are
- * synchronous, as api-diff requires.
+ * History comes from the previous version, so it is fetched up front: what api-diff then calls — the
+ * dimension's `valueAt` and the rule — has to be synchronous.
  */
 export async function createDeprecatedRemovalRules(
   operationsMap: OperationsMap,
@@ -117,7 +117,7 @@ export async function createDeprecatedRemovalRules(
     dimensions: [{
       name: DIMENSION_DEPRECATION,
       valueAt: (path, beforeJso) => (
-        path && isOperationPath(path) ? preparedOf(path[1], path[2], beforeJso)?.partition : undefined
+        isOperationPath(path) ? preparedOf(path[1], path[2], beforeJso)?.partition : undefined
       ),
     }],
 
@@ -221,6 +221,8 @@ function prepareOperations(operations: ResolvedDeprecatedOperation[]): {
       .map(deprecatedItemId)
       .sort()
       .join('\n')
+    // An opaque grouping key, not a contract: nothing outside reads its shape, and its number depends on
+    // the order the resolver answered in
     const partition = partitionBySignature.get(signature) ?? `deprecated-${partitionBySignature.size}`
     partitionBySignature.set(signature, partition)
 

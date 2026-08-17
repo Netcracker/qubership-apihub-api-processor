@@ -53,6 +53,7 @@ const DRIFT_OPERATION_ID = 'thing-post'
 
 const LEGACY_PROPERTY_PATH = 'components.schemas.Shared.properties.legacy'
 const REQUEST_SCOPE = 'request'
+const NO_BWC_LABEL = 'apihub/x-api-kind: no-BWC'
 
 const registry = LocalRegistry.openPackage(PACKAGE_ID)
 
@@ -77,6 +78,7 @@ describe('Removal of a long-deprecated element', () => {
     const longLivedRemoval = requestRemoval(operationChanges(result, LONG_LIVED_ID))
 
     expect(lateComerRemoval).toBeDefined()
+    expect(longLivedRemoval).toBeDefined()
     expect(lateComerRemoval).not.toBe(longLivedRemoval)
   })
 
@@ -92,15 +94,8 @@ describe('Removal of a long-deprecated element', () => {
     expect(requestRemoval(lateComer)?.type).toBe(BREAKING_CHANGE_TYPE)
   })
 
-  // The symptom reported on the API changes tab: an operation counted as breaking while none of its diffs
-  // was breaking. This is the invariant that catches it, for every operation at once.
   test('every operation summary matches the diffs it carries', () => {
-    const data = result.comparisons[0]?.data ?? []
-    expect(data.length).toBeGreaterThan(0)
-
-    for (const changes of data) {
-      expect(changes.changeSummary).toEqual(calculateChangeSummary(changes.diffs ?? []))
-    }
+    expectSummariesMatchDiffs(result)
   })
 
   test('full summary snapshot', () => {
@@ -129,11 +124,6 @@ describe('Removal of a long-deprecated element', () => {
 })
 
 /**
- * The common case: every operation reaching the element has been warned for just as long. Nothing to
- * disagree about, so the operations share a partition and the removal stays one difference. This is the
- * reuse that keeps partitioning from costing a traversal per operation.
- */
-/**
  * The two rules of a REST changelog meet here: the api kind rule runs first and softens every breaking
  * removal of a no-BWC document, so the deprecated-removal rule, which claims only differences still
  * breaking, has nothing left to decide. The verdict is the same one it would have reached anyway.
@@ -142,7 +132,7 @@ describe('Removal of a long-deprecated element in a no-BWC document', () => {
   let result: BuildResult
 
   beforeAll(async () => {
-    result = await publishSeries('minimal', ['apihub/x-api-kind: no-BWC'], 'no-bwc-')
+    result = await publishSeries('minimal', [NO_BWC_LABEL], 'no-bwc-')
   })
 
   test('softens the removal for both operations, warned long enough or not', () => {
@@ -157,15 +147,15 @@ describe('Removal of a long-deprecated element in a no-BWC document', () => {
   })
 
   test('every operation summary matches the diffs it carries', () => {
-    const data = result.comparisons[0]?.data ?? []
-    expect(data.length).toBeGreaterThan(0)
-
-    for (const changes of data) {
-      expect(changes.changeSummary).toEqual(calculateChangeSummary(changes.diffs ?? []))
-    }
+    expectSummariesMatchDiffs(result)
   })
 })
 
+/**
+ * The common case: every operation reaching the element has been warned for just as long. Nothing to
+ * disagree about, so the operations share a partition and the removal stays one difference. This is the
+ * reuse that keeps partitioning from costing a traversal per operation.
+ */
 describe('Operations with the same deprecation history', () => {
   let result: BuildResult
 
@@ -211,7 +201,73 @@ describe('Deprecation history across a reworded notice', () => {
 })
 
 /** Publishes `<fixture>-v1` to `-v3` in order, each against the one before, and returns the last build. */
-async function publishSeries(fixture: string, versionLabels?: string[], versionPrefix = ''): Promise<BuildResult> {
+/**
+ * The two dimensions disagree at once, each about a different operation: `longLived` is the one warned long
+ * enough, while `lateComer` — the one the deprecation rule leaves breaking — is the one marked no-BWC in the
+ * specification. So both are softened, by a different rule each, and neither rule can be what softens both.
+ */
+describe('Both dimensions varying, on different operations', () => {
+  let result: BuildResult
+
+  beforeAll(async () => {
+    result = await publishSeries('marked-late-comer')
+  })
+
+  test('softens each operation by the rule that applies to it', () => {
+    // Warned long enough, and carries no mark: only the deprecation rule can have softened it
+    expect(requestRemoval(operationChanges(result, LONG_LIVED_ID))?.type).toBe(RISKY_CHANGE_TYPE)
+
+    // Marked no-BWC, and joined too late to be warned: only the api kind rule can have softened it
+    expect(requestRemoval(operationChanges(result, LATE_COMER_ID))?.type).toBe(RISKY_CHANGE_TYPE)
+  })
+
+  test('every operation summary matches the diffs it carries', () => {
+    expectSummariesMatchDiffs(result)
+  })
+})
+
+/** Labels for the whole series, or a function answering for one publication of it. */
+type SeriesLabels = string[] | ((step: number) => string[] | undefined)
+
+/**
+ * The api kind of a changelog comes from the pair being compared, not from the history of the series: the
+ * two versions it is built from decide it, and either side carrying the mark is enough. Both cases below
+ * therefore soften the removal, and `lateComer` is what shows it — the deprecation rule leaves that one
+ * breaking, as the first suite pins, so a risky verdict here can only come from the api kind.
+ */
+describe('An api kind mark that changes between publications', () => {
+  test('applies when the mark appears only in the version being published', async () => {
+    const result = await publishSeries('minimal', step => (step === 3 ? [NO_BWC_LABEL] : undefined), 'late-mark-')
+
+    expect(requestRemoval(operationChanges(result, LATE_COMER_ID))?.type).toBe(RISKY_CHANGE_TYPE)
+    expect(requestRemoval(operationChanges(result, LONG_LIVED_ID))?.type).toBe(RISKY_CHANGE_TYPE)
+    expectSummariesMatchDiffs(result)
+  })
+
+  test('still applies when the mark is dropped in the version being published', async () => {
+    const result = await publishSeries('minimal', step => (step === 3 ? undefined : [NO_BWC_LABEL]), 'dropped-mark-')
+
+    // The previous version carries it, which is enough: dropping the mark does not make the removal
+    // breaking again for an operation that was never warned long enough
+    expect(requestRemoval(operationChanges(result, LATE_COMER_ID))?.type).toBe(RISKY_CHANGE_TYPE)
+    expectSummariesMatchDiffs(result)
+  })
+})
+
+/**
+ * The symptom reported on the API changes tab: an operation counted as breaking while none of its diffs was
+ * breaking. This is the invariant that catches it, for every operation of a comparison at once.
+ */
+function expectSummariesMatchDiffs(result: BuildResult): void {
+  const data = result.comparisons[0]?.data ?? []
+  expect(data.length).toBeGreaterThan(0)
+
+  for (const changes of data) {
+    expect(changes.changeSummary).toEqual(calculateChangeSummary(changes.diffs ?? []))
+  }
+}
+
+async function publishSeries(fixture: string, versionLabels?: SeriesLabels, versionPrefix = ''): Promise<BuildResult> {
   let result: BuildResult | undefined
   let previousVersion: string | undefined
 
@@ -222,7 +278,7 @@ async function publishSeries(fixture: string, versionLabels?: string[], versionP
       packageId: PACKAGE_ID,
       version,
       ...previousVersion ? { previousVersion } : {},
-      ...versionLabels ? { metadata: { versionLabels } } : {},
+      ...takeVersionLabels(versionLabels, step),
       files: [{ fileId: `${source}.yaml`, publish: true }],
     })
     previousVersion = version
@@ -230,6 +286,11 @@ async function publishSeries(fixture: string, versionLabels?: string[], versionP
 
   dumpComparison(result!)
   return result!
+}
+
+function takeVersionLabels(versionLabels: SeriesLabels | undefined, step: number): { metadata?: { versionLabels: string[] } } {
+  const labels = typeof versionLabels === 'function' ? versionLabels(step) : versionLabels
+  return labels ? { metadata: { versionLabels: labels } } : {}
 }
 
 function restOperationType(result: BuildResult): OperationType {
