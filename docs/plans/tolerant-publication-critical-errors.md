@@ -119,7 +119,7 @@ Detail in [api-processor](#api-processor) and [Backend](#backend); this is the s
 | Endpoint | Change |
 |----------|--------|
 | `GET /api/v3/packages/{packageId}/versions` | `hasErrors` per version |
-| `GET /api/v3/packages/{packageId}/versions/{version}` | `hasErrors` for the version; `hasErrors` per `operationTypes` entry and per `contractsSummary.ddl` / `.mcp`; `comparisonHasErrors` when `includeSummary=true` |
+| `GET /api/v3/packages/{packageId}/versions/{version}` | `hasErrors` for the version; `hasErrors` per `operationTypes` entry and per `contractsSummary.ddl` / `.mcp`; `changelogHasErrors` when `includeSummary=true` |
 | `GET /api/v2/packages/{packageId}/versions/{version}/documents` | `hasErrors` per document |
 | `GET /api/v3/packages/{packageId}/versions/{version}/documents/{slug}` | `hasErrors` for the document |
 | `GET /api/v2/packages/{packageId}/versions/{version}/changes/summary` | `hasErrors` for the comparison |
@@ -1425,7 +1425,7 @@ In the `BuildResult` schema ("Build result for build"):
   several comparisons, which is the normal case for dashboards.
 - **Comparison `hasErrors`.** Persist the per-comparison flag from `comparisons.json` /
   `ddl-comparisons.json` onto the `version_comparison` row, so `/changes/summary` and the version-content
-  `comparisonHasErrors` can be served without aggregating notifications.
+  `changelogHasErrors` can be served without aggregating notifications.
 - **`ValidateBuildResultAgainstConfig`** (`service/validation/PublishedValidator.go:121`): keep the strict
   `info.status == buildConfig.status` check (no downgrade). **Add** a defensive rule: if
   `buildConfig.status == release` and **either** `info.hasErrors == true` **or** any entry of
@@ -1495,7 +1495,7 @@ In the `BuildResult` schema ("Build result for build"):
 | `GET /api/v3/packages/{packageId}/versions/{version}` — `PackageVersionContent` | add `hasErrors: boolean` (from build result); add `hasErrors: boolean` on each `operationTypes.*` item and on `contractsSummary.ddl` / `contractsSummary.mcp` — **calculated by the backend** from the version's documents (a document with `hasErrors` contributes to its apiType/contractType) |
 | `GET /api/v2/packages/{packageId}/versions/{version}/documents` — `PackageVersionFile` | add `hasErrors: boolean` (default `false`) — from build result (`published_version_content.metadata`) |
 | `GET /api/v3/packages/{packageId}/versions/{version}/documents/{slug}` | add `hasErrors: boolean` (per-document detail already an on-demand fetch) |
-| `GET /api/v3/packages/{packageId}/versions/{version}` — `includeSummary=true` | add `comparisonHasErrors: boolean` — `true` when the version's own comparison (against its `previousVersion`) has `hasErrors` |
+| `GET /api/v3/packages/{packageId}/versions/{version}` — `includeSummary=true` | add `changelogHasErrors: boolean` — `true` when the version's own comparison (against its `previousVersion`) has `hasErrors` |
 | `GET /api/v2/packages/{packageId}/versions/{version}/changes/summary` | add `hasErrors: boolean` — `true` when the comparison for the requested version pair has `hasErrors`. For a dashboard comparison the flag also appears per `refs[]` entry, since each ref is its own comparison. |
 | **NEW** `GET /api/v2/packages/{packageId}/versions/{version}/notifications` | returns the version's **build** notifications, **filterable** by `documentId`, `severity`, `category` (repeatable query params). Served from `builder_notifications`. |
 | **NEW** `GET /api/v2/packages/{packageId}/versions/{version}/changes/notifications` | returns the **comparison** notifications, same filters plus `previousVersion` and `previousVersionPackageId` to select the comparison. Served from `comparison_notifications`. |
@@ -1607,7 +1607,7 @@ persistence, the derived views and the refusals, none of which the api-processor
   version with one errored REST document flags `rest` and nothing else.
 - a document that failed before its type could be determined flags the **version** but no API type — the
   mark-with-no-highlight case the UI has to tolerate.
-- `comparisonHasErrors` on version content reflects the version's own comparison against its
+- `changelogHasErrors` on version content reflects the version's own comparison against its
   `previousVersion`, and is absent when there is none.
 
 **Endpoints**
