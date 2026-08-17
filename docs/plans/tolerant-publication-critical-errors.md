@@ -123,8 +123,8 @@ Detail in [api-processor](#api-processor) and [Backend](#backend); this is the s
 | `GET /api/v2/packages/{packageId}/versions/{version}/documents` | `hasErrors` per document |
 | `GET /api/v3/packages/{packageId}/versions/{version}/documents/{slug}` | `hasErrors` for the document |
 | `GET /api/v2/packages/{packageId}/versions/{version}/changes/summary` | `hasErrors` for the comparison |
-| **new** `GET /api/v2/packages/{packageId}/versions/{version}/notifications` | version's build notifications, filterable by `documentId`, `severity`, `category` |
-| **new** `GET /api/v2/packages/{packageId}/versions/{version}/changes/notifications` | comparison notifications, same filters plus `previousVersion` and `previousVersionPackageId` |
+| **new** `GET /api/v2/packages/{packageId}/versions/{version}/notifications` | version's build notifications, filterable by `documentId`, `severity`, `category`, paged with `limit` / `page` |
+| **new** `GET /api/v2/packages/{packageId}/versions/{version}/changes/notifications` | comparison notifications, same filters and paging plus `previousVersion` and `previousVersionPackageId` |
 
 All added response fields are optional and default to `false`, so existing clients are unaffected.
 
@@ -1559,8 +1559,8 @@ In the `BuildResult` schema ("Build result for build"):
 | `GET /api/v3/packages/{packageId}/versions/{version}/documents/{slug}` | add `hasErrors: boolean` (per-document detail already an on-demand fetch) |
 | `GET /api/v3/packages/{packageId}/versions/{version}` — `includeSummary=true` | add `changelogHasErrors: boolean` — `true` when the version's own comparison (against its `previousVersion`) has `hasErrors` |
 | `GET /api/v2/packages/{packageId}/versions/{version}/changes/summary` | add `hasErrors: boolean` — `true` when the comparison for the requested version pair has `hasErrors`. For a dashboard comparison the flag also appears per `refs[]` entry, since each ref is its own comparison. |
-| **NEW** `GET /api/v2/packages/{packageId}/versions/{version}/notifications` | returns the version's **build** notifications, **filterable** by `documentId`, `severity`, `category` (repeatable query params). Served from `builder_notifications`. |
-| **NEW** `GET /api/v2/packages/{packageId}/versions/{version}/changes/notifications` | returns the **comparison** notifications, same filters plus `previousVersion` and `previousVersionPackageId` to select the comparison. Served from `comparison_notifications`. |
+| **NEW** `GET /api/v2/packages/{packageId}/versions/{version}/notifications` | returns the version's **build** notifications, **filterable** by `documentId`, `severity`, `category` (repeatable query params) and paged with the shared `limit` / `page` parameters. Served from `builder_notifications`. |
+| **NEW** `GET /api/v2/packages/{packageId}/versions/{version}/changes/notifications` | returns the **comparison** notifications, same filters and paging plus `previousVersion` and `previousVersionPackageId` to select the comparison. Served from `comparison_notifications`. |
 
 The two endpoints are deliberately separate rather than one endpoint with a phase filter: they identify
 different subjects. A build notification is addressed by *(packageId, version)*; a comparison notification by
@@ -1594,6 +1594,8 @@ New endpoint sketch:
         schema:
           type: array
           items: { type: string }
+      - $ref: "#/components/parameters/limit"
+      - $ref: "#/components/parameters/page"
     responses:
       "200":
         description: Success
@@ -1613,6 +1615,10 @@ New endpoint sketch:
                       message:  { type: string }
                       documentId: { type: string }
 ```
+
+Paging uses the shared `limit` / `page` parameters, listed last as the majority of paged endpoints do —
+including `/changes`, the closest sibling. The response carries no paging metadata, matching every other paged
+collection in this API.
 
 `/changes/notifications` is the same, plus the two comparison-selecting query parameters:
 
@@ -1676,6 +1682,8 @@ persistence, the derived views and the refusals, none of which the api-processor
 
 - both notification endpoints filter by `documentId`, `severity` and `category`, singly and combined, and
   repeated `severity` / `category` parameters OR together.
+- paging: `limit` and `page` return disjoint slices that reassemble into the unfiltered set, ordering is
+  stable across pages, and paging composes with the filters rather than being applied before them.
 - `/changes/notifications` selects the comparison by `previousVersion` + `previousVersionPackageId`, and
   returns only that pair's messages in a build that produced several.
 - an unfiltered query returns messages that carry no `documentId`.
