@@ -1,0 +1,110 @@
+info:
+  title: Digital Experience API
+  version: 1.0.0
+openapi: 3.1.0
+paths:
+  /api/v2/basket:
+    post:
+      requestBody:
+        description: Create basket request body.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BasketRequestDto'
+        required: true
+components:
+  schemas:
+    BrowsingItemDto:
+      type: object
+      description: catalog-driven entities (offering category, offering card).
+      properties:
+        id:
+          type: string
+          description: An attribute to define unique id of the object.
+        childBrowsingItem:
+          type: array
+          items:
+            $ref: '#/components/schemas/PolymorphicBrowsingItemDto'
+          description: A relation to represent downstream hierarchy of browsing item.
+    CatalogBrowsingItemDto:
+      allOf:
+        - $ref: '#/components/schemas/BrowsingItemDto'
+        - type: object
+          description: This entity represents browsing item from catalog.
+    ProductOfferingBrowsingItemDto:
+      allOf:
+        - $ref: '#/components/schemas/CatalogBrowsingItemDto'
+        - type: object
+          description: This entity represent browsing item for product offering.
+          properties:
+            '@type':
+              type: string
+              description: Type of entity
+            ribbonText:
+              type: string
+              description: An attribute to define marketing ribbon text.
+            descriptionText:
+              type: string
+              description: Description as text.
+            description:
+              type: string
+              description: An attribute to define description for the object.
+            descriptionHTML:
+              type: string
+              description: Description as HTML content.
+            carouselId:
+              type: string
+              description: identifier of carousel to which this browsing item belongs to.
+            locationRequired:
+              type: boolean
+              description: Defines if location is required for this product offering.
+            default:
+              type: boolean
+              description: Define for marketing bundles
+            amount:
+              type: integer
+              format: int32
+              description: amount of product offering hierarchy
+    BannerBrowsingItemDto:
+      allOf:
+        - $ref: '#/components/schemas/BrowsingItemDto'
+        - type: object
+          description: This entity represents banner which can be browsed bu user.
+          properties:
+            '@type':
+              type: string
+              description: Type of entity
+    PolymorphicBrowsingItemDto:
+      oneOf:
+        - $ref: '#/components/schemas/BrowsingItemDto'
+        - $ref: '#/components/schemas/ProductOfferingBrowsingItemDto'
+        - $ref: '#/components/schemas/BannerBrowsingItemDto'
+        - $ref: '#/components/schemas/CatalogBrowsingItemDto'
+      discriminator:
+        propertyName: '@type'
+        mapping:
+          BannerBrowsingItem: '#/components/schemas/BannerBrowsingItemDto'
+          ProductOfferingBrowsingItem: '#/components/schemas/ProductOfferingBrowsingItemDto'
+    BasketItemDto:
+      type: object
+      description: to represent item to be processed within basket
+      properties:
+        id:
+          type: string
+          description: An attribute to define unique id of the object.
+        relatedProductOfferingBrowsingItem:
+          $ref: '#/components/schemas/ProductOfferingBrowsingItemDto'
+          type: object
+          description: browsing item which corresponds to this basket
+    BasketRequestDto:
+      type: object
+      description: request to add new item to existing basket
+      properties:
+        basketItem:
+          type: array
+          items:
+            $ref: '#/components/schemas/BasketItemDto'
+          description: Array of basket items which will be added to basket
+
+
+
