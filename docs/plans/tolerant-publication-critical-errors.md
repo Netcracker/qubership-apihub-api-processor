@@ -1,6 +1,6 @@
 # Tolerant Publication: Per-Document Errors
 
-Status: **Draft for review** · 2026-08-12
+Status: **Draft for review** · 2026-08-19
 
 Today a `build` (publication) in api-processor fails entirely when processing of a single document throws.
 This design makes publication tolerant: errors are caught per document, collected as notifications, associated
@@ -458,12 +458,20 @@ export const MESSAGE_CATEGORY = {
   RiskyBeforeValue:        'risky-before-value',
   RiskyOrigins:            'risky-origins',
   ComparisonSerialization: 'comparison-serialization',
-  PreviousVersionMissing:  'previous-version-missing',
   // transform build types (no notification file emitted)
   GroupDocumentsMissing:   'group-documents-missing',
   PartialGroupDocuments:   'partial-group-documents',
 } as const
 ```
+
+**A changelog with no baseline is a config error, not a notification.** `validateConfig` rejects the build as
+`config-invalid`, which [stays fatal](#current-throws-revision), and `ChangelogStrategy` raises nothing. A
+changelog *is* the comparison, so with no baseline there is nothing to compute and nothing to publish — the
+test the other fatal config failures meet. It also has no owner: the message would be raised before
+`compareVersions`, and only per-pair arrays reach `comparison-notifications.json`.
+
+This covers the absent baseline only. A baseline that is named but cannot be resolved reports
+`version-not-resolved`, which does belong to a pair.
 
 **The coarse view comes free from the prefixes.** `ref-*`, `mcp-*`, `ddl-*`, `tolerant-hash-*`, `risky-*` and
 `version-*` group by domain without a second field, so a UI that wants "all reference problems" filters on a
@@ -527,9 +535,11 @@ In both the severity has to travel with the error rather than being fixed at the
 
 - **`createBundlingErrorHandler` (`utils/document.ts:157`)** already distinguishes error types — but only to
   decide whether to throw; every notification is pushed as `Error`. Assign severity by `errorType` instead:
-  `RICH_REF_NOT_ALLOWED` / `REF_NOT_ALLOWED` → Warning, `REF_NOT_FOUND` / `REF_NOT_VALID_FORMAT` → Error. This
-  is the single highest-impact change in the whole severity review: `ref-has-siblings` alone accounts for the
-  large majority of all `Error` notifications ever recorded, and it is not a broken reference.
+  `RICH_REF_NOT_ALLOWED` / `REF_NOT_ALLOWED` → Warning; `REF_NOT_FOUND` / `REF_NOT_VALID_FORMAT` → from
+  `validationRulesSeverity.brokenRefs`, see
+  [Broken references follow the caller](#broken-references-follow-the-caller). This is the single
+  highest-impact change in the whole severity review: `ref-has-siblings` alone accounts for the large majority
+  of all `Error` notifications ever recorded, and it is not a broken reference.
 - **`builder.ts:754`** applies one constant to three different parsers. Severity should come from the parser
   that produced the error (`TextFile<T, E>` already allows it): REST/AJV → Warning, AsyncAPI → use the
   `@asyncapi/parser` diagnostic's own severity, MCP → Error. Without this, MCP's structural errors would be
@@ -538,6 +548,38 @@ In both the severity has to travel with the error rather than being fixed at the
 
 Both are why `ref-*` appear as four separate rows in the tables below rather than one `broken-refs` row: they
 come from one site but need four different answers.
+
+#### Broken references follow the caller
+
+Two of the four reference problems resolve anyway — a `$ref` with sibling keys, and a `$ref` the schema
+disallows at that position — so both are `Warning` unconditionally. The other two, `ref-not-found` and
+`ref-not-valid-format`, leave the document incomplete, and how much that costs depends on why the build is
+running. Both follow the same flag: their volumes differ by an order of magnitude, but a special case for one
+of them would buy nothing.
+
+| Build | `ref-not-found`, `ref-not-valid-format` | What blocks | Because the config carries |
+|-------|-----------------------------------------|--------------|----------------------------|
+| An ordinary publication | `Error` | the `release`; a `draft` publishes marked | `brokenRefs: error` — `BuildService` sets it from `failBuildOnBrokenRefs`, on by default |
+| An ordinary publication where `failBuildOnBrokenRefs` is off | `Warning` | nothing | `brokenRefs: warning`, from the same path |
+| A migration rebuild of a published version | `Warning` | nothing — the version stays rebuildable | no `validationRulesSeverity` at all, so the default `warning` applies |
+
+There is no per-build branch in the code: nothing asks whether it is migrating. `BuildService` fills the field
+from a single deployment-wide boolean; the migration path (`migration/stages/Utils.go`) sets nothing and is
+distinguished by that omission. Which makes the default load-bearing rather than an embedder convenience — it
+is the only thing keeping a migration rebuild lenient, and treating an unset `brokenRefs` as strict would make
+every published version carrying a broken `$ref` unrebuildable.
+
+The field is the one from [apihub#113](https://github.com/Netcracker/qubership-apihub/issues/113), which
+draws this same line for the throw `createBundlingErrorHandler` performs today. Reusing it keeps one concept
+where a second switch would otherwise appear; reading the config's `migrationBuild` flag instead would make
+api-processor reason about what a migration is, which it never has to. Mapping the throw to a severity also
+narrows it: the throw refuses a `draft`, this refuses only a `release`.
+
+The flag covers rebuilds, not the other half of the same population: a specification that has carried an
+unresolved `$ref` for a year is refused at its next release, and a deployment with the setting off blocks
+nothing and keeps accumulating. Both belong to
+[Follow-up — severity tightening](#follow-up--severity-tightening), where `ref-not-found` stays listed. Once
+the population is clean it is `Error` regardless of the caller, and `brokenRefs` retires with it.
 
 ### `documentId` Unification (MCP and DDL Entities)
 
@@ -723,12 +765,12 @@ would stop republishing if the message stays `Error`, so it is what the severity
 | `invalid-text-file` | `builder.ts:754` → moves to the document build | Error | *move* — slug of the document whose bundle contains the file; **message names the offending `fileId`** when it is a dependency | often | **→ Warning**, and take severity from the parser rather than the constant — see [Severity must come from the source](#severity-must-come-from-the-source). Usage data shows the volume is entirely REST/AJV metaschema nitpicking, and nearly every affected release version still has operations — the documents work |
 | `ref-not-allowed` | `utils/document.ts:173`, `REF_NOT_ALLOWED` | Error | fileId → slug | often | **→ Warning.** The reference is valid, just not permitted at that position in the schema. Does not prevent the build, and thousands of releases already live with it |
 | `duplicate-operation-id` | `components/operations.ts:29` | Error | slug (already carried) | sometimes | **→ Warning now, Error later.** The problem is real — one operation overwrites another — but the check is recent and hundreds of releases already contain it. Blocking retroactively is not acceptable. Deferred, see [Follow-up — severity tightening](#follow-up--severity-tightening) |
-| `ref-not-found` | `utils/document.ts:173`, `REF_NOT_FOUND` | Error | fileId → slug | sometimes | **→ Warning now, Error later.** The reference genuinely does not resolve and the document is incomplete, so Error is the right end state — but hundreds of releases already carry it. Deferred, see [Follow-up — severity tightening](#follow-up--severity-tightening). The grade understates it: the `Unable to resolve the file …` messages counted separately in the analysis are the same family, raised with api-processor's own text (`utils/document.ts:194/203`) |
+| `ref-not-found` | `utils/document.ts:173`, `REF_NOT_FOUND` | Error | fileId → slug | sometimes | **From `validationRulesSeverity.brokenRefs`** — `Error` for an ordinary publication, `Warning` for a migration rebuild; see [Broken references follow the caller](#broken-references-follow-the-caller). The reference genuinely does not resolve and the document is incomplete, so `Error` is the right end state, and the flag lets new content hold to it while the hundreds of existing releases stay rebuildable. Still on the tightening list until that population is clean, after which the flag stops mattering for it — see [Follow-up — severity tightening](#follow-up--severity-tightening). The grade understates it: the `Unable to resolve the file …` messages counted separately in the analysis are the same family, raised with api-processor's own text (`utils/document.ts:194/203`) |
 | `double-slash-path` | `rest.operations.ts:134` | Warning | fileId → slug | rare | keep Warning |
 | `file-not-parsed` | `files.ts:46` | Error | fileId → slug | rare | **keep Error.** The file did not parse at all. Last occurrence 2024-07-29 — two years quiet, negligible risk |
 | `empty-path-parameter` | `rest.operations.ts:126` | Error | fileId → slug | rare | **→ Warning now, Error later.** The path is syntactically invalid, so Error is the right end state, and the affected set is small enough to fix — but not retroactively. Deferred, see [Follow-up — severity tightening](#follow-up--severity-tightening) |
 | `tolerant-hash-missing` | `components/deprecated.ts:141` | Error | *add* — operation's slug | rare | **→ Warning.** An internal builder failure, not a defect in the user's contract — publication should not be blocked for it |
-| `ref-not-valid-format` | `utils/document.ts:173`, `REF_NOT_VALID_FORMAT` | Error | fileId → slug | rare | **keep Error.** The reference is syntactically broken. Negligible volume |
+| `ref-not-valid-format` | `utils/document.ts:173`, `REF_NOT_VALID_FORMAT` | Error | fileId → slug | rare | **From `validationRulesSeverity.brokenRefs`**, like `ref-not-found`. The reference is syntactically broken, so `Error` for an ordinary publication; negligible volume makes the migration case cheap to allow |
 | `tolerant-hash-failed` | `components/deprecated.ts:149` | Error | *add* — operation's slug | never | **→ Warning**, for consistency with `tolerant-hash-missing`: same function, same class of internal failure. Zero occurrences makes either choice safe, but splitting them would be arbitrary |
 | `mcp-capability-unused` | `components/mcp.ts:196` | Warning | slug (already carried) | never | keep Warning |
 | `ddl-duplicate-object` | `ddl.validation.ts:31` (`duplicate-object`) | Error | fileId → slug | never | keep Error — no data; DDL has never been published to production |
@@ -1646,7 +1688,7 @@ Notes:
 - `operationTypes.*.hasErrors` and `contractsSummary.*.hasErrors` are computed by the backend from stored
   per-document `hasErrors`. Two cases produce a version-level mark with no API type highlighted, and the UI must
   tolerate both (see [Notifications with no `documentId`](#notifications-with-no-documentid)): a document that
-failed before its type could be determined maps to no
+  failed before its type could be determined maps to no
   apiType/contractType; and a version-level `Error` (missing previous version, reference resolution) flags no
   document at all. In both cases `hasErrors` on the version is the only signal, and the notifications endpoint
   is where the explanation lives.
@@ -1769,24 +1811,32 @@ minimum they should move into `AGENTS.md`.
 
 ## Follow-up — severity tightening
 
-Four messages ship as `Warning` and are meant to become `Error` once the existing population is clean. In each
-case `Error` is the correct end state — the condition genuinely makes a document or a changelog unreliable —
-but promoting it now would block release versions that already carry the message, retroactively punishing
-content that was accepted when it was published.
+Four messages are held below `Error` until the existing population is clean. In each case `Error` is the
+correct end state — the condition genuinely makes a document or a changelog unreliable — but promoting it now
+would block release versions that already carry the message, retroactively punishing content that was accepted
+when it was published.
 
-| Category | Phase | Releases affected | Why it must end as `Error` |
-|----------|-------|------------------------:|----------------------------|
-| `duplicate-operation-id` | build | sometimes | One operation silently overwrites another; the published version is missing an operation it appears to declare |
-| `ref-not-found` | build | sometimes | The reference does not resolve, so the document is incomplete |
-| `version-documents-missing` | changelog | rare¹ | A comparison side whose documents cannot be resolved produces an unreliable changelog |
-| `empty-path-parameter` | build | rare | The path is syntactically invalid |
+| Category | Phase | Releases affected | Held below `Error` by | Why it must end as `Error` |
+|----------|-------|------------------------:|-----------------------|----------------------------|
+| `duplicate-operation-id` | build | sometimes | a constant | One operation silently overwrites another; the published version is missing an operation it appears to declare |
+| `ref-not-found` | build | sometimes | `brokenRefs` | The reference does not resolve, so the document is incomplete |
+| `version-documents-missing` | changelog | rare¹ | a constant | A comparison side whose documents cannot be resolved produces an unreliable changelog |
+| `empty-path-parameter` | build | rare | a constant | The path is syntactically invalid |
 
 ¹ Shared bucket with `group-documents-missing`; an upper bound.
 
-**The sequence for each.** Ship as `Warning`, so the affected versions publish and are marked; use the
+Three of the four are pinned below `Error` by a constant, so every caller sees `Warning`. `ref-not-found` is
+pinned by the caller instead: a new publication already sees `Error`, and only a migration rebuild sees
+`Warning` — see [Broken references follow the caller](#broken-references-follow-the-caller). The end state is
+the same for all four: once nothing in the population carries `ref-not-found`, it is `Error` regardless of
+`brokenRefs`.
+
+**The sequence for each.** Ship below `Error`, so the affected versions publish and are marked; use the
 notifications endpoints to enumerate the affected packages and versions (filter by `category`); drive those to
 be fixed and republished; then flip the severity to `Error` in a later release. The flip is a one-line change
-per site — the only thing gating it is the population.
+per site — the only thing gating it is the population. For `ref-not-found` the flip is the removal of the
+`brokenRefs` branch rather than a change of constant, and the enumeration is what tells a team its next
+release is about to be refused.
 
 Two properties make this workable. The category is a stable code, so "list every version still carrying
 `ref-not-found`" is a single filtered query rather than a text match. And because migration republishes
@@ -1849,8 +1899,17 @@ All open questions are closed. Recorded here so they are not reopened:
 
 - **Severities are confirmed per site** — the `Severity decision` column in
   [Current Notification Revision](#current-notification-revision) is the decision, not a proposal. Four
-  messages ship as `Warning` and are scheduled to tighten later; see
+  messages are held below `Error` until the population is clean; see
   [Follow-up — severity tightening](#follow-up--severity-tightening).
+- **Broken references take their severity from the caller** — `ref-not-found` and `ref-not-valid-format` read
+  `validationRulesSeverity.brokenRefs`, so an ordinary publication is refused a `release` while a migration
+  rebuild stays possible. Reuses the flag from
+  [apihub#113](https://github.com/Netcracker/qubership-apihub/issues/113) rather than adding a second switch,
+  and makes api-processor's own default load-bearing. See
+  [Broken references follow the caller](#broken-references-follow-the-caller).
+- **A changelog with no `previousVersion` is a config error** — `validateConfig` rejects it as
+  `config-invalid` instead of raising a notification that no version pair could own. See
+  [`MessageCategory` string enum](#messagecategory-string-enum).
 - **Comparison notifications attribute per version pair** — there is no build-wide bucket and no
   build-wide `hasErrors` fallback; see
   [the attribution rule](#every-comparison-notification-belongs-to-one-version-pair).
