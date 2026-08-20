@@ -38,7 +38,7 @@ Governing rules after the latest decisions:
 - **Changelog build** is allowed to complete even when the *current* version has `Error` notifications, but an
   **unsound** version **must not be usable as the previous version** in a changelog calculation. A version is
   unsound when it has errors of its own *or* its changelog has errors — the single predicate all four backend
-  refusals gate on, defined under [Backend — new refusals](#public-api-changes-at-a-glance).
+  refusals gate on, defined under [Backend — new refusals](#backend--new-refusals).
 - **Dashboards:** an unsound package version **cannot be added** to a dashboard. If a dashboard somehow already
   references one, the UI must indicate it when viewing the dashboard's packages.
 
@@ -107,7 +107,7 @@ publication, because a release is expected to ship both sound documents and a re
 
 Detail in [api-processor](#api-processor) and [Backend](#backend); this is the summary of what consumers see.
 
-**api-processor — library contract**
+### api-processor — library contract
 
 | Item | Change |
 |------|--------|
@@ -118,7 +118,7 @@ Detail in [api-processor](#api-processor) and [Backend](#backend); this is the s
 | **new** `comparison-notifications.json` | comparison-phase messages, **grouped by comparison** so each maps to its version pair; same message shape as `notifications.json` |
 | `comparisons.json`, `ddl-comparisons.json` — each comparison | new optional `hasErrors` (default `false`) |
 
-**Backend — REST API**
+### Backend — REST API
 
 | Endpoint | Change |
 |----------|--------|
@@ -132,7 +132,7 @@ Detail in [api-processor](#api-processor) and [Backend](#backend); this is the s
 
 All added response fields are optional and default to `false`, so existing clients are unaffected.
 
-**Backend — new refusals**
+### Backend — new refusals
 
 All four gate on the same predicate. A version is **unsound** when either is true:
 
@@ -713,7 +713,7 @@ endpoints). `fileId` is an internal, build-time path.
 
 #### Changes
 
-**api-processor**
+##### api-processor
 
 - `apitypes/mcp/mcp.entities.ts:59` — `const documentId = document.fileId` → `document.slug`.
 - `apitypes/ddl/ddl.entities.ts:43` — same.
@@ -723,20 +723,20 @@ endpoints). `fileId` is an internal, build-time path.
   `existing.documentId` / `duplicate.documentId`; after this change they can attribute notifications straight
   from `entity.documentId` with no lookup.
 
-**Build result contract — `APIHUB_API_internal.yaml`**
+##### Build result contract — `APIHUB_API_internal.yaml`
 
 - `BuildResultDdlContracts` entity `documentId`: description "fileId of the source DDL document…" → slug, and
   the example `ddl/shop.sql` → `shop-sql`.
 - `BuildResultMcpContracts` entity `documentId`: description sharpened to say slug; the example
   (`tools-forecast-json`) is already correct.
 
-**Public API — `APIHUB_API.yaml`**
+##### Public API — `APIHUB_API.yaml`
 
 No field or example changes: `DdlEntity` (`shop-sql`) and `McpEntity` (`tools-forecast-json`) already document
 slugs. The change makes the documented behavior true. Sharpen both descriptions from "Source document
 identifier" to name the slug explicitly.
 
-**Backend**
+##### Backend storage
 
 `document_id` is persisted in `ddl_tables` and `mcp_entities` (`37_contracts.up.sql:20/104`, both indexed) and
 returned as `documentId` by the DDL/MCP contract views. No Go change is required — the value simply becomes a
@@ -1644,7 +1644,6 @@ coverage — see [Severity must come from the source](#severity-must-come-from-t
   resolver — and for both build types: `changelog`, and a `build` publishing a `draft` with a
   `previousVersion`. A dashboard whose references all compare cleanly is unaffected.
 
-
 ## Backend
 
 ### 1. Internal contract — `APIHUB_API_internal.yaml` (build result shape)
@@ -1887,7 +1886,7 @@ failed before its type could be determined maps to no
 The api-processor groups above cover the build result. These cover what the backend adds on top of it — the
 persistence, the derived views and the refusals, none of which the api-processor tests can reach.
 
-**Ingestion**
+#### Ingestion
 
 - a build result with build-phase and comparison-phase notifications lands in `builder_notifications` and
   `comparison_notifications` respectively, with `category` and `document_id` populated and `severity` stored as
@@ -1900,7 +1899,7 @@ persistence, the derived views and the refusals, none of which the api-processor
   the `version_comparison` row.
 - republishing a comparison replaces its notification rows rather than appending to them.
 
-**Derived views**
+#### Derived views
 
 - `operationTypes.*.hasErrors` and `contractsSummary.ddl|mcp.hasErrors` are computed from the documents: a
   version with one errored REST document flags `rest` and nothing else.
@@ -1909,7 +1908,7 @@ persistence, the derived views and the refusals, none of which the api-processor
 - `changelogHasErrors` on version content reflects the version's own comparison against its
   `previousVersion`, and is absent when there is none.
 
-**Endpoints**
+#### Endpoints
 
 - both notification endpoints filter by `documentId`, `severity` and `category`, singly and combined, and
   repeated `severity` / `category` parameters OR together.
@@ -1921,7 +1920,9 @@ persistence, the derived views and the refusals, none of which the api-processor
 - both endpoints require read permission on the package: a caller without it gets `403` from each, and a
   caller with it gets the notifications.
 
-**Refusals** — one test each, all four on the same `isVersionUnsound` predicate
+#### Refusals
+
+One test each, all four on the same `isVersionUnsound` predicate:
 
 - publishing `release` when the version has errors, and when only its comparison has errors;
 - `PATCH` promoting to `release` in both those cases, while `draft` → `archived` on the same version still
@@ -2124,7 +2125,7 @@ All open questions are closed. Recorded here so they are not reopened:
   the severity of every comparison-phase `Error` carries release-blocking weight, and was reviewed on that
   basis.
 - **One unsound-version predicate for all four backend refusals** — version `hasErrors` **or** its comparison's
-  `hasErrors`. See [Backend — new refusals](#public-api-changes-at-a-glance).
+  `hasErrors`. See [Backend — new refusals](#backend--new-refusals).
 - **Version and document `hasErrors` are emitted only by a `build`** — a `changelog` carries the comparison
   flags and `comparison-notifications.json` only. See
   [`hasErrors` flags in the build result](#haserrors-flags-in-the-build-result).
