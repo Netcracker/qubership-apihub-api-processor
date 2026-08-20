@@ -69,10 +69,10 @@ UI implementation is **out of scope**; UI source was analyzed only to identify t
 7. **Unsound versions are quarantined from composition.** A version with errors of its own, or with an
    unreliable changelog, cannot serve as the baseline of a changelog calculation and cannot be referenced by a
    dashboard.
-8. **Some errors belong to a version pair, not to a document** (a missing previous version, unresolvable
-   references). These are comparison-phase only: they mark the comparison without marking any document, and
-   are reachable through the comparison notifications endpoint. Every build-phase error is attributed to a
-   document.
+8. **Some errors belong to a version pair, not to a document** (an unresolvable previous version,
+   unresolvable references). These are comparison-phase only: they mark the comparison without marking any
+   document, and are reachable through the comparison notifications endpoint. Every build-phase error is
+   attributed to a document.
 
 ## Build phases and the shape of a build result
 
@@ -84,6 +84,10 @@ results, and the notification files present in each follow directly:
 | `build`, no `previousVersion` | version build | version artifacts | `notifications.json` |
 | `build` with `previousVersion` | version build, then comparison | version + comparison artifacts | `notifications.json`, `comparison-notifications.json` |
 | `changelog` | comparison only | comparison artifacts | `comparison-notifications.json` |
+
+A `changelog` build must declare a `previousVersion`: with no baseline there is nothing to compare, so the
+config is rejected outright rather than reported — see
+[A changelog with no baseline is a config error](#a-changelog-with-no-baseline-is-a-config-error).
 
 Note the middle row is **one** build producing **one** archive — `BuildStrategy` calculates the comparison
 inline after building the documents, it does not spawn a second build. The `changelog` build type is used when
@@ -458,7 +462,6 @@ export const MESSAGE_CATEGORY = {
   RiskyBeforeValue:        'risky-before-value',
   RiskyOrigins:            'risky-origins',
   ComparisonSerialization: 'comparison-serialization',
-  PreviousVersionMissing:  'previous-version-missing',
   // transform build types (no notification file emitted)
   GroupDocumentsMissing:   'group-documents-missing',
   PartialGroupDocuments:   'partial-group-documents',
@@ -473,14 +476,17 @@ There is deliberately **no `changelog` category**: the phase is expressed by *wh
 in, so a category would duplicate it and mislead — the tolerant-hash messages would have carried `changelog`
 while actually firing during operation building.
 
-**Ids that do not become categories.** Three Ids from the throws table are absent, because after the change no
-notification originates from them:
+**Ids that do not become categories.** Four Ids are absent, because after the change no notification
+originates from them — three from the throws table, plus one that stops being a notification. The last keeps
+its Id; only its `MessageCategory` membership goes, since categories exist to classify messages and it no
+longer produces one:
 
 | Id | Why it has no category |
 |----|------------------------|
 | `broken-refs-fatal` | The throw disappears — severity comes from the `errorType` and from `validationRulesSeverity.brokenRefs` instead, so these failures surface as `ref-not-found` / `ref-not-valid-format` |
 | `document-no-source` | Eliminated; `dumpUnknownDocument` returns an empty Blob |
 | `async-duplicate-operation` | The same handler and message as `duplicate-operation-id`; today it only differs by throwing for AsyncAPI instead of notifying. Once it notifies, the two are one diagnostic |
+| `previous-version-missing` | The Id survives, as a throw rather than a notification: `validateConfig` rejects a `changelog` with no baseline and `ChangelogStrategy` raises nothing — see [A changelog with no baseline is a config error](#a-changelog-with-no-baseline-is-a-config-error) |
 
 `ddl-duplicate-object` also merges its throw and notification rows: `ddl.validation.ts` pushes the message and
 then throws for the same defect, and only the notification survives.
@@ -783,13 +789,16 @@ caveat bounds the notification tables: their grades reflect **successful** build
 | `packaging-failure` | `createVersionPackage` / zip tooling | Throw | — | — | **stays fatal** |
 
 `config-invalid` (no `packageId`/`version`; no files and no refs) and `packaging-failure` stay fatal because
-nothing survives them: there is no version to publish, or no artifact is produced at all.
+nothing survives them: there is no version to publish, or no artifact is produced at all. A third config
+failure meets the same test in the `changelog` phase and is kept as its own Id — see
+[A changelog with no baseline is a config error](#a-changelog-with-no-baseline-is-a-config-error).
 
 #### `changelog` phase
 
 Every throw reachable from `compareVersions` stays fatal. By the "is anything publishable left?" test they
 could be converted — the version's documents are already built when they fire — but each would mask a defect
-that is hard to trace afterwards, so they are kept fatal by design decision.
+that is hard to trace afterwards, so they are kept fatal by design decision. One row moves the other way: a
+`changelog` with no baseline becomes a throw instead of a notification.
 
 | Id | Site | Severity today | DocumentId | Occurrence | Severity decision |
 |----|------|----------------|------------|------------|-------------------|
@@ -800,6 +809,7 @@ that is hard to trace afterwards, so they are kept fatal by design decision.
 | `compare-missing-operation-async` | `async.changes.ts:148` | Throw | — | — | **stays fatal** |
 | `ddl-compare-hook-missing` | `compare.ddl.ts:192` | Throw | — | — | **stays fatal** |
 | `ref-comparison-has-errors` | `compare.ts` `compareVersionsReferences` (**new**) — any dashboard reference comparison has `hasErrors`, whether recalculated or reused from cache | — | — | — | **fatal** (new) |
+| `previous-version-missing` | moves to `validators.ts` `validateConfig` — a `changelog` with no `previousVersion`; the notification at `changelog.strategy.ts:36` is removed | Error notification | none (version-level) | never | **becomes fatal**, keeping its own Id, see below |
 
 - `processor-version-mismatch` — a version-mismatch must not be hidden. Publishing a draft with a silently
   missing or partial changelog would defer the problem to whoever later notices the data is wrong, by which
@@ -844,6 +854,24 @@ that is hard to trace afterwards, so they are kept fatal by design decision.
   documents are already built when they fire — but the `processor-version-mismatch` reasoning applies equally:
   a silently-degraded changelog defers a hard-to-diagnose defect to whoever later notices the changes are
   wrong. Kept fatal, consistent with `processor-version-mismatch`.
+
+##### A changelog with no baseline is a config error
+
+**A changelog with no baseline is a config error, not a notification.** `validateConfig` rejects the build,
+and `ChangelogStrategy` raises nothing. A changelog *is* the comparison, so with no baseline there is nothing
+to compute and nothing to publish — the test the other fatal config failures meet. It also has no owner: the
+message would be raised before `compareVersions`, and only per-pair arrays reach
+`comparison-notifications.json`.
+
+**It keeps its own Id, `previous-version-missing`.** It is a config failure of the same class as
+`config-invalid`, which [stays fatal](#current-throws-revision), but the two are not folded together: they
+have different causes and different fixes, and the Id is what makes a fatal build explainable. `config-invalid`
+covers a config that cannot describe *any* build — no `packageId`, no `version`, no inputs; this one is a
+config that is well-formed but wrong for the `changelog` build type. Merging them would put the one case a
+caller can act on behind a generic message, and lose the continuity with the notification it replaces.
+
+This covers the absent baseline only. A baseline that is named but cannot be resolved reports
+`version-not-resolved`, which does belong to a pair.
 
 ### Current Notification Revision
 
@@ -895,22 +923,26 @@ severities differ — two are fixed at `Warning`, two are configured. See
 | `version-documents-missing` | `builder.ts:563` | Warning | none (version-level) | rare | **keep Warning now, Error later.** A comparison side whose documents cannot be resolved yields an unreliable changelog, so Error is the right end state — but releases already carry it. Deferred, see [Follow-up — severity tightening](#follow-up--severity-tightening) |
 | `operation-data-missing` | `builder.ts:465` | Warning | none (version-level) | never | **→ Error.** Missing operation data makes the comparison silently incomplete, which is exactly what the changelog gate exists to catch. Zero blast radius — no occurrences on record |
 | `comparison-serialization` | `components/package.ts:64` | Error | none (comparison-level) | never | keep Error — zero occurrences |
-| `previous-version-missing` | `strategies/changelog.strategy.ts:36` | Error | none (version-level) | never | keep Error — but the zero is **not** evidence of safety, see below |
 
 ¹ `version-documents-missing` (`:563`) and `group-documents-missing` (`:496`, transform build types) share the
 message text `No documents for …`, so usage data counts them in one bucket. The grade is therefore an upper
 bound for either alone.
 
-The zero for `previous-version-missing` is an artifact of how notifications are stored, not a sign the case
-never happens. It is raised **only** by `ChangelogStrategy`, and standalone `changelog` builds publish through
-`PublishChanges`, which never calls `ReadBuilderNotificationsToEntities` — so their notifications are
-**discarded today**. Comparison messages appear in the data only when the comparison ran *inline* inside a
-`build`, which is why `risky-before-value` is the only comparison-phase site with a substantial grade. This is
-independent confirmation that comparison notifications need the separate storage the plan already specifies.
+**Every `never` in this table is weak evidence**, because of how comparison notifications are stored rather
+than because the case does not happen. Standalone `changelog` builds publish through `PublishChanges`, which
+never calls `ReadBuilderNotificationsToEntities` — so their notifications are **discarded today**. Comparison
+messages appear in the data only when the comparison ran *inline* inside a `build`, which is why
+`risky-before-value` is the only comparison-phase site with a substantial grade. This is independent
+confirmation that comparison notifications need the separate storage the plan already specifies.
 
-`previous-version-missing` is raised **only** by `ChangelogStrategy`; `BuildStrategy` has no equivalent — it
-silently skips the comparison when the baseline does not resolve, relying on `version-not-resolved` having
-already reported it. It is also the natural place to raise the "previous version has errors" refusal.
+**`previous-version-missing` has left this table**, for the throws table. It was raised **only** by
+`ChangelogStrategy`, for a `changelog` config with no `previousVersion` at all; `BuildStrategy` has no
+equivalent — it silently skips the comparison when the baseline does not resolve, relying on
+`version-not-resolved` having already reported it. The Id stays, now naming a fatal config rejection rather
+than a message — see
+[A changelog with no baseline is a config error](#a-changelog-with-no-baseline-is-a-config-error).
+`ChangelogStrategy` remains the natural place to raise the "previous version has errors" refusal, which is a
+different problem: a baseline that resolves but is untrustworthy.
 
 `risky-before-value` and `risky-origins` fire inside `reclassifyBreakingChanges`, which reclassifies
 breaking→risky by matching the previous version's deprecated items — deprecated-item matching failures that
@@ -985,7 +1017,7 @@ Five sites remain unattributed by design, all in the comparison stream: `version
 Consequence to accept: a comparison can have `hasErrors: true` while no document is flagged, and — for the
 build stream — the same shape would arise for any future version-level build error. The UI must handle a mark
 with no drill-down target; the unfiltered notifications endpoint is the only place those messages surface.
-This is correct behavior, not a gap: a missing previous version really is a version-level problem.
+This is correct behavior, not a gap: an unresolvable previous version really is a version-level problem.
 
 ### Catch Points — make publish tolerant
 
@@ -1038,8 +1070,10 @@ their result is a single artifact that is unusable on failure, and there is no p
 primarily by the backend (Backend §2). Defense in depth in api-processor: `versionResolver`, when resolving the
 *previous* version, can raise an `Error` comparison notification (category `version-not-resolved`) if that version is
 flagged, so a misconfigured build does not silently diff against a broken baseline. `VersionCache` would need
-to carry the flags for this check. The natural raise point is `ChangelogStrategy`, next to
-`previous-version-missing` — the two are the same class of baseline problem.
+to carry the flags for this check. The natural raise point is `ChangelogStrategy`, where the baseline is
+resolved. Note this is a baseline that resolves but is untrustworthy — a baseline that is absent altogether
+never reaches here, because `validateConfig` has already rejected the build with `previous-version-missing`,
+see [A changelog with no baseline is a config error](#a-changelog-with-no-baseline-is-a-config-error).
 
 #### Error documents must carry their source
 
@@ -1521,7 +1555,7 @@ Guards the finding that a tolerated document must still survive packaging.
   catches both a leaked `fileId` and a regression of the MCP/DDL unification (T6).
 - `tolerant-hash-*` and `risky-*` each carry the expected `documentId`, and the owning document is flagged
   `hasErrors: true`.
-- unattributed errors: a comparison-level `Error` (e.g. `previous-version-missing`) flags the comparison while
+- unattributed errors: a comparison-level `Error` (e.g. `version-not-resolved`) flags the comparison while
   every document keeps `hasErrors: false` — assert the flags and that the notification is returned by an
   unfiltered query.
 
@@ -1602,7 +1636,9 @@ coverage — see [Severity must come from the source](#severity-must-come-from-t
 
 - `processor-version-mismatch`: fails the build outright for both `draft` and `release`, and for a `changelog`
   build too — no partial version is emitted.
-- changelog baseline: an unsound previous version is rejected as a baseline.
+- changelog baseline: an unsound previous version is rejected as a baseline, and a `changelog` config with no
+  `previousVersion` at all fails `validateConfig` with `previous-version-missing` — no build result and no
+  notification, and `previous-version-missing` is not a member of `MESSAGE_CATEGORY`.
 - `ref-comparison-has-errors`: a dashboard fails the build when a reference comparison has `hasErrors`,
   asserted for both origins — one recalculated here, and one reused from cache carrying the flag from the
   resolver — and for both build types: `changelog`, and a `build` publishing a `draft` with a
@@ -1837,7 +1873,7 @@ Notes:
   per-document `hasErrors`. Two cases produce a version-level mark with no API type highlighted, and the UI must
   tolerate both (see [Notifications with no `documentId`](#notifications-with-no-documentid)): a document that
 failed before its type could be determined maps to no
-  apiType/contractType; and a version-level `Error` (missing previous version, reference resolution) flags no
+  apiType/contractType; and a version-level `Error` (previous-version or reference resolution) flags no
   document at all. In both cases `hasErrors` on the version is the only signal, and the notifications endpoint
   is where the explanation lives.
 - Flags are per revision (both tables are revision-keyed); the mark disappears when a fixed revision is
@@ -2014,8 +2050,9 @@ of it; no further backend work is implied.
 ### Version-level errors with no document
 
 **The UI must provide a way to see errors that are not attributable to any specific document.** Four `Error`
-notifications are inherently version-level: missing previous version, unresolvable version references,
-previous version deleted or non-existent, and comparison serialization failure. They set the version's
+notifications are inherently version-level: `version-not-resolved` (a previous version that is deleted or does
+not exist), `version-refs-not-resolved`, `operation-data-missing` and `comparison-serialization`. They set the
+version's
 `hasErrors` flag but flag **no document** and **no API type**, so a UI that only surfaces errors through the
 documents list or the API type dropdown would show an error mark the user cannot explain or act on.
 
@@ -2091,6 +2128,12 @@ All open questions are closed. Recorded here so they are not reopened:
 - **Version and document `hasErrors` are emitted only by a `build`** — a `changelog` carries the comparison
   flags and `comparison-notifications.json` only. See
   [`hasErrors` flags in the build result](#haserrors-flags-in-the-build-result).
+- **A `changelog` with no baseline is a config error, not a notification** — `validateConfig` rejects it and
+  `previous-version-missing` is removed from `MESSAGE_CATEGORY`. An absent baseline leaves nothing to compute
+  and belongs to no version pair; a baseline that is named but unresolvable still reports
+  `version-not-resolved`. The Id stays **separate from `config-invalid`** rather than folded into it — the two
+  have different causes and different fixes, and the Id is what makes the fatal explainable. See
+  [A changelog with no baseline is a config error](#a-changelog-with-no-baseline-is-a-config-error).
 - **All changelog-phase throws stay fatal** — `processor-version-mismatch`, `resolver-missing`,
   `compare-missing-operation-*` and `ddl-compare-hook-missing`. None is converted to a notification; see
   [Current Throws Revision](#current-throws-revision).
