@@ -22,8 +22,8 @@ import { AFTER_VALUE_NORMALIZED_PROPERTY, BEFORE_VALUE_NORMALIZED_PROPERTY } fro
 
 export function calculateDiffId(diff: Diff): string {
   // `Diff` is a discriminated union and these fields exist on some members only.
-  // `FillKeys` gives every member the keys it lacks, as optional and undefined,
-  // which is what the defaults below already assume at runtime.
+  // `FillKeys` gives every member the keys it lacks, as optional and `undefined`, so they can
+  // be read below without narrowing first.
   const {
     scope,
     action,

@@ -102,9 +102,8 @@ function validateSpecs(spec1: unknown, spec2: unknown): void {
 }
 
 function extractDeclarationPaths(diff: Diff): JsonPath[] {
-  // `Diff` is a discriminated union and these fields exist on some members only.
-  // `FillKeys` gives every member the keys it lacks, as optional and undefined,
-  // which is what the defaults below already assume at runtime.
+  // `Diff` is a discriminated union and these fields exist on some members only; `FillKeys`
+  // gives every member the keys it lacks, as optional and `undefined`.
   const {
     afterDeclarationPaths = [],
     beforeDeclarationPaths = [],
@@ -123,17 +122,19 @@ function compliesWithRules(rules: DiffRule[], diff: Diff): boolean {
 
 const validateResult = (rules: DiffRule[], diffs: Diff[], title1: string, title2: string): void => {
   const [firstProhibitedDiff] = diffs.filter(diff => !compliesWithRules(rules, diff))
+  if (!firstProhibitedDiff) {
+    return
+  }
+
   const [firstPathFromProhibitedDiff] = extractDeclarationPaths(firstProhibitedDiff)
 
-  if (firstProhibitedDiff && isEmpty(firstPathFromProhibitedDiff)) {
+  if (isEmpty(firstPathFromProhibitedDiff)) {
     throw new Error(`Unable to merge specifications ${title1}, ${title2}. You can download reduced source specifications and merge operations manually.`)
   }
 
-  if (firstProhibitedDiff) {
-    throw new Error(`Unable to merge ${trimPath(firstPathFromProhibitedDiff).join('.')}. These specifications have different content for it: ${title1}, ${title2}.
-      Please resolve the conflicts in source specification, republish them and try again. You can also download reduced source specifications and merge operations manually.`,
-    )
-  }
+  throw new Error(`Unable to merge ${trimPath(firstPathFromProhibitedDiff).join('.')}. These specifications have different content for it: ${title1}, ${title2}.
+    Please resolve the conflicts in source specification, republish them and try again. You can also download reduced source specifications and merge operations manually.`,
+  )
 }
 
 export function filterUsedTags<T extends { name: string }>(
