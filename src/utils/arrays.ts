@@ -74,3 +74,11 @@ export function difference(array1: string[], array2: string[]): string[] {
   const set2 = new Set(array2)
   return [...new Set(array1.filter(x => !set2.has(x)))]
 }
+
+// Empty and refill `target` instead of rebinding it: contexts capture the array reference, so replacing
+// the array would leave them writing to a discarded one
+export const replaceInPlace = <T>(target: T[], source: readonly T[]): void => {
+  if (target === source) { return }
+  target.length = 0
+  target.push(...source)
+}

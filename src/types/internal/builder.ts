@@ -43,6 +43,7 @@ export interface BuildResultDto {
   comparisons: VersionsComparisonDto[]
   ddlComparisons: DdlComparison[]
   notifications: NotificationMessage[]
+  comparisonNotifications: NotificationMessage[]
   documents: Map<string, VersionDocument>
   exportDocuments: ExportDocument[]
   operations: Map<string, ApiOperation>
@@ -55,6 +56,7 @@ export interface BuildResult {
   config: PackageConfig
   comparisons: VersionsComparison[]
   notifications: NotificationMessage[]
+  comparisonNotifications: NotificationMessage[]
   documents: Map<string, VersionDocument>
   exportDocuments: ExportDocument[]
   exportFileName?: string

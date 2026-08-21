@@ -38,6 +38,7 @@ import {
 import {
   AFTER_VALUE_NORMALIZED_PROPERTY,
   BEFORE_VALUE_NORMALIZED_PROPERTY,
+  MESSAGE_CATEGORY,
   MESSAGE_SEVERITY,
   NORMALIZE_OPTIONS,
   ORIGINS_SYMBOL, REST_API_TYPE,
@@ -205,7 +206,8 @@ export const compareDocuments: DocumentsCompare = async (
         continue
       }
 
-      await reclassifyBreakingChanges(previous?.operationId, merged, operationDiffs, ctx)
+      // a removed operation attributes to the previous version's document, the only locating information left
+      await reclassifyBreakingChanges(previous?.operationId, merged, operationDiffs, ctx, current?.documentId ?? previous?.documentId)
 
       operationChanges.push(createOperationChange(apiType, operationDiffs, comparisonInternalDocumentId, previous, current, currentGroup, previousGroup))
       getOperationTags(current ?? previous).forEach(tag => tags.add(tag))
@@ -229,6 +231,7 @@ async function reclassifyBreakingChanges(
   mergedJso: unknown,
   diffs: Diff[],
   ctx: CompareOperationsPairContext,
+  documentId: string | undefined,
 ): Promise<void> {
   if (!previousOperationId || !ctx.previousVersion || !ctx.previousPackageId) {
     return
@@ -262,8 +265,11 @@ async function reclassifyBreakingChanges(
     const beforeValueNormalized = (diff as Record<symbol, unknown>)[BEFORE_VALUE_NORMALIZED_PROPERTY]
     if (!isObject(beforeValueNormalized)) {
       ctx.notifications.push({
-        severity: MESSAGE_SEVERITY.Error,
+        category: MESSAGE_CATEGORY.RiskyBeforeValue,
+        // diagnostics of the changelog calculation, not validation of a document
+        severity: MESSAGE_SEVERITY.Warning,
         message: '[Risky validation] Something wrong with beforeNormalizedValue from diff',
+        documentId: documentId,
       })
       continue
     }
@@ -271,8 +277,11 @@ async function reclassifyBreakingChanges(
 
     if (!areDeprecatedOriginsNotEmpty(beforeValueNormalized)) {
       ctx.notifications.push({
-        severity: MESSAGE_SEVERITY.Error,
+        category: MESSAGE_CATEGORY.RiskyOrigins,
+        // as risky-before-value: a calculation diagnostic, not a contract defect
+        severity: MESSAGE_SEVERITY.Warning,
         message: '[Risky validation] Something wrong with origins',
+        documentId: documentId,
       })
       continue
     }

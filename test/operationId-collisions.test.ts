@@ -24,7 +24,18 @@ import {
 } from './helpers'
 import { describe, expect, test } from '@jest/globals'
 import { calculateRestOperationId, calculateNormalizedRestOperationId, _calculateRestOperationIdV1 } from '../src/utils/operations.utils'
-import { BUILD_TYPE, MESSAGE_SEVERITY, VERSION_STATUS } from '../src'
+import { BUILD_TYPE, BuildResult, MESSAGE_CATEGORY, MESSAGE_SEVERITY, VERSION_STATUS } from '../src'
+
+
+// An intra-document duplicate no longer costs the version: it is reported against that document, and the
+// operations the document did build stay in the result.
+const expectIntraDocumentDuplicate = (result: BuildResult, expectedMessage: string): void => {
+  const failure = result.notifications.find(({ category }) => category === MESSAGE_CATEGORY.RestDuplicateOperation)
+  expect(failure).toBeDefined()
+  expect(failure!.severity).toBe(MESSAGE_SEVERITY.Error)
+  expect(failure!.message).toBe(expectedMessage)
+  expect(failure!.documentId).toBeDefined()
+}
 
 describe('Operation ID collisions', () => {
   describe('operationID and normalizedOperationId calculation', () => {
@@ -127,19 +138,26 @@ describe('Operation ID collisions', () => {
 
   describe('Path validation', () => {
 
-    test('Should report error notification if path parameter name is empty', async () => {
+    test('Should report a warning if path parameter name is empty', async () => {
       const pkg = LocalRegistry.openPackage('operationId-collisions/empty-path-parameter-name')
 
       const result = await pkg.publish(pkg.packageId, {
         packageId: pkg.packageId,
         version: 'v1',
+        // draft: an intra-document duplicate does block a release, which release-gate.test.ts covers
+        status: VERSION_STATUS.DRAFT,
         files: [
           { fileId: 'spec.json' },
         ],
       })
 
       expect(result).toEqual(notificationsMatcher([
-        notificationMatcher(MESSAGE_SEVERITY.Error, 'Invalid path \'/res/data/{}\': path parameter name could not be empty'),
+        notificationMatcher(
+          // deferred: the path is syntactically invalid, but not blocking retroactively
+          MESSAGE_SEVERITY.Warning,
+          'Invalid path \'/res/data/{}\': path parameter name could not be empty',
+          { category: MESSAGE_CATEGORY.EmptyPathParameter, documentId: 'spec' },
+        ),
       ]))
     })
 
@@ -149,12 +167,18 @@ describe('Operation ID collisions', () => {
       const result = await pkg.publish(pkg.packageId, {
         packageId: pkg.packageId,
         version: 'v1',
+        // draft: an intra-document duplicate does block a release, which release-gate.test.ts covers
+        status: VERSION_STATUS.DRAFT,
         files: [
           { fileId: 'spec.json' },
         ],
       })
       expect(result).toEqual(notificationsMatcher([
-        notificationMatcher(MESSAGE_SEVERITY.Warning, 'Path \'/res//data\' contains double slash sequence'),
+        notificationMatcher(
+          MESSAGE_SEVERITY.Warning,
+          'Path \'/res//data\' contains double slash sequence',
+          { category: MESSAGE_CATEGORY.DoubleSlashPath, documentId: 'spec' },
+        ),
       ]))
       expect(result.operations.size).toBe(1)
     })
@@ -165,6 +189,8 @@ describe('Operation ID collisions', () => {
       const result = await pkg.publish(pkg.packageId, {
         packageId: pkg.packageId,
         version: 'v1',
+        // draft: an intra-document duplicate does block a release, which release-gate.test.ts covers
+        status: VERSION_STATUS.DRAFT,
         files: [
           { fileId: 'spec.json', publish: true },
         ],
@@ -179,6 +205,8 @@ describe('Operation ID collisions', () => {
       const result = await pkg.publish(pkg.packageId, {
         packageId: pkg.packageId,
         version: 'v1',
+        // draft: an intra-document duplicate does block a release, which release-gate.test.ts covers
+        status: VERSION_STATUS.DRAFT,
         files: [
           { fileId: 'spec.json' },
         ],
@@ -191,55 +219,65 @@ describe('Operation ID collisions', () => {
 
 
   describe('Duplicated operationId in the same document', () => {
-    test('Should throw error if duplicated operation is found within document', async () => {
+    test('Should report a duplicated operation found within document', async () => {
       const pkg = LocalRegistry.openPackage('operationId-collisions/same-operationId-same-document')
 
-      await expect(pkg.publish(pkg.packageId, {
+      const result = await pkg.publish(pkg.packageId, {
         packageId: pkg.packageId,
         version: 'v1',
+        // draft: an intra-document duplicate does block a release, which release-gate.test.ts covers
+        status: VERSION_STATUS.DRAFT,
         files: [
           { fileId: 'spec.json' },
         ],
-      })).rejects.toThrow('Duplicated operationIds found:\n- operationId "api-v1-resource-get": found 2 operations: GET /api/v1/resource, GET /api-v1-resource')
+      })
+      expectIntraDocumentDuplicate(result, 'Duplicated operationIds found:\n- operationId "api-v1-resource-get": found 2 operations: GET /api/v1/resource, GET /api-v1-resource')
     })
 
-    test('Should throw error for duplication within document even if second document has same operationId', async () => {
+    test('Should report duplication within document even if second document has same operationId', async () => {
       const pkg = LocalRegistry.openPackage('operationId-collisions/same-operationId-same-and-other-document')
 
-      await expect(pkg.publish(pkg.packageId, {
+      const result = await pkg.publish(pkg.packageId, {
         packageId: pkg.packageId,
         version: 'v1',
+        // draft: an intra-document duplicate does block a release, which release-gate.test.ts covers
+        status: VERSION_STATUS.DRAFT,
         files: [
           { fileId: 'spec1.json' },
           { fileId: 'spec2.json' },
         ],
-      })).rejects.toThrow('Duplicated operationIds found:\n- operationId "api-v1-resource-get": found 2 operations: GET /api/v1/resource, GET /api-v1-resource')
+      })
+      expectIntraDocumentDuplicate(result, 'Duplicated operationIds found:\n- operationId "api-v1-resource-get": found 2 operations: GET /api/v1/resource, GET /api-v1-resource')
     })
 
     test('Should detect all duplicate operationIds within document', async () => {
       const pkg = LocalRegistry.openPackage('operationId-collisions/several-duplicate-operationId-same-document')
 
-      await expect(pkg.publish(pkg.packageId, {
+      const result = await pkg.publish(pkg.packageId, {
         packageId: pkg.packageId,
         version: 'v1',
+        // draft: an intra-document duplicate does block a release, which release-gate.test.ts covers
+        status: VERSION_STATUS.DRAFT,
         files: [
           { fileId: 'spec.json' },
         ],
-      })).rejects.toThrow('Duplicated operationIds found:\n- operationId "api-v1-resource-get": found 2 operations: GET /api/v1/resource, GET /api-v1-resource\n- operationId "api-v1-user-post": found 2 operations: POST /api/v1/user, POST /api-v1-user')
+      })
+      expectIntraDocumentDuplicate(result, 'Duplicated operationIds found:\n- operationId "api-v1-resource-get": found 2 operations: GET /api/v1/resource, GET /api-v1-resource\n- operationId "api-v1-user-post": found 2 operations: POST /api/v1/user, POST /api-v1-user')
     })
 
     test('Should detect three or more operations with same operationId', async () => {
       const pkg = LocalRegistry.openPackage('operationId-collisions/same-operationId-many-operations-same-document')
 
-      await expect(pkg.publish(pkg.packageId, {
+      const result = await pkg.publish(pkg.packageId, {
         packageId: pkg.packageId,
         version: 'v1',
+        // draft: an intra-document duplicate does block a release, which release-gate.test.ts covers
+        status: VERSION_STATUS.DRAFT,
         files: [
           { fileId: 'spec.json' },
         ],
-      })).rejects.toThrow(
-        'Duplicated operationIds found:\n- operationId "api-v1-resource-get": found 3 operations: GET /api/v1/resource, GET /api-v1-resource, GET /api/v1-resource',
-      )
+      })
+      expectIntraDocumentDuplicate(result, 'Duplicated operationIds found:\n- operationId "api-v1-resource-get": found 3 operations: GET /api/v1/resource, GET /api-v1-resource, GET /api/v1-resource')
     })
   })
 
@@ -251,15 +289,23 @@ describe('Operation ID collisions', () => {
       const result = await pkg.publish(pkg.packageId, {
         packageId: pkg.packageId,
         version: 'v1',
+        // draft: an intra-document duplicate does block a release, which release-gate.test.ts covers
+        status: VERSION_STATUS.DRAFT,
         files: [
           { fileId: 'spec1.json' },
           { fileId: 'spec2.json' },
         ],
       })
 
+      // denormalised: one notification per involved document, same text — a user looking at either sees it
+      const message = 'Duplicated operationId \'res-data-post\' found in different documents: \'spec1\' and \'spec2\''
       expect(result).toEqual(notificationsMatcher([
-        notificationMatcher(MESSAGE_SEVERITY.Error, 'Duplicated operationId \'res-data-post\' found in different documents: \'spec1\' and \'spec2\''),
+        notificationMatcher(MESSAGE_SEVERITY.Warning, message, { category: MESSAGE_CATEGORY.DuplicateOperationId, documentId: 'spec1' }),
+        notificationMatcher(MESSAGE_SEVERITY.Warning, message, { category: MESSAGE_CATEGORY.DuplicateOperationId, documentId: 'spec2' }),
       ]))
+
+      // the lexicographically smallest documentId wins the index, whatever order the config listed them in
+      expect(result.operations.get('res-data-post')?.documentId).toBe('spec1')
     })
 
     // Ideally we want to avoid situation when operationIds are duplicated across documents
@@ -278,8 +324,10 @@ describe('Operation ID collisions', () => {
         ],
       })
 
+      const v1Message = 'Duplicated operationId \'res-data-post\' found in different documents: \'v1-spec1\' and \'v1-spec2\''
       expect(v1Result).toEqual(notificationsMatcher([
-        notificationMatcher(MESSAGE_SEVERITY.Error, 'Duplicated operationId \'res-data-post\' found in different documents: \'v1-spec1\' and \'v1-spec2\''),
+        notificationMatcher(MESSAGE_SEVERITY.Warning, v1Message, { documentId: 'v1-spec1' }),
+        notificationMatcher(MESSAGE_SEVERITY.Warning, v1Message, { documentId: 'v1-spec2' }),
       ]))
 
       const v2Result = await pkg.publish(pkg.packageId, {
@@ -291,8 +339,10 @@ describe('Operation ID collisions', () => {
         ],
       })
 
+      const v2Message = 'Duplicated operationId \'res-data-post\' found in different documents: \'v2-spec1\' and \'v2-spec2\''
       expect(v2Result).toEqual(notificationsMatcher([
-        notificationMatcher(MESSAGE_SEVERITY.Error, 'Duplicated operationId \'res-data-post\' found in different documents: \'v2-spec1\' and \'v2-spec2\''),
+        notificationMatcher(MESSAGE_SEVERITY.Warning, v2Message, { documentId: 'v2-spec1' }),
+        notificationMatcher(MESSAGE_SEVERITY.Warning, v2Message, { documentId: 'v2-spec2' }),
       ]))
 
       const editor = new Editor(pkg.packageId, {
@@ -309,10 +359,13 @@ describe('Operation ID collisions', () => {
       expect(changelogResult.notifications).toEqual([])
       expect(changelogResult).toEqual(changesSummaryMatcher({ annotation: 1 }))
       expect(changelogResult).toEqual(numberOfImpactedOperationsMatcher({ annotation: 1 }))
+      // The indexed operation is the one from the lexicographically smallest documentId — `spec1`, not
+      // `spec2` as under the old last-wins rule. The flip is the point: the winner no longer depends on the
+      // order `config.files` happened to list the documents in.
       expect(changelogResult.comparisons?.[0]?.data?.[0]?.diffs).toEqual(expect.arrayContaining([
         expect.objectContaining({
-          beforeValue: 's2v1 description',
-          afterValue: 's2v2 description',
+          beforeValue: 's1v1 description',
+          afterValue: 's1v2 description',
           action: 'replace',
           scope: 'response',
           type: 'annotation',

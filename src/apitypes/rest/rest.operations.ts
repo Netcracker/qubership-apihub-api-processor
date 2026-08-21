@@ -28,7 +28,7 @@ import {
   removeComponents,
 } from '../../utils'
 import type * as TYPE from './rest.types'
-import { INLINE_REFS_FLAG, MESSAGE_SEVERITY } from '../../consts'
+import { INLINE_REFS_FLAG, MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../../consts'
 import { asyncFunction } from '../../utils/async'
 import { normalize, RefErrorType } from '@netcracker/qubership-apihub-api-unifier'
 import { extractOperationBasePath } from '@netcracker/qubership-apihub-api-diff'
@@ -38,7 +38,7 @@ type OperationInfo = { path: string; method: string }
 
 export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async (document, ctx) => {
   const documentWithoutComponents = removeComponents(document.data)
-  const bundlingErrorHandler = createBundlingErrorHandler(ctx, document.fileId)
+  const bundlingErrorHandler = createBundlingErrorHandler(ctx, document.slug)
 
   const { notifications, normalizedSpecFragmentsHashCache, config } = ctx
   const effectiveDocument = normalize(
@@ -68,7 +68,7 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
   const operationIdMap = new Map<string, OperationInfo[]>()
 
   for (const path of Object.keys(paths)) {
-    const pathNotifications = validatePath(path, document.fileId)
+    const pathNotifications = validatePath(path, document.slug)
     if (pathNotifications.length) {
       ctx.notifications.push(...pathNotifications)
     }
@@ -106,9 +106,16 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
     }
   }
 
+  // Intra-document: two (path, method) pairs computing the same operationId. Reported against this document
+  // and nothing else — the operations already built stay in the version.
   const duplicates = findDuplicates(operationIdMap)
   if (isNotEmpty(duplicates)) {
-    throw createDuplicatesError(duplicates)
+    ctx.notifications.push({
+      category: MESSAGE_CATEGORY.RestDuplicateOperation,
+      severity: MESSAGE_SEVERITY.Error,
+      message: createDuplicatesError(duplicates).message,
+      documentId: document.slug,
+    })
   }
 
   if (operations.length) {
@@ -118,22 +125,25 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
   return operations
 }
 
-function validatePath(path: string, fileId: string): NotificationMessage[] {
+function validatePath(path: string, documentId: string): NotificationMessage[] {
   const notifications: NotificationMessage[] = []
 
   if (path.includes('{}')) {
     notifications.push({
-      severity: MESSAGE_SEVERITY.Error,
+      category: MESSAGE_CATEGORY.EmptyPathParameter,
+      // Deferred: the path is syntactically invalid, so Error is the right end state — but not retroactively
+      severity: MESSAGE_SEVERITY.Warning,
       message: `Invalid path '${path}': path parameter name could not be empty`,
-      fileId: fileId,
+      documentId: documentId,
     })
   }
 
   if (path.includes('//')) {
     notifications.push({
+      category: MESSAGE_CATEGORY.DoubleSlashPath,
       severity: MESSAGE_SEVERITY.Warning,
       message: `Path '${path}' contains double slash sequence`,
-      fileId: fileId,
+      documentId: documentId,
     })
   }
 

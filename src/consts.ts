@@ -62,9 +62,60 @@ export const MESSAGE_SEVERITY = {
   Hint: 3,
 } as const
 
+// One category per diagnostic: the value identifies which check produced the message, so a consumer can
+// filter by it instead of matching interpolated message text. The prefixes (`ref-`, `mcp-`, `ddl-`,
+// `tolerant-hash-`, `risky-`, `version-`) give a coarse grouping for free.
+export const MESSAGE_CATEGORY = {
+  // parsing and document build
+  ParseFile: 'parse-file',
+  InvalidTextFile: 'invalid-text-file',
+  FileNotParsed: 'file-not-parsed',
+  BuildDocument: 'build-document',
+  SwaggerConversion: 'swagger-conversion',
+  // references
+  RefHasSiblings: 'ref-has-siblings',
+  RefNotAllowed: 'ref-not-allowed',
+  RefNotFound: 'ref-not-found',
+  RefNotValidFormat: 'ref-not-valid-format',
+  // operations
+  BuildOperations: 'build-operations',
+  DuplicateOperationId: 'duplicate-operation-id',
+  RestDuplicateOperation: 'rest-duplicate-operation',
+  AsyncDuplicateOperation: 'async-duplicate-operation',
+  EmptyPathParameter: 'empty-path-parameter',
+  DoubleSlashPath: 'double-slash-path',
+  // DDL
+  DdlDuplicateObject: 'ddl-duplicate-object',
+  DdlParseIssue: 'ddl-parse-issue',
+  DdlEntityBuild: 'ddl-entity-build',
+  DdlDuplicateEntity: 'ddl-duplicate-entity',
+  // MCP
+  McpEntityBuild: 'mcp-entity-build',
+  McpDocumentSchema: 'mcp-document-schema',
+  McpInitRequired: 'mcp-init-required',
+  McpDuplicateEntity: 'mcp-duplicate-entity',
+  McpCapabilityUnused: 'mcp-capability-unused',
+  // deprecated items
+  TolerantHashMissing: 'tolerant-hash-missing',
+  TolerantHashFailed: 'tolerant-hash-failed',
+  DeprecatedComponentPath: 'deprecated-component-path',
+  // comparison phase
+  VersionNotResolved: 'version-not-resolved',
+  VersionRefsNotResolved: 'version-refs-not-resolved',
+  VersionDocumentsMissing: 'version-documents-missing',
+  OperationDataMissing: 'operation-data-missing',
+  RiskyBeforeValue: 'risky-before-value',
+  RiskyOrigins: 'risky-origins',
+  ComparisonSerialization: 'comparison-serialization',
+  // transform build types
+  GroupDocumentsMissing: 'group-documents-missing',
+  PartialGroupDocuments: 'partial-group-documents',
+} as const
+
 export const PACKAGE = {
   INFO_FILE_NAME: 'info.json',
   NOTIFICATIONS_FILE_NAME: 'notifications.json',
+  COMPARISON_NOTIFICATIONS_FILE_NAME: 'comparison-notifications.json',
   DOCUMENTS_FILE_NAME: 'documents.json',
   OPERATIONS_FILE_NAME: 'operations.json',
   COMPARISONS_FILE_NAME: 'comparisons.json',

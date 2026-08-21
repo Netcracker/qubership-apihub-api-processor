@@ -15,7 +15,7 @@
  */
 
 import { BuilderContext, DeprecateItem, NotificationMessage, OperationsApiType, ResolvedOperation } from '../types'
-import { DEFAULT_BATCH_SIZE, HASH_FLAG, MESSAGE_SEVERITY } from '../consts'
+import { DEFAULT_BATCH_SIZE, HASH_FLAG, MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../consts'
 import { executeInBatches, isDeprecatedOperationItem, isString, keyBy } from '../utils'
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import { areDeclarationPathsEqual } from '../utils/path'
@@ -56,27 +56,47 @@ export const calculateHistoryForDeprecatedItems = async (
         continue
       }
 
-      for (const deprecatedItem of currentOperation.deprecatedItems) {
-        const resolvedDeprecatedItem = resolvedOperation.deprecatedItems?.find(
-          item => (
-            item.tolerantHash && deprecatedItem.tolerantHash
-              ? areSameDeprecatedItems(item, deprecatedItem) // deprecated schema or parameter
-              : areDeclarationPathsEqual(item.declarationJsonPaths, deprecatedItem.declarationJsonPaths) // deprecated operations
-          ),
-        )
-        if (!resolvedDeprecatedItem) {
-          continue
-        }
-
-        if (Array.isArray(resolvedDeprecatedItem.deprecatedInPreviousVersions)) {
-          deprecatedItem.deprecatedInPreviousVersions.unshift(...resolvedDeprecatedItem.deprecatedInPreviousVersions)
-        }
-        if (isDeprecatedOperationItem(deprecatedItem)) {
-          currentOperation.deprecatedInPreviousVersions = [...new Set(deprecatedItem.deprecatedInPreviousVersions)]
-        }
+      try {
+        mergeDeprecatedHistory(currentOperation, resolvedOperation)
+      } catch (error) {
+        // one operation loses its history; every other operation of the version keeps theirs
+        ctx.notifications.push({
+          category: MESSAGE_CATEGORY.DeprecatedComponentPath,
+          severity: MESSAGE_SEVERITY.Error,
+          message: error instanceof Error
+            ? error.message
+            : `Cannot calculate deprecated history for operation '${resolvedOperation.operationId}'`,
+          documentId: currentOperation.documentId,
+        })
       }
     }
   }, DEFAULT_BATCH_SIZE)
+}
+
+/** Carry the previous version's deprecation history onto the operation's matching deprecated items. */
+function mergeDeprecatedHistory(
+  currentOperation: ResolvedOperation,
+  resolvedOperation: { deprecatedItems?: DeprecateItem[] },
+): void {
+  for (const deprecatedItem of currentOperation.deprecatedItems ?? []) {
+    const resolvedDeprecatedItem = resolvedOperation.deprecatedItems?.find(
+      item => (
+        item.tolerantHash && deprecatedItem.tolerantHash
+          ? areSameDeprecatedItems(item, deprecatedItem) // deprecated schema or parameter
+          : areDeclarationPathsEqual(item.declarationJsonPaths, deprecatedItem.declarationJsonPaths) // deprecated operations
+      ),
+    )
+    if (!resolvedDeprecatedItem) {
+      continue
+    }
+
+    if (Array.isArray(resolvedDeprecatedItem.deprecatedInPreviousVersions)) {
+      deprecatedItem.deprecatedInPreviousVersions.unshift(...resolvedDeprecatedItem.deprecatedInPreviousVersions)
+    }
+    if (isDeprecatedOperationItem(deprecatedItem)) {
+      currentOperation.deprecatedInPreviousVersions = [...new Set(deprecatedItem.deprecatedInPreviousVersions)]
+    }
+  }
 }
 
 function areSameDeprecatedItems(firstItem: DeprecateItem, secondItem: DeprecateItem): boolean {
@@ -130,7 +150,12 @@ export const matchSharedComponent = (jsonPath: JsonPath): MatchResult | undefine
   return { componentType, componentName }
 }
 
-export function calculateTolerantHash(value: Jso, notifications: NotificationMessage[]): string | undefined {
+// documentId is required so the compiler enforces attribution at any future call site
+export function calculateTolerantHash(
+  value: Jso,
+  notifications: NotificationMessage[],
+  documentId: string,
+): string | undefined {
   try {
     const tolerantHash = Object.keys(value).length > 0
       ? HASH_FLAG in value ? value[HASH_FLAG] as DeferredHash | undefined : undefined
@@ -138,16 +163,22 @@ export function calculateTolerantHash(value: Jso, notifications: NotificationMes
 
     if (!tolerantHash) {
       notifications.push({
-        severity: MESSAGE_SEVERITY.Error,
+        category: MESSAGE_CATEGORY.TolerantHashMissing,
+        // an internal builder failure, not a defect in the user's contract — it must not block a release
+        severity: MESSAGE_SEVERITY.Warning,
         message: '[Deprecated items] Tolerant hash is not defined',
+        documentId: documentId,
       })
       return undefined
     }
     return tolerantHash()
   } catch (error) {
     notifications.push({
-      severity: MESSAGE_SEVERITY.Error,
+      category: MESSAGE_CATEGORY.TolerantHashFailed,
+      // same function, same class of internal failure as TolerantHashMissing
+      severity: MESSAGE_SEVERITY.Warning,
       message: '[Deprecated items] Something wrong with tolerant hash',
+      documentId: documentId,
     })
     return undefined
   }

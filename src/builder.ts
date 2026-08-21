@@ -63,7 +63,7 @@ import {
   unknownApiBuilder,
 } from './apitypes'
 import { ddlBuilder } from './apitypes/ddl/ddl.builder'
-import { filesDiff, findSharedPath, getCompositeKey, getFileExtension, getOperationsList } from './utils'
+import { filesDiff, findSharedPath, getCompositeKey, getFileExtension, getOperationsList, reconcileOwnedIds, replaceInPlace } from './utils'
 import {
   BUILD_TYPE,
   ContractType,
@@ -71,12 +71,13 @@ import {
   DEFAULT_VALIDATION_RULES_SEVERITY_CONFIG,
   EXPORT_BUILD_TYPES,
   MCP_CONTRACT_TYPE,
+  MESSAGE_CATEGORY,
   MESSAGE_SEVERITY,
   REST_API_TYPE,
   SUPPORTED_FILE_FORMATS,
   VERSION_STATUS,
 } from './consts'
-import { unknownParsedFile } from './apitypes/unknown/unknown.parser'
+import { unknownParsedFile, unparsableFile } from './apitypes/unknown/unknown.parser'
 import { createVersionPackage } from './components/package'
 import { compareVersions } from './components/compare'
 import { applyBuilderVersionInfo, validateConfig } from './validators'
@@ -106,6 +107,18 @@ export const DEFAULT_RUN_OPTIONS: BuilderRunOptions = {
   cleanCache: false,
 }
 
+// A pair's operation and DDL comparisons resolve the same versions, and resolver failures are deliberately
+// not cached so that every pair reports its own. Within one pair that repeats the message, which would
+// double-count it in the release-failure total and store two identical rows — so an exact repeat is dropped.
+const pushOnce = (notifications: NotificationMessage[], message: NotificationMessage): void => {
+  const repeat = notifications.some(existing =>
+    existing.category === message.category &&
+    existing.severity === message.severity &&
+    existing.message === message.message &&
+    existing.documentId === message.documentId)
+  if (!repeat) { notifications.push(message) }
+}
+
 export class PackageVersionBuilder implements IPackageVersionBuilder {
   apiBuilders: ApiBuilder[] = []
   documents = new Map<string, VersionDocument>()
@@ -119,7 +132,11 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
   referencesCache = new Map<string, BuildConfigRef[]>()
   packageChangesCache = new Map<string, OperationChanges[]>()
 
-  notifications: NotificationMessage[] = []
+  // `readonly` is the invariant, not a style choice: contexts capture the array reference via `bind`, so
+  // replacing either array would leave them writing to a discarded one. Emptying in place stays legal.
+  readonly notifications: NotificationMessage[] = []
+  // comparison-phase messages live apart: they mark a comparison, never the version — see #716
+  readonly comparisonNotifications: NotificationMessage[] = []
   merged?: VersionDocument
   config: BuildConfig
   builderRunOptions = DEFAULT_RUN_OPTIONS
@@ -196,6 +213,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       exportFileName: this.exportFileName,
       config: this.packageConfig,
       notifications: this.notifications,
+      comparisonNotifications: this.comparisonNotifications,
       merged: this.merged,
       mcpEntities: this.mcpEntities,
       ddlEntities: this.ddlEntities,
@@ -209,7 +227,8 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     this.documents = buildResult.documents
     this.exportDocuments = buildResult.exportDocuments
     this.exportFileName = buildResult.exportFileName
-    this.notifications = buildResult.notifications
+    replaceInPlace(this.notifications, buildResult.notifications)
+    replaceInPlace(this.comparisonNotifications, buildResult.comparisonNotifications)
     this.merged = buildResult.merged
     this.mcpEntities = buildResult.mcpEntities
     this.ddlEntities = buildResult.ddlEntities
@@ -235,26 +254,27 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       config: this.config,
       configuration: this.params.configuration,
       builderRunOptions: this.builderRunOptions,
-      groupDocumentsResolver: this.groupDocumentsResolver.bind(this),
-      versionDocumentsResolver: this.versionDocumentsResolver.bind(this),
+      groupDocumentsResolver: this.groupDocumentsResolver.bind(this, this.notifications),
+      versionDocumentsResolver: this.versionDocumentsResolver.bind(this, this.notifications),
       groupExportTemplateResolver: this.params.resolvers.groupExportTemplateResolver,
       versionLabels: this.config.metadata?.versionLabels as Array<string>,
       normalizedSpecFragmentsHashCache: this.normalizedSpecFragmentsHashCache,
     }
   }
 
-  private compareContext(config: BuildConfig): CompareContext {
+  private compareContext(config: BuildConfig, notifications: NotificationMessage[] = this.comparisonNotifications): CompareContext {
     return {
       apiBuilders: this.apiBuilders,
-      notifications: this.notifications,
+      notifications: notifications,
+      forPair: (pairNotifications) => this.compareContext(config, pairNotifications),
       batchSize: this.params.configuration?.batchSize,
       config: config,
-      versionResolver: this.versionResolver.bind(this),
-      versionOperationsResolver: this.versionOperationsResolver.bind(this),
-      versionReferencesResolver: this.versionReferencesResolver.bind(this),
+      versionResolver: this.versionResolver.bind(this, notifications),
+      versionOperationsResolver: this.versionOperationsResolver.bind(this, notifications),
+      versionReferencesResolver: this.versionReferencesResolver.bind(this, notifications),
       versionComparisonResolver: this.versionComparisonResolver.bind(this),
       versionDeprecatedResolver: this.versionDeprecatedResolver.bind(this),
-      versionDocumentsResolver: this.versionDocumentsResolver.bind(this),
+      versionDocumentsResolver: this.versionDocumentsResolver.bind(this, notifications),
       rawDocumentResolver: this.rawDocumentResolver.bind(this),
       normalizedSpecFragmentsHashCache: this.normalizedSpecFragmentsHashCache,
       apiProcessorVersionValidationLevel: this.builderRunOptions.apiProcessorVersionValidationLevel,
@@ -421,6 +441,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
   }
 
   async versionOperationsResolver(
+    notifications: NotificationMessage[],
     apiType: OperationsApiType,
     version?: string,
     packageId?: string,
@@ -461,8 +482,10 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
           continue
         }
 
-        this.notifications.push({
-          severity: MESSAGE_SEVERITY.Warning,
+        notifications.push({
+          category: MESSAGE_CATEGORY.OperationDataMissing,
+          // missing operation data makes the comparison silently incomplete — exactly what the gate is for
+          severity: MESSAGE_SEVERITY.Error,
           message: `No data for operation ${operationId} of package ${packageId}/${version}`,
         })
       }
@@ -472,6 +495,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
   }
 
   async groupDocumentsResolver(
+    notifications: NotificationMessage[],
     apiType: OperationsApiType,
     version: VersionId,
     packageId: PackageId,
@@ -492,13 +516,15 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     )
 
     if (!documents?.documents.length) {
-      this.notifications.push({
+      notifications.push({
+        category: MESSAGE_CATEGORY.GroupDocumentsMissing,
         severity: MESSAGE_SEVERITY.Warning,
         message: `No documents for ${packageId}/${version} that match the criteria (apiType=${apiType}, filterByOperationGroup=${filterByOperationGroup})`,
       })
 
       if (!documents?.documents.every(document => document.data)) {
-        this.notifications.push({
+        notifications.push({
+          category: MESSAGE_CATEGORY.PartialGroupDocuments,
           severity: MESSAGE_SEVERITY.Warning,
           message: `Not all documents have data for ${packageId}/${version} that match the criteria (apiType=${apiType}, filterByOperationGroup=${filterByOperationGroup})`,
         })
@@ -525,6 +551,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
   }
 
   async versionDocumentsResolver(
+    notifications: NotificationMessage[],
     version: VersionId,
     packageId: PackageId,
     apiType?: OperationsApiType,
@@ -559,7 +586,8 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     // is normal and must NOT warn. apiType queries are gated upstream by the version's operationTypes, so
     // an empty result there is still worth a warning.
     if (!documents?.documents.length && !contractType) {
-      this.notifications.push({
+      notifications.push({
+        category: MESSAGE_CATEGORY.VersionDocumentsMissing,
         severity: MESSAGE_SEVERITY.Warning,
         message: `No documents for ${packageId}/${version} that match the criteria (apiType=${apiType})`,
       })
@@ -608,6 +636,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
   }
 
   async versionResolver(
+    notifications: NotificationMessage[],
     version: string,
     packageId: string,
   ): Promise<VersionCache | null> {
@@ -632,7 +661,8 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     const versionContent = await versionResolver(packageId, version, true)
 
     if (!versionContent) {
-      this.notifications.push({
+      pushOnce(notifications, {
+        category: MESSAGE_CATEGORY.VersionNotResolved,
         severity: MESSAGE_SEVERITY.Error,
         message: `No such version: version: ${version}, packageId: ${packageId}`,
       })
@@ -649,6 +679,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
   }
 
   async versionReferencesResolver(
+    notifications: NotificationMessage[],
     version: string,
     packageId?: string,
   ): Promise<BuildConfigRef[]> {
@@ -678,7 +709,8 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     )
 
     if (!versionReferences) {
-      this.notifications.push({
+      pushOnce(notifications, {
+        category: MESSAGE_CATEGORY.VersionRefsNotResolved,
         severity: MESSAGE_SEVERITY.Error,
         message: `No version references for: version: ${version}, packageId: ${packageId || this.config.packageId}`,
       })
@@ -746,22 +778,17 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
           const result = await parser(fileId, source)
 
           if (result) {
-            // add errors to notifications
-            if (result.kind === FILE_KIND.TEXT && result.errors) {
-              result.errors.forEach((error) => {
-                this.notifications.push({
-                  fileId: fileId,
-                  severity: MESSAGE_SEVERITY.Error,
-                  message: `Invalid ${result.type} file. ${error.message || ''}`,
-                })
-              })
-            }
-
+            // errors ride on the SourceFile; the document that bundles this file reports them, because only
+            // it knows which document a `$ref`-ed file belongs to
             this.parsedFiles.set(fileId, result)
             return result
           }
         } catch (error) {
-          throw new Error(`Cannot parse file ${fileId}. ${error instanceof Error ? error.message : ''}`)
+          // Degrade instead of throwing: the fallback keeps the raw bytes, so the document stays dumpable and
+          // the version publishes with everything else intact
+          const fallback = unparsableFile(fileId, source, error)
+          this.parsedFiles.set(fileId, fallback)
+          return fallback
         }
       }
     }
@@ -915,10 +942,14 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     for (const changedFile of changedFiles) {
       const previousDocument = this.documents.get(changedFile.fileId)
       if (previousDocument) {
+        // scoped to what the document owns: rebuilding a duplicate's loser must not evict the winner
         previousDocument.operationIds?.forEach(operationId => {
-          this.operations.delete(operationId)
+          if (this.operations.get(operationId)?.documentId === previousDocument.slug) {
+            this.operations.delete(operationId)
+          }
         })
         previousDocument.mcpEntityIds?.forEach(entityId => {
+          if (this.mcpEntities.get(entityId)?.documentId !== previousDocument.slug) { return }
           this.mcpEntities.delete(entityId)
         })
         this.documents.delete(previousDocument.fileId)
@@ -930,7 +961,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
 
     const { buildResult } = this
     const handleDuplicateOperation = createDuplicateOperationHandler(buildResult)
-    const handleDuplicateMcp = createDuplicateMcpEntityHandler()
+    const handleDuplicateMcp = createDuplicateMcpEntityHandler(this.notifications)
     const mcpCtx: McpBuildContext = { mcpEntities: this.mcpEntities }
     let hasMcpChanges = false
 
@@ -946,6 +977,9 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       }
     }
 
+    // same reconciliation as a full build: a rebuilt document may have lost an id to a smaller slug
+    reconcileOwnedIds(this.documents.values(), this.operations, this.mcpEntities)
+
     // entities are maintained in this.mcpEntities granularly; caller refreshes capability warnings
     return hasMcpChanges
   }
@@ -955,7 +989,8 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
   }
 
   clearRuntimeCachesOnly(): void {
-    this.notifications = []
+    this.notifications.length = 0
+    this.comparisonNotifications.length = 0
   }
 
   clearCaches(): void {
@@ -971,6 +1006,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     this.mcpEntities = new Map()
     this.ddlEntities = new Map()
 
-    this.notifications = []
+    this.notifications.length = 0
+    this.comparisonNotifications.length = 0
   }
 }

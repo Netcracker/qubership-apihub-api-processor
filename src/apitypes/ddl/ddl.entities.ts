@@ -40,7 +40,7 @@ export function calculateDdlEntityId(schemaName: string, kind: DdlKind, name: st
  */
 export const buildDdlEntities: DdlEntitiesBuilder<ParsedDdlData> = (document) => {
   const { realm, extractor } = document.data
-  const documentId = document.fileId
+  const documentId = document.slug
   const versionInternalDocumentId = document.versionInternalDocument.versionDocumentId
 
   // intra-document duplicate detection (incl. post-slugify collisions — D10), id -> table name for the

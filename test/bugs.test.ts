@@ -15,6 +15,7 @@
  */
 
 import { API_AUDIENCE_INTERNAL, APIHUB_API_COMPATIBILITY_KIND_BWC, APIHUB_API_COMPATIBILITY_KIND_NO_BWC } from '../src'
+import { MESSAGE_SEVERITY } from '../src/consts'
 import { Editor, LocalRegistry } from './helpers'
 
 import { describe, expect, test } from '@jest/globals'
@@ -83,7 +84,8 @@ describe('Operation Bugs', () => {
     const editor = await Editor.openProject('basic_swagger', swaggerPackage)
     const result = await editor.run()
 
-    expect(result.notifications.filter(({ severity }) => severity === 0).length).toEqual(1)
+    // AJV metaschema complaints are Warnings now: the document parses and its operations build
+    expect(result.notifications.filter(({ severity }) => severity === MESSAGE_SEVERITY.Warning).length).toEqual(1)
   })
 
   test('type error must not appear during build', async () => {

@@ -14,19 +14,37 @@
  * limitations under the License.
  */
 
-import { FileId, KeyOfConstType } from '../external'
-import { MESSAGE_SEVERITY } from '../../consts'
+import { KeyOfConstType } from '../external'
+import { MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../../consts'
 
 export type MessageSeverity = KeyOfConstType<typeof MESSAGE_SEVERITY>
+
+export type MessageCategory = typeof MESSAGE_CATEGORY[keyof typeof MESSAGE_CATEGORY]
 
 export interface PackageNotifications {
   notifications: NotificationMessage[]
 }
 
+// comparison-notifications.json — grouped by version pair, because a comparison-phase message belongs to
+// exactly one pair and a flat list could not say which
+export interface PackageComparisonNotifications {
+  comparisons: PackageComparisonNotificationsEntry[]
+}
+
+export interface PackageComparisonNotificationsEntry {
+  packageId: string
+  version: string
+  revision?: number
+  previousVersionPackageId: string
+  previousVersion: string
+  previousVersionRevision?: number
+  notifications: NotificationMessage[]
+}
+
 export interface NotificationMessage {
+  category: MessageCategory
   severity: MessageSeverity
   message: string
-  fileId?: FileId
-  operationId?: string
-  previousOperationId?: string
+  // the document slug, never a fileId — see `createFileSlugs`. Absent when the message is not about a document
+  documentId?: string
 }

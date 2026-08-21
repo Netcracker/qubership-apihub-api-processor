@@ -5,14 +5,14 @@ description: Use when adding or changing anything that lands in an api-processor
 
 # Ordering the api-processor build result
 
-Every list serialized into a package version must come out in an order that depends only on content — never on
-`Map` iteration, on which async task finished first, or on the host runtime. A migration rebuilds an
-already-published version and diffs it against the stored one, so a list that merely reordered reads as a
-changed build: a false regression on every rebuild.
+Every list serialized into a package version — the notification files aside — must come out in an order that
+depends only on content, never on `Map` iteration, on which async task finished first, or on the host runtime.
+A migration rebuilds an already-published version and diffs it against the stored one, so a list that merely
+reordered reads as a changed build: a false regression on every rebuild.
 
 `src/components/build-result-index.ts` is where that happens. Each ZIP entry's payload is shaped **and** sorted
 by a `build*` function there, called from `createVersionPackage` (`src/components/package.ts`). Add a list the
-same way, sorting it with that file's own `sortByKey` / `tupleKey` helpers — `buildNotifications` and
+same way, sorting it with that file's own `sortByKey` / `tupleKey` helpers — `buildPackageOperations` and
 `buildComparisonsIndex` are the examples to copy. Do not sort at the site that produces the data or inside a
 build strategy; one place to sort is one place to audit.
 
@@ -28,6 +28,22 @@ What a call site does not show:
   in the grouping literal of `groupMcpEntitiesByKind` / `groupDdlEntitiesByKind`. Missing from the literal,
   `grouped[kind]` is undefined and the sort throws.
 
+## Resolving a duplicate is an ordering decision too
+
+When two documents claim the same id — an operation id, an MCP entity id, a DDL entity id — the winner is the
+one with the **lexicographically smaller `documentId`**, decided by `setReportingDuplicate`
+(`src/utils/document.ts`). "First one wins" would hand the result to document processing order, which is the
+same nondeterminism this skill exists to remove.
+
+Use strict `<`, not `<=`. With `<=`, reprocessing the same document replaces its own winning entry with a
+stale copy of itself. Route a new duplicate check through that helper rather than writing the comparison
+again.
+
+Ownership is settled **after** the document loop, by `reconcileOwnedIds`, not when a document is processed: a
+document that owned an id at its turn can lose it to a later one. That pass strips the losing ids from
+`document.operationIds` and `document.mcpEntityIds`, so no consumer has to filter by ownership. A test that
+fixes ownership during the loop passes only for a lucky document order — reverse the order and it fails.
+
 ## What must stay unsorted
 
 Sort only lists whose order came from `Map` iteration or async completion. These already follow spec parse
@@ -36,6 +52,12 @@ order and must be left alone: `operation.tags`, `operation.models`, `operation.d
 wrong anyway, putting `v10` before `v2` before `v9`. `config.refs` too: `createInfoFile` spreads the whole
 config into `info.json`, so that list reaches the ZIP in the caller's order, already stable for a given input.
 A sort was written for it once and then removed; do not restore it.
+
+The notification files break the rule deliberately. `buildNotifications` returns `notifications.json` in
+raising order, which is not guaranteed stable across rebuilds, and the messages inside a
+`comparison-notifications.json` row are unsorted too; only the pair rows are ordered, on the six-part key
+`comparisons.json` uses. The consumer stores these rows and serves them filtered and paged, and nothing diffs
+the file between builds.
 
 Sorting an already-deterministic field emits a one-time false "changed" diff on the next rebuild, the exact
 false positive this ordering work exists to eliminate. Only `deprecatedInPreviousVersions` has a guard test, so

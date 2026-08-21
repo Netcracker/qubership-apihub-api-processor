@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { describe, expect, jest, test } from '@jest/globals'
+import { afterEach, describe, expect, jest, test } from '@jest/globals'
 import { LocalRegistry } from './helpers/registry'
 import { BUILD_TYPE, VERSION_STATUS } from '../src/consts'
 import { Editor } from './helpers/editor'
@@ -121,8 +121,8 @@ describe('Dashboard build', () => {
     // Simulate that previous dashboard version was built with an outdated api-processor
     // Mock the builder's versionResolver method (not the registry's)
     const originalVersionResolver = (editor.builder as PackageVersionBuilder).versionResolver.bind(editor.builder)
-    jest.spyOn(editor.builder as PackageVersionBuilder, 'versionResolver').mockImplementation(async (version, packageId) => {
-      const resolved = await originalVersionResolver(version, packageId)
+    jest.spyOn(editor.builder as PackageVersionBuilder, 'versionResolver').mockImplementation(async (notifications, version, packageId) => {
+      const resolved = await originalVersionResolver(notifications, version, packageId)
       if (resolved && packageId === pckg1Id && version === 'v1') {
         return { ...resolved, apiProcessorVersion: '0.0.0' }
       }
@@ -420,4 +420,95 @@ paths:
     expect(result.ddlComparisons.map(packageOf)).not.toContain(subAId)
     expect(result.ddlComparisons.map(packageOf)).not.toContain(subBId)
   }, 100000)
+
+  // A dashboard changelog is the aggregate of its references' changelogs, so a reference known to be wrong
+  // makes the aggregate wrong with nothing to say which part. Fatal for both origins of the flag, and the one
+  // comparison error that blocks a draft too.
+  describe('a reference comparison with errors', () => {
+    const PCKG1 = 'dashboards/pckg1'
+    const PCKG2 = 'dashboards/pckg2'
+
+    const publishDashboardPair = async (): Promise<LocalRegistry> => {
+      for (const version of ['v1', 'v2']) {
+        await LocalRegistry.openPackage(PCKG1).publish(PCKG1, { version, packageId: PCKG1, files: [{ fileId: 'v1.yaml' }] })
+        await LocalRegistry.openPackage(PCKG2).publish(PCKG2, { version, packageId: PCKG2, files: [{ fileId: 'v2.yaml' }] })
+      }
+
+      const dashboard = LocalRegistry.openPackage('dashboards/dashboard')
+      for (const version of ['v1', 'v2']) {
+        await dashboard.publish(dashboard.packageId, {
+          packageId: dashboard.packageId,
+          version,
+          apiType: 'rest',
+          refs: [{ refId: PCKG1, version }, { refId: PCKG2, version }],
+        })
+      }
+      return dashboard
+    }
+
+    const changelogEditor = (
+      dashboard: LocalRegistry,
+      status: string,
+      buildType: string = BUILD_TYPE.CHANGELOG,
+    ): Editor =>
+      new Editor(dashboard.packageId, {
+        version: 'v2',
+        packageId: dashboard.packageId,
+        previousVersionPackageId: dashboard.packageId,
+        previousVersion: 'v1',
+        buildType,
+        status,
+        ...buildType === BUILD_TYPE.BUILD ? { refs: [{ refId: PCKG1, version: 'v2' }, { refId: PCKG2, version: 'v2' }] } : {},
+      } as never)
+
+    afterEach(() => { jest.restoreAllMocks() })
+
+    test('fails the build when the flag comes from the cache', async () => {
+      const dashboard = await publishDashboardPair()
+
+      // the host returns a stored summary that is already known to be wrong
+      jest.spyOn(LocalRegistry.prototype, 'versionComparisonResolver').mockResolvedValue({
+        packageId: PCKG1,
+        version: 'v2',
+        revision: 1,
+        previousVersion: 'v1',
+        previousVersionPackageId: PCKG1,
+        previousVersionRevision: 1,
+        operationTypes: [],
+        hasErrors: true,
+      } as never)
+
+      await expect(changelogEditor(dashboard, VERSION_STATUS.RELEASE).run())
+        .rejects.toThrow(/Cannot build a dashboard changelog/)
+    }, 60000)
+
+    test('fails a draft build too when the comparison is calculated here', async () => {
+      const dashboard = await publishDashboardPair()
+
+      // one reference cannot be resolved, so its freshly calculated comparison carries an Error
+      const original = (LocalRegistry.prototype as unknown as { versionResolver: unknown }).versionResolver
+      jest.spyOn(LocalRegistry.prototype, 'versionResolver')
+        .mockImplementation(async function (this: LocalRegistry, packageId: string, version: string) {
+          if (packageId === PCKG2) { return null }
+          return (original as (p: string, v: string) => Promise<unknown>).call(this, packageId, version)
+        } as never)
+
+      await expect(changelogEditor(dashboard, VERSION_STATUS.DRAFT).run())
+        .rejects.toThrow(/Cannot build a dashboard changelog/)
+    }, 60000)
+
+    test('fails a build that carries previousVersion, not only a changelog', async () => {
+      const dashboard = await publishDashboardPair()
+
+      const original = (LocalRegistry.prototype as unknown as { versionResolver: unknown }).versionResolver
+      jest.spyOn(LocalRegistry.prototype, 'versionResolver')
+        .mockImplementation(async function (this: LocalRegistry, packageId: string, version: string) {
+          if (packageId === PCKG2) { return null }
+          return (original as (p: string, v: string) => Promise<unknown>).call(this, packageId, version)
+        } as never)
+
+      await expect(changelogEditor(dashboard, VERSION_STATUS.DRAFT, BUILD_TYPE.BUILD).run())
+        .rejects.toThrow(/Cannot build a dashboard changelog/)
+    }, 60000)
+  })
 })

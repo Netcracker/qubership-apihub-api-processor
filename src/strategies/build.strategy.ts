@@ -17,7 +17,7 @@
 import { BuildConfig, BuilderStrategy, BuildResult, BuildTypeContexts, VersionCache, VersionDocument } from '../types'
 import { compareVersions } from '../components'
 import { applyBuilderVersionInfo } from '../validators'
-import { getOperationsList } from '../utils'
+import { getOperationsList, reconcileOwnedIds, replaceInPlace } from '../utils'
 import { buildFiles } from '../components/files'
 import { createDuplicateOperationHandler, processOperationDocument } from '../components/operations'
 import {
@@ -30,7 +30,17 @@ import {
 import { createDuplicateDdlEntityHandler, processDdlDocument } from '../components/ddl'
 import { ParsedDdlData, validateDdlDocument } from '../apitypes/ddl'
 import { calculateHistoryForDeprecatedItems } from '../components/deprecated'
-import { DDL_CONTRACT_TYPE, MCP_CONTRACT_TYPE, REST_API_TYPE } from '../consts'
+import { assertReleaseIsPublishable, comparisonPhaseNotifications } from '../components/release-gate'
+import { DDL_CONTRACT_TYPE, MCP_CONTRACT_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, REST_API_TYPE } from '../consts'
+import { MessageCategory, NotificationMessage } from '../types/package/notifications'
+
+const categoryOfDocumentProcessing = (apiType: string): MessageCategory => {
+  switch (apiType) {
+    case MCP_CONTRACT_TYPE: return MESSAGE_CATEGORY.McpEntityBuild
+    case DDL_CONTRACT_TYPE: return MESSAGE_CATEGORY.DdlEntityBuild
+    default: return MESSAGE_CATEGORY.BuildOperations
+  }
+}
 
 export class BuildStrategy implements BuilderStrategy {
   async execute(config: BuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
@@ -47,9 +57,14 @@ export class BuildStrategy implements BuilderStrategy {
     const builderContextObject = builderContext(config)
     const compareContextObject = compareContext(config)
 
+    // the pair's array: a baseline that does not resolve builds no comparison to own the failure
+    const rootNotifications: NotificationMessage[] = []
+
     let previousVersionCache: VersionCache | null = null
     if (previousVersion) {
-      previousVersionCache = await compareContextObject.versionResolver(previousVersion, previousVersionPackageId || packageId)
+      previousVersionCache = await compareContextObject
+        .forPair(rootNotifications)
+        .versionResolver(previousVersion, previousVersionPackageId || packageId)
     }
 
     if (!files?.length && !refs?.length) {
@@ -60,30 +75,47 @@ export class BuildStrategy implements BuilderStrategy {
       const buildFilesResult = await buildFiles(files, builderContextObject)
 
       const handleDuplicateOperation = createDuplicateOperationHandler(buildResult)
-      const handleDuplicateMcp = createDuplicateMcpEntityHandler()
-      const handleDuplicateDdl = createDuplicateDdlEntityHandler()
+      const handleDuplicateMcp = createDuplicateMcpEntityHandler(buildResult.notifications)
+      const handleDuplicateDdl = createDuplicateDdlEntityHandler(buildResult.notifications)
 
       for (const { file, document, builder } of buildFilesResult) {
         buildResult.documents.set(document.fileId, document)
         if (!builder || document.publish === false) { continue }
 
-        if (builder.apiType === MCP_CONTRACT_TYPE) {
-          processMcpDocument(file, document, builder, buildResult, handleDuplicateMcp)
-        } else if (builder.apiType === DDL_CONTRACT_TYPE) {
-          // map parse issues to notifications (Warning for out-of-scope/unresolved, Error for
-          // duplicate-object which throws and breaks the publish) before indexing entities (Task 12)
-          validateDdlDocument(document as VersionDocument<ParsedDdlData>, buildResult.notifications)
-          processDdlDocument(file, document, builder, buildResult, handleDuplicateDdl)
-        } else {
-          await processOperationDocument(document, builder, builderContextObject, buildResult, handleDuplicateOperation)
+        // Per document, so one failure costs its own operations and nothing else: the document stays
+        // published, every later document is still processed, and the reason is recorded against it
+        try {
+          if (builder.apiType === MCP_CONTRACT_TYPE) {
+            processMcpDocument(file, document, builder, buildResult, handleDuplicateMcp)
+          } else if (builder.apiType === DDL_CONTRACT_TYPE) {
+            // report the parse issues before indexing: an incomplete Realm must not ship in a release
+            validateDdlDocument(document as VersionDocument<ParsedDdlData>, buildResult.notifications)
+            processDdlDocument(file, document, builder, buildResult, handleDuplicateDdl)
+          } else {
+            await processOperationDocument(document, builder, builderContextObject, buildResult, handleDuplicateOperation)
+          }
+        } catch (error) {
+          buildResult.notifications.push({
+            category: categoryOfDocumentProcessing(builder.apiType),
+            severity: MESSAGE_SEVERITY.Error,
+            message: error instanceof Error ? error.message : `Cannot process document '${document.slug}'`,
+            documentId: document.slug,
+          })
         }
       }
 
+      // ownership is final only now: prune the ids another document won before anything reads them
+      reconcileOwnedIds(buildResult.documents.values(), buildResult.operations, buildResult.mcpEntities)
+
       // whole-set cross-check: needs all entities collected first (init and its tools/resources/prompts
       // may live in different files), mirroring how calculateHistoryForDeprecatedItems runs after the loop
-      validateMcpInitRequired(buildResult.mcpEntities)
-      validateMcpProtocolVersion(buildResult.documents)
+      validateMcpInitRequired(buildResult.mcpEntities, buildResult.notifications)
+      validateMcpProtocolVersion(buildResult.documents, buildResult.notifications)
       validateMcpCapabilities(buildResult.mcpEntities, buildResult.documents, buildResult.notifications)
+
+      // fail fast: a release already doomed by its own documents should not spend time on a changelog that
+      // would be discarded. The authoritative check is the one after the comparison phase.
+      assertReleaseIsPublishable(config.status, buildResult.notifications, [])
 
       if (!builderContextObject.builderRunOptions.withoutDeprecatedDepth && previousVersionCache) {
         await calculateHistoryForDeprecatedItems(
@@ -101,11 +133,18 @@ export class BuildStrategy implements BuilderStrategy {
         [previousVersionCache.version, previousVersionPackageId || packageId],
         [version, packageId],
         compareContextObject,
+        rootNotifications,
       )
       buildResult.comparisons = compareResult.comparisons
       buildResult.ddlComparisons = compareResult.ddlComparisons
       applyBuilderVersionInfo(config, compareResult)
+    } else if (rootNotifications.length) {
+      // no comparison ran, so the packager files these under the pair the config declared
+      replaceInPlace(buildResult.comparisonNotifications, rootNotifications)
     }
+
+    // authoritative: it sees both streams, including every message the comparison phase raised
+    assertReleaseIsPublishable(config.status, buildResult.notifications, comparisonPhaseNotifications(buildResult))
 
     return buildResult
   }

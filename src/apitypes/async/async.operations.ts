@@ -30,6 +30,7 @@ import { AsyncOperationActionType } from './async.types'
 import { asyncFunction, normalizeAsyncApiToRefsDocument } from '../../utils/async'
 import { normalize, RefErrorType } from '@netcracker/qubership-apihub-api-unifier'
 import { ASYNC_EFFECTIVE_NORMALIZE_OPTIONS } from './async.consts'
+import { MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../../consts'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { buildAsyncApiOperation } from './async.operation'
 import { getAsyncChannelId, getAsyncMessageId } from './async.utils'
@@ -37,9 +38,9 @@ import { getAsyncChannelId, getAsyncMessageId } from './async.utils'
 type OperationInfo = { messageId: string; channelId: string; asyncOperationId: string }
 
 export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObject> = async (document, ctx) => {
-  const { data: documentData, fileId: documentFileId } = document
+  const { data: documentData, slug: documentSlug } = document
   const documentWithoutComponents = removeComponents(documentData)
-  const bundlingErrorHandler = createBundlingErrorHandler(ctx, documentFileId)
+  const bundlingErrorHandler = createBundlingErrorHandler(ctx, documentSlug)
 
   const { notifications, normalizedSpecFragmentsHashCache, config } = ctx
   const effectiveDocument = normalize(
@@ -110,9 +111,16 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
     }
   }
 
+  // Intra-document: two operations of this document computing the same operationId. Reported against this
+  // document and nothing else — the operations already built stay in the version, as they do for REST.
   const duplicates = findDuplicates(operationIdMap)
   if (isNotEmpty(duplicates)) {
-    throw createDuplicatesError(documentFileId, duplicates)
+    notifications.push({
+      category: MESSAGE_CATEGORY.AsyncDuplicateOperation,
+      severity: MESSAGE_SEVERITY.Error,
+      message: createDuplicatesError(documentSlug, duplicates).message,
+      documentId: documentSlug,
+    })
   }
 
   if (apihubOperations.length) {
@@ -122,7 +130,7 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
   return apihubOperations
 }
 
-function createDuplicatesError(fileId: string, duplicates: DuplicateEntry<OperationInfo>[]): Error {
+function createDuplicatesError(documentId: string, duplicates: DuplicateEntry<OperationInfo>[]): Error {
   const duplicatesList = duplicates
     .map(({ operationId, operations }) => {
       const operationsList = operations
@@ -131,5 +139,5 @@ function createDuplicatesError(fileId: string, duplicates: DuplicateEntry<Operat
       return `- operationId '${operationId}': Found ${operations.length} operations: ${operationsList}`
     })
     .join('\n')
-  return new Error(`Duplicated operationIds found within document '${fileId}':\n${duplicatesList}`)
+  return new Error(`Duplicated operationIds found within document '${documentId}':\n${duplicatesList}`)
 }

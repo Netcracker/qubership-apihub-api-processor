@@ -26,8 +26,8 @@ import {
 } from '../types/package/mcp'
 import { NotificationMessage } from '../types/package'
 import { MCP_DOCUMENT_TYPE } from '../apitypes/mcp'
-import { DuplicateHandler, isObject, isString, setReportingDuplicate } from '../utils'
-import { MESSAGE_SEVERITY } from '../consts'
+import { createCrossDocumentDuplicateHandler, DuplicateHandler, isObject, isString, setReportingDuplicate } from '../utils'
+import { MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../consts'
 import { getMcpSchemaValidator, isSupportedMcpVersion, SUPPORTED_MCP_VERSIONS } from '../apitypes/mcp/mcp.validation'
 
 // MCP document type → the kind whose official definition validates it (see getMcpSchemaValidator).
@@ -50,13 +50,14 @@ export function createMcpBuildContext(): McpBuildContext {
 
 export type DuplicateMcpEntityHandler = DuplicateHandler<McpEntity>
 
-export const createDuplicateMcpEntityHandler = (): DuplicateMcpEntityHandler => (existing, duplicate) => {
-  // the same document re-processed (e.g. incremental rebuild) is not a cross-document duplicate
-  if (existing.documentId === duplicate.documentId) { return }
-  throw new Error(
-    `Duplicate MCP entity ID '${duplicate.mcpEntityId}' found in different documents: '${existing.documentId}' and '${duplicate.documentId}'`,
+export const createDuplicateMcpEntityHandler = (notifications: NotificationMessage[]): DuplicateMcpEntityHandler =>
+  createCrossDocumentDuplicateHandler(
+    notifications,
+    MESSAGE_CATEGORY.McpDuplicateEntity,
+    () => MESSAGE_SEVERITY.Error,
+    (existing, duplicate) => `Duplicate MCP entity ID '${duplicate.mcpEntityId}' found in different documents: ` +
+      `'${existing.documentId}' and '${duplicate.documentId}'`,
   )
-}
 
 export function processMcpDocument(
   file: BuildConfigFile,
@@ -72,7 +73,7 @@ export function processMcpDocument(
     setReportingDuplicate(ctx.mcpEntities, entity.mcpEntityId, entity, onDuplicate)
     entityIds.push(entity.mcpEntityId)
   }
-  // record which entities this document owns, so an incremental update can drop them granularly
+  // everything this document built; `reconcileOwnedIds` prunes what another document ends up owning
   document.mcpEntityIds = entityIds
 }
 
@@ -98,16 +99,27 @@ export function groupMcpEntitiesByKind(entities: McpEntityIndex): PackageMcpFile
  * at once, and each endpoint's init is its mandatory descriptor; an endpoint that publishes any entity
  * without an init fails the publish.
  */
-export function validateMcpInitRequired(entities: McpEntityIndex): void {
-  const endpoints = new Set<string>()
+export function validateMcpInitRequired(entities: McpEntityIndex, notifications: NotificationMessage[]): void {
+  const documentsByEndpoint = new Map<string, Set<string>>()
   const endpointsWithInit = new Set<string>()
   for (const entity of entities.values()) {
-    endpoints.add(entity.mcpEndpoint)
+    const documents = documentsByEndpoint.get(entity.mcpEndpoint) ?? new Set<string>()
+    documents.add(entity.documentId)
+    documentsByEndpoint.set(entity.mcpEndpoint, documents)
     if (entity.kind === MCP_KIND.INIT) { endpointsWithInit.add(entity.mcpEndpoint) }
   }
-  for (const endpoint of endpoints) {
-    if (!endpointsWithInit.has(endpoint)) {
-      throw new Error(`MCP init is required: endpoint '${endpoint}' publishes entities but has no init`)
+
+  for (const [endpoint, documents] of documentsByEndpoint) {
+    if (endpointsWithInit.has(endpoint)) { continue }
+    // every document of the endpoint is affected, so every one of them is told — the denormalisation rule
+    const message = `MCP init is required: endpoint '${endpoint}' publishes entities but has no init`
+    for (const documentId of documents) {
+      notifications.push({
+        category: MESSAGE_CATEGORY.McpInitRequired,
+        severity: MESSAGE_SEVERITY.Error,
+        message: message,
+        documentId: documentId,
+      })
     }
   }
 }
@@ -121,7 +133,19 @@ export function validateMcpInitRequired(entities: McpEntityIndex): void {
  * matching endpoint's init. Fatal: a missing endpoint, an unsupported protocolVersion, or any
  * non-conforming document fails the publish.
  */
-export function validateMcpProtocolVersion(documents: Map<string, VersionDocument>): void {
+export function validateMcpProtocolVersion(
+  documents: Map<string, VersionDocument>,
+  notifications: NotificationMessage[],
+): void {
+  const report = (document: VersionDocument, message: string): void => {
+    notifications.push({
+      category: MESSAGE_CATEGORY.McpDocumentSchema,
+      severity: MESSAGE_SEVERITY.Error,
+      message: message,
+      documentId: document.slug,
+    })
+  }
+
   const versionByEndpoint = new Map<string, unknown>()
   for (const document of documents.values()) {
     if (document.publish === false) { continue }
@@ -141,27 +165,30 @@ export function validateMcpProtocolVersion(documents: Map<string, VersionDocumen
     const endpoint = document.metadata?.mcpEndpoint
     if (!isString(endpoint)) {
       // buildMcpEntities normally rejects this first; kept as a defensive guard for the whole-set pass
-      throw new Error(`MCP file '${document.fileId}' is missing required metadata.mcpEndpoint`)
+      report(document, `MCP file '${document.fileId}' is missing required metadata.mcpEndpoint`)
+      continue
     }
 
     const version = versionByEndpoint.get(endpoint)
     if (!isString(version) || !isSupportedMcpVersion(version)) {
-      throw new Error(
+      report(document,
         `MCP endpoint '${endpoint}' declares unsupported protocolVersion '${String(version)}'. ` +
         `Supported versions: ${SUPPORTED_MCP_VERSIONS.join(', ')}`,
       )
+      continue
     }
 
     const validate = getMcpSchemaValidator(version, kind)
     if (!validate) {
       // version is supported → a missing validator is a wiring bug, not bad input
-      throw new Error(`No MCP schema for kind '${kind}' at protocolVersion '${version}' (endpoint '${endpoint}')`)
+      report(document, `No MCP schema for kind '${kind}' at protocolVersion '${version}' (endpoint '${endpoint}')`)
+      continue
     }
     if (!validate(document.data?.originalDocument)) {
       const detail = (validate.errors ?? [])
         .map(error => `${error.instancePath || '/'} ${error.message ?? 'does not match schema'}`.trim())
         .join('; ')
-      throw new Error(`MCP ${document.type} file '${document.fileId}' does not conform to protocolVersion '${version}': ${detail}`)
+      report(document, `MCP ${document.type} document '${document.slug}' does not conform to protocolVersion '${version}': ${detail}`)
     }
   }
 }
@@ -183,9 +210,11 @@ export function validateMcpCapabilities(
   notifications: NotificationMessage[],
 ): void {
   const allEntities = [...entities.values()]
+  // `documents` is keyed by fileId while an entity carries the document slug, so index by slug to look up
+  const documentsBySlug = new Map([...documents.values()].map(document => [document.slug, document]))
   for (const initEntity of allEntities) {
     if (initEntity.kind !== MCP_KIND.INIT) { continue }
-    const initDocument = documents.get(initEntity.documentId)
+    const initDocument = documentsBySlug.get(initEntity.documentId)
     const capabilities = initDocument?.data?.originalDocument?.capabilities
     if (!isObject(capabilities)) { continue }
     for (const [capKey, kind] of CAPABILITY_TO_KIND) {
@@ -193,9 +222,10 @@ export function validateMcpCapabilities(
       const hasEntities = allEntities.some(e => e.mcpEndpoint === initEntity.mcpEndpoint && e.kind === kind)
       if (!hasEntities) {
         notifications.push({
+          category: MESSAGE_CATEGORY.McpCapabilityUnused,
           severity: MESSAGE_SEVERITY.Warning,
           message: `MCP init declares '${capKey}' capability for endpoint '${initEntity.mcpEndpoint}', but no ${kind} entities were found`,
-          fileId: initEntity.documentId,
+          documentId: initEntity.documentId,
         })
       }
     }

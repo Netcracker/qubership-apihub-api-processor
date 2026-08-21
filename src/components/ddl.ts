@@ -23,7 +23,9 @@ import {
   PackageDdlEntity,
   PackageDdlFile,
 } from '../types/package/ddl'
-import { DuplicateHandler, setReportingDuplicate } from '../utils'
+import { createCrossDocumentDuplicateHandler, DuplicateHandler, setReportingDuplicate } from '../utils'
+import { MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../consts'
+import { NotificationMessage } from '../types/package'
 
 export interface DdlBuildContext {
   ddlEntities: DdlEntityIndex
@@ -37,13 +39,14 @@ export function createDdlBuildContext(): DdlBuildContext {
 
 export type DuplicateDdlEntityHandler = DuplicateHandler<DdlEntity>
 
-export const createDuplicateDdlEntityHandler = (): DuplicateDdlEntityHandler => (existing, duplicate) => {
-  // the same document re-processed is not a cross-document duplicate
-  if (existing.documentId === duplicate.documentId) { return }
-  throw new Error(
-    `Duplicate DDL entity ID '${duplicate.ddlEntityId}' found in different documents: '${existing.documentId}' and '${duplicate.documentId}'`,
+export const createDuplicateDdlEntityHandler = (notifications: NotificationMessage[]): DuplicateDdlEntityHandler =>
+  createCrossDocumentDuplicateHandler(
+    notifications,
+    MESSAGE_CATEGORY.DdlDuplicateEntity,
+    () => MESSAGE_SEVERITY.Error,
+    (existing, duplicate) => `Duplicate DDL entity ID '${duplicate.ddlEntityId}' found in different documents: ` +
+      `'${existing.documentId}' and '${duplicate.documentId}'`,
   )
-}
 
 /**
  * Merge a document's DDL entities into the build's flat entity index. This is where **cross-document**

@@ -38,8 +38,10 @@ export interface TextFile<T = any, E = any> extends FileBase {
   errors?: E[]
 }
 
-export interface BinaryFile extends FileBase {
+export interface BinaryFile<E = any> extends FileBase {
   kind: typeof FILE_KIND.BINARY
+  // set only by `unparsableFile`: the parser threw, so there is no model — but the bytes and the reason remain
+  errors?: E[]
 }
 
 export type SourceFile = TextFile | BinaryFile

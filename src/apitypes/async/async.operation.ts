@@ -91,7 +91,7 @@ export const buildAsyncApiOperation = (
   const deprecatedItems = collectDeprecatedItems(
     config, message, messageId, channel, channelId,
     effectiveSingleOperationSpec, normalizedSpecFragmentsHashCache,
-    notifications,
+    notifications, documentSlug,
   )
 
   const operationApiKind = getApiKindProperty(effectiveOperationObject)
@@ -162,6 +162,7 @@ const collectDeprecatedItems = (
   effectiveSingleOperationSpec: TYPE.AsyncOperationData,
   normalizedSpecFragmentsHashCache: ObjectHashCache,
   notifications: NotificationMessage[],
+  documentSlug: string,
 ): DeprecateItem[] => {
 
   const deprecatedItems: DeprecateItem[] = []
@@ -194,7 +195,7 @@ const collectDeprecatedItems = (
       description: `${DEPRECATED_MESSAGE_PREFIX} channel '${channelTitle}'`,
       deprecatedInPreviousVersions,
       hash: calculateHash(channel, normalizedSpecFragmentsHashCache),
-      tolerantHash: calculateTolerantHash(channel as Jso, notifications),
+      tolerantHash: calculateTolerantHash(channel as Jso, notifications, documentSlug),
     })
   }
 
@@ -209,7 +210,7 @@ const collectDeprecatedItems = (
       description,
       deprecatedInPreviousVersions,
       hash: calculateHash(value, normalizedSpecFragmentsHashCache),
-      tolerantHash: calculateTolerantHash(value as Jso, notifications),
+      tolerantHash: calculateTolerantHash(value as Jso, notifications, documentSlug),
     })
   }
 

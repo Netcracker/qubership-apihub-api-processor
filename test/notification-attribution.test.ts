@@ -1,0 +1,441 @@
+/**
+ * Copyright 2024-2025 NetCracker Technology Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { afterEach, describe, expect, jest, test } from '@jest/globals'
+import { buildChangelogPackage, Editor, LocalRegistry, loadFileAsStringFromRegistry, VERSIONS_PATH } from './helpers'
+import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, VERSION_STATUS } from '../src/consts'
+import { BuildResult } from '../src/types'
+import { buildComparisonNotifications } from '../src/components/build-result-index'
+import { setReportingDuplicate } from '../src/utils'
+import { toVersionsComparisonDto } from '../src/utils/transformToDto'
+import { PackageVersionBuilder } from '../src/builder'
+
+// Whole-result invariants over the notification contract. They hold for every build, so any raising site
+// that forgets a category or ships a fileId where a slug belongs fails here rather than in production.
+describe('Notification attribution invariants', () => {
+  const publish = (projectId: string, files: string[]): Promise<BuildResult> => {
+    const pkg = LocalRegistry.openPackage(projectId)
+    return pkg.publish(pkg.packageId, {
+      packageId: pkg.packageId,
+      version: 'v1',
+      files: files.map(fileId => ({ fileId })),
+    })
+  }
+
+  const CASES: Array<[string, () => Promise<BuildResult>]> = [
+    // a document whose references do not resolve — the `ref-*` family comes from this one site
+    ['broken references', () => LocalRegistry.openPackage('reference-bundling/case2').publish('reference-bundling/case2')],
+    // a path that fails validation — `double-slash-path`
+    ['invalid paths', () => publish('operationId-collisions/double-slash-in-path', ['spec.json'])],
+    // the same operationId in two documents — `duplicate-operation-id`, the one cross-document case today
+    ['duplicate operation ids', () => publish('operationId-collisions/same-path-different-documents', ['spec1.json', 'spec2.json'])],
+  ]
+
+  const KNOWN_CATEGORIES = new Set<string>(Object.values(MESSAGE_CATEGORY))
+
+  test.each(CASES)('should carry a known category on every notification — %s', async (_name, build) => {
+    const result = await build()
+
+    expect(result.notifications.length).toBeGreaterThan(0)
+    for (const { category } of result.notifications) {
+      expect(KNOWN_CATEGORIES.has(category)).toBe(true)
+    }
+  })
+
+  test.each(CASES)('should use a document slug for every documentId — %s', async (_name, build) => {
+    const result = await build()
+    const slugs = new Set([...result.documents.values()].map(({ slug }) => slug))
+
+    for (const { documentId } of result.notifications) {
+      if (documentId === undefined) { continue }
+      expect(slugs.has(documentId)).toBe(true)
+    }
+  })
+
+  // the release-failure message relies on this: an attributed error always has a document to name
+  test.each(CASES)('should attribute every build-phase Error to a document — %s', async (_name, build) => {
+    const result = await build()
+
+    const unattributed = result.notifications.filter(
+      ({ severity, documentId }) => severity === MESSAGE_SEVERITY.Error && documentId === undefined,
+    )
+    expect(unattributed).toEqual([])
+  })
+})
+
+// The invariants above run on the in-memory result. The archive is what actually ships, and a message can be
+// routed correctly and still never be serialised — so assert them again on the published files.
+describe('Notification invariants hold in the published archive', () => {
+  test('should categorise every notification in notifications.json and name a real document', async () => {
+    const pkg = LocalRegistry.openPackage('operationId-collisions/same-path-different-documents')
+    await pkg.publish(pkg.packageId, {
+      packageId: pkg.packageId,
+      version: 'v1',
+      files: [{ fileId: 'spec1.json' }, { fileId: 'spec2.json' }],
+    })
+
+    const versionPath = `${pkg.packageId}/v1`
+    const notifications = JSON.parse(
+      (await loadFileAsStringFromRegistry(VERSIONS_PATH, versionPath, 'notifications.json'))!,
+    ).notifications as Array<{ category: string; severity: number; documentId?: string }>
+    const documents = JSON.parse(
+      (await loadFileAsStringFromRegistry(VERSIONS_PATH, versionPath, 'documents.json'))!,
+    ).documents as Array<{ slug: string }>
+
+    const slugs = new Set(documents.map(({ slug }) => slug))
+    const known = new Set<string>(Object.values(MESSAGE_CATEGORY))
+
+    expect(notifications.length).toBeGreaterThan(0)
+    for (const notification of notifications) {
+      expect(known.has(notification.category)).toBe(true)
+      expect(notification).not.toHaveProperty('fileId')
+      if (notification.severity === MESSAGE_SEVERITY.Error) {
+        expect(notification.documentId).toBeDefined()
+      }
+      if (notification.documentId !== undefined) {
+        expect(slugs.has(notification.documentId)).toBe(true)
+      }
+    }
+  }, 30000)
+
+  test('should keep notifications out of comparisons.json — they live in their own file', async () => {
+    const result = await buildChangelogPackage('changelog/security/operation-security-precedence/both-change')
+    expect(result.comparisons.length).toBeGreaterThan(0)
+
+    // the DTO deliberately drops the field; a leak would duplicate the dedicated file, unsorted
+    const dto = toVersionsComparisonDto(result.comparisons[0], new WeakMap(), () => undefined)
+    expect(dto).not.toHaveProperty('notifications')
+  })
+})
+
+// The two streams are separated by which context produced the message, not by a decision at the call site.
+describe('Notification stream routing', () => {
+  test('should mark the comparison, not the version, when the previous version is missing', async () => {
+    const pkg = LocalRegistry.openPackage('reference-bundling/case2')
+    await pkg.publish(pkg.packageId, { packageId: pkg.packageId, version: 'v1' })
+
+    const editor = new Editor(pkg.packageId, {
+      packageId: pkg.packageId,
+      version: 'v1',
+      previousVersion: 'no-such-version',
+      buildType: BUILD_TYPE.CHANGELOG,
+      status: VERSION_STATUS.NONE,
+    }, {}, pkg)
+    const result = await editor.run()
+
+    // the baseline could not be resolved — a comparison problem, so it belongs to the comparison stream, and
+    // within it to the pair whose baseline it is: the build-level array reaches no file
+    expect(result.comparisons.flatMap(({ notifications }) => notifications).map(({ category }) => category))
+      .toContain(MESSAGE_CATEGORY.VersionNotResolved)
+    expect(result.comparisonNotifications).toEqual([])
+    expect(result.notifications.map(({ category }) => category))
+      .not.toContain(MESSAGE_CATEGORY.VersionNotResolved)
+  })
+
+  test('should empty the arrays in place so a context built earlier keeps writing to the live one', async () => {
+    const pkg = LocalRegistry.openPackage('reference-bundling/case2')
+    const builder = new PackageVersionBuilder(
+      { packageId: pkg.packageId, version: 'v1', status: VERSION_STATUS.RELEASE, buildType: BUILD_TYPE.BUILD },
+      { resolvers: {} } as never,
+    )
+
+    const { notifications, comparisonNotifications } = builder
+    builder.clearCaches()
+
+    expect(builder.notifications).toBe(notifications)
+    expect(builder.comparisonNotifications).toBe(comparisonNotifications)
+  })
+})
+
+// Every comparison-phase message belongs to exactly one version pair, so each comparison owns its array.
+describe('Comparison notifications belong to a version pair', () => {
+  afterEach(() => { jest.restoreAllMocks() })
+
+  // A pair's operation and DDL comparisons resolve the same versions, so the failure arrives twice. Each
+  // pair still reports independently — what must not happen is the same pair reporting twice, which would
+  // double the count in the release-failure message and store two identical rows.
+  test('should report one unresolvable baseline once per pair, not once per comparison kind', async () => {
+    const packageId = 'attribution/no-duplicate-resolver-failure'
+    const registry = new LocalRegistry(packageId)
+    await registry.publish('declarative-changes-in-rest-operation/case1', {
+      packageId, version: 'v2', files: [{ fileId: 'after.yaml' }],
+    })
+
+    const result = await new Editor(packageId, {
+      packageId,
+      version: 'v2',
+      previousVersionPackageId: packageId,
+      previousVersion: 'no-such-version',
+      buildType: BUILD_TYPE.CHANGELOG,
+      status: VERSION_STATUS.DRAFT,
+    } as never, {}, registry).run()
+
+    for (const { notifications } of result.comparisons) {
+      const perPair = notifications.filter(({ category }) => category === MESSAGE_CATEGORY.VersionNotResolved)
+      expect(perPair.length).toBeLessThanOrEqual(1)
+    }
+  }, 60000)
+
+  // One version reached by several pairs is reported by each of them. This works because the resolvers cache
+  // successes only, so the second pair calls the host again instead of inheriting a cached miss.
+  //
+  // The message has to be a Warning to be observable at all: an `Error` on a reference comparison aborts the
+  // dashboard build (`ref-comparison-has-errors`), so a multi-pair `Error` never reaches an archive.
+  test('should report the same unresolvable version from every pair that hits it', async () => {
+    const PCKG1 = 'dashboards/pckg1'
+    const PCKG2 = 'dashboards/pckg2'
+    for (const version of ['v1', 'v2']) {
+      await LocalRegistry.openPackage(PCKG1).publish(PCKG1, { version, packageId: PCKG1, files: [{ fileId: 'v1.yaml' }] })
+      await LocalRegistry.openPackage(PCKG2).publish(PCKG2, { version, packageId: PCKG2, files: [{ fileId: 'v2.yaml' }] })
+    }
+    const dashboard = LocalRegistry.openPackage('dashboards/dashboard')
+    for (const version of ['v1', 'v2']) {
+      await dashboard.publish(dashboard.packageId, {
+        packageId: dashboard.packageId, version, apiType: 'rest',
+        refs: [{ refId: PCKG1, version }, { refId: PCKG2, version }],
+      })
+    }
+
+    // the baseline side of every pair loses its documents at once
+    const original = (LocalRegistry.prototype as unknown as { versionDocumentsResolver: unknown }).versionDocumentsResolver
+    jest.spyOn(LocalRegistry.prototype, 'versionDocumentsResolver')
+      .mockImplementation(async function (this: LocalRegistry, version: string, ...rest: unknown[]) {
+        if (version === 'v1') { return null }
+        return (original as (...a: unknown[]) => Promise<unknown>).call(this, version, ...rest)
+      } as never)
+
+    const result = await new Editor(dashboard.packageId, {
+      packageId: dashboard.packageId,
+      version: 'v2',
+      previousVersionPackageId: dashboard.packageId,
+      previousVersion: 'v1',
+      buildType: BUILD_TYPE.CHANGELOG,
+      status: VERSION_STATUS.DRAFT,
+    } as never, {}, dashboard).run()
+
+    const reporting = result.comparisons.filter(({ notifications }) =>
+      notifications.some(({ category }) => category === MESSAGE_CATEGORY.VersionDocumentsMissing))
+    expect(reporting.length).toBeGreaterThan(1)
+
+    // each pair carries its own copy rather than sharing one array
+    expect(new Set(reporting.map(({ notifications }) => notifications)).size).toBe(reporting.length)
+  }, 60000)
+
+  test('should give each comparison its own array rather than a shared one', async () => {
+    const result = await buildChangelogPackage('changelog/security/operation-security-precedence/both-change')
+
+    expect(result.comparisons.length).toBeGreaterThan(0)
+    for (const comparison of result.comparisons) {
+      expect(Array.isArray(comparison.notifications)).toBe(true)
+      // aliasing the build-level array would put another pair's messages on this comparison
+      expect(comparison.notifications).not.toBe(result.comparisonNotifications)
+      expect(comparison.notifications).not.toBe(result.notifications)
+    }
+
+    const arrays = new Set(result.comparisons.map(({ notifications }) => notifications))
+    expect(arrays.size).toBe(result.comparisons.length)
+  })
+
+  // Enumerating a pair's references happens before any reference pair exists, but the references being
+  // enumerated are this pair's — so the failure belongs to it. Reported on the build-level array instead, the
+  // message would reach no file: only per-pair arrays are serialized.
+  test('should land a failure to enumerate references on the root pair, not the build-level array', async () => {
+    const packageId = 'attribution/refs-not-resolved'
+    const registry = new LocalRegistry(packageId)
+    for (const version of ['v1', 'v2']) {
+      await registry.publish('declarative-changes-in-rest-operation/case1', {
+        packageId, version, files: [{ fileId: 'after.yaml' }],
+      })
+    }
+
+    // the host cannot list this version's references
+    jest.spyOn(LocalRegistry.prototype, 'versionReferencesResolver').mockResolvedValue(null as never)
+
+    const editor = new Editor(packageId, {
+      packageId,
+      version: 'v2',
+      previousVersionPackageId: packageId,
+      previousVersion: 'v1',
+      buildType: BUILD_TYPE.CHANGELOG,
+      status: VERSION_STATUS.DRAFT,
+    } as never, {}, registry)
+    const result = await editor.run()
+
+    const raised = result.comparisons.flatMap(({ notifications }) => notifications)
+      .filter(({ category }) => category === MESSAGE_CATEGORY.VersionRefsNotResolved)
+    expect(raised.length).toBeGreaterThan(0)
+    expect(result.comparisonNotifications).toEqual([])
+  }, 30000)
+})
+
+// The file groups by version pair; a flat list could not say which comparison a message belongs to.
+describe('comparison-notifications.json', () => {
+  test('should group by version pair and keep an entry per pair', () => {
+    const pair = {
+      packageId: 'shop', version: 'v3', revision: 3,
+      previousVersionPackageId: 'shop', previousVersion: 'v2', previousVersionRevision: 7,
+    }
+    const shared = [{ category: MESSAGE_CATEGORY.VersionNotResolved, severity: MESSAGE_SEVERITY.Error, message: 'no such version' }]
+
+    // the pair's operation and DDL comparisons share one array — they must collapse into one entry
+    const grouped = buildComparisonNotifications([
+      { ...pair, notifications: shared },
+      { ...pair, notifications: shared },
+      { ...pair, version: 'v4', notifications: [] },
+      // resolved from the backend: no entry at all, or republish would wipe its stored rows
+      { ...pair, version: 'v5', fromCache: true, notifications: [] },
+    ] as never)
+
+    // one entry per calculated pair, cached ones omitted
+    expect(grouped.comparisons.map(({ version }) => version)).toEqual(['v3', 'v4'])
+    // the pair identity and its messages, and nothing else: the comparison it came from carries the changelog
+    expect(Object.keys(grouped.comparisons[0]).sort())
+      .toEqual(['notifications', 'packageId', 'previousVersion', 'previousVersionPackageId', 'previousVersionRevision', 'revision', 'version'])
+    expect(grouped.comparisons.find(entry => entry.version === 'v3')).toMatchObject({ ...pair, notifications: shared })
+    expect(grouped.comparisons.find(entry => entry.version === 'v4')?.notifications).toEqual([])
+  })
+
+  // A baseline that does not resolve skips the changelog, so the failure has no comparison to travel on. It
+  // still has a pair — the one the config asked for — and without the row it reaches no file at all.
+  test('should row a message under the declared pair when the comparison never ran', async () => {
+    const pkg = LocalRegistry.openPackage('tolerant-publication')
+    const result = await pkg.publish(pkg.packageId, {
+      status: VERSION_STATUS.DRAFT,
+      previousVersion: 'no-such-version',
+    } as never)
+    expect(result.comparisons).toEqual([])
+
+    const file = JSON.parse(
+      (await loadFileAsStringFromRegistry(VERSIONS_PATH, `${pkg.packageId}/v1`, 'comparison-notifications.json'))!,
+    ) as { comparisons: Array<{ previousVersion: string; notifications: Array<{ category: string }> }> }
+
+    expect(file.comparisons).toHaveLength(1)
+    expect(file.comparisons[0].previousVersion).toBe('no-such-version')
+    expect(file.comparisons[0].notifications.map(({ category }) => category))
+      .toEqual([MESSAGE_CATEGORY.VersionNotResolved])
+
+    // the version's own file stays clear of it: a baseline is the comparison's problem, not the version's
+    const notifications = JSON.parse(
+      (await loadFileAsStringFromRegistry(VERSIONS_PATH, `${pkg.packageId}/v1`, 'notifications.json'))!,
+    ).notifications as Array<{ category: string }>
+    expect(notifications.map(({ category }) => category)).not.toContain(MESSAGE_CATEGORY.VersionNotResolved)
+  }, 30000)
+})
+
+// The tie-break decides between two documents; it must not make a document unable to refresh its own entry.
+describe('Duplicate resolution', () => {
+  const entity = (documentId: string, title: string): { documentId: string; title: string } => ({ documentId, title })
+
+  test('should keep the lexicographically smallest documentId, whichever arrives first', () => {
+    const forwards = new Map<string, { documentId: string; title: string }>()
+    setReportingDuplicate(forwards, 'id', entity('a', 'first'))
+    setReportingDuplicate(forwards, 'id', entity('b', 'second'))
+
+    const backwards = new Map<string, { documentId: string; title: string }>()
+    setReportingDuplicate(backwards, 'id', entity('b', 'second'))
+    setReportingDuplicate(backwards, 'id', entity('a', 'first'))
+
+    expect(forwards.get('id')?.documentId).toBe('a')
+    expect(backwards.get('id')?.documentId).toBe('a')
+  })
+
+  test('should let the same document refresh its own entry', () => {
+    const map = new Map<string, { documentId: string; title: string }>()
+    setReportingDuplicate(map, 'id', entity('a', 'before'))
+    setReportingDuplicate(map, 'id', entity('a', 'after'))
+
+    expect(map.get('id')?.title).toBe('after')
+  })
+})
+
+// A document announces only what it owns in the published index: without this `documents.json` and
+// `operations.json` contradict each other after a duplicate.
+// T8 splits the two duplicate cases: a collision inside one document is `rest-duplicate-operation` and is
+// reported once. The cross-document handler must stay out of it, or the text names the same document twice.
+describe('Duplicate resolution tells the two cases apart', () => {
+  test('should not report an intra-document collision as a cross-document duplicate', async () => {
+    const pkg = LocalRegistry.openPackage('operationId-collisions/same-operationId-same-document')
+    const result = await pkg.publish(pkg.packageId, {
+      packageId: pkg.packageId,
+      version: 'v1',
+      status: VERSION_STATUS.DRAFT,
+      files: [{ fileId: 'spec.json' }],
+    })
+
+    expect(result.notifications.map(({ category }) => category))
+      .toContain(MESSAGE_CATEGORY.RestDuplicateOperation)
+    expect(result.notifications.filter(({ category }) => category === MESSAGE_CATEGORY.DuplicateOperationId))
+      .toEqual([])
+    // the giveaway of the old behaviour: a message naming one document as two
+    expect(result.notifications.every(({ message }) => !/'([^']+)' and '\1'/.test(message))).toBe(true)
+  }, 30000)
+})
+
+describe('Identifier ownership', () => {
+  test('should not list on the losing document the id the winner owns', async () => {
+    const pkg = LocalRegistry.openPackage('operationId-collisions/same-path-different-documents')
+    const result = await pkg.publish(pkg.packageId, {
+      packageId: pkg.packageId,
+      version: 'v1',
+      files: [{ fileId: 'spec1.json' }, { fileId: 'spec2.json' }],
+    })
+
+    const winner = result.operations.get('res-data-post')
+    expect(winner?.documentId).toBe('spec1')
+
+    const documents = [...result.documents.values()]
+    const owner = documents.find(({ slug }) => slug === 'spec1')
+    const loser = documents.find(({ slug }) => slug === 'spec2')
+    expect(owner?.operationIds).toContain('res-data-post')
+    expect(loser?.operationIds).not.toContain('res-data-post')
+  })
+
+  test('should attribute every announced id back to the announcing document', async () => {
+    const pkg = LocalRegistry.openPackage('operationId-collisions/same-path-different-documents')
+    const result = await pkg.publish(pkg.packageId, {
+      packageId: pkg.packageId,
+      version: 'v1',
+      files: [{ fileId: 'spec1.json' }, { fileId: 'spec2.json' }],
+    })
+
+    for (const document of result.documents.values()) {
+      for (const operationId of document.operationIds ?? []) {
+        expect(result.operations.get(operationId)?.documentId).toBe(document.slug)
+      }
+    }
+  })
+})
+
+// Ownership can change after a document has been processed: a smaller slug arriving later takes the entry.
+describe('Identifier ownership is order-independent', () => {
+  test('should drop the id from the loser even when it was processed first', async () => {
+    const pkg = LocalRegistry.openPackage('operationId-collisions/same-path-different-documents')
+    const result = await pkg.publish(pkg.packageId, {
+      packageId: pkg.packageId,
+      version: 'v1',
+      // reversed: spec2 is processed first and owns the id until spec1 takes it
+      files: [{ fileId: 'spec2.json' }, { fileId: 'spec1.json' }],
+    })
+
+    expect(result.operations.get('res-data-post')?.documentId).toBe('spec1')
+
+    for (const document of result.documents.values()) {
+      for (const operationId of document.operationIds ?? []) {
+        expect(result.operations.get(operationId)?.documentId).toBe(document.slug)
+      }
+    }
+  })
+})

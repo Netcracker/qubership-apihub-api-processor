@@ -1,0 +1,98 @@
+/**
+ * Copyright 2024-2025 NetCracker Technology Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { MESSAGE_SEVERITY, VERSION_STATUS } from '../consts'
+import { NotificationMessage } from '../types/package/notifications'
+
+const DRAFT_HINT = 'You can publish version in draft status for troubleshooting'
+
+/**
+ * Every comparison-phase message of the build, from wherever it was raised.
+ *
+ * Most live on the pair that produced them; a pair's operation and DDL comparisons share one array, so the
+ * arrays are collected by identity rather than concatenated. The build-level array holds only what was raised
+ * before any pair context existed — resolving the previous version, enumerating references.
+ */
+export function comparisonPhaseNotifications(buildResult: {
+  comparisonNotifications: NotificationMessage[]
+  comparisons: Array<{ notifications: NotificationMessage[] }>
+  ddlComparisons: Array<{ notifications: NotificationMessage[] }>
+}): NotificationMessage[] {
+  const arrays = new Set<NotificationMessage[]>([buildResult.comparisonNotifications])
+  for (const { notifications } of [...buildResult.comparisons, ...buildResult.ddlComparisons]) {
+    arrays.add(notifications)
+  }
+  return [...arrays].flat()
+}
+
+/**
+ * A `release` does not publish while anything is known to be wrong. There is no downgrade: the build throws.
+ *
+ * Both streams block. Build-phase errors mean the version's own documents are unsound; comparison-phase ones
+ * mean the changelog is unreliable, and a release that declares a `previousVersion` is expected to ship
+ * trustworthy changes. The streams still decide *what gets flagged* — a comparison error marks the comparison
+ * and never the version — but that partition does not extend to this gate.
+ */
+export function assertReleaseIsPublishable(
+  status: string,
+  notifications: NotificationMessage[],
+  comparisonNotifications: NotificationMessage[],
+): void {
+  if (status !== VERSION_STATUS.RELEASE) { return }
+
+  const isError = ({ severity }: NotificationMessage): boolean => severity === MESSAGE_SEVERITY.Error
+  const buildErrors = notifications.filter(isError)
+  const changelogErrors = comparisonNotifications.filter(isError)
+
+  const total = buildErrors.length + changelogErrors.length
+  if (total === 0) { return }
+
+  throw new Error(releaseFailureMessage(buildErrors, changelogErrors, total))
+}
+
+/**
+ * The publisher must not have to republish as a draft to find out what is wrong, so a single failure reports
+ * itself verbatim and several are summarised with the documents to open. Every branch ends on the same hint,
+ * so the way forward is discoverable however many errors there are.
+ */
+function releaseFailureMessage(
+  buildErrors: NotificationMessage[],
+  changelogErrors: NotificationMessage[],
+  total: number,
+): string {
+  if (total === 1) {
+    const [only] = [...buildErrors, ...changelogErrors]
+    const document = only.documentId ? ` (document: ${only.documentId})` : ''
+    return `${only.message}${document}. ${DRAFT_HINT}`
+  }
+
+  const documentIds = [...new Set([...buildErrors, ...changelogErrors]
+    .map(({ documentId }) => documentId)
+    .filter((documentId): documentId is string => !!documentId))].sort()
+
+  const prefix = `Cannot publish version in release status: ${total} critical errors`
+  // the changelog alone is at fault, which is what the wording says — not the absence of slugs: a comparison
+  // error may name a document
+  if (!buildErrors.length) {
+    return `${prefix} in the changelog. ${DRAFT_HINT}`
+  }
+
+  // naming the changelog share keeps a mixed failure from sending the publisher hunting through documents
+  const changelogShare = changelogErrors.length
+    ? `, including ${changelogErrors.length} changelog errors`
+    : ''
+  return `${prefix} in following documents: ${documentIds.join(', ')}${changelogShare}. ${DRAFT_HINT}`
+}

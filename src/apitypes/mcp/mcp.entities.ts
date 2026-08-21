@@ -56,7 +56,7 @@ export const buildMcpEntities: McpEntitiesBuilder<ParsedMcpData> = (document, fi
   const { data } = document
   if (!data?.entities) { return [] }
 
-  const documentId = document.fileId
+  const documentId = document.slug
   // intra-document duplicate detection, mirroring `operationIdMap` in rest/async.operations.
   // TODO: unify with the shared `findDuplicates`/`createDuplicatesError` once those are de-coupled from
   // operation-specific naming (`DuplicateEntry.operationId`, "Duplicated operationIds found") so the MCP
@@ -68,7 +68,7 @@ export const buildMcpEntities: McpEntitiesBuilder<ParsedMcpData> = (document, fi
 
     if (mcpEntityIdMap.has(mcpEntityId)) {
       throw new Error(
-        `Duplicate MCP entity ID '${mcpEntityId}': '${entity.name}' conflicts with '${mcpEntityIdMap.get(mcpEntityId)}' in file '${file.fileId}'`,
+        `Duplicate MCP entity ID '${mcpEntityId}': '${entity.name}' conflicts with '${mcpEntityIdMap.get(mcpEntityId)}' in document '${documentId}'`,
       )
     }
     mcpEntityIdMap.set(mcpEntityId, entity.name)

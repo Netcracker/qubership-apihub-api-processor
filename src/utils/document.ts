@@ -23,10 +23,14 @@ import {
   FILE_KIND,
   FileFormat,
   FileId,
+  MessageCategory,
+  MessageSeverity,
+  NotificationMessage,
   OperationsApiType,
   PackageDocument,
   ResolvedGroupDocument,
   VALIDATION_RULES_SEVERITY_LEVEL_ERROR,
+  ValidationRulesSeverityLevel,
   VersionDocument,
   VersionInternalDocument,
 } from '../types'
@@ -38,6 +42,7 @@ import {
   FILE_FORMAT_JSON,
   FILE_FORMAT_YAML,
   GRAPHQL_API_TYPE,
+  MESSAGE_CATEGORY,
   MESSAGE_SEVERITY,
   REST_API_TYPE,
   SERIALIZE_SYMBOL_STRING_MAPPING,
@@ -93,8 +98,9 @@ export function toVersionDocument(document: ResolvedGroupDocument, fileFormat: F
   }
 }
 
-export function toPackageDocument(document: VersionDocument): PackageDocument {
+export function toPackageDocument(document: VersionDocument, hasErrors = false): PackageDocument {
   return {
+    ...hasErrors ? { hasErrors } : {},
     fileId: document.fileId,
     slug: document.slug,
     filename: document.filename,
@@ -114,18 +120,75 @@ export type DuplicateHandler<T> = (existing: T, duplicate: T) => void
 export type DuplicateOperationHandler = DuplicateHandler<ApiOperation>
 
 /**
- * Put `value` into `map` under `key`; if an entry already existed for that key, invoke `onDuplicate`
- * with `(existing, incoming)` before overwriting. Shared by operation and MCP-entity indexing.
+ * Report an id claimed by two documents: one message each, same text, so either document shows the collision.
+ * A single message naming both would leave one of them unflagged. The same document re-processed is not a
+ * collision, and one inside a document is the api type's own diagnostic.
  */
-export function setReportingDuplicate<K, V>(
+export const createCrossDocumentDuplicateHandler = <T extends { documentId: string }>(
+  notifications: NotificationMessage[],
+  category: MessageCategory,
+  // a function, because the operation handler serves every api type and they do not share a severity
+  severityOf: (duplicate: T) => MessageSeverity,
+  describe: (existing: T, duplicate: T) => string,
+): DuplicateHandler<T> => (existing, duplicate) => {
+  if (existing.documentId === duplicate.documentId) { return }
+  const message = describe(existing, duplicate)
+  const severity = severityOf(duplicate)
+  for (const documentId of [existing.documentId, duplicate.documentId]) {
+    notifications.push({ category, severity, message, documentId })
+  }
+}
+
+/**
+ * Put `value` into `map` under `key`; if an entry already existed, report the collision and keep the entry
+ * whose `documentId` sorts first. Shared by operation, MCP- and DDL-entity indexing.
+ *
+ * The tie-break is what makes the published index reproducible: processing order is `config.files` order, so
+ * without it the same set of files published in a different order publishes a different entity. Neither
+ * claimant is more correct — but the winner must not depend on how the config was assembled.
+ */
+export function setReportingDuplicate<K, V extends { documentId: string }>(
   map: Map<K, V>,
   key: K,
   value: V,
   onDuplicate?: DuplicateHandler<V>,
 ): void {
   const existing = map.get(key)
-  if (existing !== undefined && onDuplicate) { onDuplicate(existing, value) }
+  if (existing !== undefined) {
+    onDuplicate?.(existing, value)
+    // strict: slugs are unique per version, so an equal documentId means the same document is being
+    // re-processed (incremental rebuild) and must refresh its own entry rather than keep the stale one
+    if (existing.documentId < value.documentId) { return }
+  }
   map.set(key, value)
+}
+
+const keepOwned = (ids: string[] | undefined, slug: string, index: Map<string, { documentId: string }>): string[] => {
+  const owned = new Set<string>()
+  for (const id of ids ?? []) {
+    if (index.get(id)?.documentId === slug) { owned.add(id) }
+  }
+  return [...owned]
+}
+
+/**
+ * Drop from every document the ids another document won, and collapse repeats.
+ *
+ * Ownership is not final while the loop runs: a smaller slug arriving later takes the entry
+ * (`setReportingDuplicate`), so a document that owned an id when it was processed may not own it at the end.
+ * Without this pass `documents.json` announces ids that `operations.json` attributes elsewhere.
+ */
+export function reconcileOwnedIds(
+  documents: Iterable<VersionDocument>,
+  operations: Map<string, { documentId: string }>,
+  mcpEntities: Map<string, { documentId: string }>,
+): void {
+  for (const document of documents) {
+    document.operationIds = keepOwned(document.operationIds, document.slug, operations)
+    if (document.mcpEntityIds) {
+      document.mcpEntityIds = keepOwned(document.mcpEntityIds, document.slug, mcpEntities)
+    }
+  }
 }
 
 export const findSharedPath = (fileIds: string[]): string => {
@@ -154,25 +217,42 @@ export interface BundlingError {
   errorType: RefErrorType
 }
 
-export const createBundlingErrorHandler = (ctx: BuilderContext, fileId: FileId) => (errors: BundlingError[]): void => {
-  // Only throw if severity is ERROR and there's at least one critical error
-  if (ctx.config.validationRulesSeverity?.brokenRefs === VALIDATION_RULES_SEVERITY_LEVEL_ERROR) {
-    const criticalError = errors.find(error =>
-      error.errorType === RefErrorTypes.REF_NOT_FOUND ||
-      error.errorType === RefErrorTypes.REF_NOT_VALID_FORMAT,
-    )
+// One category per reference problem: the four types come from the same site but are different diagnostics,
+// and a consumer filtering by category must be able to tell them apart
+const REF_ERROR_CATEGORY: Record<RefErrorType, MessageCategory> = {
+  [RefErrorTypes.RICH_REF_NOT_ALLOWED]: MESSAGE_CATEGORY.RefHasSiblings,
+  [RefErrorTypes.REF_NOT_ALLOWED]: MESSAGE_CATEGORY.RefNotAllowed,
+  [RefErrorTypes.REF_NOT_FOUND]: MESSAGE_CATEGORY.RefNotFound,
+  [RefErrorTypes.REF_NOT_VALID_FORMAT]: MESSAGE_CATEGORY.RefNotValidFormat,
+}
 
-    if (criticalError) {
-      throw new Error(criticalError.message)
-    }
+/**
+ * Severity by kind of reference problem, not one constant for all four.
+ *
+ * A `$ref` with sibling keys, or one in a position the schema disallows, resolves anyway — the document is
+ * complete, so those stay Warning whatever the caller asks for.
+ *
+ * The other two leave the document incomplete, and how much that costs depends on why the build is running.
+ * `validationRulesSeverity.brokenRefs` is how the host says which: `error` for an ordinary publication, so
+ * the version cannot ship as a release; `warning` while migrating, so an already-published version that
+ * carries a broken reference can still be rebuilt instead of becoming unrebuildable.
+ * See https://github.com/Netcracker/qubership-apihub/issues/113.
+ */
+const refErrorSeverity = (errorType: RefErrorType, brokenRefs: ValidationRulesSeverityLevel | undefined): MessageSeverity => {
+  if (errorType === RefErrorTypes.RICH_REF_NOT_ALLOWED || errorType === RefErrorTypes.REF_NOT_ALLOWED) {
+    return MESSAGE_SEVERITY.Warning
   }
+  return brokenRefs === VALIDATION_RULES_SEVERITY_LEVEL_ERROR ? MESSAGE_SEVERITY.Error : MESSAGE_SEVERITY.Warning
+}
 
-  // In other cases push all errors to notifications
+export const createBundlingErrorHandler = (ctx: BuilderContext, documentId: string) => (errors: BundlingError[]): void => {
+  const { brokenRefs } = ctx.config.validationRulesSeverity ?? {}
   for (const error of errors) {
     ctx.notifications.push({
-      severity: MESSAGE_SEVERITY.Error,
+      category: REF_ERROR_CATEGORY[error.errorType],
+      severity: refErrorSeverity(error.errorType, brokenRefs),
       message: error.message,
-      fileId: fileId,
+      documentId: documentId,
     })
   }
 }
@@ -197,6 +277,13 @@ export const getBundledFileDataWithDependencies = async (
       return {}
     }
 
+    // recorded before the format check: a file whose parser threw arrives here as a binary fallback carrying
+    // the parse error, and the document reports its dependencies' errors. Dropped from the list, the reason
+    // the file is unusable would never be reported — only that a `$ref` to it could not be resolved.
+    if (filepath !== fileId) {
+      dependencies.push(filepath)
+    }
+
     if (data.kind !== FILE_KIND.TEXT) {
       // can't throw the error here because it will be suppressed: https://github.com/udamir/api-ref-bundler/blob/0.4.0/src/resolver.ts#L33
       errors.push({
@@ -204,10 +291,6 @@ export const getBundledFileDataWithDependencies = async (
         errorType: RefErrorTypes.REF_NOT_VALID_FORMAT,
       })
       return {}
-    }
-
-    if (filepath !== fileId) {
-      dependencies.push(filepath)
     }
 
     return data.data

@@ -101,9 +101,13 @@ export interface VersionsComparison<T extends DiffType | DiffTypeDto = DiffType>
   operationTypes: OperationType<T>[]
   data?: OperationChanges[]
   comparisonInternalDocuments: ComparisonInternalDocument[]
+  // everything raised while comparing this version pair, and nothing else
+  notifications: NotificationMessage[]
+  // derived from `notifications`, except for a cached comparison, which carries the resolver's value
+  hasErrors?: boolean
 }
 
-export interface VersionsComparisonDto extends Omit<VersionsComparison<DiffTypeDto>, 'data' | 'comparisonInternalDocuments'> {
+export interface VersionsComparisonDto extends Omit<VersionsComparison<DiffTypeDto>, 'data' | 'comparisonInternalDocuments' | 'notifications'> {
   data?: OperationChangesDto[]
 }
 
@@ -171,9 +175,13 @@ export interface DdlComparison<T extends DiffType | DiffTypeDto = DiffType> {
   contractsChangesSummary: DdlContractsChangesSummary<T>
   data?: DdlChanges[]
   comparisonInternalDocuments: ComparisonInternalDocument[]
+  // everything raised while comparing this version pair, and nothing else
+  notifications: NotificationMessage[]
+  // derived from `notifications`, except for a cached comparison, which carries the resolver's value
+  hasErrors?: boolean
 }
 
-export interface DdlComparisonDto extends Omit<DdlComparison<DiffTypeDto>, 'data' | 'comparisonInternalDocuments'> {
+export interface DdlComparisonDto extends Omit<DdlComparison<DiffTypeDto>, 'data' | 'comparisonInternalDocuments' | 'notifications'> {
   data?: DdlChangesDto[]
 }
 
@@ -198,6 +206,9 @@ export interface CompareContext {
   rawDocumentResolver: _RawDocumentResolver
   normalizedSpecFragmentsHashCache: ObjectHashCache
   apiProcessorVersionValidationLevel?: VersionValidationLevel
+  // Narrows the context to one version pair: the returned context, and every resolver on it, writes to the
+  // pair's own notification array. A comparison-phase message always belongs to exactly one pair.
+  forPair: (notifications: NotificationMessage[]) => CompareContext
 }
 
 export type BuilderVersionInfo = {

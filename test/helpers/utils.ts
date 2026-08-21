@@ -24,12 +24,14 @@ import {
   BuildConfig,
   BuildConfigFile,
   BuildResult,
+  BuildType,
   ChangeSummary,
   EMPTY_CHANGE_SUMMARY, Labels,
   SERIALIZE_SYMBOL_STRING_MAPPING,
   VERSION_STATUS,
   VERSION_VALIDATION_LEVEL,
   PackageVersionBuilder,
+  VersionStatus,
   VersionValidationLevel,
 } from '../../src/processor'
 import { buildSchema, introspectionFromSchema } from 'graphql/utilities'
@@ -351,6 +353,9 @@ export async function buildChangelogPackageDefaultConfig(
   packageId: string,
   filesBefore: BuildConfigFile[] = [{ fileId: 'before.yaml', publish: true }],
   filesAfter: BuildConfigFile[] = [{ fileId: 'after.yaml' }],
+  // the pair's own status: a fixture that carries an Error publishes as a draft, and the changelog over it
+  // is what the test is about
+  status: VersionStatus = VERSION_STATUS.RELEASE,
 ): Promise<BuildResult> {
   const portal = new LocalRegistry(packageId)
 
@@ -358,11 +363,13 @@ export async function buildChangelogPackageDefaultConfig(
     packageId: packageId,
     version: BEFORE_VERSION_ID,
     files: filesBefore,
+    status,
   })
   await portal.publish(packageId, {
     packageId: packageId,
     version: AFTER_VERSION_ID,
     files: filesAfter,
+    status,
   })
 
   const editor = new Editor(packageId, {
@@ -453,6 +460,30 @@ export async function buildChangelogWithVersionOverrides(
   beforeContent: string = DEFAULT_SPEC,
   afterContent: string = DEFAULT_SPEC,
 ): Promise<BuildResult> {
+  return buildWithVersionOverrides(packageId, overrides, {
+    validationLevel,
+    beforeContent,
+    afterContent,
+  })
+}
+
+export async function buildWithVersionOverrides(
+  packageId: string,
+  overrides: Record<string, string>,
+  {
+    validationLevel = VERSION_VALIDATION_LEVEL.MAJOR,
+    beforeContent = DEFAULT_SPEC,
+    afterContent = DEFAULT_SPEC,
+    buildType = BUILD_TYPE.CHANGELOG,
+    status = VERSION_STATUS.RELEASE,
+  }: {
+    validationLevel?: VersionValidationLevel
+    beforeContent?: string
+    afterContent?: string
+    buildType?: BuildType
+    status?: VersionStatus
+  } = {},
+): Promise<BuildResult> {
   const registry = new VersionOverrideRegistry(packageId)
   for (const [version, value] of Object.entries(overrides)) {
     registry.overrideApiProcessorVersion(version, value)
@@ -472,13 +503,18 @@ export async function buildChangelogWithVersionOverrides(
     packageId,
     previousVersionPackageId: packageId,
     previousVersion: 'v1',
-    buildType: BUILD_TYPE.CHANGELOG,
-    status: VERSION_STATUS.RELEASE,
+    buildType,
+    status,
+    // a changelog config carries no files, a build config lists what it publishes
+    ...buildType === BUILD_TYPE.BUILD ? { files: [{ fileId: 'spec.json' }] } : {},
   }
 
   const builder = new PackageVersionBuilder(config, {
     resolvers: {
-      fileResolver: () => Promise.resolve(null),
+      // a changelog reads no source files; a build reads the same spec the version was published from
+      fileResolver: (fileId) => Promise.resolve(
+        fileId === 'spec.json' ? new File([afterContent], fileId, { type: 'application/json' }) : null,
+      ),
       ...registry.versionResolvers,
     },
   })

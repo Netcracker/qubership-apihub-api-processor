@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-import { BuildConfig, BuilderStrategy, BuildResult, BuildTypeContexts, VersionCache } from '../types'
+import { BuildConfig, BuilderStrategy, BuildResult, BuildTypeContexts, NotificationMessage, VersionCache } from '../types'
 import { compareVersions } from '../components/compare'
 import { applyBuilderVersionInfo } from '../validators'
-import { MESSAGE_SEVERITY } from '../consts'
 
 export class ChangelogStrategy implements BuilderStrategy {
   async execute(config: BuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
@@ -25,23 +24,24 @@ export class ChangelogStrategy implements BuilderStrategy {
 
     const compareContextObject = contexts.compareContext(config)
 
-    let previousVersionCache: VersionCache | null = null
-    if (previousVersion) {
-      previousVersionCache = await compareContextObject.versionResolver(previousVersion, previousVersionPackageId || packageId)
+    if (!previousVersion) {
+      // `validateConfig` rejects this first; a guard rather than a fallback, so a missing baseline cannot
+      // quietly produce an empty changelog.
+      throw new Error('ChangelogStrategy requires previousVersion; validateConfig should have rejected this build')
     }
 
-    const comparisonPreviousVersion = previousVersionCache?.version ?? config.previousVersion
-    if (!comparisonPreviousVersion) {
-      compareContextObject.notifications.push({
-        severity: MESSAGE_SEVERITY.Error,
-        message: `Previous version has been deleted or does not exist (${config.previousVersionPackageId || config.packageId}/${config.previousVersion})`,
-      })
-    }
+    // the pair's array, so a baseline that does not resolve reports on the pair, not build-wide
+    const rootNotifications: NotificationMessage[] = []
+    const previousVersionCache: VersionCache | null = await compareContextObject
+      .forPair(rootNotifications)
+      .versionResolver(previousVersion, previousVersionPackageId || packageId)
+    const comparisonPreviousVersion = previousVersionCache?.version ?? previousVersion
 
     const compareResult = await compareVersions(
-      comparisonPreviousVersion ? [comparisonPreviousVersion, previousVersionPackageId || packageId] : null,
+      [comparisonPreviousVersion, previousVersionPackageId || packageId],
       [version, packageId],
       compareContextObject,
+      rootNotifications,
     )
     buildResult.comparisons = compareResult.comparisons
     buildResult.ddlComparisons = compareResult.ddlComparisons

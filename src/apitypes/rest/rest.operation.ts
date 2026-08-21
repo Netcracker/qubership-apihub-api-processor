@@ -102,7 +102,7 @@ export const buildRestOperation = (
     const [version] = getSplittedVersionKey(config.version)
 
     const hash = isOperation ? undefined : calculateHash(value, normalizedSpecFragmentsHashCache)
-    const tolerantHash = isOperation ? undefined : calculateTolerantHash(value, notifications)
+    const tolerantHash = isOperation ? undefined : calculateTolerantHash(value, notifications, documentSlug)
 
     deprecatedItems.push({
       declarationJsonPaths,
