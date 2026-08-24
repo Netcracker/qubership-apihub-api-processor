@@ -110,7 +110,6 @@ export const createVersionPackage = async (
       return await zip.buildResult(options)
   }
 
-  // build-phase Errors flag their document; a comparison error flags the comparison and no document
   const erroredSlugs = erroredDocumentSlugs(buildResultDto.notifications)
   createDocumentsFile(zip, documents, erroredSlugs)
   createVersionInternalDocumentsFile(zip, documents)
@@ -147,7 +146,7 @@ export const createVersionPackage = async (
   }
 
   // DDL comparisons go to their own sibling files (ddl-comparisons.json + ddl-comparisons/<id>),
-  // leaving the operation comparisons untouched (AD2). The per-pair wrapper key is `entities` (C2).
+  // leaving the operation comparisons untouched
   const ddlComparisonsDto = buildResult.ddlComparisons.map(comparison =>
     withComparisonErrors(toDdlComparisonDto(comparison, ctx.normalizedSpecFragmentsHashCache, logErrorFor(comparison.notifications)), comparison))
   if (ddlComparisonsDto.length) {
@@ -192,11 +191,7 @@ const createNotificationsFile = (zip: ZipTool, notifications: PackageNotificatio
   zip.file(PACKAGE.NOTIFICATIONS_FILE_NAME, buildNotifications(notifications.notifications))
 }
 
-/**
- * A comparison calculated here is flagged from its own notifications. A cached one was not calculated, so its
- * flag is a property the host already holds and the resolver returned — pass it through rather than derive
- * `false` from an empty list.
- */
+/** Stamp `hasErrors` on the DTO; `comparisonHasErrors` owns the cached-vs-calculated rule. */
 const withComparisonErrors = <T extends { fromCache: boolean; hasErrors?: boolean }>(
   dto: T,
   source: ComparisonErrorSource,

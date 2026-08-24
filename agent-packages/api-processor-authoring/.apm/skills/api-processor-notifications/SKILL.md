@@ -22,15 +22,37 @@ built cleanly, so a problem becomes a `NotificationMessage` and the build keeps 
   all would leave every one of them unflagged.
 - **Severity comes from the source, not from the catch site.** A reference problem takes it from its
   `errorType`, a parse problem from the parser's own diagnostic — but only when that diagnostic's severity is
-  one of the four `MESSAGE_SEVERITY` values, because the consumer rejects the whole archive over one it does
-  not know. A `catch` block that stamps every message `Error` throws away what the producer knew.
+  a value `MESSAGE_SEVERITY` defines, because the consumer rejects the whole archive over one it does not
+  know. A `catch` block that stamps every message `Error` throws away what the producer knew.
 
 A duplicate id is reported by whichever site can still see both claimants. Across documents that is
 `createCrossDocumentDuplicateHandler` (`src/utils/document.ts`), for operations, MCP and DDL entities alike;
-only the operation handler varies severity — `Error` for AsyncAPI, `Warning` for REST and GraphQL. Inside one
-document it is the api type's own category (`rest-duplicate-operation`, `async-duplicate-operation`), raised
-against that document, which keeps the operations it did build. MCP and DDL still throw there: they collide
-while mapping entities, so nothing was built to keep.
+the operation handler takes its severity per api type: where published versions already carry the message,
+it stays a `Warning` so tightening cannot block their releases retroactively, and where the collision used to
+abort the build there is no such population to protect. The call site says which is which. Inside one document it is the api type's own
+category (`rest-duplicate-operation`, `async-duplicate-operation`), raised against that document, which keeps
+the operations it did build. MCP and DDL still throw there: they collide while mapping entities, so nothing
+was built to keep.
+
+## A `$ref`-ed file is reported by the documents that bundle it
+
+A referenced file has no slug: it never becomes a document of the version, so it cannot own a message. Every
+document that bundles it does, and reporting there means a file two documents pull in flags both of them —
+`parseFile` caches by `fileId` and would have reported it once, against whoever parsed it first.
+
+- **`documentId` is the bundling document's slug**, for the reference errors (`ref-*`) and for the parse
+  problems of the file itself alike.
+- **The message names the referenced `fileId`** — `Invalid <type> file '<fileId>' referenced from this
+  document.` It is the path the user wrote in the `$ref` and the one they will edit, and it is the only place
+  that path survives: the archive inlines the bundled content into the root and keeps no record of where it
+  came from. This is the one place a `fileId` belongs in a notification; `documentId` never carries one.
+- **A referenced file that is also a configured document reports twice**: once as its own document, in the
+  plain form, and once per document that bundles it, in the `referenced from` form. Both are correct — the
+  file is broken and so is every bundle containing it.
+- **Unless it will not be published.** `buildFiles` settles `publish` after every file is built, and only
+  then does a document report the problems of its own file (`reportOwnParseErrors`). A configured file left
+  unpublished is a `$ref` target like any other, and a message under its slug would name a document
+  `documents.json` does not contain.
 
 ## The stream is the context's, not the call site's
 
@@ -48,8 +70,7 @@ Consequences worth knowing before you touch this:
 - The comparison stream ships per version pair, and a comparison the host served from its cache ships **no
   row at all**. An empty row would wipe the messages stored by the build that actually calculated it.
 - A message raised before any pair exists — resolving the baseline, enumerating references — ships under the
-  pair the config declared (`DeclaredPair` in `src/components/build-result-index.ts`); whether the backend
-  accepts a row for a pair no comparison calculated is still being settled with it.
+  pair the config declared (`DeclaredPair` in `src/components/build-result-index.ts`).
 
 ## Deciding whether a failure may be caught
 
@@ -75,8 +96,9 @@ site should be checking `status` to decide whether an error is fatal. A message 
 has gated needs its own call: `comparison-serialization` appears while the archive is written, so
 `createVersionPackage` gates the comparison stream again, for `BUILD_TYPE.BUILD` only.
 
-Fatal failures are covered by `test/fatal-failures.test.ts`. Adding one means adding a case there — a throw
-with no test is indistinguishable from a throw someone forgot to convert.
+Fatal failures are covered by `test/fatal-failures.test.ts`, except the dashboard rule, which sits with the
+other dashboard cases in `test/dashboards.test.ts`. Adding one means adding a case in the matching file — a
+throw with no test is indistinguishable from a throw someone forgot to convert.
 
 ## Adding a diagnostic, in order
 

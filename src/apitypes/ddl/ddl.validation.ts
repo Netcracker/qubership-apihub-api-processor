@@ -30,8 +30,8 @@ function categoryOf(kind: DdlNonFatalError['kind']): MessageCategory {
 
 /**
  * Validate a built DDL document's parse issues: one notification per issue, attributed to the document's
- * slug, severity by kind. Nothing aborts the publish — a `duplicate-object` is an Error the reader acts on,
- * and the partial entity is kept (D8) with no `incomplete` flag.
+ * slug, always Error — see below. Nothing aborts the publish, and the partial entity is kept with no
+ * `incomplete` flag.
  */
 export function validateDdlDocument(document: VersionDocument<ParsedDdlData>, notifications: NotificationMessage[]): void {
   const issues = document.data.issues ?? []

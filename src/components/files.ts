@@ -65,8 +65,8 @@ export const buildFile = async (configFile: BuildConfigFile, ctx: BuilderContext
   // original bytes, and the reason is recorded against it
   try {
     const result = await buildDocument(data, file, ctx)
-    await reportParseErrors(result.document, data, ctx)
-    return { file, document: result.document, builder: result.builder }
+    await reportDependencyParseErrors(result.document, ctx)
+    return { file, document: result.document, builder: result.builder, parsed: data }
   } catch (error) {
     ctx.notifications.push({
       category: error instanceof DocumentBuildError ? error.category : MESSAGE_CATEGORY.BuildDocument,
@@ -77,42 +77,53 @@ export const buildFile = async (configFile: BuildConfigFile, ctx: BuilderContext
     // every parsed file carries its bytes, binary fallbacks included — the placeholder keeps them
     const document = buildErrorDocument(file, data)
     // the parse complaints are often why it threw, and this is the only site that emits them
-    await reportParseErrors(document, data, ctx)
-    return { file, document }
+    await reportDependencyParseErrors(document, ctx)
+    return { file, document, parsed: data }
   }
 }
 
 /**
- * Report the parse problems of the document's own file and of every file it bundled, attributed to this
- * document's slug.
+ * Report the parse problems of every file this document bundled, attributed to this document's slug.
  *
  * A `$ref`-ed file has no slug of its own — it never becomes a document — but it is always pulled in by one
  * that does, and that document's bundle is what ends up broken. Reporting here (rather than in `parseFile`,
  * which caches by fileId and would emit once) means a file referenced by two documents flags both.
+ *
+ * The document's own file is not reported here: whether it becomes a document of the version is decided in
+ * `buildFiles`, after every file is built — see `reportOwnParseErrors`.
  */
-async function reportParseErrors(document: VersionDocument, own: SourceFile, ctx: BuilderContext): Promise<void> {
-  report(own, true)
-
+async function reportDependencyParseErrors(document: VersionDocument, ctx: BuilderContext): Promise<void> {
   for (const dependency of document.dependencies ?? []) {
     const parsed = await ctx.parsedFileResolver(dependency)
-    if (parsed) { report(parsed, false) }
-  }
-
-  function report(file: SourceFile, isOwn: boolean): void {
-    for (const error of file.errors ?? []) {
-      ctx.notifications.push({
-        // a parser that threw leaves a binary fallback; one that returned complaints leaves a text file
-        category: file.kind === FILE_KIND.BINARY ? MESSAGE_CATEGORY.ParseFile : MESSAGE_CATEGORY.InvalidTextFile,
-        severity: parseErrorSeverity(file, error),
-        message: parseErrorMessage(file, isOwn, error?.message),
-        documentId: document.slug,
-      })
-    }
+    if (parsed) { report(parsed, false, document, ctx) }
   }
 }
 
 /**
- * Severity comes from the parser, not from this site: one constant covered three of them, and they disagree.
+ * A configured file that ends up unpublished is, to the version, a `$ref` target like any other: every
+ * document that bundles it already reports its problems and names it in the text. Reporting them a second
+ * time under its own slug would point at a document `documents.json` does not contain.
+ */
+function reportOwnParseErrors(document: VersionDocument, own: SourceFile, ctx: BuilderContext): void {
+  if (!document.publish) { return }
+  report(own, true, document, ctx)
+}
+
+function report(file: SourceFile, isOwn: boolean, document: VersionDocument, ctx: BuilderContext): void {
+  for (const error of file.errors ?? []) {
+    ctx.notifications.push({
+      // a parser that threw leaves a binary fallback; one that returned complaints leaves a text file
+      category: file.kind === FILE_KIND.BINARY ? MESSAGE_CATEGORY.ParseFile : MESSAGE_CATEGORY.InvalidTextFile,
+      severity: parseErrorSeverity(file, error),
+      message: parseErrorMessage(file, isOwn, error?.message),
+      documentId: document.slug,
+    })
+  }
+}
+
+/**
+ * Severity comes from the parser wherever the parser states one; the fallback below is per api type,
+ * because a single constant was wrong for each of them in a different way.
  * REST complaints are AJV metaschema nitpicking on documents that parse and build; MCP complaints are
  * structural and make the document unusable; AsyncAPI carries its own diagnostic severity. A parser that
  * threw outright leaves a binary fallback, and that is an Error whatever produced it.
@@ -168,6 +179,11 @@ export const buildFiles = async (files: BuildConfigFile[], ctx: BuilderContext):
     }
     const parsed = await ctx.parsedFileResolver(document.fileId)
     document.publish = parsed?.kind === FILE_KIND.BINARY && isNotEmpty(parsed.errors ?? [])
+  }
+
+  // now that `publish` is settled, each document reports the problems of its own file
+  for (const { document, parsed } of result) {
+    if (parsed) { reportOwnParseErrors(document, parsed, ctx) }
   }
 
   return result

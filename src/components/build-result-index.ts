@@ -52,8 +52,8 @@ type KeyPart = string | number | null
 
 const encodeKeyPart = (part: KeyPart): string | null => {
   if (typeof part !== 'number') { return part }
-  // Zero-padding to a fixed width limits numbers to non-negative integers below 1e10 (covers revision
-  // and severity); outside that range the padding would sort wrong, so it throws instead.
+  // Fixed-width zero-padding only sorts correctly for non-negative integers that fit the width — true of
+  // revision and severity, the only numbers used as key parts. Anything else would sort wrong silently.
   if (!Number.isInteger(part) || part < 0 || part >= 1e10) {
     throw new Error(`Sort key number out of range: ${part} (expected a non-negative integer below 1e10)`)
   }
@@ -85,6 +85,13 @@ const comparisonOperationSortKey = (operation: PackageComparisonOperation): stri
 
 const ddlComparisonEntitySortKey = (entry: DdlChangesDto): string =>
   tupleKey(entry.ddlEntityData?.ddlEntityId ?? null, entry.previousDdlEntityData?.ddlEntityId ?? null)
+
+const notificationSortKey = (notification: NotificationMessage): string => tupleKey(
+  notification.severity,
+  notification.message,
+  notification.category,
+  notification.documentId ?? null,
+)
 
 const sortChanges = <T extends { changes?: ChangeMessage<DiffTypeDto>[] }>(entry: T): T =>
   (entry.changes
@@ -125,7 +132,6 @@ export function buildPackageDocuments(
   const result: PackageDocuments = { documents: [] }
   for (const document of documents) {
     if (!document.publish) { continue }
-    // operationIds is already deterministic (buildOperations parse order); only the document LIST needs sorting.
     result.documents.push(toPackageDocument(document, erroredSlugs.has(document.slug)))
   }
   result.documents = sortByKey(result.documents, document => document.fileId)
@@ -197,10 +203,8 @@ export function erroredDocumentSlugs(notifications: NotificationMessage[]): Set<
   return slugs
 }
 
-// Not sorted, unlike every other list here: the consumer stores these rows and serves them filtered and
-// paged, and nothing diffs the file between builds. Raising order is what the reader gets.
 export function buildNotifications(notifications: NotificationMessage[]): PackageNotifications {
-  return { notifications }
+  return { notifications: sortByKey(notifications, notificationSortKey) }
 }
 
 // The pair a config asked for, carrying what no comparison owns.
@@ -257,9 +261,9 @@ export function buildComparisonNotifications(
   if (declaredPair?.notifications.length) { merge(declaredPair) }
 
   // every calculated pair gets an entry, empty array included, so a reader never has to tell "no messages"
-  // from "not written"; cached pairs are skipped above and deliberately have no row at all. The pairs are
-  // sorted, the messages inside them are not — see `buildNotifications`.
+  // from "not written"; cached pairs are skipped above and deliberately have no row at all
   const entries = [...byPair.values()]
+    .map(entry => ({ ...entry, notifications: sortByKey(entry.notifications, notificationSortKey) }))
 
   // the same six-part identity `comparisons.json` sorts by, so the two files list pairs in the same order
   return {

@@ -16,7 +16,14 @@
 
 import { describe, expect, jest, test } from '@jest/globals'
 import { buildWithVersionOverrides, Editor, LocalRegistry } from './helpers'
-import { ASYNCAPI_API_TYPE, BUILD_TYPE, GRAPHQL_API_TYPE, REST_API_TYPE, VERSION_STATUS } from '../src/consts'
+import {
+  ASYNCAPI_API_TYPE,
+  BUILD_TYPE,
+  GRAPHQL_API_TYPE,
+  MESSAGE_CATEGORY,
+  REST_API_TYPE,
+  VERSION_STATUS,
+} from '../src/consts'
 import { AdmZipTool } from '../src/components/adm-zip-tool'
 import { compareVersionsDdl } from '../src/components/compare/compare.ddl'
 import { compareDocuments as compareRestDocuments } from '../src/apitypes/rest/rest.changes'
@@ -145,6 +152,11 @@ describe('An invalid build config aborts the build', () => {
     const editor = await Editor.openProject('basic', LocalRegistry.openPackage('basic'))
     await expect(editor.run({ version: AFTER, buildType: BUILD_TYPE.CHANGELOG, previousVersion: undefined } as never))
       .rejects.toThrow(/A changelog build requires previousVersion/)
+  })
+
+  // the config failure replaced a notification, so the retired category must not come back with it
+  test('should keep previous-version-missing out of the categories', () => {
+    expect(Object.values(MESSAGE_CATEGORY)).not.toContain('previous-version-missing')
   })
 
   // prefix-groups-changelog compares one version against itself across two prefix groups, so it has no

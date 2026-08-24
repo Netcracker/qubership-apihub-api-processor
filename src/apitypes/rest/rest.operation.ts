@@ -184,7 +184,13 @@ export const calculateSpecRefs = (
     if (!matchResult) {
       return
     }
-    const componentName = matchResult.grepValues[grepKey].toString()
+    // `#/components/schemas` matches the pattern with nothing left to grep, and the document is otherwise
+    // fine — a `$ref` that names no component must not cost it every operation
+    const grepped = matchResult.grepValues[grepKey]
+    if (grepped === undefined) {
+      return
+    }
+    const componentName = grepped.toString()
     const component = getKeyValue(sourceDocument, ...matchResult.path) as Record<string, unknown>
     if (!component) {
       return

@@ -84,11 +84,11 @@ export const KIND_TO_FIELD: Record<McpKind, keyof PackageMcpFile> = {
   [MCP_KIND.PROMPT]: 'prompts',
 }
 
-/** Group the flat entity index into the `{ inits, tools, resources, prompts }` shape written to `mcp.json`. */
+/** Group the flat entity index into the per-kind shape written to `mcp.json`, keyed by `KIND_TO_FIELD`. */
 export function groupMcpEntitiesByKind(entities: McpEntityIndex): PackageMcpFile {
   const grouped: PackageMcpFile = { inits: [], tools: [], resources: [], prompts: [] }
   for (const { data: _data, ...index } of entities.values()) {
-    // strip the payload (`data`) — mcp.json is the lightweight index; payloads live in mcp/{id}
+    // mcp.json is the lightweight index; payloads live in mcp/{id}
     grouped[KIND_TO_FIELD[index.kind]].push(index)
   }
   return grouped
@@ -97,7 +97,7 @@ export function groupMcpEntitiesByKind(entities: McpEntityIndex): PackageMcpFile
 /**
  * Requires an init for every published endpoint. A version may publish documents for several endpoints
  * at once, and each endpoint's init is its mandatory descriptor; an endpoint that publishes any entity
- * without an init fails the publish.
+ * without an init has an Error raised against every document of that endpoint.
  */
 export function validateMcpInitRequired(entities: McpEntityIndex, notifications: NotificationMessage[]): void {
   const documentsByEndpoint = new Map<string, Set<string>>()
@@ -128,10 +128,10 @@ export function validateMcpInitRequired(entities: McpEntityIndex, notifications:
  * Validates each published MCP document, in full, against the official schema for the protocolVersion
  * its endpoint's init declares. Validating the raw document (not the extracted entities) also rejects
  * items extraction dropped (e.g. a tool with no `name`) — so a document that yields zero entities is
- * still validated and an all-invalid list breaks the publish. The endpoint is read from the document's
- * `metadata.mcpEndpoint` (the authoritative source, independent of extraction) and the version from the
- * matching endpoint's init. Fatal: a missing endpoint, an unsupported protocolVersion, or any
- * non-conforming document fails the publish.
+ * still validated and an all-invalid list leaves every document flagged. The endpoint is read from the
+ * document's `metadata.mcpEndpoint` (the authoritative source, independent of extraction) and the version
+ * from the matching endpoint's init. A missing endpoint, an unsupported protocolVersion and a
+ * non-conforming document are all reported against the document; the pass continues.
  */
 export function validateMcpProtocolVersion(
   documents: Map<string, VersionDocument>,

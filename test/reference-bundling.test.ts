@@ -9,29 +9,12 @@ import {
   VERSION_STATUS,
 } from '../src'
 import { createBundlingErrorHandler } from '../src/utils/document'
-import { BuilderContext } from '../src/types'
+import { BuildConfigFile, BuilderContext, BuildResult } from '../src/types'
 import { NotificationMessage } from '../src/types/package/notifications'
 
-
-// With `brokenRefs: error` the bundler still refuses the document, but that no longer costs the version: the
-// document is published as a placeholder and the reason is recorded against it. (The throw itself disappears
-// once severity comes from `errorType`; this assertion holds either way.)
-const expectToleratedBrokenRef = async (packageId: string, expectedMessage: RegExp): Promise<void> => {
-  const pkg = LocalRegistry.openPackage(packageId)
-  const result = await pkg.publish(pkg.packageId, {
-    // draft: a reference that cannot be read at all stays an Error and blocks a release by design
-    status: VERSION_STATUS.DRAFT,
-    validationRulesSeverity: { brokenRefs: VALIDATION_RULES_SEVERITY_LEVEL_ERROR },
-  })
-
-  const document = result.documents.get('openapi.yaml')
-  expect(document).toBeDefined()
-
-  // severity is not pinned here: phase 5 sets it per errorType, and this test is about the build surviving
-  const failure = result.notifications.find(({ message }) => expectedMessage.test(message))
-  expect(failure).toBeDefined()
-  expect(failure!.documentId).toBe(document!.slug)
-}
+// What each reference error does to a publication — its severity, the document it names, whether a release
+// still goes out — is one row per `errorType` in `notification-catalogue.test.ts`. What is left here is what
+// the bundler does with the document: which dependencies it keeps, and which operations survive.
 
 describe('Reference bundling test', () => {
   test('should bundle external references', async () => {
@@ -39,10 +22,6 @@ describe('Reference bundling test', () => {
     const result = await pkg.publish(pkg.packageId)
 
     expect(result.documents.get('openapi.yaml')?.dependencies).toEqual(['reference.yaml'])
-  })
-
-  test('should report missing external reference instead of breaking the build', async () => {
-    await expectToleratedBrokenRef('reference-bundling/case2', /does not exist/)
   })
 
   test('should collect missing external reference notifications if severity level is not configured', async () => {
@@ -72,10 +51,6 @@ describe('Reference bundling test', () => {
     ])
   })
 
-  test('should report missing transitive external reference instead of breaking the build', async () => {
-    await expectToleratedBrokenRef('reference-bundling/case4', /does not exist/)
-  })
-
   test('should collect notifications when transitive external reference is missing if severity level is not configured', async () => {
     const pkg = LocalRegistry.openPackage('reference-bundling/case4')
     const result = await pkg.publish(pkg.packageId)
@@ -89,20 +64,12 @@ describe('Reference bundling test', () => {
   })
 
   // this one throws from `buildRestOperations`, so it is the per-document loop that catches it
-  test('should report missing internal reference instead of breaking the build', async () => {
-    await expectToleratedBrokenRef('reference-bundling/case5', /can't be resolved/)
-  })
-
   test('should collect missing internal reference notification if severity level is not configured', async () => {
     const pkg = LocalRegistry.openPackage('reference-bundling/case5')
     const result = await pkg.publish(pkg.packageId)
 
     expect(result).toEqual(notificationsMatcher([notificationMatcher(MESSAGE_SEVERITY.Warning,'can\'t be resolved')]))
     expect(result.operations.size).toBe(1)
-  })
-
-  test('should report non-textual external reference instead of breaking the build', async () => {
-    await expectToleratedBrokenRef('reference-bundling/case6', /not a valid text file/)
   })
 
   test('should collect notifications on publishing specification with incorrect description override', async () => {
@@ -167,6 +134,39 @@ describe('Reference severity comes from the error type and the caller', () => {
   })
 })
 
+// A `$ref` into `#/components` that names no component matches the component pattern with nothing left to
+// grep. Reading the name that is not there threw, and the throw cost the document every operation it had.
+describe('A $ref that names no component', () => {
+  const SPEC = `openapi: 3.0.1
+info: { title: t, version: 1.0.0 }
+paths:
+  /pets:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas' }
+components:
+  schemas:
+    Pet: { type: object }
+`
+
+  test('should keep the operations of the document that carries it', async () => {
+    const registry = LocalRegistry.openPackage('reference-bundling/case2')
+    const result = await registry.publishFromContent({ 'api.yaml': SPEC }, {
+      packageId: 'reference-bundling/two-segment-component-ref',
+      version: 'v1',
+      status: VERSION_STATUS.DRAFT,
+      files: [{ fileId: 'api.yaml' }],
+    } as never)
+
+    expect([...result.operations.keys()]).toEqual(['pets-get'])
+    expect(result.notifications).toEqual([])
+  })
+})
+
 // The reason the emission lives in the document build: `parseFile` caches by fileId and would report a shared
 // file once, attributing it to whichever document happened to parse it first.
 describe('A broken file behind a $ref', () => {
@@ -191,6 +191,30 @@ describe('A broken file behind a $ref', () => {
     }
   })
 
+  // A configured file that will not be published is, to the version, a `$ref` target like any other: the
+  // documents that bundle it report its problems and name it in the text. Reporting them again under its own
+  // slug would point at a document `documents.json` does not contain.
+  test('should keep an unpublished $ref target out of the attributions', async () => {
+    const packageId = 'reference-bundling/shared-broken-reference'
+    const publish = (files: BuildConfigFile[]): Promise<BuildResult> =>
+      new LocalRegistry(packageId).publish(packageId, {
+        packageId,
+        version: 'v1',
+        status: VERSION_STATUS.DRAFT,
+        files,
+      })
+
+    const unpublished = await publish([{ fileId: 'first.yaml' }, { fileId: 'shared.yaml', publish: false }])
+    expect([...new Set(unpublished.notifications.map(({ documentId }) => documentId))]).toEqual(['first'])
+    expect(unpublished.notifications.every(({ message }) => message.includes('\'shared.yaml\' referenced'))).toBe(true)
+
+    // published, it is a document of the version and reports its own file as well — one form each
+    const published = await publish([{ fileId: 'first.yaml' }, { fileId: 'shared.yaml' }])
+    expect([...new Set(published.notifications.map(({ documentId }) => documentId))].sort()).toEqual(['first', 'shared'])
+    expect(published.notifications.filter(({ documentId }) => documentId === 'shared')
+      .every(({ message }) => !message.includes('referenced from'))).toBe(true)
+  }, 30000)
+
   // A parser that throws leaves a binary fallback carrying the reason. The bundler can only say that the
   // `$ref` did not resolve, and it says so at the severity broken references carry — a Warning for a
   // migration. Without the parse error beside it the document is not flagged and nothing names the defect.
@@ -208,7 +232,7 @@ describe('A broken file behind a $ref', () => {
     expect(parseFailure).toBeDefined()
     expect(parseFailure!.severity).toBe(MESSAGE_SEVERITY.Error)
     expect(parseFailure!.documentId).toBe('root')
-    expect(parseFailure!.message).toContain("'broken.yaml' referenced from this document")
+    expect(parseFailure!.message).toContain('\'broken.yaml\' referenced from this document')
     // the parser's own words: what to fix is in the file, not in the $ref
     expect(parseFailure!.message).toContain('Nested mappings are not allowed')
   })

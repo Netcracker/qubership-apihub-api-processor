@@ -15,7 +15,14 @@
  */
 
 import { afterEach, describe, expect, jest, test } from '@jest/globals'
-import { buildChangelogPackage, Editor, LocalRegistry, loadFileAsStringFromRegistry, VERSIONS_PATH } from './helpers'
+import {
+  buildChangelogPackage,
+  Editor,
+  loadFileAsStringFromRegistry,
+  LocalRegistry,
+  publishDashboardWithTwoRefs,
+  VERSIONS_PATH,
+} from './helpers'
 import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, VERSION_STATUS } from '../src/consts'
 import { BuildResult } from '../src/types'
 import { buildComparisonNotifications } from '../src/components/build-result-index'
@@ -195,19 +202,7 @@ describe('Comparison notifications belong to a version pair', () => {
   // The message has to be a Warning to be observable at all: an `Error` on a reference comparison aborts the
   // dashboard build (`ref-comparison-has-errors`), so a multi-pair `Error` never reaches an archive.
   test('should report the same unresolvable version from every pair that hits it', async () => {
-    const PCKG1 = 'dashboards/pckg1'
-    const PCKG2 = 'dashboards/pckg2'
-    for (const version of ['v1', 'v2']) {
-      await LocalRegistry.openPackage(PCKG1).publish(PCKG1, { version, packageId: PCKG1, files: [{ fileId: 'v1.yaml' }] })
-      await LocalRegistry.openPackage(PCKG2).publish(PCKG2, { version, packageId: PCKG2, files: [{ fileId: 'v2.yaml' }] })
-    }
-    const dashboard = LocalRegistry.openPackage('dashboards/dashboard')
-    for (const version of ['v1', 'v2']) {
-      await dashboard.publish(dashboard.packageId, {
-        packageId: dashboard.packageId, version, apiType: 'rest',
-        refs: [{ refId: PCKG1, version }, { refId: PCKG2, version }],
-      })
-    }
+    const dashboard = await publishDashboardWithTwoRefs('dashboards/pckg1', 'dashboards/pckg2')
 
     // the baseline side of every pair loses its documents at once
     const original = (LocalRegistry.prototype as unknown as { versionDocumentsResolver: unknown }).versionDocumentsResolver

@@ -88,5 +88,8 @@ export const buildBinaryDocument: (parsedFile: SourceFile, file: BuildConfigFile
   }
 }
 
-// A zero-byte entry plus the notification explaining why beats failing the whole package
+// A zero-byte entry plus the notification explaining why, rather than a throw: the only way to reach a
+// sourceless document is a file that could not be fetched at all, and throwing here would cost the version
+// every document that built. Dropping it with `publish: false` was rejected for the mirror reason — it
+// removes the document from the version, so nobody sees that the file failed.
 export const dumpUnknownDocument: DocumentDumper<unknown> = (document) => document.source ?? new Blob([])

@@ -1,5 +1,5 @@
 lockfile_version: '1'
-generated_at: '2026-08-21T04:47:55.948922+00:00'
+generated_at: '2026-08-24T08:49:13.354519+00:00'
 apm_version: 0.24.0
 dependencies:
 - repo_url: Netcracker/qubership-apihub-ddlapi
@@ -64,12 +64,12 @@ dependencies:
   - .cursor/rules/api-processor-build-result.mdc
   - .cursor/rules/api-processor-notifications.mdc
   deployed_file_hashes:
-    .agents/skills/api-processor-build-result/SKILL.md: sha256:b2b30ceaefebaee422b3dd76193b90f47b1ddfa376b233721ea791d0898ab6d2
-    .agents/skills/api-processor-notifications/SKILL.md: sha256:147ee3b7dbd7c3a1ab15fdddb0ee9aeb091edf7c904c8eed997e70075f5f3518
+    .agents/skills/api-processor-build-result/SKILL.md: sha256:05f1d4e9750827cb3a5ed1ec80bf7b83635278ac6b7e711168905bed5267b033
+    .agents/skills/api-processor-notifications/SKILL.md: sha256:b6b445754e590d655039940e12d35d8b17de488341475f41b52e9182f4f4fad8
     .claude/rules/api-processor-build-result.md: sha256:410d4dec409e7852dbdcdb5f0943ada6024ff6ad9842274c4638a0d1cc4d0f82
     .claude/rules/api-processor-notifications.md: sha256:35199f9b336b51000105038c211aedc8d2e16a48af0def4832a81c014c2ce822
-    .claude/skills/api-processor-build-result/SKILL.md: sha256:b2b30ceaefebaee422b3dd76193b90f47b1ddfa376b233721ea791d0898ab6d2
-    .claude/skills/api-processor-notifications/SKILL.md: sha256:147ee3b7dbd7c3a1ab15fdddb0ee9aeb091edf7c904c8eed997e70075f5f3518
+    .claude/skills/api-processor-build-result/SKILL.md: sha256:05f1d4e9750827cb3a5ed1ec80bf7b83635278ac6b7e711168905bed5267b033
+    .claude/skills/api-processor-notifications/SKILL.md: sha256:b6b445754e590d655039940e12d35d8b17de488341475f41b52e9182f4f4fad8
     .cursor/rules/api-processor-build-result.mdc: sha256:aeacc9e4138d27f59879aaf024f5132d5944778c4dbd14b96a710ac5836ffd8e
     .cursor/rules/api-processor-notifications.mdc: sha256:37e949eacb463eb8b5f4d7e7ceec810645b3be799c1f87544f6202a7006c88f4
   source: local

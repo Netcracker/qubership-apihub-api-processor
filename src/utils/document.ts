@@ -140,8 +140,8 @@ export const createCrossDocumentDuplicateHandler = <T extends { documentId: stri
 }
 
 /**
- * Put `value` into `map` under `key`; if an entry already existed, report the collision and keep the entry
- * whose `documentId` sorts first. Shared by operation, MCP- and DDL-entity indexing.
+ * Keep the entry whose `documentId` sorts first when two claim a key. Shared by operation, MCP- and
+ * DDL-entity indexing.
  *
  * The tie-break is what makes the published index reproducible: processing order is `config.files` order, so
  * without it the same set of files published in a different order publishes a different entity. Neither
@@ -217,7 +217,7 @@ export interface BundlingError {
   errorType: RefErrorType
 }
 
-// One category per reference problem: the four types come from the same site but are different diagnostics,
+// One category per reference problem: they come from the same site but are different diagnostics,
 // and a consumer filtering by category must be able to tell them apart
 const REF_ERROR_CATEGORY: Record<RefErrorType, MessageCategory> = {
   [RefErrorTypes.RICH_REF_NOT_ALLOWED]: MESSAGE_CATEGORY.RefHasSiblings,
@@ -227,12 +227,13 @@ const REF_ERROR_CATEGORY: Record<RefErrorType, MessageCategory> = {
 }
 
 /**
- * Severity by kind of reference problem, not one constant for all four.
+ * Severity by kind of reference problem, not one constant for all of them.
  *
  * A `$ref` with sibling keys, or one in a position the schema disallows, resolves anyway — the document is
  * complete, so those stay Warning whatever the caller asks for.
  *
- * The other two leave the document incomplete, and how much that costs depends on why the build is running.
+ * A missing or malformed target leaves the document incomplete, and how much that costs depends on why the
+ * build is running.
  * `validationRulesSeverity.brokenRefs` is how the host says which: `error` for an ordinary publication, so
  * the version cannot ship as a release; `warning` while migrating, so an already-published version that
  * carries a broken reference can still be rebuilt instead of becoming unrebuildable.

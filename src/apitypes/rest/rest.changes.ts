@@ -226,7 +226,8 @@ export const compareDocuments: DocumentsCompare = async (
   }
 }
 
-async function reclassifyBreakingChanges(
+
+export async function reclassifyBreakingChanges(
   previousOperationId: string | undefined,
   mergedJso: unknown,
   diffs: Diff[],

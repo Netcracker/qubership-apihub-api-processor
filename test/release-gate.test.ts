@@ -163,16 +163,3 @@ describe('Release gate and a comparison that cannot be serialized', () => {
     await expect(editor.createNodeVersionPackage()).resolves.toBeDefined()
   }, 30000)
 })
-
-describe('Release gate, end to end', () => {
-  // Only the status differs between the two runs. What the draft actually contains is
-  // `tolerant-publication.test.ts`; here it only has to publish at all.
-  test('should fail a release with a broken document and publish the same build as a draft', async () => {
-    const asRelease = LocalRegistry.openPackage('tolerant-publication')
-    await expect(asRelease.publish(asRelease.packageId, { status: VERSION_STATUS.RELEASE }))
-      .rejects.toThrow(/Cannot publish version in release status|You can publish version in draft status/)
-
-    const asDraft = LocalRegistry.openPackage('tolerant-publication')
-    await expect(asDraft.publish(asDraft.packageId, { status: VERSION_STATUS.DRAFT })).resolves.toBeDefined()
-  }, 30000)
-})

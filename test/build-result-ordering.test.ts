@@ -150,15 +150,35 @@ describe('Build result list ordering', () => {
 })
 
 describe('Build result builders: deterministic sort', () => {
-  // The one list that ships unsorted: the consumer stores these rows and serves them filtered and paged,
-  // and nothing diffs the file between builds, so raising order is what the reader gets.
-  it('should keep notifications in the order they were raised', () => {
+  // any two distinct categories: these tests are about the order of a list, never about what raises what.
+  // The diagnostics themselves are catalogued in `notification-catalogue.test.ts`.
+  const ANY_CATEGORY = MESSAGE_CATEGORY.ParseFile
+  const OTHER_CATEGORY = MESSAGE_CATEGORY.BuildDocument
+
+  // before: zzz(warning), aaa(warning), mmm(error) → after: mmm, aaa, zzz
+  it('should sort notifications by (severity, message)', () => {
     const input: NotificationMessage[] = [
-      { category: MESSAGE_CATEGORY.ParseFile, severity: MESSAGE_SEVERITY.Warning, message: 'zzz' },
-      { category: MESSAGE_CATEGORY.ParseFile, severity: MESSAGE_SEVERITY.Error, message: 'mmm' },
-      { category: MESSAGE_CATEGORY.BuildDocument, severity: MESSAGE_SEVERITY.Warning, message: 'aaa', documentId: 'a' },
+      { category: ANY_CATEGORY, severity: MESSAGE_SEVERITY.Warning, message: 'zzz' },
+      { category: ANY_CATEGORY, severity: MESSAGE_SEVERITY.Warning, message: 'aaa' },
+      { category: ANY_CATEGORY, severity: MESSAGE_SEVERITY.Error, message: 'mmm' }, // Error=0 < Warning=1 → sorts first
     ]
-    expect(buildNotifications(input).notifications).toEqual(input)
+    expect(buildNotifications(input).notifications.map(n => n.message)).toEqual(['mmm', 'aaa', 'zzz'])
+  })
+
+  // The key spans every field of NotificationMessage, so equal keys mean byte-identical rows.
+  // before: parse/-, build/z, build/a → after: build/a, build/z, parse/-
+  it('should fall through to category and documentId when severity and message match', () => {
+    const input: NotificationMessage[] = [
+      { category: ANY_CATEGORY, severity: MESSAGE_SEVERITY.Warning, message: 'same' },
+      { category: OTHER_CATEGORY, severity: MESSAGE_SEVERITY.Warning, message: 'same', documentId: 'z' },
+      { category: OTHER_CATEGORY, severity: MESSAGE_SEVERITY.Warning, message: 'same', documentId: 'a' },
+    ]
+    expect(buildNotifications(input).notifications.map(n => [n.category, n.documentId ?? null]))
+      .toEqual([
+        [OTHER_CATEGORY, 'a'],
+        [OTHER_CATEGORY, 'z'],
+        [ANY_CATEGORY, null],
+      ])
   })
 
   // before: z, a → after: a, z
@@ -230,17 +250,17 @@ describe('Build result builders: deterministic sort', () => {
         previousVersion: 'v0',
         previousVersionRevision: 1,
         fromCache: false,
-        notifications: [{ category: MESSAGE_CATEGORY.ParseFile, severity: MESSAGE_SEVERITY.Error, message: 'x' }],
+        notifications: [{ category: ANY_CATEGORY, severity: MESSAGE_SEVERITY.Error, message: 'x' }],
       }) as unknown as VersionsComparison
 
     const out = buildComparisonNotifications([pair('v2', 1), pair('v1', 10), pair('v1', 2)])
     expect(out.comparisons.map(entry => `${entry.version}@${entry.revision}`)).toEqual(['v1@2', 'v1@10', 'v2@1'])
   })
 
-  // the pairs are ordered; the messages inside a pair are not, for the reason above
-  it('should keep the notifications inside a comparison entry in raising order', () => {
+  // and within an entry the messages carry the canonical notification order
+  it('should sort the notifications inside a comparison entry', () => {
     const message = (severity: number, text: string): unknown =>
-      ({ category: MESSAGE_CATEGORY.ParseFile, severity, message: text })
+      ({ category: ANY_CATEGORY, severity, message: text })
     const pair = {
       packageId: 'p',
       version: 'v1',
@@ -255,7 +275,7 @@ describe('Build result builders: deterministic sort', () => {
     } as unknown as VersionsComparison
 
     expect(buildComparisonNotifications([pair]).comparisons[0].notifications.map(({ message }) => message))
-      .toEqual(['zzz', 'aaa', 'mmm'])
+      .toEqual(['mmm', 'aaa', 'zzz'])
   })
 
   // Ids with separator-like chars order by code unit (`-` 0x2D < `.` 0x2E < `_` 0x5F). The encoded key

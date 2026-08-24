@@ -18,7 +18,7 @@ import { LocalRegistry } from './helpers/registry'
 import { BUILD_TYPE, VERSION_STATUS } from '../src/consts'
 import { Editor } from './helpers/editor'
 import { PackageVersionBuilder } from '../src/processor'
-import { prepareChangelogDashboard } from './helpers'
+import { prepareChangelogDashboard, publishDashboardWithTwoRefs } from './helpers'
 
 describe('Dashboard build', () => {
   test('dashboard should have changes', async () => {
@@ -428,24 +428,6 @@ paths:
     const PCKG1 = 'dashboards/pckg1'
     const PCKG2 = 'dashboards/pckg2'
 
-    const publishDashboardPair = async (): Promise<LocalRegistry> => {
-      for (const version of ['v1', 'v2']) {
-        await LocalRegistry.openPackage(PCKG1).publish(PCKG1, { version, packageId: PCKG1, files: [{ fileId: 'v1.yaml' }] })
-        await LocalRegistry.openPackage(PCKG2).publish(PCKG2, { version, packageId: PCKG2, files: [{ fileId: 'v2.yaml' }] })
-      }
-
-      const dashboard = LocalRegistry.openPackage('dashboards/dashboard')
-      for (const version of ['v1', 'v2']) {
-        await dashboard.publish(dashboard.packageId, {
-          packageId: dashboard.packageId,
-          version,
-          apiType: 'rest',
-          refs: [{ refId: PCKG1, version }, { refId: PCKG2, version }],
-        })
-      }
-      return dashboard
-    }
-
     const changelogEditor = (
       dashboard: LocalRegistry,
       status: string,
@@ -461,10 +443,20 @@ paths:
         ...buildType === BUILD_TYPE.BUILD ? { refs: [{ refId: PCKG1, version: 'v2' }, { refId: PCKG2, version: 'v2' }] } : {},
       } as never)
 
+    // one reference stops resolving, so its freshly calculated comparison carries an Error
+    const failOneReference = (): void => {
+      const original = (LocalRegistry.prototype as unknown as { versionResolver: unknown }).versionResolver
+      jest.spyOn(LocalRegistry.prototype, 'versionResolver')
+        .mockImplementation(async function (this: LocalRegistry, packageId: string, version: string) {
+          if (packageId === PCKG2) { return null }
+          return (original as (p: string, v: string) => Promise<unknown>).call(this, packageId, version)
+        } as never)
+    }
+
     afterEach(() => { jest.restoreAllMocks() })
 
-    test('fails the build when the flag comes from the cache', async () => {
-      const dashboard = await publishDashboardPair()
+    test('should fail the build when the flag comes from the cache', async () => {
+      const dashboard = await publishDashboardWithTwoRefs(PCKG1, PCKG2)
 
       // the host returns a stored summary that is already known to be wrong
       jest.spyOn(LocalRegistry.prototype, 'versionComparisonResolver').mockResolvedValue({
@@ -482,30 +474,17 @@ paths:
         .rejects.toThrow(/Cannot build a dashboard changelog/)
     }, 60000)
 
-    test('fails a draft build too when the comparison is calculated here', async () => {
-      const dashboard = await publishDashboardPair()
-
-      // one reference cannot be resolved, so its freshly calculated comparison carries an Error
-      const original = (LocalRegistry.prototype as unknown as { versionResolver: unknown }).versionResolver
-      jest.spyOn(LocalRegistry.prototype, 'versionResolver')
-        .mockImplementation(async function (this: LocalRegistry, packageId: string, version: string) {
-          if (packageId === PCKG2) { return null }
-          return (original as (p: string, v: string) => Promise<unknown>).call(this, packageId, version)
-        } as never)
+    test('should fail a draft build too when the comparison is calculated here', async () => {
+      const dashboard = await publishDashboardWithTwoRefs(PCKG1, PCKG2)
+      failOneReference()
 
       await expect(changelogEditor(dashboard, VERSION_STATUS.DRAFT).run())
         .rejects.toThrow(/Cannot build a dashboard changelog/)
     }, 60000)
 
-    test('fails a build that carries previousVersion, not only a changelog', async () => {
-      const dashboard = await publishDashboardPair()
-
-      const original = (LocalRegistry.prototype as unknown as { versionResolver: unknown }).versionResolver
-      jest.spyOn(LocalRegistry.prototype, 'versionResolver')
-        .mockImplementation(async function (this: LocalRegistry, packageId: string, version: string) {
-          if (packageId === PCKG2) { return null }
-          return (original as (p: string, v: string) => Promise<unknown>).call(this, packageId, version)
-        } as never)
+    test('should fail a build that carries previousVersion, not only a changelog', async () => {
+      const dashboard = await publishDashboardWithTwoRefs(PCKG1, PCKG2)
+      failOneReference()
 
       await expect(changelogEditor(dashboard, VERSION_STATUS.DRAFT, BUILD_TYPE.BUILD).run())
         .rejects.toThrow(/Cannot build a dashboard changelog/)

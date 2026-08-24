@@ -57,8 +57,6 @@ There are two notification streams, and they belong to different things:
   `comparison-notifications.json` grouped by version pair. A comparison the host
   served from its cache was not calculated here, so it ships **no row at all** —
   an empty row would wipe the messages stored by the build that did calculate it.
-- Neither stream is sorted: messages arrive in the order the build raised them.
-  Only the version pairs of `comparison-notifications.json` are ordered.
 
 Three separate `hasErrors` flags, each derived from one of those streams:
 
@@ -85,7 +83,8 @@ The handful of problems that abort any build regardless of status are the ones w
 nothing to publish or nothing to trace afterwards: an invalid build config (a
 changelog with no `previousVersion` included), a packaging failure, a missing host
 resolver, an api-processor version mismatch between the two versions being compared,
-and an internal inconsistency in the comparison itself. A dashboard changelog also
+an internal inconsistency in the comparison itself, and a DDL comparison with no
+compare hook registered. A dashboard changelog also
 aborts when one of its references compared with errors, because the aggregate has no
 correct part.
 

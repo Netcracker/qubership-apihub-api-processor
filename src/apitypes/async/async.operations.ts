@@ -111,8 +111,12 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
     }
   }
 
-  // Intra-document: two operations of this document computing the same operationId. Reported against this
-  // document and nothing else — the operations already built stay in the version, as they do for REST.
+  // AsyncAPI cannot declare the same operation twice — `operations` is a map, so its keys are unique by
+  // construction. The collision is ours: `calculateAsyncOperationId` derives the id from the operation key
+  // and the message id, and distinct names can derive the same one.
+  //
+  // Reported against this document and nothing else; the operations already built stay in the version, as
+  // they do for REST, whose intra-document check has the same shape and the same cause.
   const duplicates = findDuplicates(operationIdMap)
   if (isNotEmpty(duplicates)) {
     notifications.push({

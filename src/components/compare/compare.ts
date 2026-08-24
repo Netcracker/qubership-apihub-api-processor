@@ -52,7 +52,7 @@ export async function compareVersions(
 }
 
 /**
- * Fatal, and the only fatal this story adds. A dashboard's changelog is the **aggregate** of its references'
+ * Fatal. A dashboard's changelog is the **aggregate** of its references'
  * changelogs, so a reference known to be wrong makes every number in the aggregate wrong with nothing to say
  * which. That is the "is anything publishable left?" test reaching the opposite answer than usual: for a
  * version a bad document leaves the others useful; an aggregate has no unaffected part.

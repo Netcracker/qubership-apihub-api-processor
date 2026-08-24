@@ -748,7 +748,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
         const result = await publishDuplicateCrossDocument(VERSION_STATUS.DRAFT)
 
         const duplicates = result.notifications.filter(({ message }) =>
-          message.includes("Duplicated operationId 'operation1-message1'"))
+          message.includes('Duplicated operationId \'operation1-message1\''))
         expect(duplicates).toHaveLength(2)
         expect(duplicates.map(({ documentId }) => documentId).sort()).toEqual(['spec1', 'spec2'])
         expect(duplicates.every(({ severity }) => severity === MESSAGE_SEVERITY.Error)).toBe(true)
@@ -782,7 +782,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
           severity: MESSAGE_SEVERITY.Error,
           documentId: 'spec',
         })
-        expect(result.notifications[0].message).toContain("operationId 'user-created-message1'")
+        expect(result.notifications[0].message).toContain('operationId \'user-created-message1\'')
         expect([...result.operations.keys()]).toEqual(['user-created-message1'])
       })
     })

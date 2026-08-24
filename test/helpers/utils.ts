@@ -231,6 +231,35 @@ export async function buildPackage(
   })
 }
 
+/**
+ * Publish two packages at `v1` and `v2`, and a dashboard at both versions referencing both of them.
+ *
+ * Distinct from `prepareChangelogDashboard`, which gives each dashboard version a single reference: here every
+ * version of the dashboard carries both, so a comparison of `v1` against `v2` produces a pair per reference.
+ * That is what a test needs to fail one reference and watch what the aggregate does.
+ */
+export async function publishDashboardWithTwoRefs(
+  packageId1: string,
+  packageId2: string,
+  dashboardPackageId: string = 'dashboards/dashboard',
+): Promise<LocalRegistry> {
+  for (const version of [BEFORE_VERSION_ID, AFTER_VERSION_ID]) {
+    await LocalRegistry.openPackage(packageId1).publish(packageId1, { version, packageId: packageId1, files: [{ fileId: 'v1.yaml' }] })
+    await LocalRegistry.openPackage(packageId2).publish(packageId2, { version, packageId: packageId2, files: [{ fileId: 'v2.yaml' }] })
+  }
+
+  const dashboard = LocalRegistry.openPackage(dashboardPackageId)
+  for (const version of [BEFORE_VERSION_ID, AFTER_VERSION_ID]) {
+    await dashboard.publish(dashboard.packageId, {
+      packageId: dashboard.packageId,
+      version,
+      apiType: 'rest',
+      refs: [{ refId: packageId1, version }, { refId: packageId2, version }],
+    })
+  }
+  return dashboard
+}
+
 export async function buildChangelogDashboard(
   packageId1: string,
   packageId2: string,
