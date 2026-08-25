@@ -383,12 +383,20 @@ const CASES: Case[] = [
  *   deprecated-component-path    calculation-diagnostics.test.ts — a `components`-rooted declaration path comes
  *                                from a `$ref` pointer, so its segments are always strings
  *
- * And three the enum declares that no published archive can carry, each of them a decision someone owes
- * rather than a test:
+ * One belongs to a build type this table does not run:
  *
- *   operation-data-missing       the path that raised it left with the move to rawDocumentResolver
- *   group-documents-missing      raised by transform build types, which return before notifications are written
- *   partial-group-documents      the same, and only alongside `group-documents-missing`
+ *   group-documents-missing      document-group.test.ts — a group build, whose archive carries it like any
+ *                                other; only the export build types return before `notifications.json`
+ *
+ * And two no build reaches at all:
+ *
+ *   operation-data-missing       `versionOperationsResolver` raises it only for `includeData`, and both call
+ *                                sites in `compare.operations.ts` pass `false`. The wrapper's own default is
+ *                                `true`, so a call site that omits the flag would start raising it.
+ *   partial-group-documents      raised inside the branch that already found no documents, where
+ *                                `[].every(...)` holds — so the partial case it names cannot reach it. It
+ *                                fires only when the resolver answers `null`, and then it says the wrong
+ *                                thing. Predates this change; the fix is to lift it out of that branch.
  */
 
 const publish = async (testCase: Case, status: string): Promise<BuildResult> => {

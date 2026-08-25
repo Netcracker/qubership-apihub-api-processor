@@ -122,7 +122,7 @@ describe('Release gate and migration builds', () => {
 describe('Release gate and a comparison that cannot be serialized', () => {
   afterEach(() => { jest.restoreAllMocks() })
 
-  const buildAgainstPrevious = async (status: string): Promise<Editor> => {
+  const buildAgainstPrevious = async (status: string, buildType: string = BUILD_TYPE.BUILD): Promise<Editor> => {
     const packageId = 'declarative-changes-in-rest-operation/case1'
     const registry = new LocalRegistry(packageId)
     await registry.publish(packageId, { packageId, version: 'v1', files: [{ fileId: 'before.yaml' }] })
@@ -132,7 +132,7 @@ describe('Release gate and a comparison that cannot be serialized', () => {
       version: 'v2',
       previousVersion: 'v1',
       status,
-      buildType: BUILD_TYPE.BUILD,
+      buildType,
       files: [{ fileId: 'after.yaml' }],
     } as never, {}, registry)
     await editor.run()
@@ -158,6 +158,16 @@ describe('Release gate and a comparison that cannot be serialized', () => {
 
   test('should let the same draft publish, flagged on the comparison', async () => {
     const editor = await buildAgainstPrevious(VERSION_STATUS.DRAFT)
+    failSerialization()
+
+    await expect(editor.createNodeVersionPackage()).resolves.toBeDefined()
+  }, 30000)
+
+  // A standalone changelog recalculates the changes of a version that is already published, so its `status`
+  // describes that version rather than a publication being attempted. Gating it would make an unreliable
+  // changelog unrecalculable — the gate belongs to the `build` type, and the packager checks `buildType`.
+  test('should not gate a standalone changelog, whatever the status of the version it describes', async () => {
+    const editor = await buildAgainstPrevious(VERSION_STATUS.RELEASE, BUILD_TYPE.CHANGELOG)
     failSerialization()
 
     await expect(editor.createNodeVersionPackage()).resolves.toBeDefined()

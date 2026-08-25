@@ -127,13 +127,22 @@ export type DuplicateOperationHandler = DuplicateHandler<ApiOperation>
 export const createCrossDocumentDuplicateHandler = <T extends { documentId: string }>(
   notifications: NotificationMessage[],
   category: MessageCategory,
-  // a function, because the operation handler serves every api type and they do not share a severity
-  severityOf: (duplicate: T) => MessageSeverity,
+  // a function, because the operation handler serves every api type and they do not share a severity; it is
+  // asked about both sides of the collision
+  severityOf: (entry: T) => MessageSeverity,
   describe: (existing: T, duplicate: T) => string,
 ): DuplicateHandler<T> => (existing, duplicate) => {
   if (existing.documentId === duplicate.documentId) { return }
   const message = describe(existing, duplicate)
-  const severity = severityOf(duplicate)
+  // The severity belongs to the collision, not to whichever document happened to arrive second: two api types
+  // can produce the same operation id, and `config.files` order must not decide whether a release publishes.
+  //
+  // Where the two sides disagree, the milder one wins (`Error` is 0, `Warning` is 1, so `Math.max`). Severity
+  // here is staged, not final: `duplicate-operation-id` ships as `Warning` until the published population is
+  // clean, and only AsyncAPI keeps `Error` because its collisions used to abort the build outright. A mixed
+  // pair has a published population in one processing order, so raising it to `Error` would block exactly the
+  // releases — and the migration rebuilds — that the staging exists to protect.
+  const severity = Math.max(severityOf(existing), severityOf(duplicate)) as MessageSeverity
   for (const documentId of [existing.documentId, duplicate.documentId]) {
     notifications.push({ category, severity, message, documentId })
   }

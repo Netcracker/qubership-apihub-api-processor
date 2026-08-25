@@ -22,6 +22,8 @@ import {
   BuildResult,
   FILE_FORMAT_GRAPHQL,
   GRAPHQL_API_TYPE,
+  MESSAGE_CATEGORY,
+  MESSAGE_SEVERITY,
   PACKAGE,
   PackageNotifications,
   REST_API_TYPE,
@@ -515,4 +517,27 @@ describe('Document Group test', () => {
     })
     return { pkg, result }
   }
+})
+
+// A group build resolves the documents that carry the group's operations. A group that matches none of them is
+// not a failure: there is nothing to transform, and the build says so instead of returning an empty archive
+// silently. `notifications.json` is written for this build type — only the export types return before it.
+describe('A group that matches no operation', () => {
+  const SPEC = `
+  openapi: "3.0.0"
+  info: { title: test, version: 0.1.0 }
+  paths:
+    /path1: { get: { responses: { '200': { description: OK } } } }
+  `
+
+  test('should report the empty group and still finish the build', async () => {
+    const result = await runReducedFromContent('group-without-operations', SPEC, [])
+
+    expect(result.documents.size).toBe(0)
+    expect(result.notifications).toEqual([{
+      category: MESSAGE_CATEGORY.GroupDocumentsMissing,
+      severity: MESSAGE_SEVERITY.Warning,
+      message: expect.stringContaining(GROUP_NAME),
+    }])
+  })
 })
