@@ -16,7 +16,7 @@
 
 import { afterEach, describe, expect, jest, test } from '@jest/globals'
 import JSZip from 'jszip'
-import { Editor, loadFileAsStringFromRegistry, LocalRegistry, VERSIONS_PATH } from './helpers'
+import { Editor, loadFileAsStringFromRegistry, LocalRegistry, VERSIONS_PATH, notificationMatcher, notificationsMatcher } from './helpers'
 import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, PACKAGE, VERSION_STATUS } from '../src/consts'
 import { restApiBuilder, unknownApiBuilder } from '../src/apitypes'
 
@@ -67,6 +67,7 @@ describe('Tolerant publication end to end', () => {
 describe('Catch points report instead of aborting', () => {
   afterEach(() => { jest.restoreAllMocks() })
 
+  // one healthy file and one the resolver has nothing for
   test('should report a file the resolver cannot produce and keep building the rest', async () => {
     const pkg = LocalRegistry.openPackage('tolerant-publication')
     const result = await pkg.publish(pkg.packageId, {
@@ -74,11 +75,12 @@ describe('Catch points report instead of aborting', () => {
       files: [{ fileId: 'rest.json' }, { fileId: 'no-such-file.yaml' }],
     })
 
-    const failure = result.notifications.find(({ category }) => category === MESSAGE_CATEGORY.FileNotParsed)
-    expect(failure).toBeDefined()
-    expect(failure!.severity).toBe(MESSAGE_SEVERITY.Error)
-    expect(failure!.documentId).toBeDefined()
-
+    expect(result).toEqual(notificationsMatcher([
+      notificationMatcher(MESSAGE_SEVERITY.Error, 'File was not parsed', {
+        category: MESSAGE_CATEGORY.FileNotParsed,
+        documentId: 'no-such-file',
+      }),
+    ]))
     // the healthy document still built
     expect(result.operations.size).toBeGreaterThan(0)
   }, 30000)
@@ -123,6 +125,7 @@ describe('Catch points report instead of aborting', () => {
     expect(result.notifications.every(({ documentId }) => documentId === 'shared')).toBe(true)
   }, 30000)
 
+  // the api type's operation builder throws for the healthy REST document
   test('should report a document whose operations fail to build and keep the version', async () => {
     jest.spyOn(restApiBuilder, 'buildOperations').mockImplementation(() => {
       throw new Error('operations exploded')
@@ -132,26 +135,30 @@ describe('Catch points report instead of aborting', () => {
     const result = await pkg.publish(pkg.packageId, { status: VERSION_STATUS.DRAFT })
 
     const failure = result.notifications.find(({ category }) => category === MESSAGE_CATEGORY.BuildOperations)
-    expect(failure).toBeDefined()
-    expect(failure!.severity).toBe(MESSAGE_SEVERITY.Error)
-    expect(failure!.message).toContain('operations exploded')
-    // attributed to the document that failed, and the build still produced its documents
-    expect(failure!.documentId).toBeDefined()
+    expect(failure).toMatchObject({
+      severity: MESSAGE_SEVERITY.Error,
+      message: expect.stringContaining('operations exploded'),
+      documentId: 'rest',
+    })
+    // the throw cost the document its operations, not the version its documents
     expect(result.documents.size).toBeGreaterThan(0)
   }, 30000)
 })
 
 // The flags say what is marked; they are derived from the notification lists, one stream each.
 describe('hasErrors flags', () => {
+  // one healthy REST document beside a broken AsyncAPI one
   test('should flag the version and the broken document, but not the healthy one', async () => {
-    const pkg = LocalRegistry.openPackage('tolerant-publication')
-    await pkg.publish(pkg.packageId, { status: VERSION_STATUS.DRAFT })
+    // its own package id: this project is published by several suites, and the version directory is shared
+    const packageId = 'tolerant-publication/flags'
+    await LocalRegistry.openPackage('tolerant-publication')
+      .publish('tolerant-publication', { packageId, status: VERSION_STATUS.DRAFT })
 
-    const info = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, 'tolerant-publication/v1', 'info.json'))!)
+    const info = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'info.json'))!)
     expect(info.hasErrors).toBe(true)
 
     const documents = JSON.parse(
-      (await loadFileAsStringFromRegistry(VERSIONS_PATH, 'tolerant-publication/v1', 'documents.json'))!,
+      (await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'documents.json'))!,
     ).documents as Array<{ fileId: string; hasErrors?: boolean }>
 
     expect(documents.find(({ fileId }) => fileId === 'broken-async.yaml')?.hasErrors).toBe(true)

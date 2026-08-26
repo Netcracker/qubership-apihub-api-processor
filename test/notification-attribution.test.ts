@@ -190,10 +190,10 @@ describe('Comparison notifications belong to a version pair', () => {
       status: VERSION_STATUS.DRAFT,
     } as never, {}, registry).run()
 
-    for (const { notifications } of result.comparisons) {
-      const perPair = notifications.filter(({ category }) => category === MESSAGE_CATEGORY.VersionNotResolved)
-      expect(perPair.length).toBeLessThanOrEqual(1)
-    }
+    // one pair, and it reports the unresolvable baseline exactly once — not once per comparison kind
+    expect(result.comparisons.map(({ notifications }) =>
+      notifications.filter(({ category }) => category === MESSAGE_CATEGORY.VersionNotResolved).length))
+      .toEqual([1])
   }, 60000)
 
   // One version reached by several pairs is reported by each of them. This works because the resolvers cache
@@ -306,15 +306,17 @@ describe('comparison-notifications.json', () => {
   // A baseline that does not resolve skips the changelog, so the failure has no comparison to travel on. It
   // still has a pair — the one the config asked for — and without the row it reaches no file at all.
   test('should row a message under the declared pair when the comparison never ran', async () => {
-    const pkg = LocalRegistry.openPackage('tolerant-publication')
-    const result = await pkg.publish(pkg.packageId, {
+    // its own package id: this project is published by several suites, and the version directory is shared
+    const packageId = 'tolerant-publication/declared-pair'
+    const result = await LocalRegistry.openPackage('tolerant-publication').publish('tolerant-publication', {
+      packageId,
       status: VERSION_STATUS.DRAFT,
       previousVersion: 'no-such-version',
     } as never)
     expect(result.comparisons).toEqual([])
 
     const file = JSON.parse(
-      (await loadFileAsStringFromRegistry(VERSIONS_PATH, `${pkg.packageId}/v1`, 'comparison-notifications.json'))!,
+      (await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'comparison-notifications.json'))!,
     ) as { comparisons: Array<{ previousVersion: string; notifications: Array<{ category: string }> }> }
 
     expect(file.comparisons).toHaveLength(1)
@@ -324,21 +326,20 @@ describe('comparison-notifications.json', () => {
 
     // the version's own file stays clear of it: a baseline is the comparison's problem, not the version's
     const notifications = JSON.parse(
-      (await loadFileAsStringFromRegistry(VERSIONS_PATH, `${pkg.packageId}/v1`, 'notifications.json'))!,
+      (await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'notifications.json'))!,
     ).notifications as Array<{ category: string }>
     expect(notifications.map(({ category }) => category)).not.toContain(MESSAGE_CATEGORY.VersionNotResolved)
   }, 30000)
 })
 
 
-// AsyncAPI operation ids are `<operation>-<message>` and REST ones are `<path>-<method>`, so two api types
-// can land on the same id. They do not share a severity — AsyncAPI kept `Error`, REST is deferred to
-// `Warning` — and only one of the two documents can be the second to arrive.
 // The two files are not both written every time: a build with no baseline has no comparison to report on, and
 // a consumer that replaces a version's rows from the archive must not be handed an empty list to replace them
 // with. Which file exists is part of the contract, not an implementation detail.
 describe('Which notification files a build writes', () => {
-  const PACKAGE_ID = 'reference-bundling/case1'
+  const PROJECT = 'reference-bundling/case1'
+  // its own package id: another suite reads this project's version directory back
+  const PACKAGE_ID = 'reference-bundling/case1/file-shapes'
 
   const entriesOf = async (editor: Editor): Promise<string[]> => {
     const zip = await JSZip.loadAsync(await editor.createVersionPackage())
@@ -346,7 +347,7 @@ describe('Which notification files a build writes', () => {
   }
 
   const build = (registry: LocalRegistry, config: Record<string, unknown>): Editor =>
-    new Editor(PACKAGE_ID, {
+    new Editor(PROJECT, {
       packageId: PACKAGE_ID,
       status: VERSION_STATUS.DRAFT,
       buildType: BUILD_TYPE.BUILD,
@@ -355,13 +356,13 @@ describe('Which notification files a build writes', () => {
     } as BuildConfig, {}, registry)
 
   const publishBaseline = async (registry: LocalRegistry): Promise<void> => {
-    await registry.publish(PACKAGE_ID, {
+    await registry.publish(PROJECT, {
       packageId: PACKAGE_ID, version: 'v1', files: [{ fileId: 'openapi.yaml' }],
     } as BuildConfig)
   }
 
   test('should write no comparison file for a build with no baseline', async () => {
-    const editor = build(LocalRegistry.openPackage(PACKAGE_ID), { version: 'v1' })
+    const editor = build(LocalRegistry.openPackage(PROJECT), { version: 'v1' })
     await editor.run()
 
     const entries = await entriesOf(editor)
@@ -370,7 +371,7 @@ describe('Which notification files a build writes', () => {
   }, 60000)
 
   test('should write both files for a build that declares a previous version', async () => {
-    const registry = LocalRegistry.openPackage(PACKAGE_ID)
+    const registry = LocalRegistry.openPackage(PROJECT)
     await publishBaseline(registry)
 
     const editor = build(registry, { version: 'v2', previousVersion: 'v1' })
@@ -382,7 +383,7 @@ describe('Which notification files a build writes', () => {
   }, 60000)
 
   test('should write the comparison file for a standalone changelog', async () => {
-    const registry = LocalRegistry.openPackage(PACKAGE_ID)
+    const registry = LocalRegistry.openPackage(PROJECT)
     await publishBaseline(registry)
 
     const editor = build(registry, { version: 'v2', previousVersion: 'v1', buildType: BUILD_TYPE.CHANGELOG })
@@ -392,6 +393,9 @@ describe('Which notification files a build writes', () => {
   }, 60000)
 })
 
+// AsyncAPI operation ids are `<operation>-<message>` and REST ones are `<path>-<method>`, so two api types
+// can land on the same id. They do not share a severity — AsyncAPI kept `Error`, REST is deferred to
+// `Warning` — and only one of the two documents can be the second to arrive.
 describe('A duplicate id shared by two api types', () => {
   const REST = `openapi: 3.0.1
 info: { title: t, version: 1.0.0 }
@@ -458,40 +462,5 @@ operations:
       .filter(({ category }) => category === MESSAGE_CATEGORY.DuplicateOperationId)
       .map(({ severity }) => severity)).toEqual([MESSAGE_SEVERITY.Error, MESSAGE_SEVERITY.Error])
   }, 60000)
-})
-
-describe('Identifier ownership', () => {
-  test('should not list on the losing document the id the winner owns', async () => {
-    const pkg = LocalRegistry.openPackage('operationId-collisions/same-path-different-documents')
-    const result = await pkg.publish(pkg.packageId, {
-      packageId: pkg.packageId,
-      version: 'v1',
-      files: [{ fileId: 'spec1.json' }, { fileId: 'spec2.json' }],
-    })
-
-    const winner = result.operations.get('res-data-post')
-    expect(winner?.documentId).toBe('spec1')
-
-    const documents = [...result.documents.values()]
-    const owner = documents.find(({ slug }) => slug === 'spec1')
-    const loser = documents.find(({ slug }) => slug === 'spec2')
-    expect(owner?.operationIds).toContain('res-data-post')
-    expect(loser?.operationIds).not.toContain('res-data-post')
-  })
-
-  test('should attribute every announced id back to the announcing document', async () => {
-    const pkg = LocalRegistry.openPackage('operationId-collisions/same-path-different-documents')
-    const result = await pkg.publish(pkg.packageId, {
-      packageId: pkg.packageId,
-      version: 'v1',
-      files: [{ fileId: 'spec1.json' }, { fileId: 'spec2.json' }],
-    })
-
-    for (const document of result.documents.values()) {
-      for (const operationId of document.operationIds ?? []) {
-        expect(result.operations.get(operationId)?.documentId).toBe(document.slug)
-      }
-    }
-  })
 })
 

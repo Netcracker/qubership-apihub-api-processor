@@ -380,8 +380,44 @@ describe('Duplicate resolution', () => {
     expect(map.get('id')?.title).toBe('after')
   })
 })
+
 // A document announces only what it owns in the published index: without this `documents.json` and
 // `operations.json` contradict each other after a duplicate.
+describe('Identifier ownership', () => {
+  test('should not list on the losing document the id the winner owns', async () => {
+    const pkg = LocalRegistry.openPackage('operationId-collisions/same-path-different-documents')
+    const result = await pkg.publish(pkg.packageId, {
+      packageId: pkg.packageId,
+      version: 'v1',
+      files: [{ fileId: 'spec1.json' }, { fileId: 'spec2.json' }],
+    })
+
+    const winner = result.operations.get('res-data-post')
+    expect(winner?.documentId).toBe('spec1')
+
+    const documents = [...result.documents.values()]
+    const owner = documents.find(({ slug }) => slug === 'spec1')
+    const loser = documents.find(({ slug }) => slug === 'spec2')
+    expect(owner?.operationIds).toContain('res-data-post')
+    expect(loser?.operationIds).not.toContain('res-data-post')
+  })
+
+  test('should attribute every announced id back to the announcing document', async () => {
+    const pkg = LocalRegistry.openPackage('operationId-collisions/same-path-different-documents')
+    const result = await pkg.publish(pkg.packageId, {
+      packageId: pkg.packageId,
+      version: 'v1',
+      files: [{ fileId: 'spec1.json' }, { fileId: 'spec2.json' }],
+    })
+
+    for (const document of result.documents.values()) {
+      for (const operationId of document.operationIds ?? []) {
+        expect(result.operations.get(operationId)?.documentId).toBe(document.slug)
+      }
+    }
+  })
+})
+
 // The two duplicate cases are separate diagnostics: a collision inside one document is
 // `rest-duplicate-operation`, reported once, and the cross-document handler must stay out of it — otherwise
 // the text names the same document twice.
@@ -403,9 +439,11 @@ describe('Duplicate resolution tells the two cases apart', () => {
     expect(result.notifications.every(({ message }) => !/'([^']+)' and '\1'/.test(message))).toBe(true)
   }, 30000)
 })
+
 // An incremental rebuild re-processes one document, not the set. The loser of a duplicate must not take the
 // id back by being rebuilt on its own — the winner is still the smaller slug, and nothing rebuilt it.
 describe('Identifier ownership survives an incremental rebuild', () => {
+  // two documents claiming one operationId, then `update()` re-processing only the loser
   test('should leave the winner in place when the losing document is rebuilt alone', async () => {
     const packageId = 'operationId-collisions/same-path-different-documents'
     const files = [{ fileId: 'spec1.json' }, { fileId: 'spec2.json' }]

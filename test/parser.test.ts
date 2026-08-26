@@ -66,6 +66,34 @@ describe('Error documents survive packaging', () => {
   }, 30000)
 })
 
+// The other flavour of error document: nothing was ever fetched, so there are no bytes to carry. It is still
+// published — a document missing from the archive would leave the failure invisible to anyone browsing the
+// version — and the entry it ships is empty.
+describe('A document whose file could not be fetched', () => {
+  // a version of two files, one of which the resolver cannot produce
+  test('should publish an empty entry rather than skip the document or fail packaging', async () => {
+    const project = 'tolerant-publication'
+    // its own package id: the version directory is shared state, and other suites publish this project too
+    const packageId = 'tolerant-publication/unfetchable-file'
+    const result = await LocalRegistry.openPackage(project).publish(project, {
+      packageId,
+      version: 'v1',
+      status: VERSION_STATUS.DRAFT,
+      files: [{ fileId: 'rest.json' }, { fileId: 'no-such-file.yaml' }],
+    })
+
+    const document = result.documents.get('no-such-file.yaml')
+    expect(document).toBeDefined()
+    expect(document!.source).toBeUndefined()
+
+    const documents = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'documents.json'))!)
+    expect(documents.documents.map(({ fileId }: { fileId: string }) => fileId)).toContain('no-such-file.yaml')
+
+    const raw = await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1/documents`, document!.filename)
+    expect(raw).toBe('')
+  }, 30000)
+})
+
 describe('Basic project (one file): validation broken', () => {
   describe('JSON format', () => {
     test('JSON content in YAML-extension file', async () => {

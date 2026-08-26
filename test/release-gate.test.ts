@@ -93,14 +93,17 @@ describe('Release gate', () => {
 describe('The early checkpoint', () => {
   afterEach(() => { jest.restoreAllMocks() })
 
+  // a release whose documents already carry an Error, with a baseline it would otherwise compare against
   test('should refuse a release with a broken document before any comparison runs', async () => {
-    const packageId = 'tolerant-publication'
-    const registry = LocalRegistry.openPackage(packageId)
-    await registry.publish(packageId, { packageId, version: 'v1', status: VERSION_STATUS.DRAFT })
+    const project = 'tolerant-publication'
+    // its own package id: the version directory is shared state, and other suites publish this project too
+    const packageId = 'tolerant-publication/early-checkpoint'
+    const registry = LocalRegistry.openPackage(project)
+    await registry.publish(project, { packageId, version: 'v1', status: VERSION_STATUS.DRAFT })
 
     // the comparison phase is the only caller of this resolver, so an untouched spy means it never started
     const comparisonWork = jest.spyOn(registry, 'versionOperationsResolver')
-    const editor = new Editor(packageId, {
+    const editor = new Editor(project, {
       packageId,
       version: 'v2',
       previousVersion: 'v1',
@@ -121,13 +124,15 @@ describe('Release gate and migration builds', () => {
     migrationBuild: true,
   })
 
+  // the same broken version republished by a migration, once as a release and once as a draft
   test('should gate a migration release on the same terms as any other release', async () => {
-    const asRelease = LocalRegistry.openPackage('tolerant-publication')
-    await expect(asRelease.publish(asRelease.packageId, migrationConfig(VERSION_STATUS.RELEASE) as never))
+    // its own package id: another suite owns the `tolerant-publication` version directory
+    const packageId = 'tolerant-publication/migration'
+    const registry = LocalRegistry.openPackage('tolerant-publication')
+    await expect(registry.publish('tolerant-publication', { packageId, ...migrationConfig(VERSION_STATUS.RELEASE) } as never))
       .rejects.toThrow(/You can publish version in draft status/)
 
-    const asDraft = LocalRegistry.openPackage('tolerant-publication')
-    const result = await asDraft.publish(asDraft.packageId, migrationConfig(VERSION_STATUS.DRAFT) as never)
+    const result = await registry.publish('tolerant-publication', { packageId, ...migrationConfig(VERSION_STATUS.DRAFT) } as never)
     expect(result.notifications.some(({ severity }) => severity === MESSAGE_SEVERITY.Error)).toBe(true)
   }, 30000)
 

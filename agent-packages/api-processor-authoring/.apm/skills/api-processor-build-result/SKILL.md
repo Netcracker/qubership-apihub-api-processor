@@ -36,8 +36,8 @@ one with the **lexicographically smaller `documentId`**, decided by `setReportin
 same nondeterminism this skill exists to remove.
 
 Use strict `<`, not `<=`. Equal `documentId`s mean the same document is being reprocessed: `<` falls through
-to the write so the document refreshes its own entry, where `<=` would return early and keep the stale one. Route a new duplicate check through that helper rather than writing the comparison
-again.
+to the write so the document refreshes its own entry, where `<=` would return early and keep the stale one.
+Route a new duplicate check through that helper rather than writing the comparison again.
 
 Ownership is settled **after** the document loop, by `reconcileOwnedIds`, not when a document is processed: a
 document that owned an id at its turn can lose it to a later one. That pass strips the losing ids from

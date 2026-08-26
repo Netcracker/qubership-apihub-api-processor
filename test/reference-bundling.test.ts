@@ -1,4 +1,8 @@
-import { RefErrorTypes } from '@netcracker/qubership-apihub-api-unifier'
+import { loadYaml, RefErrorTypes } from '@netcracker/qubership-apihub-api-unifier'
+import { afterEach, jest } from '@jest/globals'
+import { restApiBuilder } from '../src/apitypes'
+import { REST_DOCUMENT_TYPE } from '../src/apitypes/rest/rest.consts'
+import { FILE_FORMAT_YAML, FILE_KIND } from '../src'
 import { LocalRegistry, notificationMatcher, notificationsMatcher } from './helpers'
 import {
   MESSAGE_CATEGORY,
@@ -136,6 +140,41 @@ describe('Reference severity comes from the error type and the caller', () => {
 
 // A `$ref` into `#/components` that names no component matches the component pattern with nothing left to
 // grep. Reading the name that is not there threw, and the throw cost the document every operation it had.
+// Severities travel to the consumer as the numbers `MESSAGE_SEVERITY` defines, and a value outside that set
+// makes it reject the whole archive. A parser is free to grade its own diagnostics, so what it reports is
+// taken only when the contract knows it.
+describe('A parser diagnostic graded outside the contract', () => {
+  afterEach(() => { jest.restoreAllMocks() })
+
+  // a single REST document whose parser reports one complaint graded `42`
+  test('should fall back to the api type instead of shipping the unknown value', async () => {
+    const packageId = 'broken'
+    const registry = LocalRegistry.openPackage(packageId)
+
+    jest.spyOn(restApiBuilder, 'parser').mockImplementation(async (fileId, source) => ({
+      fileId,
+      type: REST_DOCUMENT_TYPE.OAS3,
+      format: FILE_FORMAT_YAML,
+      kind: FILE_KIND.TEXT,
+      source,
+      data: loadYaml(await source.text()),
+      errors: [{ message: 'graded by a scale of its own', severity: 42 }],
+    } as never))
+
+    const result = await registry.publish(packageId, {
+      packageId,
+      version: 'v1',
+      status: VERSION_STATUS.DRAFT,
+      files: [{ fileId: 'openapi.yaml' }],
+    })
+
+    // the parser's own 42 is dropped and the REST fallback stands in
+    expect(result).toEqual(notificationsMatcher([
+      notificationMatcher(MESSAGE_SEVERITY.Warning, /scale of its own/),
+    ]))
+  }, 30000)
+})
+
 describe('A $ref that names no component', () => {
   const SPEC = `openapi: 3.0.1
 info: { title: t, version: 1.0.0 }
