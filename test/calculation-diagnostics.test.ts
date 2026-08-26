@@ -27,7 +27,7 @@ import { BuilderContext, CompareOperationsPairContext, NotificationMessage } fro
 describe('Calculation diagnostics carry their category, severity and document', () => {
   const DOCUMENT = 'petstore'
 
-  describe('deprecated items: the tolerant hash', () => {
+  describe('Deprecated items: the tolerant hash', () => {
     const cases: Array<[string, object, string]> = [
       ['no hash on the value', {}, MESSAGE_CATEGORY.TolerantHashMissing],
       // the lookup only runs for a value with ordinary keys, so the symbol alone would read as "missing"
@@ -82,7 +82,7 @@ describe('Calculation diagnostics carry their category, severity and document', 
     }])
   })
 
-  describe('changelog: the risky reclassification', () => {
+  describe('Changelog: the risky reclassification', () => {
     // the reclassification only looks at breaking removals of an operation whose previous version carried
     // deprecated items, so the context stands in for the resolver that would supply them
     const contextWith = (notifications: NotificationMessage[]): CompareOperationsPairContext => ({

@@ -20,11 +20,11 @@ import { NotificationMessage } from '../types/package/notifications'
 const DRAFT_HINT = 'You can publish version in draft status for troubleshooting'
 
 /**
- * Every comparison-phase message of the build, from wherever it was raised.
+ * Every comparison-phase message of the build, wherever it was raised.
  *
- * Most live on the pair that produced them; a pair's operation and DDL comparisons share one array, so the
- * arrays are collected by identity rather than concatenated. The build-level array holds only what was raised
- * before any pair context existed — resolving the previous version, enumerating references.
+ * Most live on the pair that produced them, and a pair's operation and DDL comparisons share one array, so
+ * the arrays are collected by identity rather than concatenated. The build-level array holds only what was
+ * raised before any pair existed: resolving the previous version, enumerating references.
  */
 export function comparisonPhaseNotifications(buildResult: {
   comparisonNotifications: NotificationMessage[]
@@ -43,8 +43,8 @@ export function comparisonPhaseNotifications(buildResult: {
  *
  * Both streams block. Build-phase errors mean the version's own documents are unsound; comparison-phase ones
  * mean the changelog is unreliable, and a release that declares a `previousVersion` is expected to ship
- * trustworthy changes. The streams still decide *what gets flagged* — a comparison error marks the comparison
- * and never the version — but that partition does not extend to this gate.
+ * trustworthy changes. Which stream a message came from still decides what gets flagged — a comparison error
+ * marks the comparison, never the version — but not whether the release publishes.
  */
 export function assertReleaseIsPublishable(
   status: string,
@@ -64,9 +64,11 @@ export function assertReleaseIsPublishable(
 }
 
 /**
- * The publisher must not have to republish as a draft to find out what is wrong, so a single failure reports
- * itself verbatim and several are summarised with the documents to open. Every branch ends on the same hint,
- * so the way forward is discoverable however many errors there are.
+ * The text of the refusal: a single failure reports itself verbatim, several are summarised with the
+ * documents to open.
+ *
+ * The publisher must not have to republish as a draft to find out what is wrong. Every branch ends on the
+ * same hint, so the way forward is discoverable however many errors there are.
  */
 function releaseFailureMessage(
   buildErrors: NotificationMessage[],
@@ -84,8 +86,7 @@ function releaseFailureMessage(
     .filter((documentId): documentId is string => !!documentId))].sort()
 
   const prefix = `Cannot publish version in release status: ${total} critical errors`
-  // the changelog alone is at fault, which is what the wording says — not the absence of slugs: a comparison
-  // error may name a document
+  // the branch is chosen by the absence of build errors, not of slugs: a comparison error may name a document
   if (!buildErrors.length) {
     return `${prefix} in the changelog. ${DRAFT_HINT}`
   }

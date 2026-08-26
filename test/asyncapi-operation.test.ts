@@ -761,9 +761,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
           .rejects.toThrow(/2 critical errors in following documents: spec1, spec2/)
       })
 
-      // Two operations of one document whose ids collide after slugify. Its own diagnostic, distinct from the
-      // cross-document one, and the operations the document did build stay in the version — as they do for
-      // REST, whose intra-document check this mirrors.
+      // Two operations of one document whose ids collide after slugify
       test('should report a collision within one document and keep what it built', async () => {
         const packageId = 'asyncapi-changes/operation/duplicate-within-document'
         const portal = new LocalRegistry(packageId)

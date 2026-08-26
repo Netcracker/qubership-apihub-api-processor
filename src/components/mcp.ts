@@ -95,9 +95,11 @@ export function groupMcpEntitiesByKind(entities: McpEntityIndex): PackageMcpFile
 }
 
 /**
- * Requires an init for every published endpoint. A version may publish documents for several endpoints
- * at once, and each endpoint's init is its mandatory descriptor; an endpoint that publishes any entity
- * without an init has an Error raised against every document of that endpoint.
+ * Require an init for every endpoint the version publishes.
+ *
+ * The init is the endpoint's mandatory descriptor, so entities published without one describe an incomplete
+ * MCP server. Several documents can publish on one endpoint, and the failure belongs to all of them: each
+ * gets its own message, because one message listing them would leave every one of them unflagged.
  */
 export function validateMcpInitRequired(entities: McpEntityIndex, notifications: NotificationMessage[]): void {
   const documentsByEndpoint = new Map<string, Set<string>>()
@@ -111,7 +113,6 @@ export function validateMcpInitRequired(entities: McpEntityIndex, notifications:
 
   for (const [endpoint, documents] of documentsByEndpoint) {
     if (endpointsWithInit.has(endpoint)) { continue }
-    // every document of the endpoint is affected, so every one of them is told — the denormalisation rule
     const message = `MCP init is required: endpoint '${endpoint}' publishes entities but has no init`
     for (const documentId of documents) {
       notifications.push({
@@ -137,7 +138,7 @@ export function validateMcpProtocolVersion(
   documents: Map<string, VersionDocument>,
   notifications: NotificationMessage[],
 ): void {
-  const report = (document: VersionDocument, message: string): void => {
+  const reportSchemaFailure = (document: VersionDocument, message: string): void => {
     notifications.push({
       category: MESSAGE_CATEGORY.McpDocumentSchema,
       severity: MESSAGE_SEVERITY.Error,
@@ -165,13 +166,13 @@ export function validateMcpProtocolVersion(
     const endpoint = document.metadata?.mcpEndpoint
     if (!isString(endpoint)) {
       // buildMcpEntities normally rejects this first; kept as a defensive guard for the whole-set pass
-      report(document, `MCP file '${document.fileId}' is missing required metadata.mcpEndpoint`)
+      reportSchemaFailure(document, `MCP file '${document.fileId}' is missing required metadata.mcpEndpoint`)
       continue
     }
 
     const version = versionByEndpoint.get(endpoint)
     if (!isString(version) || !isSupportedMcpVersion(version)) {
-      report(document,
+      reportSchemaFailure(document,
         `MCP endpoint '${endpoint}' declares unsupported protocolVersion '${String(version)}'. ` +
         `Supported versions: ${SUPPORTED_MCP_VERSIONS.join(', ')}`,
       )
@@ -181,14 +182,14 @@ export function validateMcpProtocolVersion(
     const validate = getMcpSchemaValidator(version, kind)
     if (!validate) {
       // version is supported → a missing validator is a wiring bug, not bad input
-      report(document, `No MCP schema for kind '${kind}' at protocolVersion '${version}' (endpoint '${endpoint}')`)
+      reportSchemaFailure(document, `No MCP schema for kind '${kind}' at protocolVersion '${version}' (endpoint '${endpoint}')`)
       continue
     }
     if (!validate(document.data?.originalDocument)) {
       const detail = (validate.errors ?? [])
         .map(error => `${error.instancePath || '/'} ${error.message ?? 'does not match schema'}`.trim())
         .join('; ')
-      report(document, `MCP ${document.type} document '${document.slug}' does not conform to protocolVersion '${version}': ${detail}`)
+      reportSchemaFailure(document, `MCP ${document.type} document '${document.slug}' does not conform to protocolVersion '${version}': ${detail}`)
     }
   }
 }

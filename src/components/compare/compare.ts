@@ -19,16 +19,17 @@ import { compareVersionsOperations } from './compare.operations'
 import { compareVersionsDdl } from './compare.ddl'
 import { comparisonHasErrors, getSplittedVersionKey } from '../../utils'
 
+/** Compare two versions: the dashboard references first, then the root pair's operations and its DDL. */
 export async function compareVersions(
   prev: VersionParams,
   curr: VersionParams,
   ctx: CompareContext,
   rootNotifications: NotificationMessage[] = [],
 ): Promise<CompareResult> {
-  // One array per version pair, shared by the pair's operation and DDL comparison: a failure to resolve one
-  // side degrades both, so both report it. A caller that resolved the baseline first passes in the array it
-  // reported to, keeping that failure on the same pair. Either way the array exists before the reference
-  // walk — the references are `prev`'s and `curr`'s, so a failure to list them belongs to this pair.
+  // The pair's operation and DDL comparison share one array: a failure to resolve one side degrades both, so
+  // both report it. A caller that resolved the baseline first passes in the array it reported to, keeping
+  // that failure on the same pair. Either way the array exists before the reference walk, and the references
+  // are `prev`'s and `curr`'s, so a failure to list them belongs to this pair.
   const rootCtx = ctx.forPair(rootNotifications)
 
   const { comparisons, ddlComparisons } = await compareVersionsReferences(prev, curr, rootCtx)

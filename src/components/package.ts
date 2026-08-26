@@ -74,8 +74,7 @@ export const createVersionPackage = async (
   ctx: BuilderContext,
   options?: JSZip.JSZipGeneratorOptions,
 ): Promise<any> => {
-  // a serialization failure belongs to the comparison being serialized, so the closure is built per
-  // comparison rather than once for the whole package
+  // a serialization failure belongs to the comparison being serialized, so the closure is per comparison
   const logErrorFor = (notifications: NotificationMessage[]) => (message: string): void => {
     notifications.push({
       category: MESSAGE_CATEGORY.ComparisonSerialization,
@@ -88,8 +87,7 @@ export const createVersionPackage = async (
     comparisons: buildResult.comparisons.map(comparison =>
       withComparisonErrors(toVersionsComparisonDto(comparison, ctx.normalizedSpecFragmentsHashCache, logErrorFor(comparison.notifications)), comparison)),
   }
-  // comparison-internal documents are shared between operation and DDL comparisons (the merged REST docs
-  // and merged Realms land in the same index/dir)
+  // merged REST documents and merged Realms share one index and one directory, so both kinds are collected
   const comparisonInternalDocuments: ComparisonInternalDocument[] = [
     ...buildResult.comparisons.flatMap(comparison => comparison.comparisonInternalDocuments),
     ...buildResult.ddlComparisons.flatMap(comparison => comparison.comparisonInternalDocuments),
@@ -145,8 +143,7 @@ export const createVersionPackage = async (
     }
   }
 
-  // DDL comparisons go to their own sibling files (ddl-comparisons.json + ddl-comparisons/<id>),
-  // leaving the operation comparisons untouched
+  // DDL comparisons ship as siblings, leaving the operation comparisons untouched
   const ddlComparisonsDto = buildResult.ddlComparisons.map(comparison =>
     withComparisonErrors(toDdlComparisonDto(comparison, ctx.normalizedSpecFragmentsHashCache, logErrorFor(comparison.notifications)), comparison))
   if (ddlComparisonsDto.length) {
@@ -158,7 +155,6 @@ export const createVersionPackage = async (
     }
   }
 
-  // shared comparison-internal documents (operation merged docs + DDL merged Realms)
   if (comparisonInternalDocuments.length) {
     createComparisonInternalDocumentsFile(zip, comparisonInternalDocuments)
     await createComparisonInternalDocumentDataFiles(zip, comparisonInternalDocuments)
@@ -168,9 +164,8 @@ export const createVersionPackage = async (
   // built from the pair arrays themselves, not from the DTOs — the DTOs deliberately drop `notifications`
   createComparisonNotificationsFile(zip, [...buildResult.comparisons, ...buildResult.ddlComparisons], buildResult)
 
-  // `comparison-serialization` is raised while the DTOs above are built, after the gate in `BuildStrategy`
-  // has passed — without this the release ships with `hasErrors` on the comparison. `buildType` is optional
-  // and defaults to `build`, so an absent field is a version publication like any other.
+  // `comparison-serialization` is raised while the DTOs above are built, after `BuildStrategy` has gated.
+  // Without this call the release ships with `hasErrors` on the comparison.
   if ((ctx.config.buildType ?? BUILD_TYPE.BUILD) === BUILD_TYPE.BUILD) {
     assertReleaseIsPublishable(ctx.config.status, [], comparisonPhaseNotifications(buildResult))
   }
@@ -179,7 +174,7 @@ export const createVersionPackage = async (
 }
 
 const createInfoFile = async (zip: ZipTool, config: PackageConfig, hasErrors: boolean): Promise<void> => {
-  // info.json is assembled as an echo of the config, so anything derived has to be put in by hand
+  // info.json echoes the config, so anything derived has to be added by hand
   zip.file(PACKAGE.INFO_FILE_NAME, { ...config, builderVersion: version, ...hasErrors ? { hasErrors } : {} })
 }
 
@@ -197,13 +192,18 @@ const withComparisonErrors = <T extends { fromCache: boolean; hasErrors?: boolea
   source: ComparisonErrorSource,
 ): T => (comparisonHasErrors(source) ? { ...dto, hasErrors: true } : dto)
 
+/**
+ * Write `comparison-notifications.json`, or nothing when the build neither calculated a comparison nor
+ * raised a comparison-phase message.
+ */
 const createComparisonNotificationsFile = (
   zip: ZipTool,
   comparisons: Array<VersionsComparison | DdlComparison>,
   buildResult: BuildResult,
 ): void => {
   const { packageId, version, previousVersionPackageId, previousVersion } = buildResult.config
-  // split as a calculated comparison splits its own: a row that spells the pair differently cannot match
+  // `version` can carry a revision (`v2@3`), and a calculated comparison keeps the two apart. The declared
+  // pair splits them the same way, or its row names a pair no comparison matches.
   const [versionKey, revision] = getSplittedVersionKey(version)
   const [previousVersionKey, previousVersionRevision] = getSplittedVersionKey(previousVersion)
   const declaredPair: DeclaredPair = {

@@ -73,7 +73,12 @@ export const calculateHistoryForDeprecatedItems = async (
   }, DEFAULT_BATCH_SIZE)
 }
 
-/** Carry the previous version's deprecation history onto the operation's matching deprecated items. */
+/**
+ * Carry the previous version's deprecation history onto the operation's matching deprecated items.
+ *
+ * Schemas and parameters match on the tolerant hash. Anything the unifier stamps no hash on — a deprecated
+ * operation, an AsyncAPI channel — matches on the declaration path instead.
+ */
 function mergeDeprecatedHistory(
   currentOperation: ResolvedOperation,
   resolvedOperation: { deprecatedItems?: DeprecateItem[] },
@@ -82,8 +87,8 @@ function mergeDeprecatedHistory(
     const resolvedDeprecatedItem = resolvedOperation.deprecatedItems?.find(
       item => (
         item.tolerantHash && deprecatedItem.tolerantHash
-          ? areSameDeprecatedItems(item, deprecatedItem) // deprecated schema or parameter
-          : areDeclarationPathsEqual(item.declarationJsonPaths, deprecatedItem.declarationJsonPaths) // deprecated operations
+          ? areSameDeprecatedItems(item, deprecatedItem)
+          : areDeclarationPathsEqual(item.declarationJsonPaths, deprecatedItem.declarationJsonPaths)
       ),
     )
     if (!resolvedDeprecatedItem) {
@@ -150,7 +155,13 @@ export const matchSharedComponent = (jsonPath: JsonPath): MatchResult | undefine
   return { componentType, componentName }
 }
 
-// documentId is required so the compiler enforces attribution at any future call site
+/**
+ * Run the deferred hash the unifier stamped on a value, or report why there is none and return `undefined`.
+ *
+ * Both failures are internal builder problems rather than defects in the published contract, so they are
+ * `Warning` and never block a release. `documentId` is required so the compiler enforces attribution at any
+ * future call site.
+ */
 export function calculateTolerantHash(
   value: Jso,
   notifications: NotificationMessage[],
@@ -164,7 +175,6 @@ export function calculateTolerantHash(
     if (!tolerantHash) {
       notifications.push({
         category: MESSAGE_CATEGORY.TolerantHashMissing,
-        // an internal builder failure, not a defect in the user's contract — it must not block a release
         severity: MESSAGE_SEVERITY.Warning,
         message: '[Deprecated items] Tolerant hash is not defined',
         documentId: documentId,
@@ -175,7 +185,6 @@ export function calculateTolerantHash(
   } catch (error) {
     notifications.push({
       category: MESSAGE_CATEGORY.TolerantHashFailed,
-      // same function, same class of internal failure as TolerantHashMissing
       severity: MESSAGE_SEVERITY.Warning,
       message: '[Deprecated items] Something wrong with tolerant hash',
       documentId: documentId,

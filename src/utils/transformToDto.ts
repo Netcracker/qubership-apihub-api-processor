@@ -212,7 +212,6 @@ export function toDdlComparisonDto({
   data,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   comparisonInternalDocuments,
-  // the pair's messages ship in comparison-notifications.json, not inside the comparison row
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   notifications,
   ...rest

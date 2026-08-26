@@ -106,8 +106,8 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
     }
   }
 
-  // Intra-document: two (path, method) pairs computing the same operationId. Reported against this document
-  // and nothing else — the operations already built stay in the version.
+  // Two (path, method) pairs of this document deriving one operationId: reported against this document alone,
+  // and the operations it did build stay in the version.
   const duplicates = findDuplicates(operationIdMap)
   if (isNotEmpty(duplicates)) {
     ctx.notifications.push({

@@ -79,6 +79,7 @@ import {
 } from './consts'
 import { unknownParsedFile, unparsableFile } from './apitypes/unknown/unknown.parser'
 import { createVersionPackage } from './components/package'
+import { pushOnce } from './components/build-result-index'
 import { compareVersions } from './components/compare'
 import { applyBuilderVersionInfo, validateConfig } from './validators'
 import { buildFiles } from './components/files'
@@ -107,18 +108,6 @@ export const DEFAULT_RUN_OPTIONS: BuilderRunOptions = {
   cleanCache: false,
 }
 
-// A pair's operation and DDL comparisons resolve the same versions, and resolver failures are deliberately
-// not cached so that every pair reports its own. Within one pair that repeats the message, which would
-// double-count it in the release-failure total and store two identical rows — so an exact repeat is dropped.
-const pushOnce = (notifications: NotificationMessage[], message: NotificationMessage): void => {
-  const repeat = notifications.some(existing =>
-    existing.category === message.category &&
-    existing.severity === message.severity &&
-    existing.message === message.message &&
-    existing.documentId === message.documentId)
-  if (!repeat) { notifications.push(message) }
-}
-
 export class PackageVersionBuilder implements IPackageVersionBuilder {
   apiBuilders: ApiBuilder[] = []
   documents = new Map<string, VersionDocument>()
@@ -132,8 +121,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
   referencesCache = new Map<string, BuildConfigRef[]>()
   packageChangesCache = new Map<string, OperationChanges[]>()
 
-  // `readonly` is the invariant, not a style choice: contexts capture the array reference via `bind`, so
-  // replacing either array would leave them writing to a discarded one. Emptying in place stays legal.
+  // `readonly` because contexts capture the array via `bind`; clear it in place — see `replaceInPlace`
   readonly notifications: NotificationMessage[] = []
   // comparison-phase messages live apart: they mark a comparison, never the version — see #716
   readonly comparisonNotifications: NotificationMessage[] = []
@@ -778,14 +766,10 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
           const result = await parser(fileId, source)
 
           if (result) {
-            // errors ride on the SourceFile; the document that bundles this file reports them, because only
-            // it knows which document a `$ref`-ed file belongs to
             this.parsedFiles.set(fileId, result)
             return result
           }
         } catch (error) {
-          // Degrade instead of throwing: the fallback keeps the raw bytes, so the document stays dumpable and
-          // the version publishes with everything else intact
           const fallback = unparsableFile(fileId, source, error)
           this.parsedFiles.set(fileId, fallback)
           return fallback
@@ -942,7 +926,6 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     for (const changedFile of changedFiles) {
       const previousDocument = this.documents.get(changedFile.fileId)
       if (previousDocument) {
-        // scoped to what the document owns: rebuilding a duplicate's loser must not evict the winner
         previousDocument.operationIds?.forEach(operationId => {
           if (this.operations.get(operationId)?.documentId === previousDocument.slug) {
             this.operations.delete(operationId)

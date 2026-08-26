@@ -83,9 +83,9 @@ describe('Catch points report instead of aborting', () => {
     expect(result.operations.size).toBeGreaterThan(0)
   }, 30000)
 
-  // T2 requires the placeholder to carry the failed file's bytes. `parser.test.ts` proves it when the parser
-  // is the thing that failed; this covers the other route, where parsing succeeded and the document build
-  // threw — the placeholder is built from a different call there.
+  // The placeholder has to carry the failed file's bytes. `parser.test.ts` proves it when the parser is what
+  // failed; this covers the other route, where parsing succeeded and the document build threw, because the
+  // placeholder is built from a different call there.
   test('should keep the original bytes when the document build itself throws', async () => {
     jest.spyOn(unknownApiBuilder, 'buildDocument').mockImplementation(() => {
       throw new Error('build exploded')
@@ -169,6 +169,7 @@ describe('hasErrors flags', () => {
     const documents = JSON.parse(
       (await loadFileAsStringFromRegistry(VERSIONS_PATH, 'reference-bundling/case1/v1', 'documents.json'))!,
     ).documents as Array<{ hasErrors?: boolean }>
+    expect(documents.length).toBeGreaterThan(0)
     expect(documents.every(document => !('hasErrors' in document))).toBe(true)
   }, 30000)
 })

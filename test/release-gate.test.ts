@@ -49,7 +49,7 @@ describe('Release gate', () => {
     expect(gate(VERSION_STATUS.RELEASE, [warning('double slash')], [warning('risky')])).not.toThrow()
   })
 
-  describe('the message names the specific problem', () => {
+  describe('The message names the specific problem', () => {
     test('should report a single attributed error with its document and the hint', () => {
       expect(gate(VERSION_STATUS.RELEASE, [error('Duplicated operationId', 'orders')]))
         .toThrow(`Duplicated operationId (document: orders). ${HINT}`)
@@ -84,8 +84,36 @@ describe('Release gate', () => {
   })
 })
 
-// T3 names migration explicitly: it is gated on the same terms, and the one thing that lets a historical
-// version through is that its config carries no `brokenRefs`, so broken references arrive as `Warning`.
+// A migration republishes a historical version with its original status, so it meets the gate on the same
+// terms as any other release. The one thing that lets such a version through is that a migration config
+// carries no `brokenRefs`, so broken references arrive as `Warning`.
+// The gate runs twice: once after the document loop and once after the comparison. The first is the reason a
+// doomed release does not pay for a changelog it will never publish, and nothing else in the suite would
+// notice if it were removed.
+describe('The early checkpoint', () => {
+  afterEach(() => { jest.restoreAllMocks() })
+
+  test('should refuse a release with a broken document before any comparison runs', async () => {
+    const packageId = 'tolerant-publication'
+    const registry = LocalRegistry.openPackage(packageId)
+    await registry.publish(packageId, { packageId, version: 'v1', status: VERSION_STATUS.DRAFT })
+
+    // the comparison phase is the only caller of this resolver, so an untouched spy means it never started
+    const comparisonWork = jest.spyOn(registry, 'versionOperationsResolver')
+    const editor = new Editor(packageId, {
+      packageId,
+      version: 'v2',
+      previousVersion: 'v1',
+      status: VERSION_STATUS.RELEASE,
+      buildType: BUILD_TYPE.BUILD,
+      files: [{ fileId: 'rest.json' }, { fileId: 'broken-async.yaml' }],
+    } as never, {}, registry)
+
+    await expect(editor.run()).rejects.toThrow(/You can publish version in draft status/)
+    expect(comparisonWork).not.toHaveBeenCalled()
+  }, 60000)
+})
+
 describe('Release gate and migration builds', () => {
   const migrationConfig = (status: string): Record<string, unknown> => ({
     status,

@@ -27,6 +27,18 @@ import { BuildConfig, BuildResult, MessageCategory, MessageSeverity, Notificatio
  * The categories no row can reach are listed, with their reason, above `publish`.
  */
 
+/*
+ * Where the rest of this feature is tested:
+ *
+ *   tolerant-publication.test.ts      a broken document does not cost the version the ones that built
+ *   release-gate.test.ts              what a release refuses, and the words it refuses with
+ *   fatal-failures.test.ts            what still aborts the build
+ *   notification-attribution.test.ts  which stream and which version pair a message lands in
+ *   build-result-ordering.test.ts     the order every list ships in, and who owns a contested id
+ *   reference-bundling.test.ts        what the bundler leaves of a document whose references are broken
+ *   calculation-diagnostics.test.ts   the diagnostics only a stubbed collaborator can reach
+ */
+
 type Stream = 'build' | 'comparison'
 
 interface Case {

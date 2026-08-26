@@ -55,6 +55,9 @@ export const DIFF_OPERATION_ACTION = {
   RENAME: 'rename',
 } as const
 
+// The numbers are the contract, not an ordering convenience: they ship in `notifications.json`, and a
+// consumer rejects the whole archive over a value it does not know. Lower is more severe — `Error` is what
+// the release gate blocks on, and what wins when two sides of one problem disagree.
 export const MESSAGE_SEVERITY = {
   Error: 0,
   Warning: 1,
@@ -62,9 +65,9 @@ export const MESSAGE_SEVERITY = {
   Hint: 3,
 } as const
 
-// One category per diagnostic: the value identifies which check produced the message, so a consumer can
-// filter by it instead of matching interpolated message text. The prefixes (`ref-`, `mcp-`, `ddl-`,
-// `tolerant-hash-`, `risky-`, `version-`) give a coarse grouping for free.
+// One value per problem a reader acts on the same way, so a consumer filters by it instead of matching
+// interpolated message text. The prefixes (`ref-`, `mcp-`, `ddl-`, `tolerant-hash-`, `risky-`, `version-`)
+// give a coarse grouping for free.
 export const MESSAGE_CATEGORY = {
   // parsing and document build
   ParseFile: 'parse-file',

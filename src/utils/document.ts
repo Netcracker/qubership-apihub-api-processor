@@ -127,21 +127,16 @@ export type DuplicateOperationHandler = DuplicateHandler<ApiOperation>
 export const createCrossDocumentDuplicateHandler = <T extends { documentId: string }>(
   notifications: NotificationMessage[],
   category: MessageCategory,
-  // a function, because the operation handler serves every api type and they do not share a severity; it is
-  // asked about both sides of the collision
+  // a function: the operation handler serves every api type, and it is asked about both sides
   severityOf: (entry: T) => MessageSeverity,
   describe: (existing: T, duplicate: T) => string,
 ): DuplicateHandler<T> => (existing, duplicate) => {
   if (existing.documentId === duplicate.documentId) { return }
   const message = describe(existing, duplicate)
-  // The severity belongs to the collision, not to whichever document happened to arrive second: two api types
-  // can produce the same operation id, and `config.files` order must not decide whether a release publishes.
-  //
-  // Where the two sides disagree, the milder one wins (`Error` is 0, `Warning` is 1, so `Math.max`). Severity
-  // here is staged, not final: `duplicate-operation-id` ships as `Warning` until the published population is
-  // clean, and only AsyncAPI keeps `Error` because its collisions used to abort the build outright. A mixed
-  // pair has a published population in one processing order, so raising it to `Error` would block exactly the
-  // releases — and the migration rebuilds — that the staging exists to protect.
+  // The severity belongs to the collision, not to whichever document arrived second: two api types can derive
+  // one operation id, and `config.files` order must not decide whether a release publishes. Where the sides
+  // disagree the milder wins (`Error` is 0, `Warning` is 1), so a staged `Warning` is never raised by the
+  // other side — the staging protects releases that already published with the message.
   const severity = Math.max(severityOf(existing), severityOf(duplicate)) as MessageSeverity
   for (const documentId of [existing.documentId, duplicate.documentId]) {
     notifications.push({ category, severity, message, documentId })
@@ -152,9 +147,8 @@ export const createCrossDocumentDuplicateHandler = <T extends { documentId: stri
  * Keep the entry whose `documentId` sorts first when two claim a key. Shared by operation, MCP- and
  * DDL-entity indexing.
  *
- * The tie-break is what makes the published index reproducible: processing order is `config.files` order, so
- * without it the same set of files published in a different order publishes a different entity. Neither
- * claimant is more correct — but the winner must not depend on how the config was assembled.
+ * Processing order is `config.files` order, so without the tie-break the same files published in a different
+ * order publish a different entity. Neither claimant is more correct; the winner must not depend on the config.
  */
 export function setReportingDuplicate<K, V extends { documentId: string }>(
   map: Map<K, V>,
@@ -238,15 +232,11 @@ const REF_ERROR_CATEGORY: Record<RefErrorType, MessageCategory> = {
 /**
  * Severity by kind of reference problem, not one constant for all of them.
  *
- * A `$ref` with sibling keys, or one in a position the schema disallows, resolves anyway — the document is
- * complete, so those stay Warning whatever the caller asks for.
- *
- * A missing or malformed target leaves the document incomplete, and how much that costs depends on why the
- * build is running.
- * `validationRulesSeverity.brokenRefs` is how the host says which: `error` for an ordinary publication, so
- * the version cannot ship as a release; `warning` while migrating, so an already-published version that
- * carries a broken reference can still be rebuilt instead of becoming unrebuildable.
- * See https://github.com/Netcracker/qubership-apihub/issues/113.
+ * A `$ref` with sibling keys, or one in a position the schema disallows, resolves anyway, so it stays
+ * `Warning` whatever the caller asks for. A missing or malformed target leaves the document incomplete, and
+ * `validationRulesSeverity.brokenRefs` says what that costs: `error` for an ordinary publication, so the
+ * version cannot ship as a release; `warning` while migrating, so an already-published version carrying a
+ * broken reference stays rebuildable.
  */
 const refErrorSeverity = (errorType: RefErrorType, brokenRefs: ValidationRulesSeverityLevel | undefined): MessageSeverity => {
   if (errorType === RefErrorTypes.RICH_REF_NOT_ALLOWED || errorType === RefErrorTypes.REF_NOT_ALLOWED) {
@@ -287,9 +277,8 @@ export const getBundledFileDataWithDependencies = async (
       return {}
     }
 
-    // recorded before the format check: a file whose parser threw arrives here as a binary fallback carrying
-    // the parse error, and the document reports its dependencies' errors. Dropped from the list, the reason
-    // the file is unusable would never be reported — only that a `$ref` to it could not be resolved.
+    // recorded before the format check: a file whose parser threw arrives as a binary fallback carrying the
+    // parse error, and dropping it here would report only the unresolvable `$ref`, never the reason
     if (filepath !== fileId) {
       dependencies.push(filepath)
     }

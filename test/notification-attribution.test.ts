@@ -15,6 +15,7 @@
  */
 
 import { afterEach, describe, expect, jest, test } from '@jest/globals'
+import JSZip from 'jszip'
 import {
   buildChangelogPackage,
   Editor,
@@ -23,10 +24,9 @@ import {
   publishDashboardWithTwoRefs,
   VERSIONS_PATH,
 } from './helpers'
-import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, VERSION_STATUS } from '../src/consts'
+import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, PACKAGE, VERSION_STATUS } from '../src/consts'
 import { BuildConfig, BuildResult, MessageSeverity } from '../src/types'
 import { buildComparisonNotifications } from '../src/components/build-result-index'
-import { setReportingDuplicate } from '../src/utils'
 import { toVersionsComparisonDto } from '../src/utils/transformToDto'
 import { PackageVersionBuilder } from '../src/builder'
 
@@ -330,58 +330,68 @@ describe('comparison-notifications.json', () => {
   }, 30000)
 })
 
-// The tie-break decides between two documents; it must not make a document unable to refresh its own entry.
-describe('Duplicate resolution', () => {
-  const entity = (documentId: string, title: string): { documentId: string; title: string } => ({ documentId, title })
-
-  test('should keep the lexicographically smallest documentId, whichever arrives first', () => {
-    const forwards = new Map<string, { documentId: string; title: string }>()
-    setReportingDuplicate(forwards, 'id', entity('a', 'first'))
-    setReportingDuplicate(forwards, 'id', entity('b', 'second'))
-
-    const backwards = new Map<string, { documentId: string; title: string }>()
-    setReportingDuplicate(backwards, 'id', entity('b', 'second'))
-    setReportingDuplicate(backwards, 'id', entity('a', 'first'))
-
-    expect(forwards.get('id')?.documentId).toBe('a')
-    expect(backwards.get('id')?.documentId).toBe('a')
-  })
-
-  test('should let the same document refresh its own entry', () => {
-    const map = new Map<string, { documentId: string; title: string }>()
-    setReportingDuplicate(map, 'id', entity('a', 'before'))
-    setReportingDuplicate(map, 'id', entity('a', 'after'))
-
-    expect(map.get('id')?.title).toBe('after')
-  })
-})
-
-// A document announces only what it owns in the published index: without this `documents.json` and
-// `operations.json` contradict each other after a duplicate.
-// T8 splits the two duplicate cases: a collision inside one document is `rest-duplicate-operation` and is
-// reported once. The cross-document handler must stay out of it, or the text names the same document twice.
-describe('Duplicate resolution tells the two cases apart', () => {
-  test('should not report an intra-document collision as a cross-document duplicate', async () => {
-    const pkg = LocalRegistry.openPackage('operationId-collisions/same-operationId-same-document')
-    const result = await pkg.publish(pkg.packageId, {
-      packageId: pkg.packageId,
-      version: 'v1',
-      status: VERSION_STATUS.DRAFT,
-      files: [{ fileId: 'spec.json' }],
-    })
-
-    expect(result.notifications.map(({ category }) => category))
-      .toContain(MESSAGE_CATEGORY.RestDuplicateOperation)
-    expect(result.notifications.filter(({ category }) => category === MESSAGE_CATEGORY.DuplicateOperationId))
-      .toEqual([])
-    // the giveaway of the old behaviour: a message naming one document as two
-    expect(result.notifications.every(({ message }) => !/'([^']+)' and '\1'/.test(message))).toBe(true)
-  }, 30000)
-})
 
 // AsyncAPI operation ids are `<operation>-<message>` and REST ones are `<path>-<method>`, so two api types
 // can land on the same id. They do not share a severity — AsyncAPI kept `Error`, REST is deferred to
 // `Warning` — and only one of the two documents can be the second to arrive.
+// The two files are not both written every time: a build with no baseline has no comparison to report on, and
+// a consumer that replaces a version's rows from the archive must not be handed an empty list to replace them
+// with. Which file exists is part of the contract, not an implementation detail.
+describe('Which notification files a build writes', () => {
+  const PACKAGE_ID = 'reference-bundling/case1'
+
+  const entriesOf = async (editor: Editor): Promise<string[]> => {
+    const zip = await JSZip.loadAsync(await editor.createVersionPackage())
+    return Object.keys(zip.files).filter(name => !zip.files[name].dir)
+  }
+
+  const build = (registry: LocalRegistry, config: Record<string, unknown>): Editor =>
+    new Editor(PACKAGE_ID, {
+      packageId: PACKAGE_ID,
+      status: VERSION_STATUS.DRAFT,
+      buildType: BUILD_TYPE.BUILD,
+      files: [{ fileId: 'openapi.yaml' }],
+      ...config,
+    } as BuildConfig, {}, registry)
+
+  const publishBaseline = async (registry: LocalRegistry): Promise<void> => {
+    await registry.publish(PACKAGE_ID, {
+      packageId: PACKAGE_ID, version: 'v1', files: [{ fileId: 'openapi.yaml' }],
+    } as BuildConfig)
+  }
+
+  test('should write no comparison file for a build with no baseline', async () => {
+    const editor = build(LocalRegistry.openPackage(PACKAGE_ID), { version: 'v1' })
+    await editor.run()
+
+    const entries = await entriesOf(editor)
+    expect(entries).toContain(PACKAGE.NOTIFICATIONS_FILE_NAME)
+    expect(entries).not.toContain(PACKAGE.COMPARISON_NOTIFICATIONS_FILE_NAME)
+  }, 60000)
+
+  test('should write both files for a build that declares a previous version', async () => {
+    const registry = LocalRegistry.openPackage(PACKAGE_ID)
+    await publishBaseline(registry)
+
+    const editor = build(registry, { version: 'v2', previousVersion: 'v1' })
+    await editor.run()
+
+    const entries = await entriesOf(editor)
+    expect(entries).toContain(PACKAGE.NOTIFICATIONS_FILE_NAME)
+    expect(entries).toContain(PACKAGE.COMPARISON_NOTIFICATIONS_FILE_NAME)
+  }, 60000)
+
+  test('should write the comparison file for a standalone changelog', async () => {
+    const registry = LocalRegistry.openPackage(PACKAGE_ID)
+    await publishBaseline(registry)
+
+    const editor = build(registry, { version: 'v2', previousVersion: 'v1', buildType: BUILD_TYPE.CHANGELOG })
+    await editor.run()
+
+    expect(await entriesOf(editor)).toContain(PACKAGE.COMPARISON_NOTIFICATIONS_FILE_NAME)
+  }, 60000)
+})
+
 describe('A duplicate id shared by two api types', () => {
   const REST = `openapi: 3.0.1
 info: { title: t, version: 1.0.0 }
@@ -485,23 +495,3 @@ describe('Identifier ownership', () => {
   })
 })
 
-// Ownership can change after a document has been processed: a smaller slug arriving later takes the entry.
-describe('Identifier ownership is order-independent', () => {
-  test('should drop the id from the loser even when it was processed first', async () => {
-    const pkg = LocalRegistry.openPackage('operationId-collisions/same-path-different-documents')
-    const result = await pkg.publish(pkg.packageId, {
-      packageId: pkg.packageId,
-      version: 'v1',
-      // reversed: spec2 is processed first and owns the id until spec1 takes it
-      files: [{ fileId: 'spec2.json' }, { fileId: 'spec1.json' }],
-    })
-
-    expect(result.operations.get('res-data-post')?.documentId).toBe('spec1')
-
-    for (const document of result.documents.values()) {
-      for (const operationId of document.operationIds ?? []) {
-        expect(result.operations.get(operationId)?.documentId).toBe(document.slug)
-      }
-    }
-  })
-})

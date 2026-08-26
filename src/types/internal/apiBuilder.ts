@@ -74,7 +74,7 @@ export interface BuilderContext<T = any> {
   parsedFileResolver: _ParsedFileResolver
   templateResolver: _TemplateResolver
   packageResolver: _PackageResolver
-  notifications: NotificationMessage[]
+  readonly notifications: NotificationMessage[]
   config: BuildConfig
   builderRunOptions: BuilderRunOptions
   configuration?: BuilderConfiguration
@@ -101,7 +101,7 @@ export type _RawDocumentResolver = (
 
 export interface CompareOperationsPairContext {
   apiType: OperationsApiType
-  notifications: NotificationMessage[]
+  readonly notifications: NotificationMessage[]
   rawDocumentResolver: RawDocumentResolver
   versionDeprecatedResolver: VersionDeprecatedResolver
   versionDocumentsResolver: VersionDocumentsResolver
@@ -155,7 +155,7 @@ export interface DdlComparePairContext {
   currentVersion: VersionId
   previousPackageId: PackageId
   currentPackageId: PackageId
-  notifications: NotificationMessage[]
+  readonly notifications: NotificationMessage[]
   normalizedSpecFragmentsHashCache: ObjectHashCache
 }
 

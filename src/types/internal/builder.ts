@@ -116,8 +116,9 @@ export interface BuildFileResult<T = any> {
   file: BuildConfigFile
   document: VersionDocument<T>
   builder?: ApiBuilder
-  // kept for `buildFiles`, which reports the file's own parse problems once `publish` is settled
-  parsed?: SourceFile
+  // the document's own source file, kept because `buildFiles` reports its parse problems only once
+  // `publish` is settled
+  parsedFile?: SourceFile
 }
 
 

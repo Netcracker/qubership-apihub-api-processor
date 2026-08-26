@@ -88,8 +88,7 @@ export const buildBinaryDocument: (parsedFile: SourceFile, file: BuildConfigFile
   }
 }
 
-// A zero-byte entry plus the notification explaining why, rather than a throw: the only way to reach a
-// sourceless document is a file that could not be fetched at all, and throwing here would cost the version
-// every document that built. Dropping it with `publish: false` was rejected for the mirror reason — it
-// removes the document from the version, so nobody sees that the file failed.
+// A sourceless document means a file that could not be fetched at all, so it ships as a zero-byte entry and
+// the notification says why. Throwing would cost the version every document that built, and dropping it with
+// `publish: false` would take the evidence of the failure with it.
 export const dumpUnknownDocument: DocumentDumper<unknown> = (document) => document.source ?? new Blob([])

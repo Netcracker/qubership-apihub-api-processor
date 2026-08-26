@@ -102,7 +102,7 @@ export interface VersionsComparison<T extends DiffType | DiffTypeDto = DiffType>
   data?: OperationChanges[]
   comparisonInternalDocuments: ComparisonInternalDocument[]
   // everything raised while comparing this version pair, and nothing else
-  notifications: NotificationMessage[]
+  readonly notifications: NotificationMessage[]
   // derived from `notifications`, except for a cached comparison, which carries the resolver's value
   hasErrors?: boolean
 }
@@ -176,7 +176,7 @@ export interface DdlComparison<T extends DiffType | DiffTypeDto = DiffType> {
   data?: DdlChanges[]
   comparisonInternalDocuments: ComparisonInternalDocument[]
   // everything raised while comparing this version pair, and nothing else
-  notifications: NotificationMessage[]
+  readonly notifications: NotificationMessage[]
   // derived from `notifications`, except for a cached comparison, which carries the resolver's value
   hasErrors?: boolean
 }
@@ -196,7 +196,7 @@ export interface CompareContext {
   apiBuilders: ApiBuilder[]
   batchSize?: number
   config: BuildConfig
-  notifications: NotificationMessage[]
+  readonly notifications: NotificationMessage[]
   versionResolver: _VersionResolver
   versionOperationsResolver: VersionOperationsResolver
   versionReferencesResolver: _VersionReferencesResolver

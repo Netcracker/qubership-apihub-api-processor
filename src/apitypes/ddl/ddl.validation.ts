@@ -29,9 +29,11 @@ function categoryOf(kind: DdlNonFatalError['kind']): MessageCategory {
 }
 
 /**
- * Validate a built DDL document's parse issues: one notification per issue, attributed to the document's
- * slug, always Error — see below. Nothing aborts the publish, and the partial entity is kept with no
- * `incomplete` flag.
+ * Report a DDL document's parse issues, one notification per issue, against the document's slug.
+ *
+ * Every one of them is an `Error`: an out-of-scope statement or an unresolved reference leaves the built
+ * Realm incomplete, and a release must not ship an incomplete DDL contract. Nothing here aborts the publish,
+ * and the partial entity is kept with no `incomplete` flag.
  */
 export function validateDdlDocument(document: VersionDocument<ParsedDdlData>, notifications: NotificationMessage[]): void {
   const issues = document.data.issues ?? []
@@ -39,8 +41,6 @@ export function validateDdlDocument(document: VersionDocument<ParsedDdlData>, no
   for (const issue of issues) {
     notifications.push({
       category: categoryOf(issue.kind),
-      // every non-fatal DDL issue is an Error: an out-of-scope statement or an unresolved reference leaves the
-      // built Realm incomplete, and a release must not ship an incomplete DDL contract
       severity: MESSAGE_SEVERITY.Error,
       message: issue.message,
       documentId: document.slug,

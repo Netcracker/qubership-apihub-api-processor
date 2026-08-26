@@ -184,8 +184,8 @@ export const calculateSpecRefs = (
     if (!matchResult) {
       return
     }
-    // `#/components/schemas` matches the pattern with nothing left to grep, and the document is otherwise
-    // fine — a `$ref` that names no component must not cost it every operation
+    // `#/components/schemas` matches the pattern with nothing left to grep. Reading the name that is not
+    // there threw, and one such `$ref` cost the document every operation it had.
     const grepped = matchResult.grepValues[grepKey]
     if (grepped === undefined) {
       return

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import type { BuildConfigFile, BuilderContext, BuildFileResult, SourceFile, VersionDocument } from '../types'
+import type { BuildConfigFile, BuilderContext, BuildFileResult, FileParseError, SourceFile, VersionDocument } from '../types'
 import { buildDocument, buildErrorDocument } from './document'
 import { MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../consts'
 import { REST_DOCUMENT_TYPE } from '../apitypes/rest/rest.consts'
@@ -61,12 +61,10 @@ export const buildFile = async (configFile: BuildConfigFile, ctx: BuilderContext
     }
   }
 
-  // A document that fails to build no longer costs the version: it is published as a placeholder carrying its
-  // original bytes, and the reason is recorded against it
   try {
     const result = await buildDocument(data, file, ctx)
     await reportDependencyParseErrors(result.document, ctx)
-    return { file, document: result.document, builder: result.builder, parsed: data }
+    return { file, document: result.document, builder: result.builder, parsedFile: data }
   } catch (error) {
     ctx.notifications.push({
       category: error instanceof DocumentBuildError ? error.category : MESSAGE_CATEGORY.BuildDocument,
@@ -74,42 +72,41 @@ export const buildFile = async (configFile: BuildConfigFile, ctx: BuilderContext
       message: error instanceof Error ? error.message : 'Cannot build document',
       documentId: file.slug,
     })
-    // every parsed file carries its bytes, binary fallbacks included — the placeholder keeps them
-    const document = buildErrorDocument(file, data)
-    // the parse complaints are often why it threw, and this is the only site that emits them
-    await reportDependencyParseErrors(document, ctx)
-    return { file, document, parsed: data }
+    // the placeholder keeps the parsed bytes, binary fallbacks included; the files the throw interrupted are
+    // not on it, so their parse complaints go unreported
+    return { file, document: buildErrorDocument(file, data), parsedFile: data }
   }
 }
 
 /**
- * Report the parse problems of every file this document bundled, attributed to this document's slug.
+ * Report the parse problems of the files this document bundled, against this document's slug.
  *
- * A `$ref`-ed file has no slug of its own — it never becomes a document — but it is always pulled in by one
- * that does, and that document's bundle is what ends up broken. Reporting here (rather than in `parseFile`,
- * which caches by fileId and would emit once) means a file referenced by two documents flags both.
+ * A `$ref`-ed file never becomes a document, so it has no slug to own the message, and `parseFile` caches by
+ * `fileId` and would report it once. Reporting here flags every document that pulled the file in.
  *
- * The document's own file is not reported here: whether it becomes a document of the version is decided in
- * `buildFiles`, after every file is built — see `reportOwnParseErrors`.
+ * The document's own file waits for `reportOwnParseErrors`, because `buildFiles` settles `publish` only after
+ * every file is built.
  */
 async function reportDependencyParseErrors(document: VersionDocument, ctx: BuilderContext): Promise<void> {
   for (const dependency of document.dependencies ?? []) {
     const parsed = await ctx.parsedFileResolver(dependency)
-    if (parsed) { report(parsed, false, document, ctx) }
+    if (parsed) { reportParseErrors(parsed, false, document, ctx) }
   }
 }
 
 /**
- * A configured file that ends up unpublished is, to the version, a `$ref` target like any other: every
- * document that bundles it already reports its problems and names it in the text. Reporting them a second
- * time under its own slug would point at a document `documents.json` does not contain.
+ * Report the parse problems of the document's own file, once the version knows the document is published.
+ *
+ * An unpublished file is a `$ref` target like any other: the documents that bundle it already report its
+ * problems and name it. A second message under its own slug would name a document `documents.json` does not
+ * contain.
  */
 function reportOwnParseErrors(document: VersionDocument, own: SourceFile, ctx: BuilderContext): void {
   if (!document.publish) { return }
-  report(own, true, document, ctx)
+  reportParseErrors(own, true, document, ctx)
 }
 
-function report(file: SourceFile, isOwn: boolean, document: VersionDocument, ctx: BuilderContext): void {
+function reportParseErrors(file: SourceFile, isOwn: boolean, document: VersionDocument, ctx: BuilderContext): void {
   for (const error of file.errors ?? []) {
     ctx.notifications.push({
       // a parser that threw leaves a binary fallback; one that returned complaints leaves a text file
@@ -122,13 +119,13 @@ function report(file: SourceFile, isOwn: boolean, document: VersionDocument, ctx
 }
 
 /**
- * Severity comes from the parser wherever the parser states one; the fallback below is per api type,
- * because a single constant was wrong for each of them in a different way.
- * REST complaints are AJV metaschema nitpicking on documents that parse and build; MCP complaints are
- * structural and make the document unusable; AsyncAPI carries its own diagnostic severity. A parser that
- * threw outright leaves a binary fallback, and that is an Error whatever produced it.
+ * Take the severity the parser stated, and fall back per api type when it stated none.
+ *
+ * One constant was wrong for each type in a different way. REST complaints are AJV metaschema noise on
+ * documents that parse and build, MCP complaints leave the document unusable, and AsyncAPI carries its own
+ * severity. A parser that threw leaves a binary fallback, and that is an Error whatever produced it.
  */
-function parseErrorSeverity(file: SourceFile, error: { severity?: number } | undefined): MessageSeverity {
+function parseErrorSeverity(file: SourceFile, error: FileParseError | undefined): MessageSeverity {
   if (file.kind === FILE_KIND.BINARY) { return MESSAGE_SEVERITY.Error }
   // only a value the contract defines: the consumer rejects the whole archive over an unknown severity
   if (KNOWN_SEVERITIES.has(error?.severity as number)) { return error!.severity as MessageSeverity }
@@ -139,8 +136,8 @@ const KNOWN_SEVERITIES = new Set<number>(Object.values(MESSAGE_SEVERITY))
 
 const REST_DOCUMENT_TYPES = new Set<string>(Object.values(REST_DOCUMENT_TYPE))
 
-// The offending fileId has to be in the text when the file is a dependency: the notification is attached to a
-// different document, and the path is what the reader opens. It never goes into `documentId`.
+// Name the offending `fileId` in the text when the file is a dependency: the message hangs on a different
+// document, and the path is what the reader opens. It never goes into `documentId`.
 function parseErrorMessage(file: SourceFile, isOwn: boolean, detail: string | undefined): string {
   const reason = detail ? ` ${detail}` : ''
   if (file.kind === FILE_KIND.BINARY) {
@@ -168,9 +165,8 @@ export const buildFiles = async (files: BuildConfigFile[], ctx: BuilderContext):
 
   const result = await Promise.all(tasks)
 
-  // A file reached through a `$ref` is not a document of its own, so it is not published unless the config
-  // asks for it. Except when its parser threw: that is the file the publisher has to open, and suppressing
-  // it would drop the bytes with it.
+  // A file reached only through a `$ref` is not a document of its own: it publishes when the config asks for
+  // it, or when its parser threw, because that is the file the publisher opens and its bytes go with it.
   const dependencies = new Set(result.flatMap(({ document }) => document.dependencies))
   for (const { document } of result) {
     if (document.publish !== undefined || !dependencies.has(document.fileId)) {
@@ -182,8 +178,8 @@ export const buildFiles = async (files: BuildConfigFile[], ctx: BuilderContext):
   }
 
   // now that `publish` is settled, each document reports the problems of its own file
-  for (const { document, parsed } of result) {
-    if (parsed) { reportOwnParseErrors(document, parsed, ctx) }
+  for (const { document, parsedFile } of result) {
+    if (parsedFile) { reportOwnParseErrors(document, parsedFile, ctx) }
   }
 
   return result

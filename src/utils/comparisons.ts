@@ -17,6 +17,8 @@
 import { MESSAGE_SEVERITY } from '../consts'
 import { NotificationMessage } from '../types/package/notifications'
 
+// The three fields the rule reads, as a structural shape rather than a union of the comparison types: the
+// operation comparison, the DDL one and the DTO wrapper all satisfy it, and a new kind would too.
 export interface ComparisonErrorSource {
   fromCache: boolean
   hasErrors?: boolean

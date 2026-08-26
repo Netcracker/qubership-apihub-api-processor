@@ -21,6 +21,7 @@ export type MessageSeverity = KeyOfConstType<typeof MESSAGE_SEVERITY>
 
 export type MessageCategory = typeof MESSAGE_CATEGORY[keyof typeof MESSAGE_CATEGORY]
 
+// notifications.json — every build-phase message of the version, in one list
 export interface PackageNotifications {
   notifications: NotificationMessage[]
 }
@@ -31,6 +32,8 @@ export interface PackageComparisonNotifications {
   comparisons: PackageComparisonNotificationsEntry[]
 }
 
+// One entry per version pair, identified by the six fields below and never by `comparisonFileId`: a
+// refs-only dashboard comparison has none.
 export interface PackageComparisonNotificationsEntry {
   packageId: string
   version: string
@@ -41,6 +44,12 @@ export interface PackageComparisonNotificationsEntry {
   notifications: NotificationMessage[]
 }
 
+/**
+ * One problem the build found, in the shape both notification files carry.
+ *
+ * `category` is the stable code a consumer filters on; `message` is written for a human and its wording is
+ * not a contract.
+ */
 export interface NotificationMessage {
   category: MessageCategory
   severity: MessageSeverity

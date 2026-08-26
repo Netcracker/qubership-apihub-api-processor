@@ -1,6 +1,6 @@
 ---
 name: api-processor-notifications
-description: Use when adding a diagnostic to api-processor, turning a throw into a reported problem, or deciding whether a failure should abort the build — covers categories, slug attribution, the two notification streams, and severity.
+description: Use when adding a diagnostic to api-processor, turning a throw into a reported problem, or deciding whether a failure aborts the build.
 ---
 
 # Reporting a problem instead of throwing
@@ -12,27 +12,37 @@ built cleanly, so a problem becomes a `NotificationMessage` and the build keeps 
 
 `NotificationMessage` is `{ category, severity, message, documentId? }`.
 
-- **`category` comes from `MESSAGE_CATEGORY` (`src/consts.ts`), one value per diagnostic**, never shared by
-  two checks: a consumer filters on it instead of matching interpolated text. A new check adds a value there.
+- **`category` comes from `MESSAGE_CATEGORY` (`src/consts.ts`): one value per problem a reader acts on the
+  same way**, so a consumer filters on it instead of matching interpolated text. Conditions share a value when
+  they are the same problem. `mcp-document-schema` covers a missing endpoint, an unsupported protocol version
+  and a document that fails its schema. `ddl-parse-issue` covers every non-fatal DDL issue but the duplicate
+  object, and `build-document` is what a throw gets when it classified itself as nothing else. Two problems
+  that call for different action never share a value: each gets its own, and so does a new check whose results
+  a filter must isolate.
 - **`documentId` is the document's slug, and it is set where the problem is found** — never a `fileId`, never
   a path, never converted later by a pass that walks the finished list. Only the site that detects the problem
   still knows which document it belongs to; if a function needs a slug it does not have, give it the
   parameter rather than reconstructing the attribution afterwards.
-- **A problem spanning several documents produces one message per document.** A single message listing them
-  all would leave every one of them unflagged.
-- **Severity comes from the source, not from the catch site.** A reference problem takes it from its
-  `errorType`, a parse problem from the parser's own diagnostic — but only when that diagnostic's severity is
-  a value `MESSAGE_SEVERITY` defines, because the consumer rejects the whole archive over one it does not
-  know. A `catch` block that stamps every message `Error` throws away what the producer knew.
+- **`message` is one per document, even when the problem spans several of them.** A single message listing
+  them all would leave every one of them unflagged.
+- **`severity` comes from the source, not from the catch site.** A reference problem takes it from its
+  `errorType`, a parse problem from the parser's own diagnostic. Take it only when it is a value
+  `MESSAGE_SEVERITY` defines: the consumer rejects the whole archive over one it does not know. A `catch`
+  block that stamps every message `Error` throws away what the producer knew.
 
 A duplicate id is reported by whichever site can still see both claimants. Across documents that is
-`createCrossDocumentDuplicateHandler` (`src/utils/document.ts`), for operations, MCP and DDL entities alike;
-the operation handler takes its severity per api type: where published versions already carry the message,
-it stays a `Warning` so tightening cannot block their releases retroactively, and where the collision used to
-abort the build there is no such population to protect. The call site says which is which. Inside one document it is the api type's own
-category (`rest-duplicate-operation`, `async-duplicate-operation`), raised against that document, which keeps
-the operations it did build. MCP and DDL still throw there: they collide while mapping entities, so nothing
-was built to keep.
+`createCrossDocumentDuplicateHandler` (`src/utils/document.ts`), for operations, MCP and DDL entities alike.
+
+Its severity comes from both claimants, never from whichever document happened to arrive second. The operation
+handler answers per api type: a `Warning` where published versions already carry the message, so tightening
+cannot block their releases retroactively, an `Error` where the collision used to abort the build and there is
+no such population to protect. Where the two sides disagree the milder one wins — two api types can produce
+one id, and `config.files` order must not decide whether a release is refused.
+
+Inside one document it is the api type's own category (`rest-duplicate-operation`,
+`async-duplicate-operation`), raised against that document, which keeps the operations it did build. GraphQL
+needs neither: its operation keys are unique object keys, and slugify folds no two valid names together. MCP
+and DDL still throw there — they collide while mapping entities, so nothing was built to keep.
 
 ## A `$ref`-ed file is reported by the documents that bundle it
 
@@ -104,7 +114,10 @@ throw with no test is indistinguishable from a throw someone forgot to convert.
 
 1. Add the `MESSAGE_CATEGORY` value.
 2. Push the message at the detection site, with the slug and the severity the producer knows.
-3. Cover attribution in `test/notification-attribution.test.ts`: the message reaches the right stream and
+3. Add a row to `test/notification-catalogue.test.ts`: what raises it, its severity, whether it names a
+   document, whether a release still publishes. If nothing a publisher can write reaches it, say why in the
+   comment above `publish` there and cover it where the collaborator is stubbed instead.
+4. Cover attribution in `test/notification-attribution.test.ts`: the message reaches the right stream and
    names the right slug.
-4. If the new value can block a release, check what it does to the existing fixtures — enabling the gate is a
-   detector, and a fixture that starts failing is usually telling the truth.
+5. Check the existing fixtures if the new value can block a release. Enabling the gate is a detector, and a
+   fixture that starts failing is usually telling the truth.

@@ -18,6 +18,14 @@ import { BuildConfig, BuilderStrategy, BuildResult, BuildTypeContexts, Notificat
 import { compareVersions } from '../components/compare'
 import { applyBuilderVersionInfo } from '../validators'
 
+/**
+ * Recalculate the changelog of a version that is already published — `BUILD_TYPE.CHANGELOG`. A `build` that
+ * declares a `previousVersion` compares inline in `BuildStrategy` instead, and ships one archive.
+ *
+ * There is no release gate here, deliberately: `config.status` describes the published version rather than a
+ * publication being attempted, so gating would leave a version with an unreliable changelog impossible to
+ * recalculate. `test/release-gate.test.ts` pins that.
+ */
 export class ChangelogStrategy implements BuilderStrategy {
   async execute(config: BuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
     const { previousVersionPackageId, packageId, version, previousVersion } = config

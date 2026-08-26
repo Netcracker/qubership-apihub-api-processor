@@ -423,13 +423,19 @@ describe('MCP Build', () => {
 
     test('should report every document of an endpoint that has no init', async () => {
       const editor = createMcpEditor()
-      // tool/resource/prompt entities with no init describe an incomplete MCP server → publish must fail
+      // entities with no init describe an incomplete MCP server → publish must fail, and the endpoint is
+      // published by both documents, so both are told
       const result = await editor.run({
           files: [
             { fileId: 'tools.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
+            { fileId: 'resources.json', metadata: { mcpEndpoint: MCP_ENDPOINT } },
           ],
         })
       expectReportedErrors(result, /MCP init is required/)
+      expect(result.notifications
+        .filter(({ message }) => /MCP init is required/.test(message))
+        .map(({ documentId }) => documentId)
+        .sort()).toEqual(['resources', 'tools'])
     })
 
     test('should report an endpoint without an init even when another endpoint has one', async () => {
@@ -463,7 +469,7 @@ describe('MCP Build', () => {
 
       // the collision is in the document's own content, so the text names the document as DDL's twin does —
       // a `fileId` belongs in a message only when it is the thing the user edits, which here it is not
-      const slug = result.documents.get('tools-duplicate-name.json')!.slug
+      const { slug } = result.documents.get('tools-duplicate-name.json')!
       expect(errors[0].message).toContain(`in document '${slug}'`)
       expect(errors[0].message).not.toContain('tools-duplicate-name.json')
     })

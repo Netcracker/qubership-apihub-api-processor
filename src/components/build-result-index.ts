@@ -93,6 +93,18 @@ const notificationSortKey = (notification: NotificationMessage): string => tuple
   notification.documentId ?? null,
 )
 
+/**
+ * Add a message unless the list already carries an identical one.
+ *
+ * A pair's operation and DDL comparisons resolve the same versions, and resolver failures are not cached, so
+ * one pair can raise the same message twice: it would double the release-failure count and store a repeat
+ * row. Identity is the sort key, so what deduplicates here and what orders the file cannot drift apart.
+ */
+export const pushOnce = (notifications: NotificationMessage[], message: NotificationMessage): void => {
+  const key = notificationSortKey(message)
+  if (!notifications.some(existing => notificationSortKey(existing) === key)) { notifications.push(message) }
+}
+
 const sortChanges = <T extends { changes?: ChangeMessage<DiffTypeDto>[] }>(entry: T): T =>
   (entry.changes
     ? { ...entry, changes: sortByKey(entry.changes, change => calculateChangeId(change as ChangeMessage)) }
@@ -218,11 +230,21 @@ export interface DeclaredPair {
   notifications: NotificationMessage[]
 }
 
-// One entry per version pair. The pair's operation and DDL comparisons share a single array object, so
-// grouping by pair identity collapses them without merging lists — see `CompareContext.forPair`.
-//
-// `declaredPair` covers the one pair that produces no comparison — a baseline that does not resolve — since
-// the file has no build-wide bucket to fall back to.
+/**
+ * Group the comparison phase's notifications into `comparison-notifications.json`, one entry per version pair.
+ *
+ * The backend replaces a pair's stored rows on republish, so an entry has to mean "this build calculated this
+ * pair". A pair calculated here therefore gets an entry even when it has nothing to report, and a pair served
+ * from the host's cache gets none — an empty entry would delete the messages the build that did calculate it
+ * recorded.
+ *
+ * Identity is the six-part version tuple, never `comparisonFileId`: a refs-only dashboard comparison has no
+ * file id. A pair's operation and DDL comparisons arrive as two objects sharing one array, and grouping by
+ * that identity is what collapses them — see `CompareContext.forPair`.
+ *
+ * `declaredPair` carries what no comparison owns. A baseline that never resolved leaves no pair to report
+ * against, and this file has no build-wide bucket to fall back to.
+ */
 export function buildComparisonNotifications(
   comparisons: Array<VersionsComparison | DdlComparison>,
   declaredPair?: DeclaredPair,
@@ -246,22 +268,17 @@ export function buildComparisonNotifications(
       })
       return
     }
-    // the pair's two comparisons share one array, so this normally adds nothing — it covers the case where
-    // a pair arrives with two
+    // by identity: the shared array is already in, so only a pair arriving with a second one adds anything
     existing.notifications.push(...source.notifications.filter(notification => !existing.notifications.includes(notification)))
   }
 
   for (const comparison of comparisons) {
-    // A cached comparison was not calculated here, so it ships no entry. An empty one would wipe the rows the
-    // backend stored when that comparison was genuinely calculated — republish replaces a comparison's rows.
     if (comparison.fromCache) { continue }
     merge(comparison)
   }
 
   if (declaredPair?.notifications.length) { merge(declaredPair) }
 
-  // every calculated pair gets an entry, empty array included, so a reader never has to tell "no messages"
-  // from "not written"; cached pairs are skipped above and deliberately have no row at all
   const entries = [...byPair.values()]
     .map(entry => ({ ...entry, notifications: sortByKey(entry.notifications, notificationSortKey) }))
 
