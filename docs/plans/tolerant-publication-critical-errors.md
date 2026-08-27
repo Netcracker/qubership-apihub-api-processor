@@ -47,9 +47,9 @@ UI implementation is **out of scope**; UI source was analyzed only to identify t
 ## High-level design
 
 1. **Publication becomes tolerant per document.** A failure while processing one document no longer aborts the
-   build. It is recorded against that document; the document is still published — carrying its original
-   content, so the user can inspect it, but exposing no operations or entities — and every other document
-   builds and publishes normally.
+   build. It is recorded against that document; the document is still published — exposing every operation and
+   entity that built, and carrying its original content so the user can inspect what did not — and every other
+   document builds and publishes normally. A document that failed to parse at all has nothing to expose.
 2. **Notifications are the single reporting mechanism.** Failures that used to abort the build become
    notifications. Each message carries a *category* and is attributed to the document it concerns.
 3. **Build-phase and comparison-phase notifications are kept apart.** A version build and a changelog
@@ -1039,9 +1039,17 @@ into notifications.
   [Errors in `$ref`-ed files](#errors-in-ref-ed-files), including the required message format when the error
   comes from a `$ref`-ed file. Covers `invalid-text-file`, whose emission moves out of `parseFile`.
 - `BuildStrategy.execute` per-document loop: wrap `processOperationDocument`, `validateDdlDocument` +
-  `processDdlDocument`, `processMcpDocument` per document → `Error` notification, continue. The failed document
-  stays published but exposes no operations or entities. Covers `build-operations`, `ddl-duplicate-object`,
-  `ddl-entity-build`, `mcp-entity-build`.
+  `processDdlDocument`, `processMcpDocument` per document → `Error` notification, continue. This is the outer
+  net for whatever escapes the per-item catches below; the failed document stays published, keeping every
+  operation and entity that built. Covers `build-operations`, `ddl-duplicate-object`, `ddl-entity-build`,
+  `mcp-entity-build`.
+- per-item catches inside the builders, so one bad operation does not cost the document its other operations:
+  `buildRestOperation` inside the path/method loop (`rest.operations.ts:82-105`), the equivalent AsyncAPI and
+  GraphQL loops, the table `flatMap` in `buildDdlEntities` (`ddl.entities.ts:53`), and the per-item loops in
+  `buildMcpEntities`. Each failure emits its own `Error` notification attributed to the document and omits
+  that one operation or entity; the rest are built and indexed. `document.operationIds` / `mcpEntityIds` must
+  then list only what was actually built, so `rebuildFiles` does not evict entries the document never
+  produced.
 - cross-document duplicate handlers: emit one `Error` notification **per involved document**, same text; do
   not throw. Which entity survives is decided by the rule in
   [Duplicate resolution](#duplicate-resolution) below. Covers `async-duplicate-operation`,
@@ -1975,8 +1983,9 @@ extension rather than a correction:
 - `hasErrors` on the version, on each document and on each comparison, and what each one is computed from.
 - A `release` build now **throws** when any `Error` notification exists; a `draft` build publishes and is
   marked. A consumer that treats a failed release build as an infrastructure fault will misreport it.
-- Error documents are published carrying their original source, with no operations — consumers iterating
-  documents must not assume a document has parsed content.
+- A document that failed to parse is published carrying its original source, with no operations — consumers
+  iterating documents must not assume a document has parsed content. A document with `hasErrors` may be
+  missing individual operations that failed to build.
 
 **No `api-processor-authoring` package exists in this repo.** The sibling `apihub-ui-authoring` package in the
 UI repo is the precedent for one, and the conventions this change introduces are exactly the kind that a
