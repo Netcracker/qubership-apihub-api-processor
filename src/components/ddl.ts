@@ -23,7 +23,7 @@ import {
   PackageDdlEntity,
   PackageDdlFile,
 } from '../types/package/ddl'
-import { DuplicateHandler, setReportingDuplicate } from '../utils'
+import { setReportingDuplicate } from '../utils'
 import { Claims, listDocuments, reportCollisions } from './duplicate-resolution'
 import { MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../consts'
 import { NotificationMessage } from '../types/package'
@@ -37,8 +37,6 @@ export function createDdlBuildContext(): DdlBuildContext {
     ddlEntities: new Map(),
   }
 }
-
-export type DuplicateDdlEntityHandler = DuplicateHandler<DdlEntity>
 
 /** Cross-document DDL entity collisions, over the whole claimant set — see `reportCollisions`. */
 export function reportDdlCollisions(claims: Claims<DdlEntity>, notifications: NotificationMessage[]): void {
@@ -71,10 +69,9 @@ export function buildDocumentDdlEntities(
 export function indexDdlEntities(
   entities: DdlEntity[],
   ctx: DdlBuildContext,
-  onDuplicate?: DuplicateDdlEntityHandler,
 ): void {
   for (const entity of entities) {
-    setReportingDuplicate(ctx.ddlEntities, entity.ddlEntityId, entity, onDuplicate)
+    setReportingDuplicate(ctx.ddlEntities, entity.ddlEntityId, entity)
   }
 }
 

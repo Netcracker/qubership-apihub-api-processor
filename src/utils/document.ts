@@ -17,7 +17,6 @@
 import {
   _ParsedFileResolver,
   ApiDocument,
-  ApiOperation,
   BuilderContext,
   ExportFormat,
   FILE_KIND,
@@ -115,32 +114,6 @@ export function toPackageDocument(document: VersionDocument, hasErrors = false):
   }
 }
 
-export type DuplicateHandler<T> = (existing: T, duplicate: T) => void
-
-export type DuplicateOperationHandler = DuplicateHandler<ApiOperation>
-
-/**
- * Report an id claimed by two documents: one message each, same text, so either document shows the collision.
- * A single message naming both would leave one of them unflagged. The same document re-processed is not a
- * collision, and one inside a document is the api type's own diagnostic.
- */
-export const createCrossDocumentDuplicateHandler = <T extends { documentId: string }>(
-  notifications: NotificationMessage[],
-  category: MessageCategory,
-  // a function: the operation handler serves every api type, and it is asked about both sides
-  severityOf: (entry: T) => MessageSeverity,
-  describe: (existing: T, duplicate: T) => string,
-): DuplicateHandler<T> => (existing, duplicate) => {
-  if (existing.documentId === duplicate.documentId) { return }
-  const message = describe(existing, duplicate)
-  // The severity belongs to the collision, not to whichever document arrived second. Where the two sides
-  // disagree the milder wins (`Error` is 0, `Warning` is 1).
-  const severity = Math.max(severityOf(existing), severityOf(duplicate)) as MessageSeverity
-  for (const documentId of [existing.documentId, duplicate.documentId]) {
-    notifications.push({ category, severity, message, documentId })
-  }
-}
-
 /**
  * Keep the entry whose `documentId` sorts first when two claim a key. Shared by operation, MCP- and
  * DDL-entity indexing.
@@ -152,11 +125,9 @@ export function setReportingDuplicate<K, V extends { documentId: string }>(
   map: Map<K, V>,
   key: K,
   value: V,
-  onDuplicate?: DuplicateHandler<V>,
 ): void {
   const existing = map.get(key)
   if (existing !== undefined) {
-    onDuplicate?.(existing, value)
     // strict: slugs are unique per version, so an equal documentId means the same document is being
     // re-processed (incremental rebuild) and must refresh its own entry rather than keep the stale one
     if (existing.documentId < value.documentId) { return }

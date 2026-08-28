@@ -25,7 +25,7 @@ import {
 } from '../types/package/mcp'
 import { NotificationMessage } from '../types/package'
 import { MCP_DOCUMENT_TYPE } from '../apitypes/mcp'
-import { createCrossDocumentDuplicateHandler, DuplicateHandler, isObject, isString, setReportingDuplicate } from '../utils'
+import { isObject, isString, setReportingDuplicate } from '../utils'
 import { MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../consts'
 import { Claims, collectClaim, listDocuments, reportCollisions } from './duplicate-resolution'
 import { getMcpSchemaValidator, isSupportedMcpVersion, SUPPORTED_MCP_VERSIONS } from '../apitypes/mcp/mcp.validation'
@@ -47,17 +47,6 @@ export function createMcpBuildContext(): McpBuildContext {
     mcpEntities: new Map(),
   }
 }
-
-export type DuplicateMcpEntityHandler = DuplicateHandler<McpEntity>
-
-export const createDuplicateMcpEntityHandler = (notifications: NotificationMessage[]): DuplicateMcpEntityHandler =>
-  createCrossDocumentDuplicateHandler(
-    notifications,
-    MESSAGE_CATEGORY.McpDuplicateEntity,
-    () => MESSAGE_SEVERITY.Error,
-    (existing, duplicate) => `Duplicate MCP entity ID '${duplicate.mcpEntityId}' found in different documents: ` +
-      `'${existing.documentId}' and '${duplicate.documentId}'`,
-  )
 
 /** All a collision needs to know about a claimant: which document derived the id. */
 export interface McpClaim {
@@ -109,10 +98,9 @@ export function indexMcpEntities(
   document: VersionDocument,
   entities: McpEntity[],
   ctx: McpBuildContext,
-  onDuplicate?: DuplicateMcpEntityHandler,
 ): void {
   for (const entity of entities) {
-    setReportingDuplicate(ctx.mcpEntities, entity.mcpEntityId, entity, onDuplicate)
+    setReportingDuplicate(ctx.mcpEntities, entity.mcpEntityId, entity)
   }
   // everything this document built; `reconcileOwnedIds` prunes what another document ends up owning
   document.mcpEntityIds = entities.map(({ mcpEntityId }) => mcpEntityId)
@@ -126,12 +114,11 @@ export function processMcpDocument(
   document: VersionDocument,
   builder: ApiBuilder,
   ctx: McpBuildContext,
-  onDuplicate?: DuplicateMcpEntityHandler,
   notifications?: NotificationMessage[],
 ): void {
   if (!builder.buildMcpEntities) { return }
   // the stream reaches the per-entity catch in `buildMcpEntities`
-  indexMcpEntities(document, buildDocumentMcpEntities(file, document, builder, notifications), ctx, onDuplicate)
+  indexMcpEntities(document, buildDocumentMcpEntities(file, document, builder, notifications), ctx)
 }
 
 export const KIND_TO_FIELD: Record<McpKind, keyof PackageMcpFile> = {

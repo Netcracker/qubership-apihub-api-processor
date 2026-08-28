@@ -39,7 +39,7 @@ import {
 } from './mcp'
 import { Claims, collectClaim } from './duplicate-resolution'
 
-export interface DocumentContent {
+interface DocumentContent {
   document: VersionDocument
   operations?: ApiOperation[]
   mcpEntities?: McpEntity[]

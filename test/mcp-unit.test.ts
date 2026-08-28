@@ -19,7 +19,7 @@ import { buildMcpEntities, calculateMcpEntityId, wrapEntityData } from '../src/a
 import { buildMcpDocument } from '../src/apitypes/mcp/mcp.document'
 import { MCP_DOCUMENT_TYPE } from '../src/apitypes/mcp/mcp.consts'
 import { mcpBuilder } from '../src/apitypes/mcp'
-import { createDuplicateMcpEntityHandler, createMcpBuildContext, processMcpDocument, validateMcpCapabilities, validateMcpProtocolVersion } from '../src/components/mcp'
+import { createMcpBuildContext, processMcpDocument, reportMcpCollisionsOf, validateMcpCapabilities, validateMcpProtocolVersion } from '../src/components/mcp'
 import { getMcpSchemaValidator, isSupportedMcpVersion, SUPPORTED_MCP_VERSIONS } from '../src/apitypes/mcp/mcp.validation'
 import { BuilderContext, BuildConfigFile, FILE_KIND, TextFile, VersionDocument } from '../src/types'
 import { ParsedMcpData } from '../src/apitypes/mcp/mcp.types'
@@ -308,25 +308,27 @@ describe('MCP cross-document duplicate detection', () => {
     originalDocument: { tools: [{ name: 'search', inputSchema: { type: 'object' } }] },
   })
 
+  // the build path: each document is processed on its own, and the collisions are graded afterwards over
+  // every document's claims
   const process = (
     ctx: ReturnType<typeof createMcpBuildContext>,
+    documents: VersionDocument[],
     fileId: string,
     endpoint: string,
     notifications: NotificationMessage[] = [],
-  ): void =>
-    processMcpDocument(
-      { fileId, metadata: { mcpEndpoint: endpoint } },
-      makeMcpDocument(fileId, MCP_DOCUMENT_TYPE.MCP_TOOLS, toolDoc()),
-      mcpBuilder,
-      ctx,
-      createDuplicateMcpEntityHandler(notifications),
-    )
+  ): void => {
+    const document = makeMcpDocument(fileId, MCP_DOCUMENT_TYPE.MCP_TOOLS, toolDoc())
+    processMcpDocument({ fileId, metadata: { mcpEndpoint: endpoint } }, document, mcpBuilder, ctx, notifications)
+    documents.push(document)
+  }
 
   test('should report against both documents when the same entity ID appears in two', () => {
     const ctx = createMcpBuildContext()
+    const documents: VersionDocument[] = []
     const notifications: NotificationMessage[] = []
-    process(ctx, 'tools-a.json', '/api/v1', notifications)
-    process(ctx, 'tools-b.json', '/api/v1', notifications)
+    process(ctx, documents, 'tools-a.json', '/api/v1', notifications)
+    process(ctx, documents, 'tools-b.json', '/api/v1', notifications)
+    reportMcpCollisionsOf(documents, notifications)
 
     expect(notifications).toHaveLength(2)
     expect(notifications.map(({ documentId }) => documentId).sort()).toEqual(['tools-a', 'tools-b'])
@@ -337,9 +339,11 @@ describe('MCP cross-document duplicate detection', () => {
 
   test('should not report when the same name lives under different endpoints', () => {
     const ctx = createMcpBuildContext()
+    const documents: VersionDocument[] = []
     const notifications: NotificationMessage[] = []
-    process(ctx, 'tools-a.json', '/api/v1', notifications)
-    process(ctx, 'tools-b.json', '/api/v2', notifications)
+    process(ctx, documents, 'tools-a.json', '/api/v1', notifications)
+    process(ctx, documents, 'tools-b.json', '/api/v2', notifications)
+    reportMcpCollisionsOf(documents, notifications)
 
     expect(notifications).toEqual([])
   })

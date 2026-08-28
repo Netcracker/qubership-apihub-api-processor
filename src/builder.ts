@@ -953,7 +953,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       if (!builder || document.publish === false) { continue }
 
       if (builder.apiType === MCP_CONTRACT_TYPE) {
-        processMcpDocument(file, document, builder, mcpCtx, undefined, this.notifications)
+        processMcpDocument(file, document, builder, mcpCtx, this.notifications)
         hasMcpChanges = true
       } else {
         await processOperationDocument(document, builder, ctx, buildResult)

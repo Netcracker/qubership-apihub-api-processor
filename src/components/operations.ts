@@ -15,7 +15,7 @@
  */
 
 import type { ApiBuilder, ApiOperation, BuilderContext, BuildResult, VersionDocument } from '../types'
-import { DuplicateOperationHandler, setReportingDuplicate } from '../utils'
+import { setReportingDuplicate } from '../utils'
 import { ASYNCAPI_API_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../consts'
 import { Claims, collectClaim, listDocuments, reportCollisions } from './duplicate-resolution'
 import { NotificationMessage } from '../types/package/notifications'
@@ -80,14 +80,13 @@ export function indexOperations(
   document: VersionDocument,
   operations: ApiOperation[],
   buildResult: BuildResult,
-  onDuplicate?: DuplicateOperationHandler,
 ): void {
   // everything this document built; `reconcileOwnedIds` prunes what another document ends up owning
   document.operationIds = operations.map(({ operationId }) => operationId)
   // kept whole, because a collision is graded over every claimant and the loser's own entry does not survive
   document.operationClaims = operations.map(({ operationId, apiType }) => ({ operationId, apiType }))
   for (const operation of operations) {
-    setReportingDuplicate(buildResult.operations, operation.operationId, operation, onDuplicate)
+    setReportingDuplicate(buildResult.operations, operation.operationId, operation)
   }
 }
 
@@ -97,8 +96,7 @@ export async function processOperationDocument(
   builder: ApiBuilder,
   ctx: BuilderContext,
   buildResult: BuildResult,
-  onDuplicate?: DuplicateOperationHandler,
 ): Promise<void> {
   if (!builder.buildOperations) { return }
-  indexOperations(document, await buildDocumentOperations(document, builder, ctx), buildResult, onDuplicate)
+  indexOperations(document, await buildDocumentOperations(document, builder, ctx), buildResult)
 }
