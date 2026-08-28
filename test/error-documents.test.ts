@@ -232,6 +232,8 @@ describe('A file that will not be published', () => {
     const failure = result.notifications.find(({ category }) => category === MESSAGE_CATEGORY.FileNotParsed)!
     expect(failure).toBeDefined()
     expect(failure.documentId).toBeUndefined()
+    // the slug is gone, so the text carries the file id instead: a release refusal has to name something
+    expect(failure.message).toContain(`(file '${'no-such-file.yaml'}')`)
 
     const published = [...result.documents.values()].filter(({ publish }) => publish)
     expect(published.map(({ slug }) => slug)).toEqual(['rest'])

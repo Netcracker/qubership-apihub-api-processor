@@ -15,21 +15,10 @@
  */
 
 import type { ApiBuilder, ApiOperation, BuilderContext, BuildResult, VersionDocument } from '../types'
-import { createCrossDocumentDuplicateHandler, DuplicateOperationHandler, setReportingDuplicate } from '../utils'
+import { DuplicateOperationHandler, setReportingDuplicate } from '../utils'
 import { ASYNCAPI_API_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../consts'
 import { Claims, collectClaim, listDocuments, reportCollisions } from './duplicate-resolution'
 import { NotificationMessage } from '../types/package/notifications'
-
-// Cross-document only: which claimant ends up indexed is `setReportingDuplicate`'s decision, not this one's.
-export const createDuplicateOperationHandler = (buildResult: BuildResult): DuplicateOperationHandler =>
-  createCrossDocumentDuplicateHandler(
-    buildResult.notifications,
-    MESSAGE_CATEGORY.DuplicateOperationId,
-    // AsyncAPI grades this an `Error`, REST and GraphQL a `Warning`
-    ({ apiType }) => (apiType === ASYNCAPI_API_TYPE ? MESSAGE_SEVERITY.Error : MESSAGE_SEVERITY.Warning),
-    (existing, duplicate) => `Duplicated operationId '${duplicate.operationId}' found in different documents: ` +
-      `'${existing.documentId}' and '${duplicate.documentId}'`,
-  )
 
 /** All a collision needs to know about a claimant: who derived the id, and by which api type. */
 export interface OperationClaim {

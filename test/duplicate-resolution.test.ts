@@ -193,8 +193,9 @@ describe('A collision three documents share', () => {
       files: [{ fileId: 'api.yaml' }, { fileId: 'async-a.yaml' }, { fileId: 'async-b.yaml' }],
     })
 
-    const severityOf = (slug: string): number | undefined =>
-      result.notifications.find(({ documentId }) => documentId === slug)?.severity
+    const severityOf = (slug: string): number | undefined => result.notifications
+      .find(({ documentId, category }) => documentId === slug && category === MESSAGE_CATEGORY.DuplicateOperationId)
+      ?.severity
 
     // the REST document keeps the staged Warning; the AsyncAPI pair is graded on its own collision
     expect(severityOf('api')).toBe(MESSAGE_SEVERITY.Warning)
@@ -202,7 +203,8 @@ describe('A collision three documents share', () => {
     expect(severityOf('async-b')).toBe(MESSAGE_SEVERITY.Error)
 
     // and the message names every claimant, not the pair that happened to be compared
-    const [{ message }] = result.notifications
+    const { message } = result.notifications
+      .find(({ category }) => category === MESSAGE_CATEGORY.DuplicateOperationId)!
     for (const slug of ['api', 'async-a', 'async-b']) { expect(message).toContain(slug) }
   }, 30000)
 })

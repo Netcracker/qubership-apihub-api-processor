@@ -23,7 +23,7 @@ import {
   PackageDdlEntity,
   PackageDdlFile,
 } from '../types/package/ddl'
-import { createCrossDocumentDuplicateHandler, DuplicateHandler, setReportingDuplicate } from '../utils'
+import { DuplicateHandler, setReportingDuplicate } from '../utils'
 import { Claims, listDocuments, reportCollisions } from './duplicate-resolution'
 import { MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../consts'
 import { NotificationMessage } from '../types/package'
@@ -39,15 +39,6 @@ export function createDdlBuildContext(): DdlBuildContext {
 }
 
 export type DuplicateDdlEntityHandler = DuplicateHandler<DdlEntity>
-
-export const createDuplicateDdlEntityHandler = (notifications: NotificationMessage[]): DuplicateDdlEntityHandler =>
-  createCrossDocumentDuplicateHandler(
-    notifications,
-    MESSAGE_CATEGORY.DdlDuplicateEntity,
-    () => MESSAGE_SEVERITY.Error,
-    (existing, duplicate) => `Duplicate DDL entity ID '${duplicate.ddlEntityId}' found in different documents: ` +
-      `'${existing.documentId}' and '${duplicate.documentId}'`,
-  )
 
 /** Cross-document DDL entity collisions, over the whole claimant set — see `reportCollisions`. */
 export function reportDdlCollisions(claims: Claims<DdlEntity>, notifications: NotificationMessage[]): void {
@@ -85,17 +76,6 @@ export function indexDdlEntities(
   for (const entity of entities) {
     setReportingDuplicate(ctx.ddlEntities, entity.ddlEntityId, entity, onDuplicate)
   }
-}
-
-export function processDdlDocument(
-  file: BuildConfigFile,
-  document: VersionDocument,
-  builder: ApiBuilder,
-  ctx: DdlBuildContext,
-  onDuplicate?: DuplicateDdlEntityHandler,
-): void {
-  if (!builder.buildDdlEntities) { return }
-  indexDdlEntities(buildDocumentDdlEntities(file, document, builder), ctx, onDuplicate)
 }
 
 export const KIND_TO_FIELD: Record<DdlKind, keyof PackageDdlFile> = {

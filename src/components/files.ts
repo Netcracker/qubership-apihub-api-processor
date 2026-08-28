@@ -178,9 +178,16 @@ export const buildFiles = async (files: BuildConfigFile[], ctx: BuilderContext):
   // `publish` is settled here, and only a published document has a slug in `documents.json` for a message to
   // name. Its own and its dependencies' parse problems are reported now; anything already raised against a
   // document that will not be published loses the attribution and stays a version-level message.
-  const unpublished = new Set(result.filter(({ document }) => !document.publish).map(({ document }) => document.slug))
+  // the file id takes the slug's place in the text, so a release refusal still says which file to open
+  const unpublished = new Map(result
+    .filter(({ document }) => !document.publish)
+    .map(({ document }) => [document.slug, document.fileId]))
   for (const notification of ctx.notifications) {
-    if (notification.documentId && unpublished.has(notification.documentId)) { delete notification.documentId }
+    const fileId = notification.documentId && unpublished.get(notification.documentId)
+    if (fileId) {
+      notification.message = `${notification.message} (file '${fileId}')`
+      delete notification.documentId
+    }
   }
 
   for (const { document, parsedFile } of result) {

@@ -36,8 +36,8 @@ export function calculateDdlEntityId(schemaName: string, kind: DdlKind, name: st
 /**
  * Walk the raw Realm (OQ3) `schemas[] → tables[]` and emit one `DdlEntity` per table. Detects
  * **intra-document** duplicate ids only (this builder sees one document); cross-document collisions are
- * `processDdlDocument`'s job. Mirrors MCP: `buildMcpEntities` dedups within a doc, `processMcpDocument`
- * across docs.
+ * graded by `reportDdlCollisions` over every document's entities. Mirrors MCP, where `buildMcpEntities`
+ * dedups within a document and `reportMcpCollisions` across them.
  */
 export const buildDdlEntities: DdlEntitiesBuilder<ParsedDdlData> = (document, _file, notifications) => {
   const { realm, extractor } = document.data

@@ -216,7 +216,7 @@ export function validateMcpProtocolVersion(
   }
 
   const alreadyFlagged = new Set(notifications
-    .filter(({ severity, documentId }) => severity === MESSAGE_SEVERITY.Error && documentId)
+    .filter(({ category, documentId }) => category === MESSAGE_CATEGORY.McpEntityBuild && documentId)
     .map(({ documentId }) => documentId))
 
   for (const document of documents.values()) {
