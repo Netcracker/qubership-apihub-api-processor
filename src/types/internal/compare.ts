@@ -97,6 +97,7 @@ export interface VersionsComparison<T extends DiffType | DiffTypeDto = DiffType>
   previousVersion: VersionId
   previousVersionPackageId: PackageId
   previousVersionRevision?: number
+  // Internal only
   fromCache: boolean
   operationTypes: OperationType<T>[]
   data?: OperationChanges[]
@@ -107,7 +108,7 @@ export interface VersionsComparison<T extends DiffType | DiffTypeDto = DiffType>
   hasErrors?: boolean
 }
 
-export interface VersionsComparisonDto extends Omit<VersionsComparison<DiffTypeDto>, 'data' | 'comparisonInternalDocuments' | 'notifications'> {
+export interface VersionsComparisonDto extends Omit<VersionsComparison<DiffTypeDto>, 'data' | 'comparisonInternalDocuments' | 'notifications' | 'fromCache'> {
   data?: OperationChangesDto[]
 }
 
@@ -171,6 +172,7 @@ export interface DdlComparison<T extends DiffType | DiffTypeDto = DiffType> {
   previousVersion: VersionId
   previousVersionPackageId: PackageId
   previousVersionRevision?: number
+  // Internal only
   fromCache: boolean
   contractsChangesSummary: DdlContractsChangesSummary<T>
   data?: DdlChanges[]
@@ -181,7 +183,7 @@ export interface DdlComparison<T extends DiffType | DiffTypeDto = DiffType> {
   hasErrors?: boolean
 }
 
-export interface DdlComparisonDto extends Omit<DdlComparison<DiffTypeDto>, 'data' | 'comparisonInternalDocuments' | 'notifications'> {
+export interface DdlComparisonDto extends Omit<DdlComparison<DiffTypeDto>, 'data' | 'comparisonInternalDocuments' | 'notifications' | 'fromCache'> {
   data?: DdlChangesDto[]
 }
 

@@ -36,6 +36,7 @@ import {
   VersionDocument,
 } from '../src'
 import {
+  buildCachedComparisons,
   buildComparisonInternalDocumentsIndex,
   buildComparisonOperations,
   buildComparisonNotifications,
@@ -47,7 +48,7 @@ import {
   buildPackageOperations,
   buildVersionInternalDocumentsIndex,
 } from '../src/components/build-result-index'
-import { DdlChangesDto, DdlComparisonDto, VersionsComparison, VersionsComparisonDto } from '../src/types/internal/compare'
+import { DdlChangesDto, DdlComparison, DdlComparisonDto, VersionsComparison, VersionsComparisonDto } from '../src/types/internal/compare'
 import { MCP_KIND, McpEntity, McpEntityIndex, PackageMcpFile } from '../src/types/package/mcp'
 import { PackageDdlFile } from '../src/types/package/ddl'
 
@@ -235,6 +236,57 @@ describe('Build result builders: deterministic sort', () => {
     const input = [row('v2', 1), row('v1', 10), row('v1', 2)]
     expect(buildComparisonsIndex(input).comparisons.map(c => `${c.version}@${c.revision}`))
       .toEqual(['v1@2', 'v1@10', 'v2@1'])
+  })
+
+  // cached-comparisons.json must order pairs the same way too, or the reader matching a key to a row walks
+  // two differently ordered lists. Asserted against the index itself, not a copy of its expected order, so
+  // the two cannot drift apart.
+  // before: v2@1, v1@10, v1@2 → after: v1@2, v1@10, v2@1
+  it('should sort cached comparisons by the same key comparisons.json uses', () => {
+    const pair = (version: string, revision: number): unknown =>
+      ({
+        packageId: 'p',
+        version,
+        revision,
+        previousVersionPackageId: 'p',
+        previousVersion: 'v0',
+        previousVersionRevision: 1,
+        fromCache: true,
+        operationTypes: [],
+      })
+    const input = [pair('v2', 1), pair('v1', 10), pair('v1', 2)]
+    const versionOf = (entry: { version: string; revision?: number }): string => `${entry.version}@${entry.revision}`
+
+    const cached = buildCachedComparisons(input as VersionsComparison[]).cachedComparisons
+    expect(cached.map(versionOf)).toEqual(['v1@2', 'v1@10', 'v2@1'])
+    expect(cached.map(versionOf))
+      .toEqual(buildComparisonsIndex(input as VersionsComparisonDto[]).comparisons.map(versionOf))
+  })
+
+  // A pair reaches one row in the host's store, so its operation and DDL comparisons owe it one entry. The
+  // build cannot produce that input today — a cache hit skips the DDL comparison entirely — but the file is
+  // a contract, and the contract is one entry per pair whatever produced it.
+  it('should record a pair once when both of its comparisons are cached', () => {
+    const pair = {
+      packageId: 'p',
+      version: 'v1',
+      revision: 1,
+      previousVersionPackageId: 'p',
+      previousVersion: 'v0',
+      previousVersionRevision: 1,
+      fromCache: true,
+    }
+    const input = [
+      { ...pair, operationTypes: [] },
+      { ...pair, contractsChangesSummary: {} },
+    ] as unknown as Array<VersionsComparison | DdlComparison>
+
+    const { cachedComparisons } = buildCachedComparisons(input)
+    expect(cachedComparisons).toHaveLength(1)
+    // the pair identity and nothing else: the comparison it came from carries the changelog
+    expect(Object.keys(cachedComparisons[0]).sort()).toEqual([
+      'packageId', 'previousVersion', 'previousVersionPackageId', 'previousVersionRevision', 'revision', 'version',
+    ])
   })
 
   // comparison-notifications.json must order pairs by the same six-part key comparisons.json uses, or the

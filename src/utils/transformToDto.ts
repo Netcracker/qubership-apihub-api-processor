@@ -165,6 +165,9 @@ export function toVersionsComparisonDto({
   // the pair's messages ship in comparison-notifications.json, not inside the comparison row
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   notifications,
+  // and its reuse ships in cached-comparisons.json, recorded once for the pair rather than per comparison
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  fromCache,
   ...rest
 }: VersionsComparison, normalizedSpecFragmentsHashCache: ObjectHashCache, logError: (message: string) => void): VersionsComparisonDto {
   return {
@@ -214,6 +217,8 @@ export function toDdlComparisonDto({
   comparisonInternalDocuments,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   notifications,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  fromCache,
   ...rest
 }: DdlComparison, normalizedSpecFragmentsHashCache: ObjectHashCache, logError: (message: string) => void): DdlComparisonDto {
   return {

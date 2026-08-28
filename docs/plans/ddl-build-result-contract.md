@@ -22,6 +22,7 @@ shared files.
 | `version-internal-documents/<id>.json` | ✓ | — | shared | normalized→denormalized→serialized `Realm` |
 | `ddl.json` | ✓ | — | **DDL** | table entity index (grouped by kind) |
 | `ddl/<ddlEntityId>` | ✓ | — | **DDL** | minimal SQL per table (no extension) |
+| `cached-comparisons.json` | ✓¹ | ✓ | shared | version pairs reused from the host, one list for both comparison indexes |
 | `ddl-comparisons.json` | ✓¹ | ✓ | **DDL** | DDL comparison index |
 | `ddl-comparisons/<comparisonFileId>` | ✓¹ | ✓ | **DDL** | per-pair DDL change data |
 | `comparison-internal-documents.json` | ✓¹ | ✓ | shared | index (REST + DDL merged docs) |
@@ -107,7 +108,11 @@ COMMENT ON COLUMN public.users.email IS 'Primary contact email';
 Sibling of `comparisons.json`; same envelope, but each comparison carries **`contractsChangesSummary`** —
 an object keyed by contract type (`ddl`), the DDL analog of REST's `operationTypes` array — and the
 per-pair change data is stripped (it lives in `ddl-comparisons/`). Because the key already carries the
-contract type, there is no per-entry `contractType` field:
+contract type, there is no per-entry `contractType` field.
+
+Whether a pair was reused from the host is recorded in `cached-comparisons.json`, which applies to this index
+and to `comparisons.json` alike. A reused pair has no entry here in any case: nothing is recalculated on a
+cache hit.
 
 ```jsonc
 {
@@ -120,7 +125,6 @@ contract type, there is no per-entry `contractType` field:
       "previousVersion": "1.0.0",
       "previousVersionPackageId": "shop-pkg",
       "previousVersionRevision": 1,
-      "fromCache": false,
       "contractsChangesSummary": {
         "ddl": {
           "changesSummary":          { "breaking": 1, "non-breaking": 2, "semi-breaking": 0, "deprecated": 0, "annotation": 0, "unclassified": 0 },

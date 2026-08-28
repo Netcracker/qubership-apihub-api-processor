@@ -124,6 +124,7 @@ export const PACKAGE = {
   DOCUMENTS_FILE_NAME: 'documents.json',
   OPERATIONS_FILE_NAME: 'operations.json',
   COMPARISONS_FILE_NAME: 'comparisons.json',
+  CACHED_COMPARISONS_FILE_NAME: 'cached-comparisons.json',
   COMPARISON_INTERNAL_FILE_NAME: 'comparison-internal-documents.json',
   VERSION_INTERNAL_FILE_NAME: 'version-internal-documents.json',
   DOCUMENTS_DIR_NAME: 'documents',
