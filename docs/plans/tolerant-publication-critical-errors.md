@@ -122,7 +122,7 @@ Detail in [api-processor](#api-processor) and [Backend](#backend); this is the s
 
 | Endpoint | Change |
 |----------|--------|
-| `GET /api/v3/packages/{packageId}/versions` | `hasErrors` per version |
+| `GET /api/v3/packages/{packageId}/versions` | `hasErrors` and `changelogHasErrors` per version |
 | `GET /api/v3/packages/{packageId}/versions/{version}` | `hasErrors` for the version; `hasErrors` per `operationTypes` entry and per `contractsSummary.ddl` / `.mcp`; `changelogHasErrors` when `includeSummary=true` |
 | `GET /api/v2/packages/{packageId}/versions/{version}/documents` | `hasErrors` per document |
 | `GET /api/v3/packages/{packageId}/versions/{version}/documents/{slug}` | `hasErrors` for the document |
@@ -139,6 +139,10 @@ All four gate on the same predicate. A version is **unsound** when either is tru
 - the version itself has `hasErrors` — a problem in its own documents; or
 - the version's comparison against its `previousVersion` has `hasErrors` — an unreliable changelog. Versions
   with no `previousVersion` have no comparison, and this half simply does not apply.
+
+Both halves are exposed on `GET /api/v3/packages/{packageId}/versions` as `hasErrors` and
+`changelogHasErrors`, so a client choosing a previous version or a dashboard reference can evaluate soundness
+from the version list it already renders, rather than discovering the refusal at publish time.
 
 | Action | Refused when |
 |--------|--------------|
@@ -1719,8 +1723,14 @@ In the `BuildResult` schema ("Build result for build"):
   non-nullable. Without the grouping the backend would have no way to derive the key at all for a build with
   several comparisons, which is the normal case for dashboards.
 - **Comparison `hasErrors`.** Persist the per-comparison flag from `comparisons.json` /
-  `ddl-comparisons.json` onto the `version_comparison` row, so `/changes/summary` and the version-content
-  `changelogHasErrors` can be served without aggregating notifications.
+  `ddl-comparisons.json` onto the `version_comparison` row, so `/changes/summary` and the `changelogHasErrors`
+  of the versions list and of the version content can be served without aggregating notifications.
+- **Versions-list `changelogHasErrors`.** `GetReadonlyPackageVersionsWithLimit`
+  (`repository/PublishedRepositoryPG.go:2308`), the query behind `GetPackageVersionsView`, gains a left join to
+  `version_comparison` on `(package_id, version, revision)` plus the row's own previous-version columns, and
+  selects that comparison's `hasErrors`. The join is left so that versions with no previous version stay in the
+  result with the flag unset. This is the bulk form of the `isVersionUnsound` lookup below — both read the same
+  stored flag, so a list row and a guard cannot disagree about a version.
 - **`ValidateBuildResultAgainstConfig`** (`service/validation/PublishedValidator.go:121`): keep the strict
   `info.status == buildConfig.status` check (no downgrade). **Add** a defensive rule: if
   `buildConfig.status == release` and **either** `info.hasErrors == true` **or** any entry of
@@ -1786,7 +1796,7 @@ In the `BuildResult` schema ("Build result for build"):
 
 | Endpoint / schema | Change |
 |---|---|
-| `GET /api/v3/packages/{packageId}/versions` — `PackageVersion` | add `hasErrors: boolean` (default `false`) — from build result (`published_version.metadata`) |
+| `GET /api/v3/packages/{packageId}/versions` — `PackageVersion` | add `hasErrors: boolean` (default `false`) — from build result (`published_version.metadata`); add `changelogHasErrors: boolean` (default `false`) — from the `version_comparison` row of the version's comparison against its `previousVersion`, absent when it has none |
 | `GET /api/v3/packages/{packageId}/versions/{version}` — `PackageVersionContent` | add `hasErrors: boolean` (from build result); add `hasErrors: boolean` on each `operationTypes.*` item and on `contractsSummary.ddl` / `contractsSummary.mcp` — **calculated by the backend** from the version's documents (a document with `hasErrors` contributes to its apiType/contractType) |
 | `GET /api/v2/packages/{packageId}/versions/{version}/documents` — `PackageVersionFile` | add `hasErrors: boolean` (default `false`) — from build result (`published_version_content.metadata`) |
 | `GET /api/v3/packages/{packageId}/versions/{version}/documents/{slug}` | add `hasErrors: boolean` (per-document detail already an on-demand fetch) |
@@ -1913,8 +1923,9 @@ persistence, the derived views and the refusals, none of which the api-processor
   version with one errored REST document flags `rest` and nothing else.
 - a document that failed before its type could be determined flags the **version** but no API type — the
   mark-with-no-highlight case the UI has to tolerate.
-- `changelogHasErrors` on version content reflects the version's own comparison against its
-  `previousVersion`, and is absent when there is none.
+- `changelogHasErrors` on the versions list and on version content reflects the version's own comparison
+  against its `previousVersion`, and is absent when there is none. Both endpoints read the same
+  `version_comparison` flag, so a version reports the same value in the list and on its own page.
 
 #### Endpoints
 
@@ -2087,6 +2098,10 @@ remains the right entry point for it.
   `CompareVersionsDialogForm`, `CompareRevisionsDialogForm`, `OperationPage`/`OperationContent`,
   `VersionCompareContent`, `DashboardsCompareContent`, `AddPackageDialog`), plus version lists and selectors
   fed by `GET /api/v3/packages/{packageId}/versions`.
+- version selectors that pick a baseline or a dashboard reference should mark — or disable — unsound versions
+  using both list flags, `hasErrors` and `changelogHasErrors`, since those are exactly the versions the backend
+  refuses. An unreliable changelog disqualifies a baseline just as its own errors do, so a selector that reads
+  only `hasErrors` would still offer versions that are then rejected.
 - per-document error mark in the documents list, and error details on the document details screen.
 - error icon per API type in the `ApiTypeSelector` dropdown and on the overview page, from
   `operationTypes.*.hasErrors` and `contractsSummary.ddl|mcp.hasErrors`.
