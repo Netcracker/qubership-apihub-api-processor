@@ -63,7 +63,6 @@ export const buildFile = async (configFile: BuildConfigFile, ctx: BuilderContext
 
   try {
     const result = await buildDocument(data, file, ctx)
-    await reportDependencyParseErrors(result.document, ctx)
     return { file, document: result.document, builder: result.builder, parsedFile: data }
   } catch (error) {
     ctx.notifications.push({
@@ -84,8 +83,8 @@ export const buildFile = async (configFile: BuildConfigFile, ctx: BuilderContext
  * A `$ref`-ed file never becomes a document, so it has no slug to own the message, and `parseFile` caches by
  * `fileId` and would report it once. Reporting here flags every document that pulled the file in.
  *
- * The document's own file waits for `reportOwnParseErrors`, because `buildFiles` settles `publish` only after
- * every file is built.
+ * Runs only once `buildFiles` has settled `publish`, and only for a document that will be published: an
+ * unpublished one has no slug in `documents.json` for the message to name.
  */
 async function reportDependencyParseErrors(document: VersionDocument, ctx: BuilderContext): Promise<void> {
   for (const dependency of document.dependencies ?? []) {
@@ -102,7 +101,6 @@ async function reportDependencyParseErrors(document: VersionDocument, ctx: Build
  * contain.
  */
 function reportOwnParseErrors(document: VersionDocument, own: SourceFile, ctx: BuilderContext): void {
-  if (!document.publish) { return }
   reportParseErrors(own, true, document, ctx)
 }
 
@@ -177,8 +175,17 @@ export const buildFiles = async (files: BuildConfigFile[], ctx: BuilderContext):
     document.publish = parsed?.kind === FILE_KIND.BINARY && isNotEmpty(parsed.errors ?? [])
   }
 
-  // now that `publish` is settled, each document reports the problems of its own file
+  // `publish` is settled here, and only a published document has a slug in `documents.json` for a message to
+  // name. Its own and its dependencies' parse problems are reported now; anything already raised against a
+  // document that will not be published loses the attribution and stays a version-level message.
+  const unpublished = new Set(result.filter(({ document }) => !document.publish).map(({ document }) => document.slug))
+  for (const notification of ctx.notifications) {
+    if (notification.documentId && unpublished.has(notification.documentId)) { delete notification.documentId }
+  }
+
   for (const { document, parsedFile } of result) {
+    if (!document.publish) { continue }
+    await reportDependencyParseErrors(document, ctx)
     if (parsedFile) { reportOwnParseErrors(document, parsedFile, ctx) }
   }
 

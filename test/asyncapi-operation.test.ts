@@ -753,6 +753,10 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
         expect(duplicates.map(({ documentId }) => documentId).sort()).toEqual(['spec1', 'spec2'])
         expect(duplicates.every(({ severity }) => severity === MESSAGE_SEVERITY.Error)).toBe(true)
         expect(duplicates.every(({ category }) => category === MESSAGE_CATEGORY.DuplicateOperationId)).toBe(true)
+
+        // both are flagged, and the id goes to the smaller slug as any contested id does
+        expect(result.operations.size).toBe(1)
+        expect(result.operations.get('operation1-message1')!.documentId).toBe('spec1')
       })
 
       // one message per document, so the failure takes the summary form and names both
@@ -781,6 +785,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
           documentId: 'spec',
         })
         expect(result.notifications[0].message).toContain('operationId \'user-created-message1\'')
+        // the Error marks the document; the operation it did build still ships
         expect([...result.operations.keys()]).toEqual(['user-created-message1'])
       })
     })

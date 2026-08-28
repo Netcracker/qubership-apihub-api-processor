@@ -63,7 +63,8 @@ import {
   unknownApiBuilder,
 } from './apitypes'
 import { ddlBuilder } from './apitypes/ddl/ddl.builder'
-import { filesDiff, findSharedPath, getCompositeKey, getFileExtension, getOperationsList, reconcileOwnedIds, replaceInPlace } from './utils'
+import { filesDiff, findSharedPath, getCompositeKey, getFileExtension, getOperationsList, replaceInPlace } from './utils'
+import { reconcileOwnedIds } from './components/build-documents'
 import {
   BUILD_TYPE,
   ContractType,
@@ -84,12 +85,12 @@ import { compareVersions } from './components/compare'
 import { applyBuilderVersionInfo, validateConfig } from './validators'
 import { buildFiles } from './components/files'
 import {
-  createDuplicateMcpEntityHandler,
   McpBuildContext,
   processMcpDocument,
+  reportMcpCollisionsOf,
   validateMcpCapabilities,
 } from './components/mcp'
-import { createDuplicateOperationHandler, processOperationDocument } from './components/operations'
+import { processOperationDocument, reportOperationCollisionsOf } from './components/operations'
 import JSZip from 'jszip'
 import { calculateHistoryForDeprecatedItems } from './components/deprecated'
 import { JsZipTool } from './components/js-zip-tool'
@@ -123,7 +124,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
 
   // `readonly` because contexts capture the array via `bind`; clear it in place — see `replaceInPlace`
   readonly notifications: NotificationMessage[] = []
-  // comparison-phase messages live apart: they mark a comparison, never the version — see #716
+  // comparison-phase messages live apart: they mark a comparison, never the version
   readonly comparisonNotifications: NotificationMessage[] = []
   merged?: VersionDocument
   config: BuildConfig
@@ -932,8 +933,9 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
           }
         })
         previousDocument.mcpEntityIds?.forEach(entityId => {
-          if (this.mcpEntities.get(entityId)?.documentId !== previousDocument.slug) { return }
-          this.mcpEntities.delete(entityId)
+          if (this.mcpEntities.get(entityId)?.documentId === previousDocument.slug) {
+            this.mcpEntities.delete(entityId)
+          }
         })
         this.documents.delete(previousDocument.fileId)
       }
@@ -943,8 +945,6 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     const buildFilesResult = await buildFiles(changedFiles, ctx)
 
     const { buildResult } = this
-    const handleDuplicateOperation = createDuplicateOperationHandler(buildResult)
-    const handleDuplicateMcp = createDuplicateMcpEntityHandler(this.notifications)
     const mcpCtx: McpBuildContext = { mcpEntities: this.mcpEntities }
     let hasMcpChanges = false
 
@@ -953,12 +953,17 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       if (!builder || document.publish === false) { continue }
 
       if (builder.apiType === MCP_CONTRACT_TYPE) {
-        processMcpDocument(file, document, builder, mcpCtx, handleDuplicateMcp)
+        processMcpDocument(file, document, builder, mcpCtx, undefined, this.notifications)
         hasMcpChanges = true
       } else {
-        await processOperationDocument(document, builder, ctx, buildResult, handleDuplicateOperation)
+        await processOperationDocument(document, builder, ctx, buildResult)
       }
     }
+
+    // graded from the claim lists every document keeps, over the whole claimant set, so the preview and a
+    // publication reach the same verdict
+    reportOperationCollisionsOf(this.documents.values(), this.notifications)
+    reportMcpCollisionsOf(this.documents.values(), this.notifications)
 
     // same reconciliation as a full build: a rebuilt document may have lost an id to a smaller slug
     reconcileOwnedIds(this.documents.values(), this.operations, this.mcpEntities)

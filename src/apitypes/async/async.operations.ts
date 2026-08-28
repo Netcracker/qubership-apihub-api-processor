@@ -15,16 +15,7 @@
  */
 
 import { OperationsBuilder } from '../../types'
-import {
-  calculateAsyncOperationId,
-  createBundlingErrorHandler,
-  createSerializedInternalDocument,
-  DuplicateEntry,
-  findDuplicates,
-  isNotEmpty,
-  isObject,
-  removeComponents,
-} from '../../utils'
+import { calculateAsyncOperationId, createBundlingErrorHandler, createSerializedInternalDocument, DuplicateEntry, findDuplicates, isNotEmpty, isObject, removeComponents, reportItemBuildFailure } from '../../utils'
 import type * as TYPE from './async.types'
 import { AsyncOperationActionType } from './async.types'
 import { asyncFunction, normalizeAsyncApiToRefsDocument } from '../../utils/async'
@@ -85,28 +76,34 @@ export const buildAsyncApiOperations: OperationsBuilder<AsyncAPIV3.AsyncAPIObjec
       const messageId = getAsyncMessageId(message)
       const operationId = calculateAsyncOperationId(asyncOperationId, messageId)
 
-      if (!operationIdMap.has(operationId)) {
-        operationIdMap.set(operationId, [])
-      }
-      operationIdMap.get(operationId)!.push({ asyncOperationId, channelId, messageId})
-
       await asyncFunction(() => {
-        const builtOperation = buildAsyncApiOperation(
-          operationId,
-          messageId,
-          channelId,
-          asyncOperationId,
-          action,
-          channel,
-          message,
-          document,
-          effectiveDocument,
-          refsOnlyDocument,
-          notifications,
-          config,
-          normalizedSpecFragmentsHashCache,
-        )
-        apihubOperations.push(builtOperation)
+        // per operation: a failure omits this one and is reported against the document; the loop continues
+        try {
+          apihubOperations.push(buildAsyncApiOperation(
+            operationId,
+            messageId,
+            channelId,
+            asyncOperationId,
+            action,
+            channel,
+            message,
+            document,
+            effectiveDocument,
+            refsOnlyDocument,
+            notifications,
+            config,
+            normalizedSpecFragmentsHashCache,
+          ))
+          // after the build, so an operation that failed does not count towards `findDuplicates`
+          if (!operationIdMap.has(operationId)) {
+            operationIdMap.set(operationId, [])
+          }
+          operationIdMap.get(operationId)!.push({ asyncOperationId, channelId, messageId })
+        } catch (error) {
+          const what = `operation '${operationId}'`
+          reportItemBuildFailure(notifications, MESSAGE_CATEGORY.BuildOperations, document.slug,
+            error instanceof Error ? `Cannot build ${what}. ${error.message}` : `Cannot build ${what}`)
+        }
       })
     }
   }

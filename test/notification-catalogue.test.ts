@@ -27,18 +27,6 @@ import { BuildConfig, BuildResult, MessageCategory, MessageSeverity, Notificatio
  * The categories no row can reach are listed, with their reason, above `publish`.
  */
 
-/*
- * Where the rest of this feature is tested:
- *
- *   tolerant-publication.test.ts      a broken document does not cost the version the ones that built
- *   release-gate.test.ts              what a release refuses, and the words it refuses with
- *   fatal-failures.test.ts            what still aborts the build
- *   notification-attribution.test.ts  which stream and which version pair a message lands in
- *   build-result-ordering.test.ts     the order every list ships in, and who owns a contested id
- *   reference-bundling.test.ts        what the bundler leaves of a document whose references are broken
- *   calculation-diagnostics.test.ts   the diagnostics only a stubbed collaborator can reach
- */
-
 type Stream = 'build' | 'comparison'
 
 interface Case {
@@ -437,6 +425,33 @@ const raised = (result: BuildResult, stream: Stream = 'build'): NotificationMess
   (stream === 'build'
     ? result.notifications
     : [...result.comparisonNotifications, ...result.comparisons.flatMap(({ notifications }) => notifications)])
+
+// `MessageCategory` is a contract the backend filters on, so a value added here without a row — or a row left
+// behind after a value is removed — has to fail rather than drift.
+const UNREACHABLE_FROM_A_DOCUMENT: MessageCategory[] = [
+  MESSAGE_CATEGORY.TolerantHashFailed,
+  MESSAGE_CATEGORY.RiskyOrigins,
+  MESSAGE_CATEGORY.DeprecatedComponentPath,
+  MESSAGE_CATEGORY.VersionRefsNotResolved,
+  MESSAGE_CATEGORY.ComparisonSerialization,
+  MESSAGE_CATEGORY.GroupDocumentsMissing,
+  MESSAGE_CATEGORY.OperationDataMissing,
+  MESSAGE_CATEGORY.PartialGroupDocuments,
+]
+
+describe('The catalogue covers every category', () => {
+  test('should drive or explicitly exclude each value of MESSAGE_CATEGORY', () => {
+    const driven = new Set<string>(CASES.map(({ category }) => category))
+    const excluded = new Set<string>(UNREACHABLE_FROM_A_DOCUMENT)
+
+    const uncovered = Object.values(MESSAGE_CATEGORY).filter(category =>
+      !driven.has(category) && !excluded.has(category))
+    expect(uncovered).toEqual([])
+
+    // and nothing is listed on both sides, or excluded after it became reachable
+    expect([...excluded].filter(category => driven.has(category))).toEqual([])
+  })
+})
 
 describe('Every diagnostic a build can raise', () => {
   test.each(CASES)('should report $name', async (testCase) => {

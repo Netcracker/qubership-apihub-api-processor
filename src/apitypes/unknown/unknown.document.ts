@@ -88,7 +88,6 @@ export const buildBinaryDocument: (parsedFile: SourceFile, file: BuildConfigFile
   }
 }
 
-// A sourceless document means a file that could not be fetched at all, so it ships as a zero-byte entry and
-// the notification says why. Throwing would cost the version every document that built, and dropping it with
-// `publish: false` would take the evidence of the failure with it.
+// A sourceless document is a file that could not be fetched at all: it ships as a zero-byte entry, and the
+// notification says why.
 export const dumpUnknownDocument: DocumentDumper<unknown> = (document) => document.source ?? new Blob([])

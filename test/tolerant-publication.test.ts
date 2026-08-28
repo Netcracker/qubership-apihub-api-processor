@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-import { afterEach, describe, expect, jest, test } from '@jest/globals'
+import { describe, expect, test } from '@jest/globals'
 import JSZip from 'jszip'
-import { Editor, loadFileAsStringFromRegistry, LocalRegistry, VERSIONS_PATH, notificationMatcher, notificationsMatcher } from './helpers'
+import { Editor, loadFileAsStringFromRegistry, LocalRegistry, VERSIONS_PATH } from './helpers'
 import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, PACKAGE, VERSION_STATUS } from '../src/consts'
-import { restApiBuilder, unknownApiBuilder } from '../src/apitypes'
+import { VALIDATION_RULES_SEVERITY_LEVEL_ERROR } from '../src'
+import { BuildConfig, BuildResult } from '../src/types'
 
 // The scenario the whole story exists for: one broken document must not cost the version the documents that
 // built cleanly. Everything else in the suite tests a single catch point; this tests the promise.
@@ -64,84 +65,87 @@ describe('Tolerant publication end to end', () => {
 
 // Two catch points the rest of the suite reaches only indirectly. Both are `Error`, so both block a release —
 // and both must leave the build standing, which is the whole promise.
-describe('Catch points report instead of aborting', () => {
-  afterEach(() => { jest.restoreAllMocks() })
-
-  // one healthy file and one the resolver has nothing for
-  test('should report a file the resolver cannot produce and keep building the rest', async () => {
-    const pkg = LocalRegistry.openPackage('tolerant-publication')
-    const result = await pkg.publish(pkg.packageId, {
-      status: VERSION_STATUS.DRAFT,
-      files: [{ fileId: 'rest.json' }, { fileId: 'no-such-file.yaml' }],
-    })
-
-    expect(result).toEqual(notificationsMatcher([
-      notificationMatcher(MESSAGE_SEVERITY.Error, 'File was not parsed', {
-        category: MESSAGE_CATEGORY.FileNotParsed,
-        documentId: 'no-such-file',
-      }),
-    ]))
-    // the healthy document still built
-    expect(result.operations.size).toBeGreaterThan(0)
-  }, 30000)
-
-  // The placeholder has to carry the failed file's bytes. `parser.test.ts` proves it when the parser is what
-  // failed; this covers the other route, where parsing succeeded and the document build threw, because the
-  // placeholder is built from a different call there.
-  test('should keep the original bytes when the document build itself throws', async () => {
-    jest.spyOn(unknownApiBuilder, 'buildDocument').mockImplementation(() => {
-      throw new Error('build exploded')
-    })
-
-    const pkg = LocalRegistry.openPackage('tolerant-publication')
-    const result = await pkg.publish(pkg.packageId, {
-      status: VERSION_STATUS.DRAFT,
-      files: [{ fileId: 'broken-async.yaml' }],
-    })
-
-    const [document] = [...result.documents.values()]
-    expect(document.source).toBeDefined()
-    expect(await document.source!.text()).toContain('asyncapi')
-  }, 30000)
-
-  // The build failure and the parse complaints are independent diagnostics, and this is the only site that
-  // emits the second kind. A build that threw is exactly when the reader needs both.
-  test('should keep the parse errors of a document whose build threw', async () => {
-    jest.spyOn(restApiBuilder, 'buildDocument').mockImplementation(() => {
-      throw new Error('build exploded')
-    })
-
-    const packageId = 'reference-bundling/shared-broken-reference'
-    const result = await new LocalRegistry(packageId).publish(packageId, {
+// Tolerance is per document and stops at the document: an `Error` marks it, and the version still publishes
+// whatever it managed to build. The notification says what is wrong; the operations that are right stay
+// readable, which is what a draft published for troubleshooting is for.
+describe('A document an Error names still publishes what it built', () => {
+  /** Publish the named fixtures of the `tolerant-publication` project as a draft, under their own version. */
+  const publishDraft = (
+    packageId: string,
+    fileIds: string[],
+    config: Partial<BuildConfig> = {},
+  ): Promise<BuildResult> =>
+    LocalRegistry.openPackage('tolerant-publication').publish('tolerant-publication', {
       packageId,
-      version: 'v1',
       status: VERSION_STATUS.DRAFT,
-      files: [{ fileId: 'shared.yaml' }],
+      files: fileIds.map(fileId => ({ fileId })),
+      ...config,
     })
+
+  // `colliding` builds `pets-get` and claims nothing: the index is filled after the loop, from the documents
+  // that survived it, so the healthy document keeps the id they both built. Neither half of that shows up in
+  // a fixture with one problem in one document.
+  test('should publish what the flagged document built, and flag it', async () => {
+    const packageId = 'tolerant-publication/mixed'
+    const result = await publishDraft(packageId, ['healthy.yaml', 'colliding.yaml'])
+
+    const healthy = result.documents.get('healthy.yaml')!
+    const colliding = result.documents.get('colliding.yaml')!
+
+    // the flagged document keeps what it built, contested id included: `colliding` sorts first
+    expect(colliding.operationIds).toContain('pets-get')
+    expect(colliding.operationIds!.length).toBeGreaterThan(1)
+    expect(colliding.source).toBeDefined()
+    expect(result.operations.get('pets-get')!.documentId).toBe(colliding.slug)
+    // and the loser announces nothing it did not win
+    expect(healthy.operationIds).toEqual([])
+
+    // and it is the only one blamed, for its own collision
+    expect(result.notifications.map(({ category }) => category)).toContain(MESSAGE_CATEGORY.RestDuplicateOperation)
+    const errors = result.notifications.filter(({ severity }) => severity === MESSAGE_SEVERITY.Error)
+    expect([...new Set(errors.map(({ documentId }) => documentId))]).toEqual([colliding.slug])
+
+    // the archive says the same: marked, and still carrying its operations
+    const documents = JSON.parse(
+      (await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'documents.json'))!,
+    ).documents as Array<{ fileId: string; hasErrors?: boolean; operationIds: string[] }>
+
+    const flagged = documents.find(({ fileId }) => fileId === 'colliding.yaml')!
+    expect(flagged.hasErrors).toBe(true)
+    expect(flagged.operationIds.length).toBeGreaterThan(1)
+
+    const operations = JSON.parse(
+      (await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'operations.json'))!,
+    ).operations as Array<{ operationId: string; documentId: string }>
+    expect(operations.every(({ documentId }) => documentId === 'colliding')).toBe(true)
+    expect(operations.length).toBeGreaterThan(1)
+  }, 30000)
+
+  // Three documents deriving one id: the AsyncAPI pair grades its own collision an `Error`, the REST document
+  // a `Warning`. The flags differ, the ownership rule does not — the smallest slug keeps the id.
+  test('should give a contested id to the smallest slug, whatever its claimants are flagged with', async () => {
+    const result = await publishDraft('tolerant-publication/cross-type',
+      ['async-a.yaml', 'async-b.yaml', 'healthy.yaml'])
+
+    expect([...result.operations.keys()]).toEqual(['pets-get'])
+    expect(result.operations.get('pets-get')!.documentId).toBe('async-a')
+    expect(result.documents.get('async-a.yaml')!.operationIds).toEqual(['pets-get'])
+    // the losers announce nothing they did not win, flagged or not
+    expect(result.documents.get('healthy.yaml')!.operationIds).toEqual([])
+    expect(result.documents.get('async-b.yaml')!.operationIds).toEqual([])
+  }, 30000)
+
+  // A document already carrying an Error is processed anyway, so one publication reports everything wrong
+  // with it rather than one problem per republish.
+  test('should keep looking for problems in a document already carrying one', async () => {
+    const result = await publishDraft('tolerant-publication/two-problems', ['broken-ref.yaml'],
+      { validationRulesSeverity: { brokenRefs: VALIDATION_RULES_SEVERITY_LEVEL_ERROR } })
 
     const categories = result.notifications.map(({ category }) => category)
-    expect(categories).toContain(MESSAGE_CATEGORY.BuildDocument)
-    expect(categories).toContain(MESSAGE_CATEGORY.InvalidTextFile)
-    expect(result.notifications.every(({ documentId }) => documentId === 'shared')).toBe(true)
-  }, 30000)
-
-  // the api type's operation builder throws for the healthy REST document
-  test('should report a document whose operations fail to build and keep the version', async () => {
-    jest.spyOn(restApiBuilder, 'buildOperations').mockImplementation(() => {
-      throw new Error('operations exploded')
-    })
-
-    const pkg = LocalRegistry.openPackage('tolerant-publication')
-    const result = await pkg.publish(pkg.packageId, { status: VERSION_STATUS.DRAFT })
-
-    const failure = result.notifications.find(({ category }) => category === MESSAGE_CATEGORY.BuildOperations)
-    expect(failure).toMatchObject({
-      severity: MESSAGE_SEVERITY.Error,
-      message: expect.stringContaining('operations exploded'),
-      documentId: 'rest',
-    })
-    // the throw cost the document its operations, not the version its documents
-    expect(result.documents.size).toBeGreaterThan(0)
+    expect(categories).toContain(MESSAGE_CATEGORY.RefNotFound)
+    expect(categories).toContain(MESSAGE_CATEGORY.DoubleSlashPath)
+    // and what it could build is published
+    expect(result.operations.size).toBeGreaterThan(0)
   }, 30000)
 })
 
@@ -164,6 +168,28 @@ describe('hasErrors flags', () => {
     expect(documents.find(({ fileId }) => fileId === 'broken-async.yaml')?.hasErrors).toBe(true)
     // absent rather than false: the field is optional and defaults to false for every consumer
     expect(documents.find(({ fileId }) => fileId === 'rest.json')).not.toHaveProperty('hasErrors')
+  }, 30000)
+
+  test('should flag nothing when a document only carries a Warning', async () => {
+    const packageId = 'tolerant-publication/warning-only'
+    const pkg = LocalRegistry.openPackage('operationId-collisions/double-slash-in-path')
+    const result = await pkg.publish(pkg.packageId, {
+      packageId,
+      version: 'v1',
+      status: VERSION_STATUS.DRAFT,
+      files: [{ fileId: 'spec.json' }],
+    })
+
+    expect(result.notifications.length).toBeGreaterThan(0)
+    expect(result.notifications.every(({ severity }) => severity === MESSAGE_SEVERITY.Warning)).toBe(true)
+
+    const info = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'info.json'))!)
+    expect(info).not.toHaveProperty('hasErrors')
+
+    const documents = JSON.parse(
+      (await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'documents.json'))!,
+    ).documents as Array<{ hasErrors?: boolean }>
+    expect(documents.every(document => !('hasErrors' in document))).toBe(true)
   }, 30000)
 
   test('should flag nothing on a clean build', async () => {
@@ -233,7 +259,7 @@ describe('A clean build is unchanged', () => {
     expect(comparisonNotifications.comparisons.length).toBe(comparisons.length)
     expect(comparisonNotifications.comparisons.every(({ notifications }) => notifications.length === 0)).toBe(true)
 
-    const { notifications } = await read<{ notifications: unknown[] }>(PACKAGE.NOTIFICATIONS_FILE_NAME)
-    expect(notifications).toEqual([])
+    // and the build stream ships no file at all: this is a changelog, which has no documents of its own
+    expect(zip.file(PACKAGE.NOTIFICATIONS_FILE_NAME)).toBeNull()
   }, 30000)
 })

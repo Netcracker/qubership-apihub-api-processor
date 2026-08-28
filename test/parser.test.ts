@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { Editor, LocalRegistry, loadFileAsStringFromRegistry, VERSIONS_PATH } from './helpers'
-import { MESSAGE_CATEGORY, MESSAGE_SEVERITY, VERSION_STATUS } from '../src/consts'
+import { Editor, LocalRegistry } from './helpers'
+import { MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../src/consts'
 import { buildDocument } from '../src/components/document'
 import { DocumentBuildError } from '../src/errors'
 import { FILE_KIND } from '../src/types'
@@ -43,57 +43,6 @@ const expectToleratedParseFailure = async (fileId: string): Promise<void> => {
 
 // The packaging regression this tolerance would otherwise hit: an error document with no source used to make
 // `dumpUnknownDocument` throw, so the whole archive failed after the build had already succeeded.
-describe('Error documents survive packaging', () => {
-  test('a version whose only document fails to parse still produces a complete archive', async () => {
-    const registry = LocalRegistry.openPackage('broken')
-    const result = await registry.publish('broken', {
-      packageId: 'broken',
-      version: 'v1',
-      status: VERSION_STATUS.DRAFT,
-      files: [{ fileId: 'missing_brace.json', publish: true }],
-    })
-
-    const document = result.documents.get('missing_brace.json')
-    expect(document).toBeDefined()
-
-    const documents = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, 'broken/v1', 'documents.json'))!)
-    expect(documents.documents.map(({ fileId }: { fileId: string }) => fileId)).toEqual(['missing_brace.json'])
-
-    // the archive carries the broken file itself — that is the troubleshooting artifact
-    const raw = await loadFileAsStringFromRegistry(VERSIONS_PATH, 'broken/v1/documents', document!.filename)
-    expect(raw).toBeTruthy()
-    expect(raw).toContain('openapi')
-  }, 30000)
-})
-
-// The other flavour of error document: nothing was ever fetched, so there are no bytes to carry. It is still
-// published — a document missing from the archive would leave the failure invisible to anyone browsing the
-// version — and the entry it ships is empty.
-describe('A document whose file could not be fetched', () => {
-  // a version of two files, one of which the resolver cannot produce
-  test('should publish an empty entry rather than skip the document or fail packaging', async () => {
-    const project = 'tolerant-publication'
-    // its own package id: the version directory is shared state, and other suites publish this project too
-    const packageId = 'tolerant-publication/unfetchable-file'
-    const result = await LocalRegistry.openPackage(project).publish(project, {
-      packageId,
-      version: 'v1',
-      status: VERSION_STATUS.DRAFT,
-      files: [{ fileId: 'rest.json' }, { fileId: 'no-such-file.yaml' }],
-    })
-
-    const document = result.documents.get('no-such-file.yaml')
-    expect(document).toBeDefined()
-    expect(document!.source).toBeUndefined()
-
-    const documents = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'documents.json'))!)
-    expect(documents.documents.map(({ fileId }: { fileId: string }) => fileId)).toContain('no-such-file.yaml')
-
-    const raw = await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1/documents`, document!.filename)
-    expect(raw).toBe('')
-  }, 30000)
-})
-
 describe('Basic project (one file): validation broken', () => {
   describe('JSON format', () => {
     test('JSON content in YAML-extension file', async () => {

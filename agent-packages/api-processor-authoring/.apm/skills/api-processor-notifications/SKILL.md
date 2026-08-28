@@ -42,7 +42,8 @@ one id, and `config.files` order must not decide whether a release is refused.
 Inside one document it is the api type's own category (`rest-duplicate-operation`,
 `async-duplicate-operation`), raised against that document, which keeps the operations it did build. GraphQL
 needs neither: its operation keys are unique object keys, and slugify folds no two valid names together. MCP
-and DDL still throw there — they collide while mapping entities, so nothing was built to keep.
+and DDL throw there instead of pushing, and the per-item catch turns the throw into the same thing: the
+colliding entity is dropped, the rest of the document's entities are kept.
 
 ## A `$ref`-ed file is reported by the documents that bundle it
 
@@ -82,11 +83,45 @@ Consequences worth knowing before you touch this:
 - A message raised before any pair exists — resolving the baseline, enumerating references — ships under the
   pair the config declared (`DeclaredPair` in `src/components/build-result-index.ts`).
 
+## A flagged document still publishes what it built
+
+An `Error` marks a document; it does not empty it. Whatever the document managed to build — operations, MCP
+entities, DDL entities — is published, and the notification says what is wrong with the rest. A draft
+published for troubleshooting is more use with half an API readable than with none, and the flag is what tells
+the reader not to trust it whole.
+
+Only two things leave a document with nothing to show, and neither is a policy:
+
+- **It never parsed.** There is no model to enumerate, so the document publishes its source bytes and no
+  operations. That is a consequence, not a rule.
+- **Nothing else.** The builders loop per item, so a single operation or entity that cannot be built is
+  omitted on its own — see the per-item catches below.
+
+**Failures are caught at the item, then at the document.** `buildRestOperations`, the AsyncAPI and GraphQL
+equivalents, `buildDdlEntities` and `buildMcpEntities` each wrap one item: the failure becomes its own `Error`
+against the document, that item is left out, and the loop carries on. The per-document `try` in
+`buildAllDocuments` (`src/components/build-documents.ts`) is the outer net for whatever escapes them. Both
+levels report; neither takes anything back.
+
+**`document.operationIds` and `mcpEntityIds` must list only what was actually built.** They are assembled from
+the array the builder returned, which is now shorter than the document's declarations by exactly the items
+that failed. Listing more than that makes `rebuildFiles` evict index entries the document never produced —
+the ownership problem duplicate resolution fixes from the other side.
+
+**The pipeline is three named steps**, and `buildVersionContent` reads as them: `buildAllDocuments`,
+`reportIdCollisions` and `indexBuiltIds` (`src/components/build-documents.ts`). Collisions are reported before
+anything is claimed, over the whole claimant set — see `src/components/duplicate-resolution.ts` for why
+severity is decided per collision rather than per id. Then the ids get their owners, the smallest slug wins a
+contested one, and `reconcileOwnedIds` stops the losers announcing what they did not keep.
+
+**Partial content can only ever ship as a draft.** Any `Error` still blocks a release, so publishing what a
+flagged document built widens the diagnostic without touching the gate.
+
 ## Deciding whether a failure may be caught
 
 Apply one test: **after this failure, is there still something worth publishing?** A document that failed to
-parse leaves its neighbours intact, so it is caught, published as a stub with its source bytes and no
-operations, and reported. A failure that leaves nothing — or leaves a result that would mislead — is not.
+parse leaves its neighbours intact, so it is caught, published with its source bytes and none of its content,
+and reported. A failure that leaves nothing — or leaves a result that would mislead — is not.
 
 The deliberate exceptions, all of them:
 
@@ -121,3 +156,6 @@ throw with no test is indistinguishable from a throw someone forgot to convert.
    names the right slug.
 5. Check the existing fixtures if the new value can block a release. Enabling the gate is a detector, and a
    fixture that starts failing is usually telling the truth.
+6. If it ships as an `Error`, check that the documents it names still publish what they built. A fixture that
+   starts losing operations is a regression, not the new check working — the flag is the whole cost of an
+   `Error` to a document's content.

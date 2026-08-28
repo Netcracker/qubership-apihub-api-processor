@@ -206,15 +206,6 @@ export function buildDdlComparisonEntities(entities: DdlChangesDto[]): { entitie
   return { entities: sortByKey(entities.map(sortChanges), ddlComparisonEntitySortKey) }
 }
 
-/** Slugs a build-phase Error names. Only these documents are flagged; a comparison error flags no document. */
-export function erroredDocumentSlugs(notifications: NotificationMessage[]): Set<string> {
-  const slugs = new Set<string>()
-  for (const { severity, documentId } of notifications) {
-    if (severity === MESSAGE_SEVERITY.Error && documentId) { slugs.add(documentId) }
-  }
-  return slugs
-}
-
 export function buildNotifications(notifications: NotificationMessage[]): PackageNotifications {
   return { notifications: sortByKey(notifications, notificationSortKey) }
 }

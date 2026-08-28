@@ -95,5 +95,7 @@ function releaseFailureMessage(
   const changelogShare = changelogErrors.length
     ? `, including ${changelogErrors.length} changelog errors`
     : ''
-  return `${prefix} in following documents: ${documentIds.join(', ')}${changelogShare}. ${DRAFT_HINT}`
+  // the clause is dropped when nothing named a document, so the message never ends in an empty list
+  const documents = documentIds.length ? ` in following documents: ${documentIds.join(', ')}` : ''
+  return `${prefix}${documents}${changelogShare}. ${DRAFT_HINT}`
 }

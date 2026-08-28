@@ -25,7 +25,7 @@ import {
   VERSIONS_PATH,
 } from './helpers'
 import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, PACKAGE, VERSION_STATUS } from '../src/consts'
-import { BuildConfig, BuildResult, MessageSeverity } from '../src/types'
+import { BuildConfig, BuildResult } from '../src/types'
 import { buildComparisonNotifications } from '../src/components/build-result-index'
 import { toVersionsComparisonDto } from '../src/utils/transformToDto'
 import { PackageVersionBuilder } from '../src/builder'
@@ -389,78 +389,10 @@ describe('Which notification files a build writes', () => {
     const editor = build(registry, { version: 'v2', previousVersion: 'v1', buildType: BUILD_TYPE.CHANGELOG })
     await editor.run()
 
-    expect(await entriesOf(editor)).toContain(PACKAGE.COMPARISON_NOTIFICATIONS_FILE_NAME)
+    const entries = await entriesOf(editor)
+    expect(entries).toContain(PACKAGE.COMPARISON_NOTIFICATIONS_FILE_NAME)
+    // and only that one: a changelog has no documents of its own, so an empty build stream must not ship —
+    // the backend would take it for "this version has no notifications" and drop what a build recorded
+    expect(entries).not.toContain(PACKAGE.NOTIFICATIONS_FILE_NAME)
   }, 60000)
 })
-
-// AsyncAPI operation ids are `<operation>-<message>` and REST ones are `<path>-<method>`, so two api types
-// can land on the same id. They do not share a severity — AsyncAPI kept `Error`, REST is deferred to
-// `Warning` — and only one of the two documents can be the second to arrive.
-describe('A duplicate id shared by two api types', () => {
-  const REST = `openapi: 3.0.1
-info: { title: t, version: 1.0.0 }
-paths:
-  /pets:
-    get:
-      responses:
-        '200': { description: ok }
-`
-  const ASYNC = `asyncapi: 3.0.0
-info: { title: t, version: 1.0.0 }
-channels:
-  c1:
-    address: c1
-    messages:
-      get: { payload: { type: object } }
-operations:
-  pets:
-    action: receive
-    channel: { $ref: '#/channels/c1' }
-    messages:
-      - $ref: '#/channels/c1/messages/get'
-`
-
-  const severitiesFor = async (packageId: string, fileIds: string[]): Promise<MessageSeverity[]> => {
-    const registry = LocalRegistry.openPackage('reference-bundling/case2')
-    const result = await registry.publishFromContent({ 'api.yaml': REST, 'async.yaml': ASYNC }, {
-      packageId,
-      version: 'v1',
-      status: VERSION_STATUS.DRAFT,
-      buildType: BUILD_TYPE.BUILD,
-      files: fileIds.map(fileId => ({ fileId })),
-    } as BuildConfig)
-
-    expect([...result.operations.keys()]).toEqual(['pets-get'])
-    return result.notifications
-      .filter(({ category }) => category === MESSAGE_CATEGORY.DuplicateOperationId)
-      .map(({ severity }) => severity)
-  }
-
-  // `config.files` order decides which document is processed second; it must not decide whether the release
-  // is refused. The REST side is staged at `Warning` until the published population is clean, so a mixed pair
-  // reports at `Warning` whichever way round the two arrive.
-  test('should keep the same severity whichever document is processed first', async () => {
-    const restFirst = await severitiesFor('duplicate-severity/rest-first', ['api.yaml', 'async.yaml'])
-    const asyncFirst = await severitiesFor('duplicate-severity/async-first', ['async.yaml', 'api.yaml'])
-
-    expect(restFirst).toEqual([MESSAGE_SEVERITY.Warning, MESSAGE_SEVERITY.Warning])
-    expect(asyncFirst).toEqual(restFirst)
-  }, 60000)
-
-  // and the collision AsyncAPI has with itself keeps the `Error` it used to abort the build with
-  test('should report a collision between two AsyncAPI documents as an Error', async () => {
-    const registry = LocalRegistry.openPackage('reference-bundling/case2')
-    const result = await registry.publishFromContent({ 'a.yaml': ASYNC, 'b.yaml': ASYNC }, {
-      packageId: 'duplicate-severity/async-only',
-      version: 'v1',
-      status: VERSION_STATUS.DRAFT,
-      buildType: BUILD_TYPE.BUILD,
-      files: [{ fileId: 'a.yaml' }, { fileId: 'b.yaml' }],
-    } as BuildConfig)
-
-    expect(result.notifications
-      .filter(({ category }) => category === MESSAGE_CATEGORY.DuplicateOperationId)
-      .map(({ severity }) => severity)).toEqual([MESSAGE_SEVERITY.Error, MESSAGE_SEVERITY.Error])
-  }, 60000)
-})
-

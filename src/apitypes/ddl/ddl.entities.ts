@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
+import { MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../../consts'
 import { AttrKind, findAttr, Realm, Table } from '@netcracker/qubership-apihub-ddlapi'
 import { DDL_KIND, DdlEntitiesBuilder, DdlEntityDescriptor, DdlEntityId, DdlKind } from '../../types'
-import { SLUG_OPTIONS_OPERATION_ID, slugify } from '../../utils'
+import { reportItemBuildFailure, SLUG_OPTIONS_OPERATION_ID, slugify } from '../../utils'
 import { ParsedDdlData } from './ddl.types'
 
 /**
@@ -38,7 +39,7 @@ export function calculateDdlEntityId(schemaName: string, kind: DdlKind, name: st
  * `processDdlDocument`'s job. Mirrors MCP: `buildMcpEntities` dedups within a doc, `processMcpDocument`
  * across docs.
  */
-export const buildDdlEntities: DdlEntitiesBuilder<ParsedDdlData> = (document) => {
+export const buildDdlEntities: DdlEntitiesBuilder<ParsedDdlData> = (document, _file, notifications) => {
   const { realm, extractor } = document.data
   const documentId = document.slug
   const versionInternalDocumentId = document.versionInternalDocument.versionDocumentId
@@ -47,34 +48,41 @@ export const buildDdlEntities: DdlEntitiesBuilder<ParsedDdlData> = (document) =>
   // error text; mirrors the `mcpEntityIdMap` guard in buildMcpEntities
   const seen = new Map<DdlEntityId, string>()
 
+  // per table: a failure omits this one and is reported against the document; the rest are still built
   return (realm.schemas ?? []).flatMap((schema) =>
-    (schema.tables ?? []).map((table) => {
-      const ddlEntityId = calculateDdlEntityId(schema.name, DDL_KIND.TABLE, table.name)
+    (schema.tables ?? []).flatMap((table) => {
+      try {
+        const ddlEntityId = calculateDdlEntityId(schema.name, DDL_KIND.TABLE, table.name)
 
-      const previous = seen.get(ddlEntityId)
-      if (previous !== undefined) {
-        throw new Error(
-          `Duplicate DDL entity ID '${ddlEntityId}': '${table.name}' conflicts with '${previous}' in document '${documentId}'`,
-        )
-      }
-      seen.set(ddlEntityId, table.name)
+        const previous = seen.get(ddlEntityId)
+        if (previous !== undefined) {
+          throw new Error(
+            `Duplicate DDL entity ID '${ddlEntityId}': '${table.name}' conflicts with '${previous}' in document '${documentId}'`,
+          )
+        }
+        seen.set(ddlEntityId, table.name)
 
-      // Realm identifiers are already model-normalized, exactly what extractTable expects. Every Realm
-      // table came from a CREATE TABLE the extractor indexed too, so a miss is an internal inconsistency.
-      const tableSlice = extractor.extractTable({ schema: schema.name, name: table.name })
-      if (!tableSlice) {
-        throw new Error(
-          `No slice for table '${schema.name}.${table.name}' in document '${documentId}' (extractor/Realm mismatch)`,
-        )
-      }
+        // Realm identifiers are already model-normalized, exactly what extractTable expects. Every Realm
+        // table came from a CREATE TABLE the extractor indexed too, so a miss is an internal inconsistency.
+        const tableSlice = extractor.extractTable({ schema: schema.name, name: table.name })
+        if (!tableSlice) {
+          throw new Error(
+            `No slice for table '${schema.name}.${table.name}' in document '${documentId}' (extractor/Realm mismatch)`,
+          )
+        }
 
-      return {
-        ...tableProperties(schema.name, table),
-        ddlEntityId,
-        search: { useEntityDataAsSearchText: true },
-        documentId,
-        versionInternalDocumentId,
-        data: tableSlice.sql,
+        return [{
+          ...tableProperties(schema.name, table),
+          ddlEntityId,
+          search: { useEntityDataAsSearchText: true },
+          documentId,
+          versionInternalDocumentId,
+          data: tableSlice.sql,
+        }]
+      } catch (error) {
+        reportItemBuildFailure(notifications, MESSAGE_CATEGORY.DdlEntityBuild, documentId,
+          error instanceof Error ? error.message : `Cannot build DDL table '${table.name}'`)
+        return []
       }
     }),
   )

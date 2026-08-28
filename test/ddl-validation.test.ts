@@ -81,7 +81,7 @@ describe('DDL validation', () => {
     expect(errors.length).toBeGreaterThanOrEqual(2)
     expect(result.notifications.every(n => n.documentId === 'shop')).toBe(true)
     expect(result.notifications.every(n => n.category === MESSAGE_CATEGORY.DdlParseIssue)).toBe(true)
-    // the table was still built
+    // reported one by one rather than aborting, and the table it did build is still published
     expect(result.ddlEntities.size).toBe(1)
   })
 

@@ -133,10 +133,8 @@ export const createCrossDocumentDuplicateHandler = <T extends { documentId: stri
 ): DuplicateHandler<T> => (existing, duplicate) => {
   if (existing.documentId === duplicate.documentId) { return }
   const message = describe(existing, duplicate)
-  // The severity belongs to the collision, not to whichever document arrived second: two api types can derive
-  // one operation id, and `config.files` order must not decide whether a release publishes. Where the sides
-  // disagree the milder wins (`Error` is 0, `Warning` is 1), so a staged `Warning` is never raised by the
-  // other side — the staging protects releases that already published with the message.
+  // The severity belongs to the collision, not to whichever document arrived second. Where the two sides
+  // disagree the milder wins (`Error` is 0, `Warning` is 1).
   const severity = Math.max(severityOf(existing), severityOf(duplicate)) as MessageSeverity
   for (const documentId of [existing.documentId, duplicate.documentId]) {
     notifications.push({ category, severity, message, documentId })
@@ -166,32 +164,19 @@ export function setReportingDuplicate<K, V extends { documentId: string }>(
   map.set(key, value)
 }
 
-const keepOwned = (ids: string[] | undefined, slug: string, index: Map<string, { documentId: string }>): string[] => {
-  const owned = new Set<string>()
-  for (const id of ids ?? []) {
-    if (index.get(id)?.documentId === slug) { owned.add(id) }
-  }
-  return [...owned]
-}
-
 /**
- * Drop from every document the ids another document won, and collapse repeats.
+ * Report one item a document could not build: an operation, a DDL table, an MCP entity.
  *
- * Ownership is not final while the loop runs: a smaller slug arriving later takes the entry
- * (`setReportingDuplicate`), so a document that owned an id when it was processed may not own it at the end.
- * Without this pass `documents.json` announces ids that `operations.json` attributes elsewhere.
+ * The item is left out of the document's content and the build continues. `notifications` is optional
+ * because the entity builders are also reachable from paths that pass no stream.
  */
-export function reconcileOwnedIds(
-  documents: Iterable<VersionDocument>,
-  operations: Map<string, { documentId: string }>,
-  mcpEntities: Map<string, { documentId: string }>,
+export function reportItemBuildFailure(
+  notifications: NotificationMessage[] | undefined,
+  category: MessageCategory,
+  documentId: string,
+  message: string,
 ): void {
-  for (const document of documents) {
-    document.operationIds = keepOwned(document.operationIds, document.slug, operations)
-    if (document.mcpEntityIds) {
-      document.mcpEntityIds = keepOwned(document.mcpEntityIds, document.slug, mcpEntities)
-    }
-  }
+  notifications?.push({ category, severity: MESSAGE_SEVERITY.Error, message, documentId })
 }
 
 export const findSharedPath = (fileIds: string[]): string => {

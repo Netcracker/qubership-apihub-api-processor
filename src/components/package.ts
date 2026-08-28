@@ -40,6 +40,7 @@ import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, PACKAGE } from '../cons
 import { ComparisonErrorSource, comparisonHasErrors, EXPORT_FORMAT_TO_FILE_FORMAT, getSplittedVersionKey } from '../utils'
 import { toDdlComparisonDto, toVersionsComparisonDto } from '../utils/transformToDto'
 import { assertReleaseIsPublishable, comparisonPhaseNotifications } from './release-gate'
+import { erroredDocumentSlugs } from './errored-documents'
 import { McpEntityIndex } from '../types/package/mcp'
 import { DdlEntityIndex } from '../types/package/ddl'
 import {
@@ -54,7 +55,6 @@ import {
   DeclaredPair,
   buildNotifications,
   buildPackageDocuments,
-  erroredDocumentSlugs,
   buildPackageOperations,
   buildVersionInternalDocumentsIndex,
   takeComparisonInternalDocumentEntry,
@@ -108,14 +108,18 @@ export const createVersionPackage = async (
       return await zip.buildResult(options)
   }
 
-  const erroredSlugs = erroredDocumentSlugs(buildResultDto.notifications)
+  // A changelog produces no documents of its own and its `info.json` describes a comparison, so it carries
+  // neither the `hasErrors` flags nor `notifications.json`. Every other build type here publishes documents.
+  const buildType = ctx.config.buildType ?? BUILD_TYPE.BUILD
+  const publishesDocuments = buildType !== BUILD_TYPE.CHANGELOG && buildType !== BUILD_TYPE.PREFIX_GROUPS_CHANGELOG
+  const erroredSlugs = publishesDocuments ? erroredDocumentSlugs(buildResultDto.notifications) : new Set<string>()
   createDocumentsFile(zip, documents, erroredSlugs)
   createVersionInternalDocumentsFile(zip, documents)
 
   await createDocumentDataFiles(zip, documents, ctx)
   await createVersionInternalDocumentDataFiles(zip, documents)
 
-  await createInfoFile(zip, buildResultDto.config, hasBuildError(buildResultDto.notifications))
+  await createInfoFile(zip, buildResultDto.config, publishesDocuments && hasBuildError(buildResultDto.notifications))
 
   createOperationsFile(zip, buildResultDto.operations)
   createSearchTextFiles(zip, buildResultDto.operations)
@@ -160,13 +164,14 @@ export const createVersionPackage = async (
     await createComparisonInternalDocumentDataFiles(zip, comparisonInternalDocuments)
   }
 
-  createNotificationsFile(zip, { notifications: buildResultDto.notifications })
+  // build stream only where documents are published — see `publishesDocuments`
+  if (publishesDocuments) { createNotificationsFile(zip, { notifications: buildResultDto.notifications }) }
   // built from the pair arrays themselves, not from the DTOs — the DTOs deliberately drop `notifications`
   createComparisonNotificationsFile(zip, [...buildResult.comparisons, ...buildResult.ddlComparisons], buildResult)
 
   // `comparison-serialization` is raised while the DTOs above are built, after `BuildStrategy` has gated.
   // Without this call the release ships with `hasErrors` on the comparison.
-  if ((ctx.config.buildType ?? BUILD_TYPE.BUILD) === BUILD_TYPE.BUILD) {
+  if (buildType === BUILD_TYPE.BUILD) {
     assertReleaseIsPublishable(ctx.config.status, [], comparisonPhaseNotifications(buildResult))
   }
 

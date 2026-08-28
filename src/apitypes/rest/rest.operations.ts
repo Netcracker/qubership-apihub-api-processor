@@ -18,15 +18,7 @@ import { OpenAPIV3 } from 'openapi-types'
 
 import { buildRestOperation } from './rest.operation'
 import { NotificationMessage, OperationsBuilder } from '../../types'
-import {
-  calculateRestOperationId,
-  createBundlingErrorHandler,
-  createSerializedInternalDocument,
-  DuplicateEntry,
-  findDuplicates,
-  isNotEmpty,
-  removeComponents,
-} from '../../utils'
+import { calculateRestOperationId, createBundlingErrorHandler, createSerializedInternalDocument, DuplicateEntry, findDuplicates, isNotEmpty, removeComponents, reportItemBuildFailure } from '../../utils'
 import type * as TYPE from './rest.types'
 import { INLINE_REFS_FLAG, MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../../consts'
 import { asyncFunction } from '../../utils/async'
@@ -84,30 +76,36 @@ export const buildRestOperations: OperationsBuilder<OpenAPIV3.Document> = async 
         const basePath = extractOperationBasePath(methodData?.servers || pathData?.servers || servers || [])
         const operationId = calculateRestOperationId(basePath, path, key)
 
-        const trackedOperations = operationIdMap.get(operationId) ?? []
-        trackedOperations.push({ path, method: key })
-        operationIdMap.set(operationId, trackedOperations)
-
-        const operation = buildRestOperation(
-          operationId,
-          path,
-          <OpenAPIV3.HttpMethods>key,
-          document,
-          effectiveDocument,
-          refsOnlyDocument,
-          basePath,
-          notifications,
-          config,
-          normalizedSpecFragmentsHashCache,
-          originalSpecComponentsHashCache,
-        )
-        operations.push(operation)
+        // per operation: a failure omits this one and is reported against the document; the loop continues
+        try {
+          operations.push(buildRestOperation(
+            operationId,
+            path,
+            <OpenAPIV3.HttpMethods>key,
+            document,
+            effectiveDocument,
+            refsOnlyDocument,
+            basePath,
+            notifications,
+            config,
+            normalizedSpecFragmentsHashCache,
+            originalSpecComponentsHashCache,
+          ))
+          // after the build, so an operation that failed does not count towards `findDuplicates`
+          const trackedOperations = operationIdMap.get(operationId) ?? []
+          trackedOperations.push({ path, method: key })
+          operationIdMap.set(operationId, trackedOperations)
+        } catch (error) {
+          const what = `operation ${key.toUpperCase()} ${path}`
+          reportItemBuildFailure(notifications, MESSAGE_CATEGORY.BuildOperations, document.slug,
+            error instanceof Error ? `Cannot build ${what}. ${error.message}` : `Cannot build ${what}`)
+        }
       })
     }
   }
 
-  // Two (path, method) pairs of this document deriving one operationId: reported against this document alone,
-  // and the operations it did build stay in the version.
+  // two (path, method) pairs of this document deriving one operationId: reported against this document
+  // alone, and the operations it built stay in the version
   const duplicates = findDuplicates(operationIdMap)
   if (isNotEmpty(duplicates)) {
     ctx.notifications.push({
@@ -131,7 +129,7 @@ function validatePath(path: string, documentId: string): NotificationMessage[] {
   if (path.includes('{}')) {
     notifications.push({
       category: MESSAGE_CATEGORY.EmptyPathParameter,
-      // Deferred: the path is syntactically invalid, so Error is the right end state — but not retroactively
+      // the path is syntactically invalid
       severity: MESSAGE_SEVERITY.Warning,
       message: `Invalid path '${path}': path parameter name could not be empty`,
       documentId: documentId,

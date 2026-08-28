@@ -20,7 +20,7 @@ import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, VERSION_STATUS } from '
 import * as transformToDto from '../src/utils/transformToDto'
 import { toVersionsComparisonDto } from '../src/utils/transformToDto'
 import { NotificationMessage } from '../src/types/package/notifications'
-import { assertReleaseIsPublishable } from '../src/components/release-gate'
+import { assertReleaseIsPublishable, comparisonPhaseNotifications } from '../src/components/release-gate'
 
 const error = (message: string, documentId?: string): NotificationMessage => ({
   category: MESSAGE_CATEGORY.BuildDocument,
@@ -70,7 +70,17 @@ describe('Release gate', () => {
         .toThrow(`Cannot publish version in release status: 3 critical errors in following documents: billing, orders, including 2 changelog errors. ${HINT}`)
     })
 
-    test('should give a changelog-only failure its own wording and no document list', () => {
+    // Every build-phase Error is expected to name a document, but nothing in the types enforces it: the
+  // wording has to hold when one does not.
+  test('should not offer an empty document list when a build error names none', () => {
+    expect(() => assertReleaseIsPublishable(VERSION_STATUS.RELEASE, [
+      { category: MESSAGE_CATEGORY.BuildDocument, severity: MESSAGE_SEVERITY.Error, message: 'one' },
+      { category: MESSAGE_CATEGORY.BuildDocument, severity: MESSAGE_SEVERITY.Error, message: 'two' },
+    ], []))
+      .toThrow('Cannot publish version in release status: 2 critical errors. You can publish version in draft status for troubleshooting')
+  })
+
+  test('should give a changelog-only failure its own wording and no document list', () => {
       expect(gate(VERSION_STATUS.RELEASE, [], [error('a'), error('b')]))
         .toThrow(`Cannot publish version in release status: 2 critical errors in the changelog. ${HINT}`)
     })
@@ -206,3 +216,36 @@ describe('Release gate and a comparison that cannot be serialized', () => {
     await expect(editor.createNodeVersionPackage()).resolves.toBeDefined()
   }, 30000)
 })
+
+// A version pair's operation and DDL comparisons share one notifications array (`CompareContext.forPair`), so
+// the comparison-phase stream is collected by array identity. Concatenating instead counts one problem twice.
+describe('Comparison-phase notifications are collected once per array', () => {
+  const message: NotificationMessage = {
+    category: MESSAGE_CATEGORY.ComparisonSerialization,
+    severity: MESSAGE_SEVERITY.Error,
+    message: 'one problem',
+  }
+
+  test('should count a shared array once, however many comparisons hold it', () => {
+    const shared = [message]
+    const collected = comparisonPhaseNotifications({
+      comparisonNotifications: [],
+      comparisons: [{ notifications: shared }],
+      ddlComparisons: [{ notifications: shared }],
+    })
+
+    expect(collected).toEqual([message])
+  })
+
+  test('should keep the arrays that are genuinely different', () => {
+    const other: NotificationMessage = { ...message, message: 'another problem' }
+    const collected = comparisonPhaseNotifications({
+      comparisonNotifications: [],
+      comparisons: [{ notifications: [message] }],
+      ddlComparisons: [{ notifications: [other] }],
+    })
+
+    expect(collected).toEqual([message, other])
+  })
+})
+

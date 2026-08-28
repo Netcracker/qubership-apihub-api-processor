@@ -122,8 +122,10 @@ export type FileParser = (fileId: string, data: Blob) => Promise<SourceFile | un
 export type DocumentBuilder<T> = (parsedFile: TextFile<T>, file: BuildConfigFile, ctx: BuilderContext<T>) => Promise<VersionDocument<T>>
 export type OperationsBuilder<T, M = any> = (document: VersionDocument<T>, ctx: BuilderContext<T>) => Promise<ApiOperation<M>[]>
 export type DocumentDumper<T> = (document: ZippableDocument<T>, format?: typeof FILE_FORMAT_YAML | typeof FILE_FORMAT_JSON) => Blob
-export type McpEntitiesBuilder<T> = (document: VersionDocument<T>, file: BuildConfigFile) => McpEntity[]
-export type DdlEntitiesBuilder<T> = (document: VersionDocument<T>, file: BuildConfigFile) => DdlEntity[]
+export type McpEntitiesBuilder<T> =
+  (document: VersionDocument<T>, file: BuildConfigFile, notifications?: NotificationMessage[]) => McpEntity[]
+export type DdlEntitiesBuilder<T> =
+  (document: VersionDocument<T>, file: BuildConfigFile, notifications?: NotificationMessage[]) => DdlEntity[]
 export type OperationDataCompare<T> = (current: T, previous: T, ctx: CompareOperationsPairContext) => Promise<Diff[]>
 export type DocumentsCompareData = {
   operationChanges: OperationChanges[]

@@ -60,7 +60,7 @@ export async function compareVersions(
  *
  * Both origins count. A comparison reused from cache carries the flag the host holds and feeds the same
  * aggregate as one calculated here, so the argument does not distinguish them. In practice the backend
- * already refuses to reference an unsound version — this is the last line of defence, not the primary guard.
+ * The backend refuses to reference an unsound version as well.
  */
 function assertReferencesAreSound(comparisons: Array<VersionsComparison | DdlComparison>): void {
   const unsound = comparisons.filter(comparisonHasErrors)

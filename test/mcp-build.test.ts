@@ -462,10 +462,12 @@ describe('MCP Build', () => {
         ],
       })
 
-      // intra-document: caught by the per-document loop, so the version survives — and reported once
+      // intra-document: caught per entity, so the entity that failed is the only thing lost — the first
+      // `search` is built and the document keeps it, and the failure is reported once
       const errors = result.notifications.filter(({ severity }) => severity === MESSAGE_SEVERITY.Error)
       expect(errors.map(({ category }) => category)).toEqual([MESSAGE_CATEGORY.McpEntityBuild])
       expect(errors[0].message).toMatch(/Duplicate MCP entity ID/)
+      expect(entitiesOfKind(result, 'tool').map(({ description }) => description)).toEqual(['First search tool'])
 
       // the collision is in the document's own content, so the text names the document as DDL's twin does —
       // a `fileId` belongs in a message only when it is the thing the user edits, which here it is not
@@ -485,7 +487,7 @@ describe('MCP Build', () => {
         ],
       })
 
-      // cross-document: one notification per involved document, and both documents keep their entities
+      // cross-document: one notification per involved document, and both keep their entities
       // exactly two errors, one per involved document — no third copy from another site
       const errors = result.notifications.filter(({ severity }) => severity === MESSAGE_SEVERITY.Error)
       expect(errors.map(({ category }) => category))
@@ -522,6 +524,16 @@ describe('MCP Build', () => {
       expectReportedErrors(result, /mcpEndpoint/)
     })
 
+    // The endpoint is checked twice: `buildMcpEntities` rejects the document, and the whole-set pass checks
+    // it again for callers that run alone. A build must still report it once.
+    test('should report a missing mcpEndpoint once', async () => {
+      const editor = createMcpEditor()
+      const result = await editor.run({ files: [{ fileId: 'tools.json' }] })
+
+      const endpointErrors = result.notifications.filter(({ message }) => /missing required metadata.mcpEndpoint/.test(message))
+      expect(endpointErrors).toHaveLength(1)
+    })
+
     test('should report a tool that violates the schema (missing inputSchema)', async () => {
       const editor = createMcpEditor()
       // schema conformance is mandatory and fatal — a tool missing the required inputSchema breaks publish
@@ -538,6 +550,10 @@ describe('MCP Build', () => {
       const failure = result.notifications.find(({ message }) => /does not conform to protocolVersion/.test(message))!
       expect(failure.message).toContain(`document '${failure.documentId}'`)
       expect(failure.message).not.toContain('tools-missing-inputschema.json')
+
+      // the check runs after the document's entities are indexed, and nothing un-indexes them: the version
+      // publishes what the document built and says what is wrong with it
+      expect([...result.mcpEntities.values()].some(({ documentId }) => documentId === failure.documentId)).toBe(true)
     })
 
     test('should report a list item that violates the schema (item without a name)', async () => {

@@ -24,6 +24,7 @@ import {
   PackageDdlFile,
 } from '../types/package/ddl'
 import { createCrossDocumentDuplicateHandler, DuplicateHandler, setReportingDuplicate } from '../utils'
+import { Claims, listDocuments, reportCollisions } from './duplicate-resolution'
 import { MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../consts'
 import { NotificationMessage } from '../types/package'
 
@@ -48,12 +49,45 @@ export const createDuplicateDdlEntityHandler = (notifications: NotificationMessa
       `'${existing.documentId}' and '${duplicate.documentId}'`,
   )
 
+/** Cross-document DDL entity collisions, over the whole claimant set — see `reportCollisions`. */
+export function reportDdlCollisions(claims: Claims<DdlEntity>, notifications: NotificationMessage[]): void {
+  reportCollisions(
+    claims,
+    notifications,
+    MESSAGE_CATEGORY.DdlDuplicateEntity,
+    () => MESSAGE_SEVERITY.Error,
+    (ddlEntityId, documentIds) =>
+      `Duplicate DDL entity ID '${ddlEntityId}' found in different documents: ${listDocuments(documentIds)}`,
+  )
+}
+
+/** Everything the document builds, claimed by nobody yet — see `indexDdlEntities`. */
+export function buildDocumentDdlEntities(
+  file: BuildConfigFile,
+  document: VersionDocument,
+  builder: ApiBuilder,
+  notifications?: NotificationMessage[],
+): DdlEntity[] {
+  return builder.buildDdlEntities ? builder.buildDdlEntities(document, file, notifications) : []
+}
+
 /**
- * Merge a document's DDL entities into the build's flat entity index. This is where **cross-document**
- * `ddlEntityId` collisions are detected and reported against both claimants; intra-document collisions are
- * already caught in `buildDdlEntities`. Mirrors `processMcpDocument`, except that the document does not
- * track which entities it owns — there is no incremental DDL rebuild for `reconcileOwnedIds` to serve.
+ * Merge a document's DDL entities into the build's flat entity index. Cross-document collisions are reported
+ * by `reportDdlCollisions` before anything is indexed; intra-document ones are caught per entity in
+ * `buildDdlEntities`. Mirrors `indexMcpEntities`, except that the document does not track which entities it
+ * owns — there is no incremental DDL rebuild for `reconcileOwnedIds` to serve.
  */
+export function indexDdlEntities(
+  entities: DdlEntity[],
+  ctx: DdlBuildContext,
+  onDuplicate?: DuplicateDdlEntityHandler,
+): void {
+  for (const entity of entities) {
+    setReportingDuplicate(ctx.ddlEntities, entity.ddlEntityId, entity, onDuplicate)
+  }
+}
+
+/** Build and claim in one step, as the other api types do for the editor's incremental rebuild. */
 export function processDdlDocument(
   file: BuildConfigFile,
   document: VersionDocument,
@@ -62,10 +96,7 @@ export function processDdlDocument(
   onDuplicate?: DuplicateDdlEntityHandler,
 ): void {
   if (!builder.buildDdlEntities) { return }
-  const entities: DdlEntity[] = builder.buildDdlEntities(document, file)
-  for (const entity of entities) {
-    setReportingDuplicate(ctx.ddlEntities, entity.ddlEntityId, entity, onDuplicate)
-  }
+  indexDdlEntities(buildDocumentDdlEntities(file, document, builder), ctx, onDuplicate)
 }
 
 export const KIND_TO_FIELD: Record<DdlKind, keyof PackageDdlFile> = {

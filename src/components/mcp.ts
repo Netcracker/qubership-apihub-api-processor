@@ -19,7 +19,6 @@ import {
   MCP_COLLECTION_KEY,
   MCP_KIND,
   McpEntity,
-  McpEntityId,
   McpEntityIndex,
   McpKind,
   PackageMcpFile,
@@ -28,6 +27,7 @@ import { NotificationMessage } from '../types/package'
 import { MCP_DOCUMENT_TYPE } from '../apitypes/mcp'
 import { createCrossDocumentDuplicateHandler, DuplicateHandler, isObject, isString, setReportingDuplicate } from '../utils'
 import { MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../consts'
+import { Claims, collectClaim, listDocuments, reportCollisions } from './duplicate-resolution'
 import { getMcpSchemaValidator, isSupportedMcpVersion, SUPPORTED_MCP_VERSIONS } from '../apitypes/mcp/mcp.validation'
 
 // MCP document type → the kind whose official definition validates it (see getMcpSchemaValidator).
@@ -59,22 +59,79 @@ export const createDuplicateMcpEntityHandler = (notifications: NotificationMessa
       `'${existing.documentId}' and '${duplicate.documentId}'`,
   )
 
+/** All a collision needs to know about a claimant: which document derived the id. */
+export interface McpClaim {
+  documentId: string
+}
+
+/**
+ * Grade every MCP entity id two or more documents derived, reading `mcpEntityClaims` off the documents.
+ *
+ * Used by the editor's incremental rebuild, which has no built entities of its own to collect from.
+ */
+export function reportMcpCollisionsOf(
+  documents: Iterable<VersionDocument>,
+  notifications: NotificationMessage[],
+): void {
+  const claims: Claims<McpClaim> = new Map()
+  for (const document of documents) {
+    for (const mcpEntityId of document.mcpEntityClaims ?? []) {
+      collectClaim(claims, mcpEntityId, { documentId: document.slug })
+    }
+  }
+  reportMcpCollisions(claims, notifications)
+}
+
+/** Cross-document MCP entity collisions, over the whole claimant set — see `reportCollisions`. */
+export function reportMcpCollisions(claims: Claims<McpClaim>, notifications: NotificationMessage[]): void {
+  reportCollisions(
+    claims,
+    notifications,
+    MESSAGE_CATEGORY.McpDuplicateEntity,
+    () => MESSAGE_SEVERITY.Error,
+    (mcpEntityId, documentIds) =>
+      `Duplicate MCP entity ID '${mcpEntityId}' found in different documents: ${listDocuments(documentIds)}`,
+  )
+}
+
+/** Everything the document builds, claimed by nobody yet — see `indexMcpEntities`. */
+export function buildDocumentMcpEntities(
+  file: BuildConfigFile,
+  document: VersionDocument,
+  builder: ApiBuilder,
+  notifications?: NotificationMessage[],
+): McpEntity[] {
+  return builder.buildMcpEntities ? builder.buildMcpEntities(document, file, notifications) : []
+}
+
+/** Claim the document's entities in the build's index — the operations rule, for MCP. */
+export function indexMcpEntities(
+  document: VersionDocument,
+  entities: McpEntity[],
+  ctx: McpBuildContext,
+  onDuplicate?: DuplicateMcpEntityHandler,
+): void {
+  for (const entity of entities) {
+    setReportingDuplicate(ctx.mcpEntities, entity.mcpEntityId, entity, onDuplicate)
+  }
+  // everything this document built; `reconcileOwnedIds` prunes what another document ends up owning
+  document.mcpEntityIds = entities.map(({ mcpEntityId }) => mcpEntityId)
+  // kept whole, and what `reportMcpCollisionsOf` grades a collision from
+  document.mcpEntityClaims = entities.map(({ mcpEntityId }) => mcpEntityId)
+}
+
+/** Build and claim in one step, for the editor's incremental rebuild. */
 export function processMcpDocument(
   file: BuildConfigFile,
   document: VersionDocument,
   builder: ApiBuilder,
   ctx: McpBuildContext,
   onDuplicate?: DuplicateMcpEntityHandler,
+  notifications?: NotificationMessage[],
 ): void {
   if (!builder.buildMcpEntities) { return }
-  const entities: McpEntity[] = builder.buildMcpEntities(document, file)
-  const entityIds: McpEntityId[] = []
-  for (const entity of entities) {
-    setReportingDuplicate(ctx.mcpEntities, entity.mcpEntityId, entity, onDuplicate)
-    entityIds.push(entity.mcpEntityId)
-  }
-  // everything this document built; `reconcileOwnedIds` prunes what another document ends up owning
-  document.mcpEntityIds = entityIds
+  // the stream reaches the per-entity catch in `buildMcpEntities`
+  indexMcpEntities(document, buildDocumentMcpEntities(file, document, builder, notifications), ctx, onDuplicate)
 }
 
 export const KIND_TO_FIELD: Record<McpKind, keyof PackageMcpFile> = {
@@ -158,6 +215,10 @@ export function validateMcpProtocolVersion(
     versionByEndpoint.set(endpoint, document.data?.originalDocument?.protocolVersion)
   }
 
+  const alreadyFlagged = new Set(notifications
+    .filter(({ severity, documentId }) => severity === MESSAGE_SEVERITY.Error && documentId)
+    .map(({ documentId }) => documentId))
+
   for (const document of documents.values()) {
     if (document.publish === false) { continue } // not published → not validated
     const kind = MCP_DOCUMENT_TYPE_TO_KIND[document.type]
@@ -165,8 +226,11 @@ export function validateMcpProtocolVersion(
 
     const endpoint = document.metadata?.mcpEndpoint
     if (!isString(endpoint)) {
-      // buildMcpEntities normally rejects this first; kept as a defensive guard for the whole-set pass
-      reportSchemaFailure(document, `MCP file '${document.fileId}' is missing required metadata.mcpEndpoint`)
+      // `buildMcpEntities` rejects this first and in the same words, so a document it already flagged is not
+      // told twice; a caller that runs this pass on its own still gets the message
+      if (!alreadyFlagged.has(document.slug)) {
+        reportSchemaFailure(document, `MCP file '${document.fileId}' is missing required metadata.mcpEndpoint`)
+      }
       continue
     }
 

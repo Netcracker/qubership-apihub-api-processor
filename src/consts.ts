@@ -84,6 +84,8 @@ export const MESSAGE_CATEGORY = {
   BuildOperations: 'build-operations',
   DuplicateOperationId: 'duplicate-operation-id',
   RestDuplicateOperation: 'rest-duplicate-operation',
+  // intra-document, the AsyncAPI counterpart of `rest-duplicate-operation`; the cross-document case is
+  // `duplicate-operation-id`
   AsyncDuplicateOperation: 'async-duplicate-operation',
   EmptyPathParameter: 'empty-path-parameter',
   DoubleSlashPath: 'double-slash-path',

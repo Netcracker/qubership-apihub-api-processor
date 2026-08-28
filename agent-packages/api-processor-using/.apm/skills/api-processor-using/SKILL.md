@@ -1,6 +1,6 @@
 ---
 name: api-processor-using
-description: Use when consuming the api-processor library from another TypeScript project — building, comparing (changelog), or exporting a package version with PackageVersionBuilder, reading the notifications and hasErrors flags it returns, or importing its shared types, constants, and utilities.
+description: Use when consuming the api-processor library from another TypeScript project — building, comparing (changelog), or exporting a package version with PackageVersionBuilder, reading the notifications and hasErrors flags it returns, telling a document that failed to parse from one merely flagged, or importing its shared types, constants, and utilities.
 ---
 
 # Using api-processor
@@ -75,9 +75,9 @@ it to `false`.
 Status decides what an `Error` costs when a version is published. A `draft` publishes
 whatever it found, marked. A `release` **throws** instead of returning a result if any
 `Error` was reported on either stream, with a message naming the documents involved.
-The check runs again once the archive is assembled, so the rejection can arrive at the
-very end. Handle it — for a release over broken sources this is the outcome, not a
-defect.
+The check runs again once the archive is assembled, so `run()` can resolve for a
+release that then throws from `createVersionPackage`. Handle both call sites — for a
+release over broken sources this is the outcome, not a defect.
 
 The handful of problems that abort any build regardless of status are the ones with
 nothing to publish or nothing to trace afterwards: an invalid build config (a
@@ -88,11 +88,26 @@ compare hook registered. A dashboard changelog also
 aborts when one of its references compared with errors, because the aggregate has no
 correct part.
 
-## Errored documents ship as stubs
+## A flagged document still carries its content
 
-A document that failed to build is still published: it appears in `documents.json`
-with its original source bytes and is downloadable. What it lacks is parsed content —
-`operationIds` is empty, and it contributes no operations, entities, or comparisons.
+A document any `Error` names appears in `documents.json` flagged `hasErrors`, with
+its original source bytes — and with every operation and entity it managed to build.
+The flag says the document is not to be trusted whole; it does not say the document
+is empty.
+
+Two populations a consumer must keep apart:
+
+- **A document that failed to parse** has no operations at all. There was no model to
+  enumerate, so `operationIds` is empty and only its source is downloadable.
+- **A document with `hasErrors`** may be missing *individual* operations — the ones
+  that could not be built — while the rest are indexed and comparable as usual.
+
+So do not read `hasErrors` as "no content", and do not treat a missing operation as a
+build defect without reading the version's notifications: one of them names it. A
+`Warning` costs a document nothing at all.
+
+Partial content only ever reaches a `draft`. Any `Error` still refuses a `release`, so
+a flagged document that published half its operations cannot have shipped as one.
 
 ## Keep `PackageVersionBuilder` off the main thread
 
