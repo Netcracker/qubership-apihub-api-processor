@@ -59,8 +59,8 @@ export async function compareVersions(
  * version a bad document leaves the others useful; an aggregate has no unaffected part.
  *
  * Both origins count. A comparison reused from cache carries the flag the host holds and feeds the same
- * aggregate as one calculated here, so the argument does not distinguish them. In practice the backend
- * The backend refuses to reference an unsound version as well.
+ * aggregate as one calculated here, so the argument does not distinguish them. The backend refuses to
+ * reference an unsound version as well.
  */
 function assertReferencesAreSound(comparisons: Array<VersionsComparison | DdlComparison>): void {
   const unsound = comparisons.filter(comparisonHasErrors)

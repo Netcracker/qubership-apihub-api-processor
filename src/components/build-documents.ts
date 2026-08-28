@@ -39,7 +39,6 @@ import {
 } from './mcp'
 import { Claims, collectClaim } from './duplicate-resolution'
 
-/** What one document built, before anything is claimed. Exactly one of the three lists is present. */
 export interface DocumentContent {
   document: VersionDocument
   operations?: ApiOperation[]

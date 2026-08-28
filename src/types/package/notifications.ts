@@ -21,19 +21,14 @@ export type MessageSeverity = KeyOfConstType<typeof MESSAGE_SEVERITY>
 
 export type MessageCategory = typeof MESSAGE_CATEGORY[keyof typeof MESSAGE_CATEGORY]
 
-// notifications.json — every build-phase message of the version, in one list
 export interface PackageNotifications {
   notifications: NotificationMessage[]
 }
 
-// comparison-notifications.json — grouped by version pair, because a comparison-phase message belongs to
-// exactly one pair and a flat list could not say which
 export interface PackageComparisonNotifications {
   comparisons: PackageComparisonNotificationsEntry[]
 }
 
-// One entry per version pair, identified by the six fields below and never by `comparisonFileId`: a
-// refs-only dashboard comparison has none.
 export interface PackageComparisonNotificationsEntry {
   packageId: string
   version: string

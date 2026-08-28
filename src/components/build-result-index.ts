@@ -34,7 +34,7 @@ import {
   VersionDocument,
   VersionsComparisonDto,
 } from '../types'
-import { FILE_FORMAT_JSON, MESSAGE_SEVERITY } from '../consts'
+import { FILE_FORMAT_JSON } from '../consts'
 import { calculateChangeId, takeIf, toPackageDocument } from '../utils'
 import { DdlComparison, DdlComparisonDto, VersionsComparison } from '../types/internal/compare'
 import { groupMcpEntitiesByKind, KIND_TO_FIELD as MCP_KIND_TO_FIELD } from './mcp'

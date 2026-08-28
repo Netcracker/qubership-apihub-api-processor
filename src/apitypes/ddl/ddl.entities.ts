@@ -48,7 +48,6 @@ export const buildDdlEntities: DdlEntitiesBuilder<ParsedDdlData> = (document, _f
   // error text; mirrors the `mcpEntityIdMap` guard in buildMcpEntities
   const seen = new Map<DdlEntityId, string>()
 
-  // per table: a failure omits this one and is reported against the document; the rest are still built
   return (realm.schemas ?? []).flatMap((schema) =>
     (schema.tables ?? []).flatMap((table) => {
       try {

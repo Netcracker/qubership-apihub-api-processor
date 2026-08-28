@@ -87,7 +87,6 @@ export function indexDdlEntities(
   }
 }
 
-/** Build and claim in one step, as the other api types do for the editor's incremental rebuild. */
 export function processDdlDocument(
   file: BuildConfigFile,
   document: VersionDocument,
