@@ -45,8 +45,21 @@
     // "noFallthroughCasesInSwitch": true,    /* Report errors for fallthrough cases in switch statement. */
 
     /* Module Resolution Options */
-    "moduleResolution": "node",            /* Specify module resolution strategy: 'node' (Node.js) or 'classic' (TypeScript pre-1.6). */
-    "ignoreDeprecations": "6.0",           /* TS 6 reports moduleResolution:node as deprecated (TS5107); it still functions through 6.x. */
+    /* 'bundler': vite produces the ESM half of this package and ui bundles it. Was 'node',
+       which TypeScript 7 removed (TS5108); ignoreDeprecations does not cover a removed
+       option, so this is a prerequisite for TS 7 rather than part of it. Kept compatible
+       with "module": "commonjs" and the --module commonjs the cjs build passes on the CLI,
+       which 'nodenext' would conflict with (TS5110). */
+    "moduleResolution": "bundler",
+    /* api-ref-bundler 0.4.0 names "types": dist/cjs/index.d.ts but its "exports" is
+       { import, require } with no "types" condition. Once exports is honoured the
+       top-level field is ignored and the shipped declarations become unreachable
+       (TS7016). Same defect this branch fixed in class-view and apispec-view, in a
+       dependency we do not control. Pointing at the shipped file keeps the real types
+       instead of shimming to any; remove when upstream adds a "types" condition. */
+    "paths": {
+      "api-ref-bundler": ["./node_modules/api-ref-bundler/dist/cjs/index.d.ts"]
+    },
     "rootDir": "./",                       /* TS 6 requires rootDir to be explicit alongside outDir (TS5011). */
     "types": ["node", "jest"],             /* TS 6 defaults 'types' to [] rather than every package under typeRoots. */
     // "baseUrl": "./",                       /* Base directory to resolve non-absolute module names. */
