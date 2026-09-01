@@ -152,11 +152,10 @@ export const createVersionPackage = async (
     }
   }
 
-  // DDL comparisons ship as siblings, leaving the operation comparisons untouched. The index appears only
-  // where the build has DDL at all, but then it names every pair the operation index does.
+  // DDL comparisons ship as siblings, leaving the operation comparisons untouched (AD2).
   const ddlComparisonsDto = buildResult.ddlComparisons.map(comparison =>
     withComparisonErrors(toDdlComparisonDto(comparison, ctx.normalizedSpecFragmentsHashCache, logErrorFor(comparison.notifications)), comparison))
-  if (ddlComparisonsDto.some(({ contractsChangesSummary }) => Object.keys(contractsChangesSummary).length)) {
+  if (ddlComparisonsDto.length) {
     zip.file(PACKAGE.DDL_COMPARISONS_FILE_NAME, buildDdlComparisonsIndex(ddlComparisonsDto))
     const ddlComparisonsDir = zip.folder(PACKAGE.DDL_COMPARISONS_DIR_NAME)
     for (const comparison of ddlComparisonsDto) {

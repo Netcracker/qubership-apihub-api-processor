@@ -19,6 +19,7 @@ import { describe, expect, it, jest } from '@jest/globals'
 import { Editor, LocalRegistry, publishDashboardWithTwoRefs, readJsonFromZip } from './helpers'
 import {
   BUILD_TYPE,
+  ChangeSummary,
   ComparisonKey,
   PACKAGE,
   PackageCachedComparisons,
@@ -39,7 +40,9 @@ const DDL_ONLY = 'cached-comparisons/ddl-only'
 const TABLE_V1 = 'CREATE TABLE widgets (id bigint PRIMARY KEY);'
 const TABLE_V2 = 'CREATE TABLE widgets (id bigint PRIMARY KEY, label text);'
 
-// Stored severities: `semi-breaking`, never `risky`. Passing them through must not translate them again.
+// The host answers with stored severities - `semi-breaking`, never `risky` - while the response type names
+// them in their internal form, exactly as it does for `operationTypes`. Passing them through must not
+// translate them a second time.
 const DDL_SUMMARY = {
   breaking: 0,
   'semi-breaking': 0,
@@ -47,10 +50,9 @@ const DDL_SUMMARY = {
   'non-breaking': 1,
   annotation: 0,
   unclassified: 0,
-}
+} as unknown as ChangeSummary
 
-// Carries fields the response type does not declare. The identity it echoes is ignored: the builder keys
-// the row off the reference.
+// The identity it echoes is ignored: the builder keys the row off the reference.
 const storedComparison = (refId: string): ResolvedComparisonSummary => ({
   packageId: refId,
   version: 'v2',
@@ -61,7 +63,7 @@ const storedComparison = (refId: string): ResolvedComparisonSummary => ({
   operationTypes: [],
   noContent: false,
   contractsChangesSummary: { ddl: { changesSummary: DDL_SUMMARY, numberOfImpactedEntities: DDL_SUMMARY } },
-} as unknown as ResolvedComparisonSummary)
+})
 
 const changelogEditor = (packageId: string): Editor => new Editor(packageId, {
   packageId,
@@ -78,13 +80,16 @@ const archiveOf = async (editor: Editor): Promise<JSZip> => {
 }
 
 // Both dashboard versions carry both references, so every reference is a pair with two sides.
-const buildDashboardChangelog = async (cachedRefIds: string[]): Promise<JSZip> => {
+const buildDashboardChangelog = async (
+  cachedRefIds: string[],
+  answer: (refId: string) => ResolvedComparisonSummary = storedComparison,
+): Promise<JSZip> => {
   await publishDashboardWithTwoRefs(REF_CACHED, REF_CALCULATED, DASHBOARD)
 
   const editor = changelogEditor(DASHBOARD)
   jest.spyOn(editor.builder as PackageVersionBuilder, 'versionComparisonResolver')
     .mockImplementation(async (_version, packageId) => (
-      cachedRefIds.includes(packageId) ? storedComparison(packageId) : null
+      cachedRefIds.includes(packageId) ? answer(packageId) : null
     ))
 
   return await archiveOf(editor)
@@ -115,6 +120,18 @@ const buildDdlOnlyChangelog = async (): Promise<JSZip> => {
     { packageId: DDL_ONLY, version: 'v2', buildType: BUILD_TYPE.BUILD, files: [{ fileId: 'shop.sql' }] })
 
   return await archiveOf(changelogEditor(DDL_ONLY))
+}
+
+/** A plain build has no previous version, so it compares nothing at all. */
+const buildWithoutPreviousVersion = async (): Promise<JSZip> => {
+  const editor = new Editor('ddl-build', {
+    packageId: 'cached-comparisons/plain',
+    version: 'v1',
+    buildType: BUILD_TYPE.BUILD,
+    status: VERSION_STATUS.RELEASE,
+    files: [{ fileId: 'shop.sql' }],
+  })
+  return await archiveOf(editor)
 }
 
 const readCachedComparisons = async (zip: JSZip): Promise<ComparisonKey[]> =>
@@ -161,6 +178,14 @@ describe('The list of comparisons reused from the host', () => {
     }
   })
 
+  // The host refuses to call such a row a valid comparison result, so neither may the builder.
+  it('should treat a placeholder answer as no comparison at all', async () => {
+    const placeholder = (refId: string): ResolvedComparisonSummary => ({ ...storedComparison(refId), noContent: true })
+    const zip = await buildDashboardChangelog([REF_CACHED], placeholder)
+
+    expect(await readCachedComparisons(zip)).toEqual([])
+  })
+
   // A missing file must mean "built before this file existed", so an empty result still writes one.
   it('should write an empty list when nothing was reused', async () => {
     const zip = await buildDashboardChangelog([])
@@ -198,22 +223,22 @@ describe('What a comparison row carries', () => {
   })
 })
 
-// The host unions both indexes to build a dashboard's reference list, so a pair missing from one is lost.
 describe('The DDL comparison index', () => {
-  it('should name the same pairs as the operation index when a reused pair carries schemas', async () => {
+  // A pair earns an entry by having schema changes, not by being in the operation index: the dashboard's own
+  // pair and a schema-less reference are named there and absent here.
+  it('should name a reused pair that carries schemas, and only it', async () => {
     const zip = await buildDashboardChangelog([REF_CACHED])
 
-    expect(await pairsIn(zip, PACKAGE.DDL_COMPARISONS_FILE_NAME))
-      .toEqual(await pairsIn(zip, PACKAGE.COMPARISONS_FILE_NAME))
+    expect(await pairsIn(zip, PACKAGE.DDL_COMPARISONS_FILE_NAME)).toEqual([REF_CACHED])
+    expect(await pairsIn(zip, PACKAGE.COMPARISONS_FILE_NAME))
+      .toEqual([DASHBOARD, REF_CACHED, REF_CALCULATED].sort())
   })
 
-  it('should name the same pairs as the operation index when a calculated pair carries schemas', async () => {
+  it('should name a calculated pair that carries schemas, and only it', async () => {
     const zip = await buildDashboardWithDdlRef()
 
-    expect(await pairsIn(zip, PACKAGE.DDL_COMPARISONS_FILE_NAME))
-      .toEqual([DDL_DASHBOARD, DDL_REF])
-    expect(await pairsIn(zip, PACKAGE.DDL_COMPARISONS_FILE_NAME))
-      .toEqual(await pairsIn(zip, PACKAGE.COMPARISONS_FILE_NAME))
+    expect(await pairsIn(zip, PACKAGE.DDL_COMPARISONS_FILE_NAME)).toEqual([DDL_REF])
+    expect(await pairsIn(zip, PACKAGE.COMPARISONS_FILE_NAME)).toEqual([DDL_DASHBOARD, DDL_REF].sort())
   })
 
   it('should name the pair of a changelog that has schemas and no operations', async () => {
@@ -239,9 +264,32 @@ describe('The DDL comparison index', () => {
     })
   })
 
+  // The one place where presence in cached-comparisons.json says nothing about this index: the pair was
+  // reused, but the host holds no schemas for it.
+  it('should not be written when a reused pair carries no schemas', async () => {
+    const withoutSchemas = (refId: string): ResolvedComparisonSummary => ({
+      ...storedComparison(refId),
+      contractsChangesSummary: undefined,
+    })
+    const zip = await buildDashboardChangelog([REF_CACHED], withoutSchemas)
+
+    expect(zip.file(PACKAGE.DDL_COMPARISONS_FILE_NAME)).toBeNull()
+    expect((await readCachedComparisons(zip)).map(({ packageId }) => packageId)).toEqual([REF_CACHED])
+  })
+
   it('should not be written when the build has no schemas at all', async () => {
     const zip = await buildDashboardChangelog([])
 
+    expect(zip.file(PACKAGE.COMPARISONS_FILE_NAME)).not.toBeNull()
     expect(zip.file(PACKAGE.DDL_COMPARISONS_FILE_NAME)).toBeNull()
+  })
+
+  // No previous version, no comparison, and so none of the three files - not even an empty one.
+  it('should not be written by a build that compares nothing', async () => {
+    const zip = await buildWithoutPreviousVersion()
+
+    expect(zip.file(PACKAGE.COMPARISONS_FILE_NAME)).toBeNull()
+    expect(zip.file(PACKAGE.DDL_COMPARISONS_FILE_NAME)).toBeNull()
+    expect(zip.file(PACKAGE.CACHED_COMPARISONS_FILE_NAME)).toBeNull()
   })
 })

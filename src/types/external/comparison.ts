@@ -44,6 +44,8 @@ export interface ResolvedComparisonSummary {
   previousVersionPackageId: PackageId
   previousVersionRevision: number
   operationTypes: OperationType[]
+  // The stored comparison is a placeholder: the row exists but holds no usable result.
+  noContent?: boolean
   // The pair's schema changes, absent when the host holds none. Serialized form, like `operationTypes`.
   contractsChangesSummary?: DdlContractsChangesSummary
   // the flag the host already holds for this pair; a cached comparison carries it through unchanged

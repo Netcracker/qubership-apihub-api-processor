@@ -129,14 +129,15 @@ removal, so DDL does not wire into the granular-drop mechanism. Full rebuild onl
 **Implications:** `processDdlDocument` need not record `document.ddlEntityIds` for incremental drop;
 drop that rationale from Plan Task 6. (Plan Task 6.)
 
-### D15 — Dashboards rely on host cache invalidation (R7)
-**Decision:** On a dashboard cache hit whose cached ref comparison lacks a DDL section,
+### D15 — Dashboards rely on host cache invalidation (R7) — **PREMISE NO LONGER HOLDS**
+**Original decision:** On a dashboard cache hit whose cached ref comparison lacks a DDL section,
 api-processor trusts the host: it does **not** recompute DDL. The backend is responsible for
-invalidating/rebuilding ref comparisons when DDL support lands.
-**Rationale:** Simplest; avoids a recompute-on-miss path. Accepts that dashboards over stale ref
-caches under-report DDL changes until caches refresh.
-**Implications:** R7 mitigation changes from "cover hit and miss / recompute" to "document the host
-invalidation requirement; cover the cache-miss path only." (Plan Task 11; Risk R7.)
+invalidating/rebuilding ref comparisons when DDL support lands. Simplest; avoids a recompute-on-miss path,
+accepting that dashboards over stale ref caches under-report DDL changes until caches refresh.
+**Current state:** A cached ref comparison does **not** lack a DDL section. The host's `changes/summary`
+response declares `contractsChangesSummary` and fills it for a package pair; api-processor was discarding it.
+Nothing is recomputed on a hit — that half stands — but the summary the host already returned is carried
+into `ddl-comparisons.json`, as AD6 prescribed from the start.
 
 ---
 

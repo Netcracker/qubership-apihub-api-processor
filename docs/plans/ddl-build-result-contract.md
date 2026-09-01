@@ -23,14 +23,17 @@ shared files.
 | `ddl.json` | ✓ | — | **DDL** | table entity index (grouped by kind) |
 | `ddl/<ddlEntityId>` | ✓ | — | **DDL** | minimal SQL per table (no extension) |
 | `cached-comparisons.json` | ✓¹ | ✓ | shared | version pairs reused from the host, one list for both comparison indexes |
-| `ddl-comparisons.json` | ✓¹ | ✓ | **DDL** | DDL comparison index |
-| `ddl-comparisons/<comparisonFileId>` | ✓¹ | ✓ | **DDL** | per-pair DDL change data |
+| `ddl-comparisons.json` | ✓¹² | ✓² | **DDL** | DDL comparison index |
+| `ddl-comparisons/<comparisonFileId>` | ✓¹² | ✓² | **DDL** | per-pair DDL change data |
 | `comparison-internal-documents.json` | ✓¹ | ✓ | shared | index (REST + DDL merged docs) |
 | `comparison-internal-documents/<id>.json` | ✓¹ | ✓ | shared | merged `Realm` per document pair |
 
 ¹ Emitted by a `build` only when `previousVersion` is set (the build strategy runs the comparison at
 the end, exactly as REST does). A pure `changelog` emits **only** the comparison files (+ `info` /
 `notifications`); it does not re-emit `documents.json` / `ddl.json` / entity files.
+
+² Emitted only when at least one compared pair has schema changes; a changelog without them ships neither
+file.
 
 ---
 
@@ -111,8 +114,8 @@ per-pair change data is stripped (it lives in `ddl-comparisons/`). Because the k
 contract type, there is no per-entry `contractType` field.
 
 Whether a pair was reused from the host is recorded in `cached-comparisons.json`, which applies to this index
-and to `comparisons.json` alike. A reused pair has no entry here in any case: nothing is recalculated on a
-cache hit.
+and to `comparisons.json` alike. A pair gets an entry here when it has schema changes, reused from the host
+or calculated alike; a pair without them is absent, and so is the whole file when no pair has any.
 
 ```jsonc
 {
