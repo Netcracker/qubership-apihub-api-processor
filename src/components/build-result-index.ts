@@ -190,11 +190,8 @@ export function buildComparisonsIndex(comparisons: VersionsComparisonDto[]): Pac
 /**
  * Build `cached-comparisons.json`: the version pairs this build reused from the host instead of calculating.
  *
- * One entry per pair, not per comparison: a pair's operation and DDL comparisons reach one row in the host's
- * store, so they cannot be allowed to disagree about it.
- *
- * Values are copied from the comparison, never derived — a key must match the comparison it names field for
- * field. Spreading it instead would match too, but would ship the whole changelog into the key.
+ * One entry per pair, not per comparison — both of a pair's comparisons reach one row in the host's store.
+ * Values are copied, never derived: a key must match the comparison it names field for field.
  */
 export function buildCachedComparisons(comparisons: Array<VersionsComparison | DdlComparison>): PackageCachedComparisons {
   const byPair = new Map<string, ComparisonKey>()

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import JSZip from 'jszip'
 import fs from 'fs/promises'
 import path from 'path'
 import mime from 'mime-types'
@@ -548,4 +549,12 @@ export async function buildWithVersionOverrides(
     },
   })
   return builder.run({ apiProcessorVersionValidationLevel: validationLevel })
+}
+
+export const readJsonFromZip = async <T>(zip: JSZip, name: string): Promise<T> => {
+  const entry = zip.file(name)
+  if (!entry) {
+    throw new Error(`Cannot find ${name} in the build result`)
+  }
+  return JSON.parse(await entry.async('string')) as T
 }

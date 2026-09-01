@@ -15,7 +15,7 @@
  */
 
 import JSZip from 'jszip'
-import { Editor, LocalRegistry } from './helpers'
+import { Editor, LocalRegistry, readJsonFromZip } from './helpers'
 import {
   ApiOperation,
   BUILD_TYPE,
@@ -53,14 +53,6 @@ import { MCP_KIND, McpEntity, McpEntityIndex, PackageMcpFile } from '../src/type
 import { PackageDdlFile } from '../src/types/package/ddl'
 
 describe('Build result list ordering', () => {
-  const readJsonFromZip = async <T>(zip: JSZip, name: string): Promise<T> => {
-    const entry = zip.file(name)
-    if (!entry) {
-      throw new Error(`Cannot find ${name} in the build result`)
-    }
-    return JSON.parse(await entry.async('string')) as T
-  }
-
   const buildEditor = (packageId: string, overrides: Partial<BuildConfig> = {}): Editor =>
     new Editor(packageId, {
       packageId,
