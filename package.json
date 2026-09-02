@@ -1,6 +1,6 @@
 {
   "name": "@netcracker/qubership-apihub-api-processor",
-  "version": "5.6.1",
+  "version": "5.7.1",
   "description": "",
   "license": "Apache-2.0",
   "sideEffects": false,
@@ -54,7 +54,7 @@
     "@netcracker/qubership-apihub-ddlapi": "bugfix-update-infrastructure",
     "@netcracker/qubership-apihub-graphapi": "bugfix-update-infrastructure",
     "@netcracker/qubership-apihub-json-crawl": "bugfix-update-infrastructure",
-    "adm-zip": "0.5.10",
+    "adm-zip": "0.6.0",
     "ajv": "^8.12.0",
     "ajv-formats": "^2.1.1",
     "allof-merge": "0.5.1",
@@ -71,7 +71,6 @@
   "devDependencies": {
     "@jest/globals": "30.4.1",
     "@netcracker/qubership-apihub-npm-gitflow": "3.1.1",
-    "@types/adm-zip": "0.5.7",
     "@types/jest": "30.0.0",
     "@types/mime-types": "^3.0.0",
     "@types/node": "^24.0.0",
