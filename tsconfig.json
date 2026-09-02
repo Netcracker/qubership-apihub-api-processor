@@ -51,15 +51,6 @@
        with "module": "commonjs" and the --module commonjs the cjs build passes on the CLI,
        which 'nodenext' would conflict with (TS5110). */
     "moduleResolution": "bundler",
-    /* api-ref-bundler 0.4.0 names "types": dist/cjs/index.d.ts but its "exports" is
-       { import, require } with no "types" condition. Once exports is honoured the
-       top-level field is ignored and the shipped declarations become unreachable
-       (TS7016). Same defect this branch fixed in class-view and apispec-view, in a
-       dependency we do not control. Pointing at the shipped file keeps the real types
-       instead of shimming to any; remove when upstream adds a "types" condition. */
-    "paths": {
-      "api-ref-bundler": ["./node_modules/api-ref-bundler/dist/cjs/index.d.ts"]
-    },
     "rootDir": "./",                       /* TS 6 requires rootDir to be explicit alongside outDir (TS5011). */
     "types": ["node", "jest"],             /* TS 6 defaults 'types' to [] rather than every package under typeRoots. */
     // "baseUrl": "./",                       /* Base directory to resolve non-absolute module names. */
