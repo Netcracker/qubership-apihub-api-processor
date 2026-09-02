@@ -149,6 +149,29 @@ describe('Build result list ordering', () => {
   })
 })
 
+// An operationId is unique only within an api type, so two rows can carry the same one. The sort key has to
+// span both, or the tie falls back to the order `config.files` happened to list the documents in.
+describe('Operations of two api types sharing an id', () => {
+  test('should order them by api type, whatever the config order', async () => {
+    const orderOf = async (packageId: string, fileIds: string[]): Promise<string[]> => {
+      const result = await LocalRegistry.openPackage('tolerant-publication').publish('tolerant-publication', {
+        packageId,
+        version: 'v1',
+        status: VERSION_STATUS.DRAFT,
+        files: fileIds.map(fileId => ({ fileId })),
+      })
+      return buildPackageOperations(result.operations).operations
+        .map(({ apiType, operationId }) => `${apiType}:${operationId}`)
+    }
+
+    const forwards = await orderOf('ordering/api-types-forwards', ['api.yaml', 'async-a.yaml'])
+    const backwards = await orderOf('ordering/api-types-backwards', ['async-a.yaml', 'api.yaml'])
+
+    expect(forwards).toEqual(['asyncapi:pets-get', 'rest:pets-get'])
+    expect(backwards).toEqual(forwards)
+  }, 60000)
+})
+
 describe('Build result builders: deterministic sort', () => {
   // any two distinct categories: these tests are about the order of a list, never about what raises what.
   // The diagnostics themselves are catalogued in `notification-catalogue.test.ts`.

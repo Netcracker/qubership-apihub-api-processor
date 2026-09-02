@@ -46,6 +46,7 @@ export interface BuildResultDto {
   comparisonNotifications: NotificationMessage[]
   documents: Map<string, VersionDocument>
   exportDocuments: ExportDocument[]
+  /** Keyed by `operationKey({ apiType, operationId })`: an operationId is unique only within an api type. */
   operations: Map<string, ApiOperation>
   merged?: VersionDocument
   mcpEntities: McpEntityIndex
@@ -60,6 +61,7 @@ export interface BuildResult {
   documents: Map<string, VersionDocument>
   exportDocuments: ExportDocument[]
   exportFileName?: string
+  /** Keyed by `operationKey({ apiType, operationId })`: an operationId is unique only within an api type. */
   operations: Map<string, ApiOperation>
   merged?: VersionDocument
   mcpEntities: McpEntityIndex

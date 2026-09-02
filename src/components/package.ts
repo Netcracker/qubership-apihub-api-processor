@@ -108,25 +108,29 @@ export const createVersionPackage = async (
       return await zip.buildResult(options)
   }
 
-  // A changelog produces no documents of its own and its `info.json` describes a comparison, so it carries
-  // neither the `hasErrors` flags nor `notifications.json`. Every other build type here publishes documents.
+  // A changelog recalculates the changes of a version that is already published: it produces no documents of
+  // its own and its `info.json` describes a comparison. It therefore carries neither the `hasErrors` flags nor
+  // the version's own content — an empty `documents.json` or `operations.json` would describe the published
+  // version as having none. Every other build type here publishes documents.
   const buildType = ctx.config.buildType ?? BUILD_TYPE.BUILD
   const publishesDocuments = buildType !== BUILD_TYPE.CHANGELOG && buildType !== BUILD_TYPE.PREFIX_GROUPS_CHANGELOG
-  const erroredSlugs = publishesDocuments ? erroredDocumentSlugs(buildResultDto.notifications) : new Set<string>()
-  createDocumentsFile(zip, documents, erroredSlugs)
-  createVersionInternalDocumentsFile(zip, documents)
-
-  await createDocumentDataFiles(zip, documents, ctx)
-  await createVersionInternalDocumentDataFiles(zip, documents)
 
   await createInfoFile(zip, buildResultDto.config, publishesDocuments && hasBuildError(buildResultDto.notifications))
 
-  createOperationsFile(zip, buildResultDto.operations)
-  createSearchTextFiles(zip, buildResultDto.operations)
-  const operationsDir = zip.folder(PACKAGE.OPERATIONS_DIR_NAME)!
-  for (const { data, operationId } of buildResultDto.operations.values()) {
-    if (!data) { continue }
-    createOperationDataFile(operationsDir, operationId, data)
+  if (publishesDocuments) {
+    createDocumentsFile(zip, documents, erroredDocumentSlugs(buildResultDto.notifications))
+    createVersionInternalDocumentsFile(zip, documents)
+
+    await createDocumentDataFiles(zip, documents, ctx)
+    await createVersionInternalDocumentDataFiles(zip, documents)
+
+    createOperationsFile(zip, buildResultDto.operations)
+    createSearchTextFiles(zip, buildResultDto.operations)
+    const operationsDir = zip.folder(PACKAGE.OPERATIONS_DIR_NAME)!
+    for (const { data, operationId } of buildResultDto.operations.values()) {
+      if (!data) { continue }
+      createOperationDataFile(operationsDir, operationId, data)
+    }
   }
 
   if (buildResultDto.mcpEntities.size) {

@@ -38,7 +38,7 @@ export function createDdlBuildContext(): DdlBuildContext {
   }
 }
 
-/** Cross-document DDL entity collisions, over the whole claimant set — see `reportCollisions`. */
+/** Cross-document DDL entity collisions, one message per claimant — see `reportCollisions`. */
 export function reportDdlCollisions(claims: Claims<DdlEntity>, notifications: NotificationMessage[]): void {
   reportCollisions(
     claims,

@@ -37,8 +37,11 @@ export const calculateHistoryForDeprecatedItems = async (
 ): Promise<void> => {
   const { versionDeprecatedResolver } = ctx
 
+  // the version's list holds every api type, and an operationId is unique only within one: keying the whole
+  // list by the bare id would let an operation of another type take the entry the resolver answers for
   const deprecatedOperations = keyBy(
-    operations.filter(({ deprecated, deprecatedItems }) => deprecated || deprecatedItems?.length),
+    operations.filter(operation => operation.apiType === apiType)
+      .filter(({ deprecated, deprecatedItems }) => deprecated || deprecatedItems?.length),
     ({ operationId }) => operationId,
   )
 

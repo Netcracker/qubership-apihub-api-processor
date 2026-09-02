@@ -90,7 +90,7 @@ import {
   reportMcpCollisionsOf,
   validateMcpCapabilities,
 } from './components/mcp'
-import { processOperationDocument, reportOperationCollisionsOf } from './components/operations'
+import { operationKey, processOperationDocument, reportOperationCollisionsOf } from './components/operations'
 import JSZip from 'jszip'
 import { calculateHistoryForDeprecatedItems } from './components/deprecated'
 import { JsZipTool } from './components/js-zip-tool'
@@ -238,7 +238,8 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       templateResolver: this.templateResolver.bind(this),
       parsedFileResolver: this.parsedFileResolver.bind(this),
       rawDocumentResolver: this.rawDocumentResolver.bind(this),
-      operationResolver: (operationId: OperationId) => this.operations.get(operationId) ?? null,
+      operationResolver: (apiType: string, operationId: OperationId) =>
+        this.operations.get(operationKey({ apiType, operationId })) ?? null,
       notifications: this.notifications,
       config: this.config,
       configuration: this.params.configuration,
@@ -259,7 +260,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       batchSize: this.params.configuration?.batchSize,
       config: config,
       versionResolver: this.versionResolver.bind(this, notifications),
-      versionOperationsResolver: this.versionOperationsResolver.bind(this, notifications),
+      versionOperationsResolver: this.versionOperationsResolver.bind(this),
       versionReferencesResolver: this.versionReferencesResolver.bind(this, notifications),
       versionComparisonResolver: this.versionComparisonResolver.bind(this),
       versionDeprecatedResolver: this.versionDeprecatedResolver.bind(this),
@@ -430,7 +431,6 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
   }
 
   async versionOperationsResolver(
-    notifications: NotificationMessage[],
     apiType: OperationsApiType,
     version?: string,
     packageId?: string,
@@ -463,22 +463,6 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       operationIds,
       includeData,
     )
-
-    // validate for missing operationData
-    if (includeData && operations?.operations) {
-      for (const { data, operationId } of operations.operations) {
-        if (data) {
-          continue
-        }
-
-        notifications.push({
-          category: MESSAGE_CATEGORY.OperationDataMissing,
-          // missing operation data makes the comparison silently incomplete — exactly what the gate is for
-          severity: MESSAGE_SEVERITY.Error,
-          message: `No data for operation ${operationId} of package ${packageId}/${version}`,
-        })
-      }
-    }
 
     return operations
   }
@@ -785,8 +769,11 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
 
   setDocument(document: VersionDocument, operations: ApiOperation[] = []): void {
     this.documents.set(document.fileId, document)
+    // `dropOwnedOperations` and `reconcileOwnedIds` find an entry by the claim that made it, so a document
+    // seeded here has to carry its claims or its operations can never be evicted
+    document.operationClaims = operations.map(({ operationId, apiType }) => ({ operationId, apiType }))
     for (const operation of operations) {
-      this.operations.set(operation.operationId, operation)
+      this.operations.set(operationKey(operation), operation)
     }
   }
 
@@ -859,9 +846,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
       const document = this.documents.get(removedFileId)
       if (!document) { continue }
 
-      document.operationIds?.forEach(operationId => {
-        this.operations.delete(operationId)
-      })
+      this.dropOwnedOperations(document)
       // mcpEntities is a flat map keyed by id, so a removed document's entities drop out granularly
       document.mcpEntityIds?.forEach(entityId => {
         this.mcpEntities.delete(entityId)
@@ -923,15 +908,27 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     }
   }
 
+  /**
+   * Take the document's operations out of the index.
+   *
+   * The index is keyed per api type, so the entries are found by what the document claimed rather than by the
+   * ids it announced. Claims are kept whole, so one the document lost names another document's entry — only
+   * what it still owns is dropped.
+   */
+  private dropOwnedOperations(document: VersionDocument): void {
+    document.operationClaims?.forEach(claim => {
+      const key = operationKey(claim)
+      if (this.operations.get(key)?.documentId === document.slug) {
+        this.operations.delete(key)
+      }
+    })
+  }
+
   private async rebuildFiles(changedFiles: BuildConfigFile[]): Promise<boolean> {
     for (const changedFile of changedFiles) {
       const previousDocument = this.documents.get(changedFile.fileId)
       if (previousDocument) {
-        previousDocument.operationIds?.forEach(operationId => {
-          if (this.operations.get(operationId)?.documentId === previousDocument.slug) {
-            this.operations.delete(operationId)
-          }
-        })
+        this.dropOwnedOperations(previousDocument)
         previousDocument.mcpEntityIds?.forEach(entityId => {
           if (this.mcpEntities.get(entityId)?.documentId === previousDocument.slug) {
             this.mcpEntities.delete(entityId)

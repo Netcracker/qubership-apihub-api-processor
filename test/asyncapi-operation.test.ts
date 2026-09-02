@@ -20,11 +20,12 @@ import { createOperationSpec, createOperationSpecEnrichedWithRefs } from '../src
 import { calculateAsyncOperationId, removeComponents } from '../src/utils'
 import { buildPackageWithDefaultConfig, cloneDocument, loadYamlFile, LocalRegistry } from './helpers'
 import { extractProtocol, getRequiredDefaultContentType } from '../src/apitypes/async/async.utils'
-import { FIRST_REFERENCE_KEY_PROPERTY, INLINE_REFS_FLAG, MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../src/consts'
+import { ASYNCAPI_API_TYPE, FIRST_REFERENCE_KEY_PROPERTY, INLINE_REFS_FLAG, MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../src/consts'
 import { ASYNC_EFFECTIVE_NORMALIZE_OPTIONS, BUILD_TYPE, VERSION_STATUS } from '../src'
 import { AsyncOperationData, VersionAsyncOperation } from '../src/apitypes/async/async.types'
 import { BuildResult, VersionStatus } from '../src/types'
 import { normalize } from '@netcracker/qubership-apihub-api-unifier'
+import { operationKey } from '../src/components/operations'
 
 describe('AsyncAPI 3.0 Operation Tests', () => {
   const normalizeAsyncApiDocument = (doc: AsyncAPIV3.AsyncAPIObject): AsyncAPIV3.AsyncAPIObject =>
@@ -756,7 +757,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
 
         // both are flagged, and the id goes to the smaller slug as any contested id does
         expect(result.operations.size).toBe(1)
-        expect(result.operations.get('operation1-message1')!.documentId).toBe('spec1')
+        expect(result.operations.get(operationKey({ apiType: ASYNCAPI_API_TYPE, operationId: 'operation1-message1' }))!.documentId).toBe('spec1')
       })
 
       // one message per document, so the failure takes the summary form and names both
@@ -786,7 +787,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
         })
         expect(result.notifications[0].message).toContain('operationId \'user-created-message1\'')
         // the Error marks the document; the operation it did build still ships
-        expect([...result.operations.keys()]).toEqual(['user-created-message1'])
+        expect([...result.operations.values()].map(({ operationId }) => operationId)).toEqual(['user-created-message1'])
       })
     })
   })

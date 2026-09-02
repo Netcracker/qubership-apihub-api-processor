@@ -194,8 +194,9 @@ const collectDeprecatedItems = (
       declarationJsonPaths,
       description: `${DEPRECATED_MESSAGE_PREFIX} channel '${channelTitle}'`,
       deprecatedInPreviousVersions,
+      // no tolerant hash: the unifier stamps the flag on schema and parameter nodes, never on a channel,
+      // so the request could only report a missing one. The schema items below still ask for theirs.
       hash: calculateHash(channel, normalizedSpecFragmentsHashCache),
-      tolerantHash: calculateTolerantHash(channel as Jso, notifications, documentSlug),
     })
   }
 
