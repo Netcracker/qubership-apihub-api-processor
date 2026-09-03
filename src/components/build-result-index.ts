@@ -27,6 +27,8 @@ import {
   PackageComparisonOperations,
   PackageComparisons,
   PackageDocuments,
+  PackageComparisonNotifications,
+  PackageComparisonNotificationsEntry,
   PackageNotifications,
   PackageOperations,
   VersionDocument,
@@ -34,7 +36,7 @@ import {
 } from '../types'
 import { FILE_FORMAT_JSON } from '../consts'
 import { calculateChangeId, takeIf, toPackageDocument } from '../utils'
-import { DdlComparisonDto } from '../types/internal/compare'
+import { DdlComparison, DdlComparisonDto, VersionsComparison } from '../types/internal/compare'
 import { groupMcpEntitiesByKind, KIND_TO_FIELD as MCP_KIND_TO_FIELD } from './mcp'
 import { McpEntityIndex, PackageMcpFile } from '../types/package/mcp'
 import { groupDdlEntitiesByKind, KIND_TO_FIELD as DDL_KIND_TO_FIELD } from './ddl'
@@ -50,8 +52,8 @@ type KeyPart = string | number | null
 
 const encodeKeyPart = (part: KeyPart): string | null => {
   if (typeof part !== 'number') { return part }
-  // Zero-padding to a fixed width limits numbers to non-negative integers below 1e10 (covers revision
-  // and severity); outside that range the padding would sort wrong, so it throws instead.
+  // Fixed-width zero-padding only sorts correctly for non-negative integers that fit the width — true of
+  // revision and severity, the only numbers used as key parts. Anything else would sort wrong silently.
   if (!Number.isInteger(part) || part < 0 || part >= 1e10) {
     throw new Error(`Sort key number out of range: ${part} (expected a non-negative integer below 1e10)`)
   }
@@ -87,10 +89,21 @@ const ddlComparisonEntitySortKey = (entry: DdlChangesDto): string =>
 const notificationSortKey = (notification: NotificationMessage): string => tupleKey(
   notification.severity,
   notification.message,
-  notification.fileId ?? null,
-  notification.operationId ?? null,
-  notification.previousOperationId ?? null,
+  notification.category,
+  notification.documentId ?? null,
 )
+
+/**
+ * Add a message unless the list already carries an identical one.
+ *
+ * A pair's operation and DDL comparisons resolve the same versions, and resolver failures are not cached, so
+ * one pair can raise the same message twice: it would double the release-failure count and store a repeat
+ * row. Identity is the sort key, so what deduplicates here and what orders the file cannot drift apart.
+ */
+export const pushOnce = (notifications: NotificationMessage[], message: NotificationMessage): void => {
+  const key = notificationSortKey(message)
+  if (!notifications.some(existing => notificationSortKey(existing) === key)) { notifications.push(message) }
+}
 
 const sortChanges = <T extends { changes?: ChangeMessage<DiffTypeDto>[] }>(entry: T): T =>
   (entry.changes
@@ -120,16 +133,20 @@ export function buildPackageOperations(operations: Map<string, ApiOperation>): P
       versionInternalDocumentId: operation.versionInternalDocumentId,
     })
   }
-  result.operations = sortByKey(result.operations, operation => operation.operationId)
+  // an operationId is unique only within an api type, so the key spans both — otherwise two rows tie and
+  // fall back to `config.files` order
+  result.operations = sortByKey(result.operations, ({ apiType, operationId }) => tupleKey(apiType, operationId))
   return result
 }
 
-export function buildPackageDocuments(documents: Iterable<VersionDocument>): PackageDocuments {
+export function buildPackageDocuments(
+  documents: Iterable<VersionDocument>,
+  erroredSlugs: ReadonlySet<string> = new Set(),
+): PackageDocuments {
   const result: PackageDocuments = { documents: [] }
   for (const document of documents) {
     if (!document.publish) { continue }
-    // operationIds is already deterministic (buildOperations parse order); only the document LIST needs sorting.
-    result.documents.push(toPackageDocument(document))
+    result.documents.push(toPackageDocument(document, erroredSlugs.has(document.slug)))
   }
   result.documents = sortByKey(result.documents, document => document.fileId)
   return result
@@ -193,6 +210,82 @@ export function buildDdlComparisonEntities(entities: DdlChangesDto[]): { entitie
 
 export function buildNotifications(notifications: NotificationMessage[]): PackageNotifications {
   return { notifications: sortByKey(notifications, notificationSortKey) }
+}
+
+// The pair a config asked for, carrying what no comparison owns.
+export interface DeclaredPair {
+  packageId: string
+  version: string
+  revision: number
+  previousVersionPackageId: string
+  previousVersion: string
+  previousVersionRevision: number
+  notifications: NotificationMessage[]
+}
+
+/**
+ * Group the comparison phase's notifications into `comparison-notifications.json`, one entry per version pair.
+ *
+ * The backend replaces a pair's stored rows on republish, so an entry has to mean "this build calculated this
+ * pair". A pair calculated here therefore gets an entry even when it has nothing to report, and a pair served
+ * from the host's cache gets none — an empty entry would delete the messages the build that did calculate it
+ * recorded.
+ *
+ * Identity is the six-part version tuple, never `comparisonFileId`: a refs-only dashboard comparison has no
+ * file id. A pair's operation and DDL comparisons arrive as two objects sharing one array, and grouping by
+ * that identity is what collapses them — see `CompareContext.forPair`.
+ *
+ * `declaredPair` carries what no comparison owns. A baseline that never resolved leaves no pair to report
+ * against, and this file has no build-wide bucket to fall back to.
+ */
+export function buildComparisonNotifications(
+  comparisons: Array<VersionsComparison | DdlComparison>,
+  declaredPair?: DeclaredPair,
+): PackageComparisonNotifications {
+  const byPair = new Map<string, PackageComparisonNotificationsEntry>()
+
+  // fields picked one by one: the comparison carries the whole changelog, and spreading it would ship it
+  const merge = (source: PackageComparisonNotificationsEntry): void => {
+    const { packageId, version, revision, previousVersionPackageId, previousVersion, previousVersionRevision } = source
+    const key = tupleKey(packageId, version, revision ?? null, previousVersionPackageId, previousVersion, previousVersionRevision ?? null)
+    const existing = byPair.get(key)
+    if (!existing) {
+      byPair.set(key, {
+        packageId,
+        version,
+        revision,
+        previousVersionPackageId,
+        previousVersion,
+        previousVersionRevision,
+        notifications: [...source.notifications],
+      })
+      return
+    }
+    // by identity: the shared array is already in, so only a pair arriving with a second one adds anything
+    existing.notifications.push(...source.notifications.filter(notification => !existing.notifications.includes(notification)))
+  }
+
+  for (const comparison of comparisons) {
+    if (comparison.fromCache) { continue }
+    merge(comparison)
+  }
+
+  if (declaredPair?.notifications.length) { merge(declaredPair) }
+
+  const entries = [...byPair.values()]
+    .map(entry => ({ ...entry, notifications: sortByKey(entry.notifications, notificationSortKey) }))
+
+  // the same six-part identity `comparisons.json` sorts by, so the two files list pairs in the same order
+  return {
+    comparisons: sortByKey(entries, entry => tupleKey(
+      entry.packageId,
+      entry.version,
+      entry.revision ?? null,
+      entry.previousVersionPackageId,
+      entry.previousVersion,
+      entry.previousVersionRevision ?? null,
+    )),
+  }
 }
 
 export function buildMcpFile(mcpEntities: McpEntityIndex): PackageMcpFile {

@@ -14,23 +14,16 @@
  * limitations under the License.
  */
 
-import { BuildConfig, BuilderStrategy, BuildResult, BuildTypeContexts, VersionCache, VersionDocument } from '../types'
+import { BuildConfig, BuilderStrategy, BuildResult, BuildTypeContexts, VersionCache } from '../types'
 import { compareVersions } from '../components'
 import { applyBuilderVersionInfo } from '../validators'
-import { getOperationsList } from '../utils'
+import { getOperationsList, replaceInPlace } from '../utils'
 import { buildFiles } from '../components/files'
-import { createDuplicateOperationHandler, processOperationDocument } from '../components/operations'
-import {
-  createDuplicateMcpEntityHandler,
-  processMcpDocument,
-  validateMcpCapabilities,
-  validateMcpInitRequired,
-  validateMcpProtocolVersion,
-} from '../components/mcp'
-import { createDuplicateDdlEntityHandler, processDdlDocument } from '../components/ddl'
-import { ParsedDdlData, validateDdlDocument } from '../apitypes/ddl'
+import { buildVersionContent } from '../components/build-documents'
 import { calculateHistoryForDeprecatedItems } from '../components/deprecated'
-import { DDL_CONTRACT_TYPE, MCP_CONTRACT_TYPE, REST_API_TYPE } from '../consts'
+import { assertReleaseIsPublishable, comparisonPhaseNotifications } from '../components/release-gate'
+import { REST_API_TYPE } from '../consts'
+import { NotificationMessage } from '../types/package/notifications'
 
 export class BuildStrategy implements BuilderStrategy {
   async execute(config: BuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
@@ -47,9 +40,14 @@ export class BuildStrategy implements BuilderStrategy {
     const builderContextObject = builderContext(config)
     const compareContextObject = compareContext(config)
 
+    // the pair's array: a baseline that does not resolve builds no comparison to own the failure
+    const rootNotifications: NotificationMessage[] = []
+
     let previousVersionCache: VersionCache | null = null
     if (previousVersion) {
-      previousVersionCache = await compareContextObject.versionResolver(previousVersion, previousVersionPackageId || packageId)
+      previousVersionCache = await compareContextObject
+        .forPair(rootNotifications)
+        .versionResolver(previousVersion, previousVersionPackageId || packageId)
     }
 
     if (!files?.length && !refs?.length) {
@@ -57,39 +55,21 @@ export class BuildStrategy implements BuilderStrategy {
     }
 
     if (files?.length) {
-      const buildFilesResult = await buildFiles(files, builderContextObject)
+      await buildVersionContent(
+        await buildFiles(files, builderContextObject),
+        builderContextObject,
+        buildResult,
+      )
 
-      const handleDuplicateOperation = createDuplicateOperationHandler(buildResult)
-      const handleDuplicateMcp = createDuplicateMcpEntityHandler()
-      const handleDuplicateDdl = createDuplicateDdlEntityHandler()
-
-      for (const { file, document, builder } of buildFilesResult) {
-        buildResult.documents.set(document.fileId, document)
-        if (!builder || document.publish === false) { continue }
-
-        if (builder.apiType === MCP_CONTRACT_TYPE) {
-          processMcpDocument(file, document, builder, buildResult, handleDuplicateMcp)
-        } else if (builder.apiType === DDL_CONTRACT_TYPE) {
-          // map parse issues to notifications (Warning for out-of-scope/unresolved, Error for
-          // duplicate-object which throws and breaks the publish) before indexing entities (Task 12)
-          validateDdlDocument(document as VersionDocument<ParsedDdlData>, buildResult.notifications)
-          processDdlDocument(file, document, builder, buildResult, handleDuplicateDdl)
-        } else {
-          await processOperationDocument(document, builder, builderContextObject, buildResult, handleDuplicateOperation)
-        }
-      }
-
-      // whole-set cross-check: needs all entities collected first (init and its tools/resources/prompts
-      // may live in different files), mirroring how calculateHistoryForDeprecatedItems runs after the loop
-      validateMcpInitRequired(buildResult.mcpEntities)
-      validateMcpProtocolVersion(buildResult.documents)
-      validateMcpCapabilities(buildResult.mcpEntities, buildResult.documents, buildResult.notifications)
+      // fail fast: a release already doomed by its own documents should not spend time on a changelog that
+      // would be discarded. The authoritative check is the one after the comparison phase.
+      assertReleaseIsPublishable(config.status, buildResult.notifications, [])
 
       if (!builderContextObject.builderRunOptions.withoutDeprecatedDepth && previousVersionCache) {
         await calculateHistoryForDeprecatedItems(
           REST_API_TYPE,
           getOperationsList(buildResult),
-          previousVersionCache!.version,
+          previousVersionCache.version,
           previousVersionPackageId || packageId,
           builderContextObject,
         )
@@ -101,11 +81,18 @@ export class BuildStrategy implements BuilderStrategy {
         [previousVersionCache.version, previousVersionPackageId || packageId],
         [version, packageId],
         compareContextObject,
+        rootNotifications,
       )
       buildResult.comparisons = compareResult.comparisons
       buildResult.ddlComparisons = compareResult.ddlComparisons
       applyBuilderVersionInfo(config, compareResult)
+    } else if (rootNotifications.length) {
+      // no comparison ran, so the packager files these under the pair the config declared
+      replaceInPlace(buildResult.comparisonNotifications, rootNotifications)
     }
+
+    // authoritative: it sees both streams, including every message the comparison phase raised
+    assertReleaseIsPublishable(config.status, buildResult.notifications, comparisonPhaseNotifications(buildResult))
 
     return buildResult
   }

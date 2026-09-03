@@ -49,3 +49,10 @@ export const unknownParsedFile = (fileId: string, source: Blob): BinaryFile => {
   const format = (SUPPORTED_FILE_FORMATS as string[]).includes(extension) ? extension as FileFormat : FILE_FORMAT.UNKNOWN
   return { fileId, type: DOCUMENT_TYPE.UNKNOWN, format: format, source, kind: FILE_KIND.BINARY }
 }
+
+// A file whose parser threw: the shape of an unrecognised file plus the reason. The raw bytes survive, so
+// the document still dumps and the build has something to report.
+export const unparsableFile = (fileId: string, source: Blob, error: unknown): BinaryFile => ({
+  ...unknownParsedFile(fileId, source),
+  errors: [{ message: error instanceof Error ? error.message : 'Unknown error' }],
+})

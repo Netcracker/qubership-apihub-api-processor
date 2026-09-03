@@ -41,7 +41,7 @@ const USERS_ENTITY = {
   schemaName: 'public',
   description: 'Registered users', // from COMMENT ON TABLE
   search: { useEntityDataAsSearchText: true },
-  documentId: 'shop.sql',
+  documentId: 'shop',
   versionInternalDocumentId: 'shop',
 }
 const PRODUCTS_ENTITY = {
@@ -51,7 +51,7 @@ const PRODUCTS_ENTITY = {
   schemaName: 'shop',
   description: '', // no COMMENT ON → empty
   search: { useEntityDataAsSearchText: true },
-  documentId: 'shop.sql',
+  documentId: 'shop',
   versionInternalDocumentId: 'shop',
 }
 
@@ -108,5 +108,10 @@ describe('DDL Build', () => {
     const ddlDoc = documents.documents.find((d: { fileId: string }) => d.fileId === 'shop.sql')
     expect(ddlDoc).toMatchObject({ type: 'ddl', format: 'sql', operationIds: [] })
     expect(ddlDoc).not.toHaveProperty('ddlEntityIds')
+
+    // every documentId is a document slug, never a fileId
+    for (const entity of index.tables) {
+      expect(entity.documentId).toBe(ddlDoc.slug)
+    }
   }, 30000)
 })

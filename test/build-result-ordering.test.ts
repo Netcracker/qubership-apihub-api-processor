@@ -23,6 +23,7 @@ import {
   ChangeMessage,
   ComparisonInternalDocument,
   DiffTypeDto,
+  MESSAGE_CATEGORY,
   MESSAGE_SEVERITY,
   NotificationMessage,
   PACKAGE,
@@ -37,6 +38,7 @@ import {
 import {
   buildComparisonInternalDocumentsIndex,
   buildComparisonOperations,
+  buildComparisonNotifications,
   buildComparisonsIndex,
   buildDdlComparisonEntities,
   buildDdlComparisonsIndex,
@@ -45,7 +47,7 @@ import {
   buildPackageOperations,
   buildVersionInternalDocumentsIndex,
 } from '../src/components/build-result-index'
-import { DdlChangesDto, DdlComparisonDto, VersionsComparisonDto } from '../src/types/internal/compare'
+import { DdlChangesDto, DdlComparisonDto, VersionsComparison, VersionsComparisonDto } from '../src/types/internal/compare'
 import { MCP_KIND, McpEntity, McpEntityIndex, PackageMcpFile } from '../src/types/package/mcp'
 import { PackageDdlFile } from '../src/types/package/ddl'
 
@@ -147,27 +149,59 @@ describe('Build result list ordering', () => {
   })
 })
 
+// An operationId is unique only within an api type, so two rows can carry the same one. The sort key has to
+// span both, or the tie falls back to the order `config.files` happened to list the documents in.
+describe('Operations of two api types sharing an id', () => {
+  test('should order them by api type, whatever the config order', async () => {
+    const orderOf = async (packageId: string, fileIds: string[]): Promise<string[]> => {
+      const result = await LocalRegistry.openPackage('tolerant-publication').publish('tolerant-publication', {
+        packageId,
+        version: 'v1',
+        status: VERSION_STATUS.DRAFT,
+        files: fileIds.map(fileId => ({ fileId })),
+      })
+      return buildPackageOperations(result.operations).operations
+        .map(({ apiType, operationId }) => `${apiType}:${operationId}`)
+    }
+
+    const forwards = await orderOf('ordering/api-types-forwards', ['api.yaml', 'async-a.yaml'])
+    const backwards = await orderOf('ordering/api-types-backwards', ['async-a.yaml', 'api.yaml'])
+
+    expect(forwards).toEqual(['asyncapi:pets-get', 'rest:pets-get'])
+    expect(backwards).toEqual(forwards)
+  }, 60000)
+})
+
 describe('Build result builders: deterministic sort', () => {
+  // any two distinct categories: these tests are about the order of a list, never about what raises what.
+  // The diagnostics themselves are catalogued in `notification-catalogue.test.ts`.
+  const ANY_CATEGORY = MESSAGE_CATEGORY.ParseFile
+  const OTHER_CATEGORY = MESSAGE_CATEGORY.BuildDocument
+
   // before: zzz(warning), aaa(warning), mmm(error) → after: mmm, aaa, zzz
   it('should sort notifications by (severity, message)', () => {
     const input: NotificationMessage[] = [
-      { severity: MESSAGE_SEVERITY.Warning, message: 'zzz' },
-      { severity: MESSAGE_SEVERITY.Warning, message: 'aaa' },
-      { severity: MESSAGE_SEVERITY.Error, message: 'mmm' }, // Error=0 < Warning=1 → sorts first
+      { category: ANY_CATEGORY, severity: MESSAGE_SEVERITY.Warning, message: 'zzz' },
+      { category: ANY_CATEGORY, severity: MESSAGE_SEVERITY.Warning, message: 'aaa' },
+      { category: ANY_CATEGORY, severity: MESSAGE_SEVERITY.Error, message: 'mmm' }, // Error=0 < Warning=1 → sorts first
     ]
     expect(buildNotifications(input).notifications.map(n => n.message)).toEqual(['mmm', 'aaa', 'zzz'])
   })
 
   // The key spans every field of NotificationMessage, so equal keys mean byte-identical rows.
-  // before: b/-, a/z, a/a → after: a/a, a/z, b/-
-  it('should fall through to fileId and operationId when severity and message match', () => {
+  // before: parse/-, build/z, build/a → after: build/a, build/z, parse/-
+  it('should fall through to category and documentId when severity and message match', () => {
     const input: NotificationMessage[] = [
-      { severity: MESSAGE_SEVERITY.Warning, message: 'same', fileId: 'b' },
-      { severity: MESSAGE_SEVERITY.Warning, message: 'same', fileId: 'a', operationId: 'z' },
-      { severity: MESSAGE_SEVERITY.Warning, message: 'same', fileId: 'a', operationId: 'a', previousOperationId: 'p' },
+      { category: ANY_CATEGORY, severity: MESSAGE_SEVERITY.Warning, message: 'same' },
+      { category: OTHER_CATEGORY, severity: MESSAGE_SEVERITY.Warning, message: 'same', documentId: 'z' },
+      { category: OTHER_CATEGORY, severity: MESSAGE_SEVERITY.Warning, message: 'same', documentId: 'a' },
     ]
-    expect(buildNotifications(input).notifications.map(n => [n.fileId, n.operationId ?? null]))
-      .toEqual([['a', 'a'], ['a', 'z'], ['b', null]])
+    expect(buildNotifications(input).notifications.map(n => [n.category, n.documentId ?? null]))
+      .toEqual([
+        [OTHER_CATEGORY, 'a'],
+        [OTHER_CATEGORY, 'z'],
+        [ANY_CATEGORY, null],
+      ])
   })
 
   // before: z, a → after: a, z
@@ -224,6 +258,47 @@ describe('Build result builders: deterministic sort', () => {
     const input = [row('v2', 1), row('v1', 10), row('v1', 2)]
     expect(buildComparisonsIndex(input).comparisons.map(c => `${c.version}@${c.revision}`))
       .toEqual(['v1@2', 'v1@10', 'v2@1'])
+  })
+
+  // comparison-notifications.json must order pairs by the same six-part key comparisons.json uses, or the
+  // two files list the same pairs differently.
+  // before: p/v2@1, p/v1@10, p/v1@2 → after: p/v1@2, p/v1@10, p/v2@1
+  it('should sort comparison notifications by the full pair key, revisions included', () => {
+    const pair = (version: string, revision: number): VersionsComparison =>
+      ({
+        packageId: 'p',
+        version,
+        revision,
+        previousVersionPackageId: 'p',
+        previousVersion: 'v0',
+        previousVersionRevision: 1,
+        fromCache: false,
+        notifications: [{ category: ANY_CATEGORY, severity: MESSAGE_SEVERITY.Error, message: 'x' }],
+      }) as unknown as VersionsComparison
+
+    const out = buildComparisonNotifications([pair('v2', 1), pair('v1', 10), pair('v1', 2)])
+    expect(out.comparisons.map(entry => `${entry.version}@${entry.revision}`)).toEqual(['v1@2', 'v1@10', 'v2@1'])
+  })
+
+  // and within an entry the messages carry the canonical notification order
+  it('should sort the notifications inside a comparison entry', () => {
+    const message = (severity: number, text: string): unknown =>
+      ({ category: ANY_CATEGORY, severity, message: text })
+    const pair = {
+      packageId: 'p',
+      version: 'v1',
+      previousVersionPackageId: 'p',
+      previousVersion: 'v0',
+      fromCache: false,
+      notifications: [
+        message(MESSAGE_SEVERITY.Warning, 'zzz'),
+        message(MESSAGE_SEVERITY.Warning, 'aaa'),
+        message(MESSAGE_SEVERITY.Error, 'mmm'),
+      ],
+    } as unknown as VersionsComparison
+
+    expect(buildComparisonNotifications([pair]).comparisons[0].notifications.map(({ message }) => message))
+      .toEqual(['mmm', 'aaa', 'zzz'])
   })
 
   // Ids with separator-like chars order by code unit (`-` 0x2D < `.` 0x2E < `_` 0x5F). The encoded key

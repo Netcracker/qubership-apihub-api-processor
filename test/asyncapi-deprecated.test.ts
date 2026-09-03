@@ -39,7 +39,8 @@ describe('AsyncAPI 3.0 Deprecated tests', () => {
       const [deprecatedItem] = deprecatedItems
 
       expect(deprecatedItem).toHaveProperty('hash')
-      expect(deprecatedItem).toHaveProperty('tolerantHash')
+      // a channel carries no tolerant hash: the unifier stamps the flag on schema and parameter nodes only
+      expect(deprecatedItem).not.toHaveProperty('tolerantHash')
     })
   })
 
