@@ -49,7 +49,7 @@ import {
   OperationsMap,
 } from '../../components'
 import { createGraphqlApiKindValueAt } from '../../components/compare/graphql.api-kind'
-import { apiKindClassificationRule, DIMENSION_API_KIND } from '../../components/compare/traversal.dimensions'
+import { apiKindReclassificationRule, CUSTOM_SCOPE_ELEMENT_API_KIND } from '../../components/compare/custom-scope'
 
 export const compareDocuments: DocumentsCompare = async (
   operationsMap: OperationsMap,
@@ -93,11 +93,11 @@ export const compareDocuments: DocumentsCompare = async (
       normalizedResult: true,
       afterValueNormalizedProperty: AFTER_VALUE_NORMALIZED_PROPERTY,
       beforeValueNormalizedProperty: BEFORE_VALUE_NORMALIZED_PROPERTY,
-      dimensions: [{
-        name: DIMENSION_API_KIND,
+      customScopeElementProviders: [{
+        name: CUSTOM_SCOPE_ELEMENT_API_KIND,
         valueAt: createGraphqlApiKindValueAt(prevDocumentApiKind, currDocumentApiKind),
       }],
-      classificationRules: [apiKindClassificationRule],
+      reclassificationRules: [apiKindReclassificationRule],
     },
   ) as { merged: GraphApiSchema; diffs: Diff[] }
 

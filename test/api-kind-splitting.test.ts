@@ -3,7 +3,7 @@ import type { OperationChanges } from '../src'
 import { Editor, LocalRegistry } from './helpers'
 
 /**
- * The point of the api kind dimension in one document: two operations share a schema, one of them is
+ * The point of the api kind scope element in one document: two operations share a schema, one of them is
  * marked no-BWC, and the property removed from that schema is reported to each of them on its own terms.
  */
 const PACKAGE_ID = 'api-kind-splitting'

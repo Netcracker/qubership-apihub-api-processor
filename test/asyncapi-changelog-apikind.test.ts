@@ -5,6 +5,7 @@ import {
   generateAsyncApiTwoChannelsSpec,
   generateAsyncApiTwoMessagesSpec,
   generateAsyncApiTwoOperationsSpec,
+  nodeAt,
 } from './helpers'
 import {
   API_KIND_SPECIFICATION_EXTENSION,
@@ -64,7 +65,7 @@ function buildExpected(changeType: typeof BREAKING | typeof RISKY, unclassified:
   }
 }
 
-describe('AsyncAPI api kind dimension', () => {
+describe('AsyncAPI api kind scope element', () => {
 
   // null = object absent (added/removed), undefined = object exists without x-api-kind
   type ApiKindInput = ApihubApiCompatibilityKind | undefined | null
@@ -95,7 +96,7 @@ describe('AsyncAPI api kind dimension', () => {
       [NO_BWC, EXPERIMENTAL, NO_BWC],
     ] as const)('should classify root scope prev(%s) curr(%s) as %s', (prev, curr, expected) => {
       const scopeFunction = createAsyncApiKindValueAt(prev, curr)
-      expect(scopeFunction([], {}, {})).toBe(expected)
+      expect(scopeFunction(nodeAt([], {}, {}))).toBe(expected)
     })
   })
 
@@ -145,7 +146,7 @@ describe('AsyncAPI api kind dimension', () => {
       expected,
     ) => {
       const scopeFunction = createAsyncApiKindValueAt(documentApiKind, documentApiKind)
-      expect(scopeFunction(['channels', 'ch1'], buildChannel(beforeKind), buildChannel(afterKind))).toBe(expected)
+      expect(scopeFunction(nodeAt(['channels', 'ch1'], buildChannel(beforeKind), buildChannel(afterKind)))).toBe(expected)
     })
   })
 
@@ -201,7 +202,7 @@ describe('AsyncAPI api kind dimension', () => {
       expected,
     ) => {
       const scopeFunction = createAsyncApiKindValueAt(documentApiKind, documentApiKind)
-      expect(scopeFunction(['operations', 'op1'], buildOperation(beforeKind), buildOperation(afterKind))).toBe(expected)
+      expect(scopeFunction(nodeAt(['operations', 'op1'], buildOperation(beforeKind), buildOperation(afterKind)))).toBe(expected)
     })
 
     it('should use channel x-api-kind as fallback when operation has no x-api-kind', () => {
@@ -211,7 +212,7 @@ describe('AsyncAPI api kind dimension', () => {
         channel: { [API_KIND_SPECIFICATION_EXTENSION]: NO_BWC },
       }
       const after = { action: 'send' as const, channel: {} }
-      expect(scopeFunction(['operations', 'op1'], before, after)).toBe(NO_BWC)
+      expect(scopeFunction(nodeAt(['operations', 'op1'], before, after))).toBe(NO_BWC)
     })
 
     it('should let operation x-api-kind override channel x-api-kind', () => {
@@ -226,7 +227,7 @@ describe('AsyncAPI api kind dimension', () => {
         [API_KIND_SPECIFICATION_EXTENSION]: BWC,
         channel: { [API_KIND_SPECIFICATION_EXTENSION]: NO_BWC },
       }
-      expect(scopeFunction(['operations', 'op1'], before, after)).toBe(BWC)
+      expect(scopeFunction(nodeAt(['operations', 'op1'], before, after))).toBe(BWC)
     })
   })
 
@@ -241,8 +242,8 @@ describe('AsyncAPI api kind dimension', () => {
 
     it.each(documentKinds)('should produce same root scope results as no-BWC (document=%s)', (doc) => {
       for (const otherDoc of documentKinds) {
-        const noBwcResult = createAsyncApiKindValueAt(doc, otherDoc)([], {}, {})
-        const expResult = createAsyncApiKindValueAt(replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind, replaceNoBwcWithExperimental(otherDoc) as ApihubApiCompatibilityKind)([], {}, {})
+        const noBwcResult = createAsyncApiKindValueAt(doc, otherDoc)(nodeAt([], {}, {}))
+        const expResult = createAsyncApiKindValueAt(replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind, replaceNoBwcWithExperimental(otherDoc) as ApihubApiCompatibilityKind)(nodeAt([], {}, {}))
         expect(expResult).toBe(noBwcResult)
       }
     })
@@ -252,8 +253,8 @@ describe('AsyncAPI api kind dimension', () => {
       const expDocScope = createAsyncApiKindValueAt(replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind, replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind)
       for (const before of allKinds) {
         for (const after of allKinds) {
-          const noBwcResult = scope(['channels', 'ch1'], buildChannel(before), buildChannel(after))
-          const expResult = expDocScope(['channels', 'ch1'], buildChannel(replaceNoBwcWithExperimental(before)), buildChannel(replaceNoBwcWithExperimental(after)))
+          const noBwcResult = scope(nodeAt(['channels', 'ch1'], buildChannel(before), buildChannel(after)))
+          const expResult = expDocScope(nodeAt(['channels', 'ch1'], buildChannel(replaceNoBwcWithExperimental(before)), buildChannel(replaceNoBwcWithExperimental(after))))
           expect(expResult).toBe(noBwcResult)
         }
       }
@@ -264,8 +265,8 @@ describe('AsyncAPI api kind dimension', () => {
       const expDocScope = createAsyncApiKindValueAt(replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind, replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind)
       for (const before of allKinds) {
         for (const after of allKinds) {
-          const noBwcResult = scope(['operations', 'op1'], buildOperation(before), buildOperation(after))
-          const expResult = expDocScope(['operations', 'op1'], buildOperation(replaceNoBwcWithExperimental(before)), buildOperation(replaceNoBwcWithExperimental(after)))
+          const noBwcResult = scope(nodeAt(['operations', 'op1'], buildOperation(before), buildOperation(after)))
+          const expResult = expDocScope(nodeAt(['operations', 'op1'], buildOperation(replaceNoBwcWithExperimental(before)), buildOperation(replaceNoBwcWithExperimental(after))))
           expect(expResult).toBe(noBwcResult)
         }
       }
@@ -276,15 +277,15 @@ describe('AsyncAPI api kind dimension', () => {
     const scopeFunction = createAsyncApiKindValueAt()
 
     it('should return undefined for non-operations/non-channels paths', () => {
-      expect(scopeFunction(['components', 'messages'], {}, {})).toBeUndefined()
+      expect(scopeFunction(nodeAt(['components', 'messages'], {}, {}))).toBeUndefined()
     })
 
     it('should return undefined for deeper operation paths', () => {
-      expect(scopeFunction(['operations', 'op1', 'channel'], {}, {})).toBeUndefined()
+      expect(scopeFunction(nodeAt(['operations', 'op1', 'channel'], {}, {}))).toBeUndefined()
     })
 
     it('should return undefined for deeper channel paths', () => {
-      expect(scopeFunction(['channels', 'ch1', 'messages'], {}, {})).toBeUndefined()
+      expect(scopeFunction(nodeAt(['channels', 'ch1', 'messages'], {}, {}))).toBeUndefined()
     })
   })
 })

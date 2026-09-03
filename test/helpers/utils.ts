@@ -17,6 +17,8 @@
 import fs from 'fs/promises'
 import path from 'path'
 import mime from 'mime-types'
+import type { CustomScopeElementContext } from '@netcracker/qubership-apihub-api-diff'
+import type { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 
 import {
   ApiDocument,
@@ -484,3 +486,7 @@ export async function buildChangelogWithVersionOverrides(
   })
   return builder.run({ apiProcessorVersionValidationLevel: validationLevel })
 }
+
+/** The context api-diff hands a custom scope element provider for one node. */
+export const nodeAt = (path: JsonPath, beforeJso?: unknown, afterJso?: unknown): CustomScopeElementContext =>
+  ({ path, beforeJso, afterJso })

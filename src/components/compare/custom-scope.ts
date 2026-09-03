@@ -16,28 +16,22 @@
 
 import {
   breaking,
-  DiffClassificationRule,
   DiffType,
+  ReclassificationRule,
   risky,
 } from '@netcracker/qubership-apihub-api-diff'
-import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import { ApihubApiCompatibilityKind, isNoBwcLike } from '../../consts'
 
 /** Api kind a node was reached under. */
-export const DIMENSION_API_KIND = 'apiKind'
+export const CUSTOM_SCOPE_ELEMENT_API_KIND = 'apiKind'
 
 /** Group of operations a removal of a long-deprecated element was reached from. */
-export const DIMENSION_DEPRECATION = 'deprecation'
+export const CUSTOM_SCOPE_ELEMENT_DEPRECATION = 'deprecation'
 
-export type ApiKindValueAt = (
-  path?: JsonPath,
-  beforeJso?: unknown,
-  afterJso?: unknown,
-) => ApihubApiCompatibilityKind | undefined
-
-export const apiKindClassificationRule: DiffClassificationRule = ({ type, dimensions }): DiffType | undefined => (
-  type === breaking && isNoBwcLike(dimensions[DIMENSION_API_KIND] as ApihubApiCompatibilityKind | undefined)
-    ? risky
-    : undefined
-)
-
+export const apiKindReclassificationRule: ReclassificationRule = ({ type, customScope }): DiffType | undefined => {
+  // A cast rather than a check: api-diff types every custom scope value as a string, and the only provider
+  // writing under this name is the api kind one each `*.changes.ts` declares, which `apiDiff` keeps sole by
+  // rejecting a second provider of the same name
+  const apiKind = customScope?.[CUSTOM_SCOPE_ELEMENT_API_KIND] as ApihubApiCompatibilityKind | undefined
+  return type === breaking && isNoBwcLike(apiKind) ? risky : undefined
+}

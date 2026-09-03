@@ -66,7 +66,7 @@ import {
   OperationsMap,
 } from '../../components'
 import { createRestApiKindValueAt } from '../../components/compare/rest.api-kind'
-import { apiKindClassificationRule, DIMENSION_API_KIND } from '../../components/compare/traversal.dimensions'
+import { apiKindReclassificationRule, CUSTOM_SCOPE_ELEMENT_API_KIND } from '../../components/compare/custom-scope'
 import { createDeprecatedRemovalRules } from './rest.deprecated.classification'
 
 export const compareDocuments: DocumentsCompare = async (
@@ -124,14 +124,14 @@ export const compareDocuments: DocumentsCompare = async (
       normalizedResult: false,
       afterValueNormalizedProperty: AFTER_VALUE_NORMALIZED_PROPERTY,
       beforeValueNormalizedProperty: BEFORE_VALUE_NORMALIZED_PROPERTY,
-      dimensions: [
+      customScopeElementProviders: [
         {
-          name: DIMENSION_API_KIND,
+          name: CUSTOM_SCOPE_ELEMENT_API_KIND,
           valueAt: createRestApiKindValueAt(prevDocumentApiKind, currDocumentApiKind),
         },
-        ...deprecatedRemovalRules.dimensions,
+        ...deprecatedRemovalRules.customScopeElementProviders,
       ],
-      classificationRules: [apiKindClassificationRule, ...deprecatedRemovalRules.rules],
+      reclassificationRules: [apiKindReclassificationRule, ...deprecatedRemovalRules.reclassificationRules],
       openApiPathItemPerOperationDiffs: true,
     },
   ) as { merged: OpenAPIV3.Document; diffs: Diff[] }

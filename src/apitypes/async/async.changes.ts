@@ -46,7 +46,7 @@ import {
   OperationsMap,
 } from '../../components'
 import { createAsyncApiKindValueAt } from '../../components/compare/async.api-kind'
-import { apiKindClassificationRule, DIMENSION_API_KIND } from '../../components/compare/traversal.dimensions'
+import { apiKindReclassificationRule, CUSTOM_SCOPE_ELEMENT_API_KIND } from '../../components/compare/custom-scope'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import {
   extractAggregatedDiffs,
@@ -102,11 +102,11 @@ export const compareDocuments: DocumentsCompare = async (
       afterValueNormalizedProperty: AFTER_VALUE_NORMALIZED_PROPERTY,
       beforeValueNormalizedProperty: BEFORE_VALUE_NORMALIZED_PROPERTY,
       firstReferenceKeyProperty: FIRST_REFERENCE_KEY_PROPERTY,
-      dimensions: [{
-        name: DIMENSION_API_KIND,
+      customScopeElementProviders: [{
+        name: CUSTOM_SCOPE_ELEMENT_API_KIND,
         valueAt: createAsyncApiKindValueAt(prevDocumentApiKind, currDocumentApiKind),
       }],
-      classificationRules: [apiKindClassificationRule],
+      reclassificationRules: [apiKindReclassificationRule],
     },
   ) as { merged: AsyncAPIV3.AsyncAPIObject; diffs: Diff[] }
 

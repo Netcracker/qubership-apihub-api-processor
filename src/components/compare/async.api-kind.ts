@@ -18,10 +18,9 @@ import {
   APIHUB_API_COMPATIBILITY_KIND_BWC,
   ApihubApiCompatibilityKind,
 } from '../../consts'
-import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import { getApiKindProperty } from '../document'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
-import { ApiKindDimensionFactory } from './api-kind.types'
+import { ApiKindValueAtFactory } from './api-kind.types'
 import { toApiKind } from './api-kind.utils'
 
 const ROOT_PATH_LENGTH = 0
@@ -40,38 +39,34 @@ const resolveEffectiveApiKind = (
 }
 
 /**
- * Answers the api kind dimension for AsyncAPI documents.
+ * Answers the api kind scope element for AsyncAPI documents.
  *
  * For each side (before/after) the effective api-kind is resolved independently
  * with priority: operation x-api-kind > channel x-api-kind > default (bwc).
  * If at least one side's effective api-kind is no-bwc, the change is classified
- * as no-bwc, and the classification rule softens breaking to risky there; otherwise it stays bwc.
+ * as no-bwc, and the reclassification rule softens breaking to risky there; otherwise it stays bwc.
  *
- * The dimension receives normalized before/after objects where $refs are resolved,
+ * The provider receives normalized before/after objects where $refs are resolved,
  * so operation.channel is the resolved channel object with all its properties.
  *
  * - root: defaults to bwc (document-level api-kind reserved for future use)
  * - operations/<operationId>: effective api-kind per side (operation overrides channel, channel overrides default)
  * - channels/<channelId>: channel's own x-api-kind per side
  */
-export const createAsyncApiKindValueAt: ApiKindDimensionFactory = (
+export const createAsyncApiKindValueAt: ApiKindValueAtFactory = (
   prevDocumentApiKind = APIHUB_API_COMPATIBILITY_KIND_BWC,
   currDocumentApiKind = APIHUB_API_COMPATIBILITY_KIND_BWC,
 ) => {
   const documentApiKind = toApiKind(prevDocumentApiKind, currDocumentApiKind)
 
-  return (
-    path?: JsonPath,
-    beforeJso?: unknown,
-    afterJso?: unknown,
-  ): ApihubApiCompatibilityKind | undefined => {
-    const pathLength = path?.length ?? 0
+  return ({ path, beforeJso, afterJso }): ApihubApiCompatibilityKind | undefined => {
+    const pathLength = path.length
 
     if (pathLength === ROOT_PATH_LENGTH) {
       return documentApiKind
     }
 
-    const firstSegment = path?.[0]
+    const [firstSegment] = path
 
     // operations/<operationId>: effective api-kind per side (operation overrides channel, channel overrides default bwc)
     if (firstSegment === 'operations' && pathLength === ASYNC_OPERATION_PATH_LENGTH) {

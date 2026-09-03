@@ -18,10 +18,10 @@ import {
   breaking,
   DiffAction,
   extractOperationBasePath,
-  type DiffClassificationContext,
-  type DiffClassificationRule,
+  type CustomScopeElementProvider,
+  type DiffRemove,
   type DiffType,
-  type TraversalDimension,
+  type ReclassificationRule,
   risky,
 } from '@netcracker/qubership-apihub-api-diff'
 import {
@@ -50,7 +50,7 @@ import {
 import { calculateHash } from '../../utils/hashes'
 import { declarationPathsKey } from '../../utils/path'
 import { OperationsMap } from '../../components'
-import { DIMENSION_DEPRECATION } from '../../components/compare/traversal.dimensions'
+import { CUSTOM_SCOPE_ELEMENT_DEPRECATION } from '../../components/compare/custom-scope'
 
 /** The notice must have been carried by more than one released version: a single release is not enough. */
 const SUFFICIENT_DEPRECATION_HISTORY = 1
@@ -58,17 +58,17 @@ const SUFFICIENT_DEPRECATION_HISTORY = 1
 const OPERATION_PATH_LENGTH = 3 // paths/<path>/<method>
 
 /**
- * The APIHUB rule for removal of long-deprecated elements: the dimension says which traversals may
+ * The APIHUB rule for removal of long-deprecated elements: the scope element says which traversals may
  * disagree, the rule says what each decides. Both empty when nothing was announced long enough.
  */
 type DeprecatedRemovalRules = {
-  dimensions: readonly TraversalDimension[]
-  rules: readonly DiffClassificationRule[]
+  customScopeElementProviders: readonly CustomScopeElementProvider[]
+  reclassificationRules: readonly ReclassificationRule[]
 }
 
-const NOTHING_TO_DOWNGRADE: DeprecatedRemovalRules = { dimensions: [], rules: [] }
+const NOTHING_TO_DOWNGRADE: DeprecatedRemovalRules = { customScopeElementProviders: [], reclassificationRules: [] }
 
-/** Value of the deprecation dimension: the group of operations allowed to disagree about a removal. */
+/** Value of the deprecation scope element: the group of operations allowed to disagree about a removal. */
 type DeprecationPartition = string
 
 /** Hash plus declaration paths, the same pair that identifies a stored `DeprecateItem`. */
@@ -92,7 +92,7 @@ type PreparedOperation = {
  * per route to it, so partitions are what keep the two verdicts apart. Deciding inside apiDiff, instead
  * of rewriting types afterwards, makes the result independent of the order operations are visited.
  * History comes from the previous version, so it is fetched up front: what api-diff then calls — the
- * dimension's `valueAt` and the rule — has to be synchronous.
+ * scope element's `valueAt` and the rule — has to be synchronous.
  */
 export async function createDeprecatedRemovalRules(
   operationsMap: OperationsMap,
@@ -114,30 +114,30 @@ export async function createDeprecatedRemovalRules(
   const reportBrokenOrigins = createBrokenOriginsReporter(ctx)
 
   return {
-    dimensions: [{
-      name: DIMENSION_DEPRECATION,
-      valueAt: (path, beforeJso) => (
+    customScopeElementProviders: [{
+      name: CUSTOM_SCOPE_ELEMENT_DEPRECATION,
+      valueAt: ({ path, beforeJso }) => (
         isOperationPath(path) ? preparedOf(path[1], path[2], beforeJso)?.partition : undefined
       ),
     }],
 
-    rules: [(context) => {
-      if (context.type !== breaking || context.action !== DiffAction.remove) {
+    reclassificationRules: [(diff) => {
+      if (diff.type !== breaking || diff.action !== DiffAction.remove) {
         return undefined
       }
 
-      const operationVerdict = classifyOperationRemoval(context, preparedOf)
+      const operationVerdict = classifyOperationRemoval(diff, preparedOf)
       if (operationVerdict) {
         return operationVerdict
       }
 
-      const partition = context.dimensions[DIMENSION_DEPRECATION]
+      const partition = diff.customScope?.[CUSTOM_SCOPE_ELEMENT_DEPRECATION]
       const seasoned = partition ? seasonedByPartition.get(partition) : undefined
       if (!seasoned?.size) {
         return undefined
       }
 
-      return classifyElementRemoval(context.beforeValue, seasoned, ctx, reportBrokenOrigins)
+      return classifyElementRemoval(diff.beforeValue, seasoned, ctx, reportBrokenOrigins)
     }],
   }
 }
@@ -283,13 +283,17 @@ async function resolvePreviousDeprecations(
 }
 
 /**
- * Recognized by its own declaration path rather than through the partition, because the difference is
- * born while the parent path item is traversed, where the operation's partition is not in effect yet.
+ * Answers for the removal of an operation object itself, finding the operation by declaration path rather
+ * than by reading the custom scope. `isOperationSeasoned` is deliberately kept out of the partitions: a
+ * partition pools element ids, the item standing for an operation's own deprecation carries no hash and is
+ * filtered out of that pool, and an operation with no other long-announced item mints no partition at all,
+ * since one partition per operation is the cost the grouping exists to avoid. The flag therefore lives per
+ * operation, and a difference reaches it only through the path it was declared at.
  * Known gap, shared with `isPrivateToOperation`: a path item reused through `$ref` gives both operations
  * the same origins, so removing either inherits the other's seasoning.
  */
 function classifyOperationRemoval(
-  { beforeDeclarationPaths, beforeValue }: DiffClassificationContext,
+  { beforeDeclarationPaths, beforeValue }: DiffRemove,
   preparedOf: PreparedOperationLookup,
 ): DiffType | undefined {
   const isSeasoned = beforeDeclarationPaths.some(path =>

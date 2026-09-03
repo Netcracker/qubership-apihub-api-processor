@@ -22,10 +22,9 @@ import {
   SPECIFICATION_EXTENSION_PREFIX,
 } from '../../consts'
 import { isObject, isValidHttpMethod } from '../../utils'
-import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import { getApiKindProperty } from '../document'
 import { OpenAPIV3 } from 'openapi-types'
-import { ApiKindDimensionFactory } from './api-kind.types'
+import { ApiKindValueAtFactory } from './api-kind.types'
 import { toApiKind } from './api-kind.utils'
 
 export const calculateOperationApiCompatibilityKind = (
@@ -77,18 +76,14 @@ const ROOT_PATH_LENGTH = 0
 const PATH_ITEM_PATH_LENGTH = 2
 const OPERATION_OBJECT_PATH_LENGTH = 3
 
-export const createRestApiKindValueAt: ApiKindDimensionFactory = (
+export const createRestApiKindValueAt: ApiKindValueAtFactory = (
   prevDocumentApiKind = APIHUB_API_COMPATIBILITY_KIND_BWC,
   currDocumentApiKind = APIHUB_API_COMPATIBILITY_KIND_BWC,
 ) => {
   const documentApiKind = toApiKind(prevDocumentApiKind, currDocumentApiKind)
 
-  return (
-    path?: JsonPath,
-    beforeJson?: unknown,
-    afterJson?: unknown,
-  ): ApihubApiCompatibilityKind | undefined => {
-    const pathLength = path?.length ?? 0
+  return ({ path, beforeJso, afterJso }): ApihubApiCompatibilityKind | undefined => {
+    const pathLength = path.length
     /*
      * Calculating Api Kind for the entire document as the default
      * If there is a NO_BWC or experimental marker on:
@@ -103,12 +98,12 @@ export const createRestApiKindValueAt: ApiKindDimensionFactory = (
     * Level 2: When an entire path item is deleted/added
     * Level 3: When individual operations are deleted/added
      */
-    const isFirstPathSegmentPaths = path?.[0] === 'paths'
+    const isFirstPathSegmentPaths = path[0] === 'paths'
     if (!isFirstPathSegmentPaths) {
       return undefined
     }
-    const beforeExists = isObject(beforeJson)
-    const afterExists = isObject(afterJson)
+    const beforeExists = isObject(beforeJso)
+    const afterExists = isObject(afterJso)
 
     if (!beforeExists && !afterExists) {
       return undefined
@@ -119,19 +114,19 @@ export const createRestApiKindValueAt: ApiKindDimensionFactory = (
       // operation. We only mark the deletion as NO_BWC/experimental if all removed methods were
       // explicitly flagged NO_BWC or experimental, keeping deletions consistent with declared scope.
       if (beforeExists && !afterExists) {
-        const pathItemObject = beforeJson as OpenAPIV3.PathItemObject
+        const pathItemObject = beforeJso as OpenAPIV3.PathItemObject
         return getMethodsApiCompatibilityKind(pathItemObject, prevDocumentApiKind)
       }
     }
 
     if (pathLength === OPERATION_OBJECT_PATH_LENGTH) {
-      const propertyKey = path?.at(-1)
+      const propertyKey = path.at(-1)
       if (isSpecificationExtension(propertyKey)) {
         return undefined
       }
 
-      const beforeOperationObject = beforeJson as OpenAPIV3.OperationObject | undefined
-      const afterOperationObject = afterJson as OpenAPIV3.OperationObject | undefined
+      const beforeOperationObject = beforeJso as OpenAPIV3.OperationObject | undefined
+      const afterOperationObject = afterJso as OpenAPIV3.OperationObject | undefined
 
       return calculateOperationApiCompatibilityKind(beforeOperationObject, afterOperationObject, prevDocumentApiKind, currDocumentApiKind)
     }

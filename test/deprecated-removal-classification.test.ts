@@ -28,7 +28,7 @@ import { calculateChangeSummary } from '../src/utils'
 /**
  * Removing an element deprecated in more than one released version is risky rather than breaking. How long
  * it has been announced is a property of the consumer, so two operations reaching the same removed element
- * through one shared schema must be able to disagree about it. The deprecation dimension groups them by
+ * through one shared schema must be able to disagree about it. The deprecation scope element groups them by
  * what they were warned about, and apiDiff classifies each group's instance on its own.
  * The failure this suite prevents is a summary frozen per operation contradicting its own diffs:
  *
@@ -52,6 +52,11 @@ const SECOND_ID = 'second-post'
 const DRIFT_OPERATION_ID = 'thing-post'
 
 const LEGACY_PROPERTY_PATH = 'components.schemas.Shared.properties.legacy'
+const SHARED_PROPERTY_PATH = 'components.schemas.Shared.properties.common'
+const ALPHA_PROPERTY_PATH = 'components.schemas.AlphaBox.properties.alpha'
+const BETA_PROPERTY_PATH = 'components.schemas.BetaBox.properties.beta'
+const RETIRED_ID = 'retired-post'
+const CURRENT_ID = 'current-post'
 const REQUEST_SCOPE = 'request'
 const NO_BWC_LABEL = 'apihub/x-api-kind: no-BWC'
 
@@ -63,7 +68,7 @@ const registry = LocalRegistry.openPackage(PACKAGE_ID)
  * `/late-comer` is declared first, which is the order the comparison walks. Both operations reach the
  * schema in the request and in the response, so the removal of one property reaches each of them twice.
  * Run with DEPRECATED_REMOVAL_DUMP=1 to print every summary and diff. Places worth a breakpoint:
- * `assignPartitions` and the classification rule in rest.deprecated.classification.ts,
+ * `assignPartitions` and the reclassification rule in rest.deprecated.classification.ts,
  * `createChangeBase` in compare.utils.ts.
  */
 describe('Removal of a long-deprecated element', () => {
@@ -185,6 +190,63 @@ describe('Operations with the same deprecation history', () => {
 })
 
 /**
+ * Both operations were warned long enough, but about different sets: each carries an element of its own on
+ * top of the one they share. Everything else in this file gives one of the two operations nothing that
+ * qualifies, so the grouping never has to tell two partitioned operations apart, and the machinery that
+ * builds a partition signature goes unexercised.
+ */
+describe('Operations warned about different elements', () => {
+  let result: BuildResult
+
+  beforeAll(async () => {
+    result = await publishSeries('divergent')
+  })
+
+  test('reach the element they share as two instances, not one', () => {
+    const first = removalAt(operationChanges(result, FIRST_ID), SHARED_PROPERTY_PATH)
+    const second = removalAt(operationChanges(result, SECOND_ID), SHARED_PROPERTY_PATH)
+
+    expect(first?.type).toBe(RISKY_CHANGE_TYPE)
+    expect(second?.type).toBe(RISKY_CHANGE_TYPE)
+    // The verdict is the same, so only identity shows the split: their signatures differ, so they sit in
+    // different partitions, and a partitioning that collapsed them would hand both operations one object
+    expect(first).not.toBe(second)
+  })
+
+  test('are each softened for the element only they were warned about', () => {
+    expect(removalAt(operationChanges(result, FIRST_ID), ALPHA_PROPERTY_PATH)?.type).toBe(RISKY_CHANGE_TYPE)
+    expect(removalAt(operationChanges(result, SECOND_ID), BETA_PROPERTY_PATH)?.type).toBe(RISKY_CHANGE_TYPE)
+  })
+
+  test('every operation summary matches the diffs it carries', () => {
+    expectSummariesMatchDiffs(result)
+  })
+})
+
+/**
+ * An operation can be deprecated in its own right, and the record standing for that carries no hash, so it
+ * can never match a removed element. It has to stay out of the partition signature: counting it would buy
+ * a partition that answers nothing and split a removal the two operations agree about.
+ */
+describe('An operation deprecated in its own right', () => {
+  let result: BuildResult
+
+  beforeAll(async () => {
+    result = await publishSeries('self-deprecated')
+  })
+
+  test('buys no partition of its own, so the removal stays one difference', () => {
+    const retired = removalAt(operationChanges(result, RETIRED_ID), LEGACY_PROPERTY_PATH)
+    const current = removalAt(operationChanges(result, CURRENT_ID), LEGACY_PROPERTY_PATH)
+
+    // Nothing here was announced long enough, so the verdict is the same either way and only identity
+    // shows whether the operation deprecated in its own right was partitioned away from its neighbour
+    expect(retired?.type).toBe(BREAKING_CHANGE_TYPE)
+    expect(retired).toBe(current)
+  })
+})
+
+/**
  * Two notions of "the same deprecated element" meet in this rule. Between versions the content drifts, so
  * the publication history is chained by the tolerant hash; within one version the removed value and the
  * stored record describe the same content, so the classification matches on the exact hash. Reword a
@@ -200,13 +262,12 @@ describe('Deprecation history across a reworded notice', () => {
   })
 })
 
-/** Publishes `<fixture>-v1` to `-v3` in order, each against the one before, and returns the last build. */
 /**
- * The two dimensions disagree at once, each about a different operation: `longLived` is the one warned long
- * enough, while `lateComer` — the one the deprecation rule leaves breaking — is the one marked no-BWC in the
- * specification. So both are softened, by a different rule each, and neither rule can be what softens both.
+ * The two scope elements disagree at once, each about a different operation: `longLived` is the one warned
+ * long enough, while `lateComer` — the one the deprecation rule leaves breaking — is the one marked no-BWC
+ * in the specification. So both are softened, by a different rule each, and neither rule softens both.
  */
-describe('Both dimensions varying, on different operations', () => {
+describe('Both scope elements varying, on different operations', () => {
   let result: BuildResult
 
   beforeAll(async () => {
@@ -267,6 +328,7 @@ function expectSummariesMatchDiffs(result: BuildResult): void {
   }
 }
 
+/** Publishes `<fixture>-v1` to `-v3` in order, each against the one before, and returns the last build. */
 async function publishSeries(fixture: string, versionLabels?: SeriesLabels, versionPrefix = ''): Promise<BuildResult> {
   let result: BuildResult | undefined
   let previousVersion: string | undefined
@@ -307,6 +369,15 @@ function operationChanges(result: BuildResult, operationId: string): OperationCh
     throw new Error(`Comparison has no changes for operation ${operationId}`)
   }
   return changes
+}
+
+/** The removal of a named property as the request of one operation sees it. */
+function removalAt(changes: OperationChanges, path: string): NonNullable<OperationChanges['diffs']>[number] | undefined {
+  return (changes.diffs ?? []).find(diff =>
+    diff.scope === REQUEST_SCOPE &&
+    'beforeDeclarationPaths' in diff &&
+    (diff.beforeDeclarationPaths ?? []).some(jsonPath => jsonPath.join('.') === path),
+  )
 }
 
 /** The removal of the deprecated property as the request of one operation sees it. */
