@@ -210,6 +210,11 @@ const createComparisonNotificationsFile = (
   comparisons: Array<VersionsComparison | DdlComparison>,
   buildResult: BuildResult,
 ): void => {
+  // a comparison the host answered for is omitted by `buildComparisonNotifications`, so counting the input
+  // would ship `{"comparisons": []}` — the empty list a consumer would replace this version's rows with
+  const calculated = comparisons.filter(({ fromCache }) => !fromCache)
+  if (!calculated.length && !buildResult.comparisonNotifications.length) { return }
+
   const { packageId, version, previousVersionPackageId, previousVersion } = buildResult.config
   // `version` can carry a revision (`v2@3`), and a calculated comparison keeps the two apart. The declared
   // pair splits them the same way, or its row names a pair no comparison matches.
@@ -224,7 +229,6 @@ const createComparisonNotificationsFile = (
     previousVersionRevision,
     notifications: buildResult.comparisonNotifications,
   }
-  if (!comparisons.length && !declaredPair.notifications.length) { return }
   zip.file(PACKAGE.COMPARISON_NOTIFICATIONS_FILE_NAME, buildComparisonNotifications(comparisons, declaredPair))
 }
 

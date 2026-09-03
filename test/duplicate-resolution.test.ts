@@ -18,8 +18,10 @@ import { describe, expect, test } from '@jest/globals'
 import { Editor, LocalRegistry } from './helpers'
 import { setReportingDuplicate } from '../src/utils'
 import { operationKey } from '../src/components/operations'
+import { reportCollisions } from '../src/components/duplicate-resolution'
 import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, REST_API_TYPE, VERSION_STATUS } from '../src/consts'
 import { BuildConfig, BuildResult, MessageSeverity } from '../src/types'
+import { NotificationMessage } from '../src/types/package/notifications'
 
 /*
  * Two or more documents claiming one id — the design's `Duplicate resolution`, in one file.
@@ -44,6 +46,37 @@ const publishContestedPair = (packageId = 'operationId-collisions/same-path-diff
     files: [{ fileId: 'spec1.json' }, { fileId: 'spec2.json' }],
   })
 }
+
+// `reportCollisions` grades a contested id once, from every claimant. Today no caller can make two claimants
+// of one key disagree — an operation key carries the api type, and MCP and DDL grade by a constant — so the
+// policy is exercised here, where a disagreeing `severityOf` can be handed to the helper directly.
+describe('The grade of a collision', () => {
+  const claim = (documentId: string): { documentId: string } => ({ documentId })
+
+  const gradeOf = (order: string[], severityOf: (claimant: { documentId: string }) => MessageSeverity): MessageSeverity[] => {
+    const notifications: NotificationMessage[] = []
+    reportCollisions(
+      new Map([['contested', order.map(claim)]]),
+      notifications,
+      MESSAGE_CATEGORY.DuplicateOperationId,
+      severityOf,
+      () => 'contested',
+    )
+    return notifications.map(({ severity }) => severity)
+  }
+
+  // `Error` is 0 and `Warning` is 1, so the strictest grade is the smallest
+  const strictForA = ({ documentId }: { documentId: string }): MessageSeverity =>
+    (documentId === 'a' ? MESSAGE_SEVERITY.Error : MESSAGE_SEVERITY.Warning)
+
+  test('should take the strictest grade of its claimants', () => {
+    expect(gradeOf(['a', 'b'], strictForA)).toEqual([MESSAGE_SEVERITY.Error, MESSAGE_SEVERITY.Error])
+  })
+
+  test('should not depend on the order the claimants arrived in', () => {
+    expect(gradeOf(['b', 'a'], strictForA)).toEqual(gradeOf(['a', 'b'], strictForA))
+  })
+})
 
 describe('Duplicate resolution', () => {
   const entity = (documentId: string, title: string): { documentId: string; title: string } => ({ documentId, title })

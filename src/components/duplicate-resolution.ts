@@ -30,9 +30,9 @@ export function collectClaim<T>(claims: Claims<T>, key: string, claimant: T): vo
  * One message naming them all would leave every document but one unflagged, so each claimant gets its own,
  * carrying the same text. A document claiming one id twice is its own diagnostic, not a collision.
  *
- * The severity belongs to the collision, not to a claimant: `severityOf` is asked once per contested id, with
- * one of its claimants. A caller whose severity depends on the claimant must key so that every claimant of a
- * key agrees on it, or the answer would follow whichever document `config.files` listed first.
+ * The severity belongs to the collision, not to a claimant: every claimant is graded and the strictest grade
+ * wins (`Error` is 0, `Warning` is 1). Taking one claimant's grade would let `config.files` order decide the
+ * answer for any `severityOf` that ever tells two claimants apart.
  */
 export function reportCollisions<T extends { documentId: string }>(
   claims: Claims<T>,
@@ -42,11 +42,10 @@ export function reportCollisions<T extends { documentId: string }>(
   describe: (key: string, documentIds: string[]) => string,
 ): void {
   for (const [key, claimants] of claims) {
-    const [first] = claimants
     const documentIds = [...new Set(claimants.map(({ documentId }) => documentId))].sort()
-    if (!first || documentIds.length < 2) { continue }
+    if (documentIds.length < 2) { continue }
 
-    const severity = severityOf(first)
+    const severity = Math.min(...claimants.map(severityOf)) as MessageSeverity
     const message = describe(key, documentIds)
     for (const documentId of documentIds) {
       notifications.push({ category, severity, message, documentId })

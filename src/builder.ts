@@ -770,8 +770,11 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
   setDocument(document: VersionDocument, operations: ApiOperation[] = []): void {
     this.documents.set(document.fileId, document)
     // `dropOwnedOperations` and `reconcileOwnedIds` find an entry by the claim that made it, so a document
-    // seeded here has to carry its claims or its operations can never be evicted
-    document.operationClaims = operations.map(({ operationId, apiType }) => ({ operationId, apiType }))
+    // seeded here has to carry its claims or its operations can never be evicted. Re-registering the same
+    // document without operations leaves the claims it already had, which still name the entries in the index.
+    if (operations.length) {
+      document.operationClaims = operations.map(({ operationId, apiType }) => ({ operationId, apiType }))
+    }
     for (const operation of operations) {
       this.operations.set(operationKey(operation), operation)
     }
