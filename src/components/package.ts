@@ -44,6 +44,7 @@ import { erroredDocumentSlugs } from './errored-documents'
 import { McpEntityIndex } from '../types/package/mcp'
 import { DdlEntityIndex } from '../types/package/ddl'
 import {
+  buildCachedComparisons,
   buildComparisonInternalDocumentsIndex,
   buildComparisonOperations,
   buildComparisonsIndex,
@@ -143,6 +144,10 @@ export const createVersionPackage = async (
 
   if (buildResultDto.comparisons.length) {
     zip.file(PACKAGE.COMPARISONS_FILE_NAME, buildComparisonsIndex(buildResultDto.comparisons))
+    zip.file(
+      PACKAGE.CACHED_COMPARISONS_FILE_NAME,
+      buildCachedComparisons([...buildResult.comparisons, ...buildResult.ddlComparisons]),
+    )
     const comparisonsDir = zip.folder(PACKAGE.COMPARISONS_DIR_NAME)
 
     for (const comparison of buildResultDto.comparisons) {
@@ -151,7 +156,7 @@ export const createVersionPackage = async (
     }
   }
 
-  // DDL comparisons ship as siblings, leaving the operation comparisons untouched
+  // DDL comparisons ship as siblings, leaving the operation comparisons untouched (AD2).
   const ddlComparisonsDto = buildResult.ddlComparisons.map(comparison =>
     withComparisonErrors(toDdlComparisonDto(comparison, ctx.normalizedSpecFragmentsHashCache, logErrorFor(comparison.notifications)), comparison))
   if (ddlComparisonsDto.length) {
@@ -195,8 +200,12 @@ const createNotificationsFile = (zip: ZipTool, notifications: PackageNotificatio
   zip.file(PACKAGE.NOTIFICATIONS_FILE_NAME, buildNotifications(notifications.notifications))
 }
 
-/** Stamp `hasErrors` on the DTO; `comparisonHasErrors` owns the cached-vs-calculated rule. */
-const withComparisonErrors = <T extends { fromCache: boolean; hasErrors?: boolean }>(
+/**
+ * Stamp `hasErrors` on the DTO; `comparisonHasErrors` owns the cached-vs-calculated rule.
+ *
+ * The rule reads `fromCache` off the comparison, not off the DTO — the DTO no longer carries it.
+ */
+const withComparisonErrors = <T extends { hasErrors?: boolean }>(
   dto: T,
   source: ComparisonErrorSource,
 ): T => (comparisonHasErrors(source) ? { ...dto, hasErrors: true } : dto)
