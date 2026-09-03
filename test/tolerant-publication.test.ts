@@ -17,9 +17,10 @@
 import { describe, expect, test } from '@jest/globals'
 import JSZip from 'jszip'
 import { Editor, loadFileAsStringFromRegistry, LocalRegistry, VERSIONS_PATH } from './helpers'
-import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, PACKAGE, VERSION_STATUS } from '../src/consts'
+import { ASYNCAPI_API_TYPE, BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, PACKAGE, REST_API_TYPE, VERSION_STATUS } from '../src/consts'
 import { VALIDATION_RULES_SEVERITY_LEVEL_ERROR } from '../src'
 import { BuildConfig, BuildResult } from '../src/types'
+import { operationKey } from '../src/components/operations'
 
 // The scenario the whole story exists for: one broken document must not cost the version the documents that
 // built cleanly. Everything else in the suite tests a single catch point; this tests the promise.
@@ -96,7 +97,7 @@ describe('A document an Error names still publishes what it built', () => {
     expect(colliding.operationIds).toContain('pets-get')
     expect(colliding.operationIds!.length).toBeGreaterThan(1)
     expect(colliding.source).toBeDefined()
-    expect(result.operations.get('pets-get')!.documentId).toBe(colliding.slug)
+    expect(result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'pets-get' }))!.documentId).toBe(colliding.slug)
     // and the loser announces nothing it did not win
     expect(healthy.operationIds).toEqual([])
 
@@ -121,18 +122,20 @@ describe('A document an Error names still publishes what it built', () => {
     expect(operations.length).toBeGreaterThan(1)
   }, 30000)
 
-  // Three documents deriving one id: the AsyncAPI pair grades its own collision an `Error`, the REST document
-  // a `Warning`. The flags differ, the ownership rule does not — the smallest slug keeps the id.
-  test('should give a contested id to the smallest slug, whatever its claimants are flagged with', async () => {
+  // Three documents deriving one id, two of them AsyncAPI: the contest is between those two, and the REST
+  // document keeps its own operation because a different api type is a different operation.
+  test('should contest an id only among the documents of its api type', async () => {
     const result = await publishDraft('tolerant-publication/cross-type',
       ['async-a.yaml', 'async-b.yaml', 'healthy.yaml'])
 
-    expect([...result.operations.keys()]).toEqual(['pets-get'])
-    expect(result.operations.get('pets-get')!.documentId).toBe('async-a')
+    const owners = new Map([...result.operations.values()].map(({ apiType, documentId }) => [apiType, documentId]))
+    expect(owners).toEqual(new Map([[ASYNCAPI_API_TYPE, 'async-a'], [REST_API_TYPE, 'healthy']]))
+
+    // the smallest slug keeps the id among the AsyncAPI pair, and the loser announces nothing
     expect(result.documents.get('async-a.yaml')!.operationIds).toEqual(['pets-get'])
-    // the losers announce nothing they did not win, flagged or not
-    expect(result.documents.get('healthy.yaml')!.operationIds).toEqual([])
     expect(result.documents.get('async-b.yaml')!.operationIds).toEqual([])
+    // the REST document was never in that contest
+    expect(result.documents.get('healthy.yaml')!.operationIds).toEqual(['pets-get'])
   }, 30000)
 
   // A document already carrying an Error is processed anyway, so one publication reports everything wrong

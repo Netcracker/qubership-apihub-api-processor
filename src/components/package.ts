@@ -109,25 +109,29 @@ export const createVersionPackage = async (
       return await zip.buildResult(options)
   }
 
-  // A changelog produces no documents of its own and its `info.json` describes a comparison, so it carries
-  // neither the `hasErrors` flags nor `notifications.json`. Every other build type here publishes documents.
+  // A changelog recalculates the changes of a version that is already published: it produces no documents of
+  // its own and its `info.json` describes a comparison. It therefore carries neither the `hasErrors` flags nor
+  // the version's own content — an empty `documents.json` or `operations.json` would describe the published
+  // version as having none. Every other build type here publishes documents.
   const buildType = ctx.config.buildType ?? BUILD_TYPE.BUILD
   const publishesDocuments = buildType !== BUILD_TYPE.CHANGELOG && buildType !== BUILD_TYPE.PREFIX_GROUPS_CHANGELOG
-  const erroredSlugs = publishesDocuments ? erroredDocumentSlugs(buildResultDto.notifications) : new Set<string>()
-  createDocumentsFile(zip, documents, erroredSlugs)
-  createVersionInternalDocumentsFile(zip, documents)
-
-  await createDocumentDataFiles(zip, documents, ctx)
-  await createVersionInternalDocumentDataFiles(zip, documents)
 
   await createInfoFile(zip, buildResultDto.config, publishesDocuments && hasBuildError(buildResultDto.notifications))
 
-  createOperationsFile(zip, buildResultDto.operations)
-  createSearchTextFiles(zip, buildResultDto.operations)
-  const operationsDir = zip.folder(PACKAGE.OPERATIONS_DIR_NAME)!
-  for (const { data, operationId } of buildResultDto.operations.values()) {
-    if (!data) { continue }
-    createOperationDataFile(operationsDir, operationId, data)
+  if (publishesDocuments) {
+    createDocumentsFile(zip, documents, erroredDocumentSlugs(buildResultDto.notifications))
+    createVersionInternalDocumentsFile(zip, documents)
+
+    await createDocumentDataFiles(zip, documents, ctx)
+    await createVersionInternalDocumentDataFiles(zip, documents)
+
+    createOperationsFile(zip, buildResultDto.operations)
+    createSearchTextFiles(zip, buildResultDto.operations)
+    const operationsDir = zip.folder(PACKAGE.OPERATIONS_DIR_NAME)!
+    for (const { data, operationId } of buildResultDto.operations.values()) {
+      if (!data) { continue }
+      createOperationDataFile(operationsDir, operationId, data)
+    }
   }
 
   if (buildResultDto.mcpEntities.size) {
@@ -215,6 +219,11 @@ const createComparisonNotificationsFile = (
   comparisons: Array<VersionsComparison | DdlComparison>,
   buildResult: BuildResult,
 ): void => {
+  // a comparison the host answered for is omitted by `buildComparisonNotifications`, so counting the input
+  // would ship `{"comparisons": []}` — the empty list a consumer would replace this version's rows with
+  const calculated = comparisons.filter(({ fromCache }) => !fromCache)
+  if (!calculated.length && !buildResult.comparisonNotifications.length) { return }
+
   const { packageId, version, previousVersionPackageId, previousVersion } = buildResult.config
   // `version` can carry a revision (`v2@3`), and a calculated comparison keeps the two apart. The declared
   // pair splits them the same way, or its row names a pair no comparison matches.
@@ -229,7 +238,6 @@ const createComparisonNotificationsFile = (
     previousVersionRevision,
     notifications: buildResult.comparisonNotifications,
   }
-  if (!comparisons.length && !declaredPair.notifications.length) { return }
   zip.file(PACKAGE.COMPARISON_NOTIFICATIONS_FILE_NAME, buildComparisonNotifications(comparisons, declaredPair))
 }
 

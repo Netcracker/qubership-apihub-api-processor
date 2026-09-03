@@ -27,9 +27,12 @@ export function collectClaim<T>(claims: Claims<T>, key: string, claimant: T): vo
 /**
  * Report every id two or more documents claimed, one message per document.
  *
- * A claimant is graded against the worst of the others, and never harsher than its own grading (`Error` is 0,
- * `Warning` is 1). With three or more claimants that is not one severity per id: a REST document colliding
- * with two AsyncAPI ones is a `Warning`, while those two are an `Error` with each other.
+ * One message naming them all would leave every document but one unflagged, so each claimant gets its own,
+ * carrying the same text. A document claiming one id twice is its own diagnostic, not a collision.
+ *
+ * The severity belongs to the collision, not to a claimant: every claimant is graded and the strictest grade
+ * wins (`Error` is 0, `Warning` is 1). Taking one claimant's grade would let `config.files` order decide the
+ * answer for any `severityOf` that ever tells two claimants apart.
  */
 export function reportCollisions<T extends { documentId: string }>(
   claims: Claims<T>,
@@ -39,16 +42,13 @@ export function reportCollisions<T extends { documentId: string }>(
   describe: (key: string, documentIds: string[]) => string,
 ): void {
   for (const [key, claimants] of claims) {
-    const distinct = [...new Map(claimants.map(claimant => [claimant.documentId, claimant])).values()]
-    if (distinct.length < 2) { continue }
+    const documentIds = [...new Set(claimants.map(({ documentId }) => documentId))].sort()
+    if (documentIds.length < 2) { continue }
 
-    const documentIds = distinct.map(({ documentId }) => documentId).sort()
+    const severity = Math.min(...claimants.map(severityOf)) as MessageSeverity
     const message = describe(key, documentIds)
-    for (const claimant of distinct) {
-      // the worst of the others, never harsher than the claimant's own grading
-      const others = distinct.filter(other => other !== claimant).map(severityOf)
-      const severity = Math.max(severityOf(claimant), Math.min(...others)) as MessageSeverity
-      notifications.push({ category, severity, message, documentId: claimant.documentId })
+    for (const documentId of documentIds) {
+      notifications.push({ category, severity, message, documentId })
     }
   }
 }

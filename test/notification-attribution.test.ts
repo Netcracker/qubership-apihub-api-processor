@@ -395,4 +395,25 @@ describe('Which notification files a build writes', () => {
     // the backend would take it for "this version has no notifications" and drop what a build recorded
     expect(entries).not.toContain(PACKAGE.NOTIFICATIONS_FILE_NAME)
   }, 60000)
+
+  // The same argument covers the version's own content: a changelog recalculates the changes of a version
+  // already published, so an empty index of documents or operations would describe that version as empty.
+  test('should write no version content for a standalone changelog', async () => {
+    const registry = LocalRegistry.openPackage(PROJECT)
+    await publishBaseline(registry)
+
+    const editor = build(registry, { version: 'v2', previousVersion: 'v1', buildType: BUILD_TYPE.CHANGELOG })
+    await editor.run()
+
+    const entries = await entriesOf(editor)
+    for (const name of [
+      PACKAGE.DOCUMENTS_FILE_NAME,
+      PACKAGE.OPERATIONS_FILE_NAME,
+      PACKAGE.VERSION_INTERNAL_FILE_NAME,
+    ]) {
+      expect(entries).not.toContain(name)
+    }
+    // what the changelog does describe is still there
+    expect(entries).toContain(PACKAGE.INFO_FILE_NAME)
+  }, 60000)
 })

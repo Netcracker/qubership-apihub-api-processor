@@ -27,7 +27,7 @@ import { DDL_CONTRACT_TYPE, MCP_CONTRACT_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERIT
 import { MessageCategory } from '../types/package/notifications'
 import { ParsedDdlData, validateDdlDocument } from '../apitypes/ddl'
 import { buildDocumentDdlEntities, indexDdlEntities, reportDdlCollisions } from './ddl'
-import { buildDocumentOperations, indexOperations, OperationClaim, reportOperationCollisions } from './operations'
+import { buildDocumentOperations, indexOperations, OperationClaim, operationKey, reportOperationCollisions } from './operations'
 import {
   buildDocumentMcpEntities,
   indexMcpEntities,
@@ -90,8 +90,8 @@ async function buildAllDocuments(
 /**
  * Report every id two or more documents claimed.
  *
- * Runs before anything is indexed and over the whole claimant set: severity depends on which api types
- * collide, so every claimant of an id has to be present when it is graded.
+ * Runs before anything is indexed: one message names every document that claimed the id, so they all have to
+ * be collected before any of them is reported.
  */
 function reportIdCollisions(built: DocumentContent[], buildResult: BuildResult): void {
   const operationClaims: Claims<OperationClaim> = new Map()
@@ -99,7 +99,7 @@ function reportIdCollisions(built: DocumentContent[], buildResult: BuildResult):
   const ddlClaims: Claims<DdlEntity> = new Map()
   for (const { document, operations, mcpEntities, ddlEntities } of built) {
     for (const { operationId, apiType } of operations ?? []) {
-      collectClaim(operationClaims, operationId, { documentId: document.slug, apiType })
+      collectClaim(operationClaims, operationKey({ apiType, operationId }), { documentId: document.slug, apiType })
     }
     for (const { mcpEntityId } of mcpEntities ?? []) {
       collectClaim(mcpClaims, mcpEntityId, { documentId: document.slug })
@@ -155,10 +155,15 @@ const categoryOfDocumentProcessing = (apiType: string): MessageCategory => {
   }
 }
 
-const keepOwned = (ids: string[] | undefined, slug: string, index: Map<string, { documentId: string }>): string[] => {
+/** Of the ids the document claimed, the ones the index still attributes to it. */
+const keepOwned = (
+  claimed: Array<[key: string, id: string]>,
+  slug: string,
+  index: Map<string, { documentId: string }>,
+): string[] => {
   const owned = new Set<string>()
-  for (const id of ids ?? []) {
-    if (index.get(id)?.documentId === slug) { owned.add(id) }
+  for (const [key, id] of claimed) {
+    if (index.get(key)?.documentId === slug) { owned.add(id) }
   }
   return [...owned]
 }
@@ -176,9 +181,13 @@ export function reconcileOwnedIds(
   mcpEntities: Map<string, { documentId: string }>,
 ): void {
   for (const document of documents) {
-    document.operationIds = keepOwned(document.operationIds, document.slug, operations)
+    // the operation index is keyed per api type, so ownership is looked up by the claim, not by the bare id
+    document.operationIds = keepOwned(
+      (document.operationClaims ?? []).map(claim => [operationKey(claim), claim.operationId]),
+      document.slug, operations)
     if (document.mcpEntityIds) {
-      document.mcpEntityIds = keepOwned(document.mcpEntityIds, document.slug, mcpEntities)
+      document.mcpEntityIds = keepOwned(
+        document.mcpEntityIds.map(id => [id, id]), document.slug, mcpEntities)
     }
   }
 }

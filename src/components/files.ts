@@ -21,7 +21,7 @@ import { REST_DOCUMENT_TYPE } from '../apitypes/rest/rest.consts'
 import { MessageSeverity } from '../types/package/notifications'
 import { DocumentBuildError } from '../errors'
 import { FILE_KIND } from '../types'
-import { isNotEmpty, SLUG_OPTIONS_DOCUMENT_ID, slugify } from '../utils'
+import { isNotEmpty, replaceInPlace, SLUG_OPTIONS_DOCUMENT_ID, slugify } from '../utils'
 
 export const createFileSlugs = (files: BuildConfigFile[], basePath: string): BuildConfigFile[] => {
   const { fs, slugs } = files.reduce(({ fs, slugs }, file) => {
@@ -176,19 +176,13 @@ export const buildFiles = async (files: BuildConfigFile[], ctx: BuilderContext):
   }
 
   // `publish` is settled here, and only a published document has a slug in `documents.json` for a message to
-  // name. Its own and its dependencies' parse problems are reported now; anything already raised against a
-  // document that will not be published loses the attribution and stays a version-level message.
-  // the file id takes the slug's place in the text, so a release refusal still says which file to open
-  const unpublished = new Map(result
-    .filter(({ document }) => !document.publish)
-    .map(({ document }) => [document.slug, document.fileId]))
-  for (const notification of ctx.notifications) {
-    const fileId = notification.documentId && unpublished.get(notification.documentId)
-    if (fileId) {
-      notification.message = `${notification.message} (file '${fileId}')`
-      delete notification.documentId
-    }
-  }
+  // name. Its own and its dependencies' parse problems are reported now; anything raised against a document
+  // the version will not publish is dropped: the file is not part of the version, so its problems cost the
+  // version nothing and must not refuse its release. A file reached through a `$ref` is a different case —
+  // `reportDependencyParseErrors` reports it against every document that bundles it, naming the file.
+  const unpublished = new Set(result.filter(({ document }) => !document.publish).map(({ document }) => document.slug))
+  replaceInPlace(ctx.notifications,
+    ctx.notifications.filter(({ documentId }) => !documentId || !unpublished.has(documentId)))
 
   for (const { document, parsedFile } of result) {
     if (!document.publish) { continue }

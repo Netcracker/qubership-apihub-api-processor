@@ -195,4 +195,4 @@ export type _VersionReferencesResolver = (packageId: PackageId, version: Version
 
 export type _ParsedFileResolver = (fileId: FileId) => Promise<SourceFile | null>
 export type _TemplateResolver = (templatePath: TemplatePath) => Promise<Blob>
-export type _OperationResolver = (operationId: OperationId) => ResolvedOperation | null
+export type _OperationResolver = (apiType: string, operationId: OperationId) => ResolvedOperation | null

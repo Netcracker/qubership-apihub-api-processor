@@ -25,6 +25,8 @@ import {
 import { describe, expect, test } from '@jest/globals'
 import { calculateRestOperationId, calculateNormalizedRestOperationId, _calculateRestOperationIdV1 } from '../src/utils/operations.utils'
 import { BUILD_TYPE, BuildResult, MESSAGE_CATEGORY, MESSAGE_SEVERITY, VERSION_STATUS } from '../src'
+import { operationKey } from '../src/components/operations'
+import { REST_API_TYPE } from '../src/consts'
 
 
 // An intra-document duplicate no longer costs the version: it is reported against that document, and the
@@ -305,7 +307,7 @@ describe('Operation ID collisions', () => {
       ]))
 
       // the lexicographically smallest documentId wins the index, whatever order the config listed them in
-      expect(result.operations.get('res-data-post')?.documentId).toBe('spec1')
+      expect(result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'res-data-post' }))?.documentId).toBe('spec1')
     })
 
     // Ideally we want to avoid situation when operationIds are duplicated across documents

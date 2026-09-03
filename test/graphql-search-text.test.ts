@@ -2,6 +2,11 @@ import { beforeAll, describe, expect, test } from '@jest/globals'
 import { buildGraphQLSearchText } from '../src/apitypes/graphql/graphql.utils'
 import { calculateGraphqlOperationId } from '../src/utils'
 import { Editor, LocalRegistry, parseAndNormalizeGraphQLSchema } from './helpers'
+import { operationKey } from '../src/components/operations'
+import { GRAPHQL_API_TYPE } from '../src/consts'
+
+const graphqlKey = (operationId: string): string =>
+  operationKey({ apiType: GRAPHQL_API_TYPE, operationId })
 
 describe('BuildGraphQLSearchText unit tests', () => {
   describe('Searchable content tests', () => {
@@ -294,7 +299,7 @@ describe('BuildGraphQLSearchText unit tests', () => {
     })
 
     test('listPets: should contain operation name, description, arg names, and scalar type names', () => {
-      const operation = operations.get(calculateGraphqlOperationId('query', 'listPets'))
+      const operation = operations.get(graphqlKey(calculateGraphqlOperationId('query', 'listPets')))
       expect(operation).toBeDefined()
       expect(operation!.searchText).toContain('listPets')
       expect(operation!.searchText).toContain('Get list of Pets')
@@ -303,14 +308,14 @@ describe('BuildGraphQLSearchText unit tests', () => {
     })
 
     test('getPet: should contain return type name and arg type name', () => {
-      const operation = operations.get(calculateGraphqlOperationId('query', 'getPet'))
+      const operation = operations.get(graphqlKey(calculateGraphqlOperationId('query', 'getPet')))
       expect(operation).toBeDefined()
       expect(operation!.searchText).toContain('Pet')
       expect(operation!.searchText).toContain('String')
     })
 
     test('getPet: should NOT contain nested fields of return type', () => {
-      const operation = operations.get(calculateGraphqlOperationId('query', 'getPet'))
+      const operation = operations.get(graphqlKey(calculateGraphqlOperationId('query', 'getPet')))
       expect(operation).toBeDefined()
       expect(operation!.searchText).not.toContain('category')
       expect(operation!.searchText).not.toContain('status')
@@ -318,7 +323,7 @@ describe('BuildGraphQLSearchText unit tests', () => {
     })
 
     test('petAvailabilityCheck: should NOT contain nested fields of input or output types', () => {
-      const operation = operations.get(calculateGraphqlOperationId('mutation', 'petAvailabilityCheck'))
+      const operation = operations.get(graphqlKey(calculateGraphqlOperationId('mutation', 'petAvailabilityCheck')))
       expect(operation).toBeDefined()
 
       // Searchable

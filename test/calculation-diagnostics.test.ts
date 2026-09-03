@@ -18,7 +18,7 @@ import { describe, expect, test } from '@jest/globals'
 import { DiffAction } from '@netcracker/qubership-apihub-api-diff'
 import { calculateHistoryForDeprecatedItems, calculateTolerantHash } from '../src/components/deprecated'
 import { reclassifyBreakingChanges } from '../src/apitypes/rest/rest.changes'
-import { BEFORE_VALUE_NORMALIZED_PROPERTY, HASH_FLAG, MESSAGE_CATEGORY, MESSAGE_SEVERITY, REST_API_TYPE } from '../src/consts'
+import { ASYNCAPI_API_TYPE, BEFORE_VALUE_NORMALIZED_PROPERTY, HASH_FLAG, MESSAGE_CATEGORY, MESSAGE_SEVERITY, REST_API_TYPE } from '../src/consts'
 import { BuilderContext, CompareOperationsPairContext, NotificationMessage } from '../src/types'
 
 // Diagnostics of the calculation, not of the contract: they fire when the builder's own inputs arrive in a
@@ -47,6 +47,37 @@ describe('Calculation diagnostics carry their category, severity and document', 
     })
   })
 
+  // The history is resolved for one api type, but the version's operation list holds every type, and an
+  // operationId is unique only within a type. The operation the history lands on has to be the one of the
+  // api type asked for.
+  test('should carry the history onto the operation of the api type it asked for', async () => {
+    const item = (): unknown =>
+      ({ tolerantHash: 'same-hash', declarationJsonPaths: [['components', 'schemas', 'Pet', 'deprecated']], deprecatedInPreviousVersions: [] })
+    const operation = (apiType: string): Record<string, unknown> =>
+      ({ operationId: 'pets-get', apiType, documentId: DOCUMENT, deprecated: true, deprecatedItems: [item()] })
+
+    const rest = operation(REST_API_TYPE)
+    const asyncApi = operation(ASYNCAPI_API_TYPE)
+    const ctx = {
+      notifications: [],
+      versionDeprecatedResolver: async () => ({
+        operations: [{
+          operationId: 'pets-get',
+          deprecatedItems: [{ ...(item() as Record<string, unknown>), deprecatedInPreviousVersions: ['v1'] }],
+        }],
+      }),
+    } as unknown as BuilderContext
+
+    // the AsyncAPI operation is processed last, so a key of the bare id would leave it holding the entry
+    await calculateHistoryForDeprecatedItems(REST_API_TYPE, [rest, asyncApi] as never, 'v1', 'pkg', ctx)
+
+    const historyOf = (op: Record<string, unknown>): unknown =>
+      (op.deprecatedItems as Array<{ deprecatedInPreviousVersions: unknown }>)[0].deprecatedInPreviousVersions
+    expect(historyOf(rest)).toEqual(['v1'])
+    // and the operation of another api type is left alone: this history is not about it
+    expect(historyOf(asyncApi)).toEqual([])
+  })
+
   // Carrying the previous version's history onto an operation walks the declaration paths of its deprecated
   // items. A path shaped like a component reference whose type or name is not a string cannot be matched, and
   // that operation loses its history — the others keep theirs, so it is reported rather than thrown.
@@ -57,6 +88,7 @@ describe('Calculation diagnostics carry their category, severity and document', 
 
     const current = {
       operationId: 'pets-get',
+      apiType: REST_API_TYPE,
       documentId: DOCUMENT,
       deprecated: true,
       // the component type is a number, which `matchSharedComponent` refuses

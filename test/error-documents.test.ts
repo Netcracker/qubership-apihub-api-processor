@@ -218,10 +218,11 @@ describe('An item that fails costs the document only that item', () => {
   }, 30000)
 })
 
-// A configured file the version will not publish has no slug in `documents.json`, so a message must not name
-// one: the release refusal would point at a document nobody can open, and no document's `hasErrors` is set.
+// A file the version will not publish is not part of it, so its own failures are dropped rather than moved to
+// the version. A file reached through a `$ref` is a different case: `reference-bundling.test.ts` covers it,
+// and there the message names the document that pulled the file in.
 describe('A file that will not be published', () => {
-  test('should report its failure without naming a document', async () => {
+  test('should drop its failure rather than report it against the version', async () => {
     const pkg = LocalRegistry.openPackage('tolerant-publication')
     const result = await pkg.publish(pkg.packageId, {
       packageId: 'error-documents/unpublished',
@@ -229,14 +230,22 @@ describe('A file that will not be published', () => {
       files: [{ fileId: 'rest.json' }, { fileId: 'no-such-file.yaml', publish: false }],
     })
 
-    const failure = result.notifications.find(({ category }) => category === MESSAGE_CATEGORY.FileNotParsed)!
-    expect(failure).toBeDefined()
-    expect(failure.documentId).toBeUndefined()
-    // the slug is gone, so the text carries the file id instead: a release refusal has to name something
-    expect(failure.message).toContain(`(file '${'no-such-file.yaml'}')`)
+    // nothing is reported: the file is not part of the version, so its problems cost the version nothing
+    expect(result.notifications).toEqual([])
 
     const published = [...result.documents.values()].filter(({ publish }) => publish)
     expect(published.map(({ slug }) => slug)).toEqual(['rest'])
+  }, 30000)
+
+  // and the same file as a release, where a version-level Error would have refused the publication
+  test('should let a release publish over it', async () => {
+    const pkg = LocalRegistry.openPackage('tolerant-publication')
+
+    await expect(pkg.publish(pkg.packageId, {
+      packageId: 'error-documents/unpublished-release',
+      status: VERSION_STATUS.RELEASE,
+      files: [{ fileId: 'rest.json' }, { fileId: 'no-such-file.yaml', publish: false }],
+    })).resolves.toBeDefined()
   }, 30000)
 })
 

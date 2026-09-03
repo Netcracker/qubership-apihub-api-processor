@@ -108,7 +108,6 @@ export const MESSAGE_CATEGORY = {
   VersionNotResolved: 'version-not-resolved',
   VersionRefsNotResolved: 'version-refs-not-resolved',
   VersionDocumentsMissing: 'version-documents-missing',
-  OperationDataMissing: 'operation-data-missing',
   RiskyBeforeValue: 'risky-before-value',
   RiskyOrigins: 'risky-origins',
   ComparisonSerialization: 'comparison-serialization',

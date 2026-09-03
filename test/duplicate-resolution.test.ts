@@ -17,22 +17,27 @@
 import { describe, expect, test } from '@jest/globals'
 import { Editor, LocalRegistry } from './helpers'
 import { setReportingDuplicate } from '../src/utils'
-import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, VERSION_STATUS } from '../src/consts'
+import { operationKey } from '../src/components/operations'
+import { reportCollisions } from '../src/components/duplicate-resolution'
+import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, REST_API_TYPE, VERSION_STATUS } from '../src/consts'
 import { BuildConfig, BuildResult, MessageSeverity } from '../src/types'
+import { NotificationMessage } from '../src/types/package/notifications'
 
 /*
  * Two or more documents claiming one id — the design's `Duplicate resolution`, in one file.
  *
  * Which claimant is indexed, what each of them is told, and when the answer must not depend on the order the
- * config listed them in. The severity a collision carries is decided per pair, so a document is graded by the
- * worst collision it is actually in; grading the whole claimant set at once lets a mild claimant shield a
- * severe pair, and comparing each newcomer against a running winner never forms the pair at all.
+ * config listed them in. An operation is identified by its api type and its id, so only documents of one api
+ * type can contest an id, and the severity of the contest follows that type: AsyncAPI an `Error`, REST and
+ * GraphQL a `Warning`.
  *
  * What an `Error` then costs the document is `tolerant-publication.test.ts`; the category, severity and
  * release verdict of each duplicate diagnostic are rows in `notification-catalogue.test.ts`.
  */
 
 /** The two REST documents that both derive `res-data-post` — the cross-document collision fixture. */
+const restKey = (operationId: string): string => operationKey({ apiType: REST_API_TYPE, operationId })
+
 const publishContestedPair = (packageId = 'operationId-collisions/same-path-different-documents'): Promise<BuildResult> => {
   const pkg = LocalRegistry.openPackage('operationId-collisions/same-path-different-documents')
   return pkg.publish(pkg.packageId, {
@@ -41,6 +46,37 @@ const publishContestedPair = (packageId = 'operationId-collisions/same-path-diff
     files: [{ fileId: 'spec1.json' }, { fileId: 'spec2.json' }],
   })
 }
+
+// `reportCollisions` grades a contested id once, from every claimant. Today no caller can make two claimants
+// of one key disagree — an operation key carries the api type, and MCP and DDL grade by a constant — so the
+// policy is exercised here, where a disagreeing `severityOf` can be handed to the helper directly.
+describe('The grade of a collision', () => {
+  const claim = (documentId: string): { documentId: string } => ({ documentId })
+
+  const gradeOf = (order: string[], severityOf: (claimant: { documentId: string }) => MessageSeverity): MessageSeverity[] => {
+    const notifications: NotificationMessage[] = []
+    reportCollisions(
+      new Map([['contested', order.map(claim)]]),
+      notifications,
+      MESSAGE_CATEGORY.DuplicateOperationId,
+      severityOf,
+      () => 'contested',
+    )
+    return notifications.map(({ severity }) => severity)
+  }
+
+  // `Error` is 0 and `Warning` is 1, so the strictest grade is the smallest
+  const strictForA = ({ documentId }: { documentId: string }): MessageSeverity =>
+    (documentId === 'a' ? MESSAGE_SEVERITY.Error : MESSAGE_SEVERITY.Warning)
+
+  test('should take the strictest grade of its claimants', () => {
+    expect(gradeOf(['a', 'b'], strictForA)).toEqual([MESSAGE_SEVERITY.Error, MESSAGE_SEVERITY.Error])
+  })
+
+  test('should not depend on the order the claimants arrived in', () => {
+    expect(gradeOf(['b', 'a'], strictForA)).toEqual(gradeOf(['a', 'b'], strictForA))
+  })
+})
 
 describe('Duplicate resolution', () => {
   const entity = (documentId: string, title: string): { documentId: string; title: string } => ({ documentId, title })
@@ -73,7 +109,7 @@ describe('What each document announces', () => {
   test('should not list on the losing document the id the winner owns', async () => {
     const result = await publishContestedPair()
 
-    const winner = result.operations.get('res-data-post')
+    const winner = result.operations.get(restKey('res-data-post'))
     expect(winner?.documentId).toBe('spec1')
 
     const documents = [...result.documents.values()]
@@ -104,6 +140,53 @@ describe('Duplicate resolution tells the two cases apart', () => {
     // the giveaway of the old behaviour: a message naming one document as two
     expect(result.notifications.every(({ message }) => !/'([^']+)' and '\1'/.test(message))).toBe(true)
   }, 30000)
+})
+
+// A file dropped from `config.files` takes its operations with it. The index is keyed per api type, so the
+// entries to evict are found by the document's claims, not by the bare ids it announced.
+describe('A document dropped from the config', () => {
+  test('should take its operations out of the index', async () => {
+    const packageId = 'duplicate-resolution/removed-file'
+    const editor = new Editor('tolerant-publication', {
+      packageId,
+      version: 'v1',
+      status: VERSION_STATUS.DRAFT,
+      buildType: BUILD_TYPE.BUILD,
+      files: [{ fileId: 'rest.json' }, { fileId: 'async-a.yaml' }],
+    } as BuildConfig, {}, LocalRegistry.openPackage('tolerant-publication'))
+    const built = await editor.run()
+    expect([...built.operations.values()].map(({ apiType }) => apiType).sort())
+      .toEqual(['asyncapi', 'rest'])
+
+    const after = await editor.update(
+      { packageId, version: 'v1', files: [{ fileId: 'rest.json' }] } as BuildConfig, [])
+
+    expect([...after.operations.values()].map(({ apiType, operationId }) => ({ apiType, operationId })))
+      .toEqual([{ apiType: 'rest', operationId: 'pets-get' }])
+  }, 60000)
+
+  // The dropped document may have lost a contested id to a neighbour. Its claims are kept whole, so the
+  // eviction has to check ownership: otherwise dropping the loser takes the winner's entry with it.
+  test('should leave the winner in place when the loser is dropped', async () => {
+    const project = 'operationId-collisions/same-path-different-documents'
+    const packageId = 'duplicate-resolution/dropped-loser'
+    const editor = new Editor(project, {
+      packageId,
+      version: 'v1',
+      status: VERSION_STATUS.DRAFT,
+      buildType: BUILD_TYPE.BUILD,
+      files: [{ fileId: 'spec1.json' }, { fileId: 'spec2.json' }],
+    } as BuildConfig, {}, LocalRegistry.openPackage(project))
+    const built = await editor.run()
+    expect(built.operations.get(restKey('res-data-post'))?.documentId).toBe('spec1')
+
+    // spec2 lost the id, so dropping it changes nothing about who owns what
+    const after = await editor.update(
+      { packageId, version: 'v1', files: [{ fileId: 'spec1.json' }] } as BuildConfig, [])
+
+    expect(after.operations.get(restKey('res-data-post'))?.documentId).toBe('spec1')
+    expect(after.documents.get('spec1.json')?.operationIds).toEqual(['res-data-post'])
+  }, 60000)
 })
 
 // An incremental rebuild re-processes one document, not the set. The loser of a duplicate must not take the
@@ -139,16 +222,54 @@ describe('What each document announces, whatever the config order', () => {
       files: [{ fileId: 'spec2.json' }, { fileId: 'spec1.json' }],
     })
 
-    expect(result.operations.get('res-data-post')?.documentId).toBe('spec1')
+    expect(result.operations.get(restKey('res-data-post'))?.documentId).toBe('spec1')
 
     const loser = [...result.documents.values()].find(({ slug }) => slug === 'spec2')
     expect(loser?.operationIds).not.toContain('res-data-post')
   })
 })
 
-describe('A duplicate id shared by two api types', () => {
-  // `api.yaml` derives `pets-get` for GET /pets, and both AsyncAPI documents derive it from the `pets`
-  // operation on the `pets` channel.
+// Operations are discriminated by api type first, so one `operationId` derived by a REST document and by an
+// AsyncAPI one names two different operations. Neither may evict the other from the index, and neither is
+// told about a collision.
+describe('One operationId in two api types', () => {
+  test('should publish both operations and report no collision', async () => {
+    const result = await LocalRegistry.openPackage('tolerant-publication').publish('tolerant-publication', {
+      packageId: 'cross-api-type/coexist',
+      version: 'v1',
+      status: VERSION_STATUS.DRAFT,
+      files: [{ fileId: 'api.yaml' }, { fileId: 'async-a.yaml' }],
+    })
+
+    const published = [...result.operations.values()]
+      .map(({ operationId, apiType, documentId }) => ({ operationId, apiType, documentId }))
+      .sort((left, right) => left.apiType.localeCompare(right.apiType))
+    expect(published).toEqual([
+      { operationId: 'pets-get', apiType: 'asyncapi', documentId: 'async-a' },
+      { operationId: 'pets-get', apiType: 'rest', documentId: 'api' },
+    ])
+
+    expect(result.notifications.filter(({ category }) => category === MESSAGE_CATEGORY.DuplicateOperationId))
+      .toEqual([])
+  }, 30000)
+
+  test('should let each document announce the id it derived', async () => {
+    const result = await LocalRegistry.openPackage('tolerant-publication').publish('tolerant-publication', {
+      packageId: 'cross-api-type/announced',
+      version: 'v1',
+      status: VERSION_STATUS.DRAFT,
+      files: [{ fileId: 'api.yaml' }, { fileId: 'async-a.yaml' }],
+    })
+
+    const announced = [...result.documents.values()]
+      .filter(({ publish }) => publish)
+      .map(({ slug, operationIds }) => [slug, operationIds] as const)
+      .sort(([left], [right]) => left.localeCompare(right))
+    expect(announced).toEqual([['api', ['pets-get']], ['async-a', ['pets-get']]])
+  }, 30000)
+})
+
+describe('Two documents of one api type deriving one id', () => {
   const severitiesFor = async (packageId: string, fileIds: string[]): Promise<MessageSeverity[]> => {
     const result = await LocalRegistry.openPackage('tolerant-publication').publish('tolerant-publication', {
       packageId,
@@ -157,55 +278,51 @@ describe('A duplicate id shared by two api types', () => {
       files: fileIds.map(fileId => ({ fileId })),
     })
 
-    expect([...result.operations.keys()]).toEqual(['pets-get'])
     return result.notifications
       .filter(({ category }) => category === MESSAGE_CATEGORY.DuplicateOperationId)
       .map(({ severity }) => severity)
   }
 
-  // `config.files` order decides which document is processed second; it must not decide whether the release
-  // is refused. The REST side is staged at `Warning` until the published population is clean, so a mixed pair
-  // reports at `Warning` whichever way round the two arrive.
-  test('should keep the same severity whichever document is processed first', async () => {
-    const restFirst = await severitiesFor('duplicate-severity/rest-first', ['api.yaml', 'async-a.yaml'])
-    const asyncFirst = await severitiesFor('duplicate-severity/async-first', ['async-a.yaml', 'api.yaml'])
-
-    expect(restFirst).toEqual([MESSAGE_SEVERITY.Warning, MESSAGE_SEVERITY.Warning])
-    expect(asyncFirst).toEqual(restFirst)
-  }, 60000)
-
-  // and the AsyncAPI pair grades its own collision an `Error`
+  // AsyncAPI grades its own collision an `Error`; REST and GraphQL a staged `Warning`
   test('should report a collision between two AsyncAPI documents as an Error', async () => {
     const severities = await severitiesFor('duplicate-severity/async-only', ['async-a.yaml', 'async-b.yaml'])
 
     expect(severities).toEqual([MESSAGE_SEVERITY.Error, MESSAGE_SEVERITY.Error])
   }, 60000)
+
+  // `config.files` order decides which document is processed second; it must not decide what is reported
+  test('should report the same collision whichever document is processed first', async () => {
+    const forwards = await severitiesFor('duplicate-severity/async-forwards', ['async-a.yaml', 'async-b.yaml'])
+    const backwards = await severitiesFor('duplicate-severity/async-backwards', ['async-b.yaml', 'async-a.yaml'])
+
+    expect(backwards).toEqual(forwards)
+  }, 60000)
 })
 
 describe('A collision three documents share', () => {
-  // Three documents deriving one id: REST against AsyncAPI is a `Warning`, AsyncAPI against AsyncAPI an
-  // `Error`. Each document is graded by the worst collision it is in, so the REST document sorting first
-  // does not make the pair behind it a `Warning`.
-  test('should grade a collision by the worst pair in it, not by whoever claimed the id first', async () => {
+  // Three documents deriving one id, two of them AsyncAPI: only those two are in the contest, and the REST
+  // document is not told about a collision it is not part of.
+  test('should report the collision to its own api type alone', async () => {
     const result = await LocalRegistry.openPackage('tolerant-publication').publish('tolerant-publication', {
       packageId: 'tolerant-publication/three-claimants',
       status: VERSION_STATUS.DRAFT,
       files: [{ fileId: 'api.yaml' }, { fileId: 'async-a.yaml' }, { fileId: 'async-b.yaml' }],
     })
 
-    const severityOf = (slug: string): number | undefined => result.notifications
-      .find(({ documentId, category }) => documentId === slug && category === MESSAGE_CATEGORY.DuplicateOperationId)
-      ?.severity
+    const reported = result.notifications
+      .filter(({ category }) => category === MESSAGE_CATEGORY.DuplicateOperationId)
+      .map(({ documentId, severity }) => ({ documentId, severity }))
+      .sort((left, right) => (left.documentId ?? '').localeCompare(right.documentId ?? ''))
+    expect(reported).toEqual([
+      { documentId: 'async-a', severity: MESSAGE_SEVERITY.Error },
+      { documentId: 'async-b', severity: MESSAGE_SEVERITY.Error },
+    ])
 
-    // the REST document keeps the staged Warning; the AsyncAPI pair is graded on its own collision
-    expect(severityOf('api')).toBe(MESSAGE_SEVERITY.Warning)
-    expect(severityOf('async-a')).toBe(MESSAGE_SEVERITY.Error)
-    expect(severityOf('async-b')).toBe(MESSAGE_SEVERITY.Error)
-
-    // and the message names every claimant, not the pair that happened to be compared
+    // the message names the claimants of that api type, and not the REST document
     const { message } = result.notifications
       .find(({ category }) => category === MESSAGE_CATEGORY.DuplicateOperationId)!
-    for (const slug of ['api', 'async-a', 'async-b']) { expect(message).toContain(slug) }
+    expect(['api', 'async-a', 'async-b'].filter(slug => message.includes(slug)))
+      .toEqual(['async-a', 'async-b'])
   }, 30000)
 })
 
@@ -235,19 +352,25 @@ describe('The index and the documents agree', () => {
       files: fileIds.map(fileId => ({ fileId })),
     })
 
+    // an operation is identified by its api type and its id, which is how the index is keyed
     const announced = new Map<string, string>()
     for (const document of result.documents.values()) {
-      for (const operationId of document.operationIds ?? []) {
-        expect(announced.has(operationId)).toBe(false)
-        announced.set(operationId, document.slug)
+      const owned = new Set((document.operationClaims ?? [])
+        .filter(({ operationId }) => document.operationIds?.includes(operationId))
+        .map(operationKey))
+      for (const key of owned) {
+        // two documents announcing one key is the contradiction this invariant exists to catch; one
+        // document claiming an id twice is its own diagnostic
+        expect(announced.has(key)).toBe(false)
+        announced.set(key, document.slug)
       }
     }
 
-    for (const [operationId, slug] of announced) {
-      expect(result.operations.get(operationId)?.documentId).toBe(slug)
+    for (const [key, slug] of announced) {
+      expect(result.operations.get(key)?.documentId).toBe(slug)
     }
-    for (const [operationId, operation] of result.operations) {
-      expect(announced.get(operationId)).toBe(operation.documentId)
+    for (const [key, operation] of result.operations) {
+      expect(announced.get(key)).toBe(operation.documentId)
     }
   }, 60000)
 })

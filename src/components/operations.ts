@@ -27,11 +27,24 @@ export interface OperationClaim {
 }
 
 /**
+ * The index key of an operation: the api type, then the id.
+ *
+ * Operations are discriminated by api type first, so `pets-get` derived by a REST document and by an AsyncAPI
+ * one are two operations, not one. A key of the id alone lets whichever is processed second evict the other
+ * from the version and turns the pair into a cross-document duplicate.
+ */
+export const operationKey = ({ apiType, operationId }: { apiType: string; operationId: string }): string =>
+  `${apiType}:${operationId}`
+
+/** The id back out of a key; an api type carries no colon, so the first one separates the two. */
+const operationIdOf = (key: string): string => key.slice(key.indexOf(':') + 1)
+
+/**
  * Grade every operationId two or more documents derived, reading `operationClaims` off the documents.
  *
  * Used by the editor's incremental rebuild, which has no built content of its own to collect from. A
  * publication collects the same claims from what it just built and calls `reportOperationCollisions`; both
- * grade over the whole claimant set, so both reach the same verdict for the same documents.
+ * key by `operationKey`, so both reach the same verdict for the same documents.
  */
 export function reportOperationCollisionsOf(
   documents: Iterable<VersionDocument>,
@@ -40,13 +53,18 @@ export function reportOperationCollisionsOf(
   const claims: Claims<OperationClaim> = new Map()
   for (const document of documents) {
     for (const { operationId, apiType } of document.operationClaims ?? []) {
-      collectClaim(claims, operationId, { documentId: document.slug, apiType })
+      collectClaim(claims, operationKey({ apiType, operationId }), { documentId: document.slug, apiType })
     }
   }
   reportOperationCollisions(claims, notifications)
 }
 
-/** Cross-document operationId collisions, over the whole claimant set — see `reportCollisions`. */
+/**
+ * Cross-document operationId collisions, within one api type — the claims are keyed by `operationKey`.
+ *
+ * Every claimant of a key shares its api type, so one of them answers for the whole collision: AsyncAPI
+ * grades it an `Error`, REST and GraphQL a `Warning`.
+ */
 export function reportOperationCollisions(
   claims: Claims<OperationClaim>,
   notifications: NotificationMessage[],
@@ -55,10 +73,9 @@ export function reportOperationCollisions(
     claims,
     notifications,
     MESSAGE_CATEGORY.DuplicateOperationId,
-    // AsyncAPI grades this an `Error`, REST and GraphQL a `Warning`
     ({ apiType }) => (apiType === ASYNCAPI_API_TYPE ? MESSAGE_SEVERITY.Error : MESSAGE_SEVERITY.Warning),
-    (operationId, documentIds) =>
-      `Duplicated operationId '${operationId}' found in different documents: ${listDocuments(documentIds)}`,
+    (key, documentIds) =>
+      `Duplicated operationId '${operationIdOf(key)}' found in different documents: ${listDocuments(documentIds)}`,
   )
 }
 
@@ -73,8 +90,8 @@ export async function buildDocumentOperations(
 /**
  * Claim the document's operations in the build's index.
  *
- * Collisions are already reported by `reportIdCollisions`, which runs first over the whole claimant set — no
- * handler is passed here, so nothing is reported twice.
+ * Reporting collisions is not this function's job: a publication has already done it in `reportIdCollisions`,
+ * and the editor's incremental rebuild does it afterwards in `reportOperationCollisionsOf`.
  */
 export function indexOperations(
   document: VersionDocument,
@@ -83,10 +100,11 @@ export function indexOperations(
 ): void {
   // everything this document built; `reconcileOwnedIds` prunes what another document ends up owning
   document.operationIds = operations.map(({ operationId }) => operationId)
-  // kept whole, because a collision is graded over every claimant and the loser's own entry does not survive
+  // kept whole: `reconcileOwnedIds`, `rebuildFiles` and `removeOutdatedCaches` look an entry up by the claim
+  // that made it, and a document that lost an id still has to name it to find what it once owned
   document.operationClaims = operations.map(({ operationId, apiType }) => ({ operationId, apiType }))
   for (const operation of operations) {
-    setReportingDuplicate(buildResult.operations, operation.operationId, operation)
+    setReportingDuplicate(buildResult.operations, operationKey(operation), operation)
   }
 }
 

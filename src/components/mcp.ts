@@ -71,7 +71,7 @@ export function reportMcpCollisionsOf(
   reportMcpCollisions(claims, notifications)
 }
 
-/** Cross-document MCP entity collisions, over the whole claimant set — see `reportCollisions`. */
+/** Cross-document MCP entity collisions, one message per claimant — see `reportCollisions`. */
 export function reportMcpCollisions(claims: Claims<McpClaim>, notifications: NotificationMessage[]): void {
   reportCollisions(
     claims,

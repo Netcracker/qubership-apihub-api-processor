@@ -333,12 +333,11 @@ const CASES: Case[] = [
     config: { files: [file('async.yaml')] },
   },
   {
-    name: 'a deprecated AsyncAPI channel, whose tolerant hash is never stamped',
+    name: 'a deprecated REST item the unifier stamps no tolerant hash on',
     category: MESSAGE_CATEGORY.TolerantHashMissing,
     severity: MESSAGE_SEVERITY.Warning, attributed: true, blocksRelease: false,
-    project: 'reference-bundling/case2',
-    content: { 'async.yaml': ASYNC_DEPRECATED_CHANNEL },
-    config: { files: [file('async.yaml')] },
+    project: 'deprecated',
+    config: { files: [file('PublicRegistry API(4)v2.yaml')] },
   },
   {
     name: 'a version that added an api type its baseline does not have',
@@ -388,11 +387,8 @@ const CASES: Case[] = [
  *   group-documents-missing      document-group.test.ts — a group build, whose archive carries it like any
  *                                other; only the export build types return before `notifications.json`
  *
- * And two no build reaches at all:
+ * And one no build reaches at all:
  *
- *   operation-data-missing       `versionOperationsResolver` raises it only for `includeData`, and both call
- *                                sites in `compare.operations.ts` pass `false`. The wrapper's own default is
- *                                `true`, so a call site that omits the flag would start raising it.
  *   partial-group-documents      raised inside the branch that already found no documents, where
  *                                `[].every(...)` holds — so the partial case it names cannot reach it. It
  *                                fires only when the resolver answers `null`, and then it says the wrong
@@ -435,9 +431,36 @@ const UNREACHABLE_FROM_A_DOCUMENT: MessageCategory[] = [
   MESSAGE_CATEGORY.VersionRefsNotResolved,
   MESSAGE_CATEGORY.ComparisonSerialization,
   MESSAGE_CATEGORY.GroupDocumentsMissing,
-  MESSAGE_CATEGORY.OperationDataMissing,
   MESSAGE_CATEGORY.PartialGroupDocuments,
 ]
+
+// A channel is a node the unifier stamps no hash flag on, so asking for a tolerant hash there could only
+// ever report a missing one. The schema-derived deprecated items of the same document still ask for theirs.
+describe('A deprecated AsyncAPI channel', () => {
+  test('should publish without reporting a missing tolerant hash', async () => {
+    const registry = LocalRegistry.openPackage('reference-bundling/case2')
+    const result = await registry.publishFromContent({ 'async.yaml': ASYNC_DEPRECATED_CHANNEL }, {
+      packageId: 'tolerant-hash/deprecated-channel',
+      version: 'v1',
+      status: VERSION_STATUS.DRAFT,
+      files: [file('async.yaml')],
+    } as BuildConfig)
+
+    expect(result.notifications.map(({ category }) => category))
+      .not.toContain(MESSAGE_CATEGORY.TolerantHashMissing)
+    // the deprecated item itself is still published
+    const [operation] = [...result.operations.values()]
+    expect(operation.deprecatedItems?.length).toBeGreaterThan(0)
+  }, 30000)
+})
+
+// Removed from the enum: `versionOperationsResolver` raised it only for `includeData`, and both call sites in
+// `compare.operations.ts` pass `false`, so no build could reach it.
+describe('Categories no build can raise', () => {
+  test('should keep operation-data-missing out of the categories', () => {
+    expect(Object.values(MESSAGE_CATEGORY)).not.toContain('operation-data-missing')
+  })
+})
 
 describe('The catalogue covers every category', () => {
   test('should drive or explicitly exclude each value of MESSAGE_CATEGORY', () => {

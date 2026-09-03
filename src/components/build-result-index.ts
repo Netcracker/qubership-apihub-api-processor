@@ -126,7 +126,9 @@ export function buildPackageOperations(operations: Map<string, ApiOperation>): P
       versionInternalDocumentId: operation.versionInternalDocumentId,
     })
   }
-  result.operations = sortByKey(result.operations, operation => operation.operationId)
+  // an operationId is unique only within an api type, so the key spans both — otherwise two rows tie and
+  // fall back to `config.files` order
+  result.operations = sortByKey(result.operations, ({ apiType, operationId }) => tupleKey(apiType, operationId))
   return result
 }
 

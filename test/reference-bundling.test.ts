@@ -201,7 +201,7 @@ components:
       files: [{ fileId: 'api.yaml' }],
     } as never)
 
-    expect([...result.operations.keys()]).toEqual(['pets-get'])
+    expect([...result.operations.values()].map(({ operationId }) => operationId)).toEqual(['pets-get'])
     expect(result.notifications).toEqual([])
   })
 })
