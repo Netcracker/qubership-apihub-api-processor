@@ -441,6 +441,7 @@ export const MESSAGE_CATEGORY = {
   BuildOperations:         'build-operations',
   DuplicateOperationId:    'duplicate-operation-id',
   RestDuplicateOperation:  'rest-duplicate-operation',
+  AsyncDuplicateOperation: 'async-duplicate-operation',
   EmptyPathParameter:      'empty-path-parameter',
   DoubleSlashPath:         'double-slash-path',
   // DDL
@@ -462,7 +463,6 @@ export const MESSAGE_CATEGORY = {
   VersionNotResolved:      'version-not-resolved',
   VersionRefsNotResolved:  'version-refs-not-resolved',
   VersionDocumentsMissing: 'version-documents-missing',
-  OperationDataMissing:    'operation-data-missing',
   RiskyBeforeValue:        'risky-before-value',
   RiskyOrigins:            'risky-origins',
   ComparisonSerialization: 'comparison-serialization',
@@ -481,16 +481,14 @@ in, so a category would duplicate it and mislead — the tolerant-hash messages 
 while actually firing during operation building.
 
 **Ids that do not become categories.** Four Ids are absent, because after the change no notification
-originates from them — three from the throws table, plus one that stops being a notification. The last keeps
-its Id; only its `MessageCategory` membership goes, since categories exist to classify messages and it no
-longer produces one:
+originates from them:
 
 | Id | Why it has no category |
 |----|------------------------|
 | `broken-refs-fatal` | The throw disappears — severity comes from the `errorType` and from `validationRulesSeverity.brokenRefs` instead, so these failures surface as `ref-not-found` / `ref-not-valid-format` |
 | `document-no-source` | Eliminated; `dumpUnknownDocument` returns an empty Blob |
-| `async-duplicate-operation` | The same handler and message as `duplicate-operation-id`; today it only differs by throwing for AsyncAPI instead of notifying. Once it notifies, the two are one diagnostic |
-| `previous-version-missing` | The Id survives, as a throw rather than a notification: `validateConfig` rejects a `changelog` with no baseline and `ChangelogStrategy` raises nothing — see [A changelog with no baseline is a config error](#a-changelog-with-no-baseline-is-a-config-error) |
+| `previous-version-missing` | `validateConfig` rejects a `changelog` with no baseline before any build runs, so this is a config error rather than a diagnostic and never becomes a message — see [A changelog with no baseline is a config error](#a-changelog-with-no-baseline-is-a-config-error) |
+| `operation-data-missing` | Unreachable: `versionOperationsResolver` raises it only for `includeData`, and both call sites in `compare.operations.ts` pass `false`. Removed rather than kept as a category nothing can produce |
 
 `ddl-duplicate-object` also merges its throw and notification rows: `ddl.validation.ts` pushes the message and
 then throws for the same defect, and only the notification survives.
@@ -529,6 +527,19 @@ opt into its own category later by throwing the same typed error — no further 
 **Severity was reviewed per site.** Every `Error` in **either** stream becomes a `release`-publication
 blocker, so each was explicitly confirmed as `Error` or downgraded to `Warning` against usage data. The
 `Severity decision` column in the tables below records the outcome; the reasoning is on each row.
+
+##### What the specification's enum must match
+
+`MessageCategory` is duplicated in `APIHUB_API.yaml` and `APIHUB_API_internal.yaml`, and both copies have to
+carry the list above:
+
+- **add** `async-duplicate-operation` — the intra-document AsyncAPI collision, which keeps its own category
+  the way `rest-duplicate-operation` does for REST;
+- **remove** `operation-data-missing` and `previous-version-missing` — neither becomes a message, for the
+  reasons in the table above.
+
+A consumer that validates against the schema sees an unknown value for the first and a value nothing can
+produce for the other two, so the enum is not optional to update.
 
 #### Severity must come from the source
 
@@ -780,7 +791,7 @@ caveat bounds the notification tables: their grades reflect **successful** build
 | `document-no-source` | `unknown.document.ts:93` `dumpUnknownDocument` — fires at **packaging/dump** time, not during document build | Throw | — | — | **eliminated** — the dumper returns an empty Blob instead of throwing, see [Error documents must carry their source](#error-documents-must-carry-their-source) |
 | `build-operations` | `components/operations.ts:45` — `buildOperations` throws | Throw | slug | — | Error |
 | `rest-duplicate-operation` | `rest.operations.ts:111` (message built by `createDuplicatesError`) | Throw | slug — a single document | — | Error |
-| `async-duplicate-operation` | `components/operations.ts:23` | Throw | slug, one per document in the pair | — | Error, reported under category `duplicate-operation-id` — same handler and message |
+| `async-duplicate-operation` | `async.operations.ts` — two operations of one document deriving one id | Throw | slug — a single document | — | Error, under its own category: the AsyncAPI counterpart of `rest-duplicate-operation` |
 | `mcp-duplicate-entity` | `components/mcp.ts:56` | Throw | slug, one per document in the pair | — | Error |
 | `ddl-duplicate-entity` | `components/ddl.ts:43` | Throw | slug, one per document in the pair | — | Error |
 | `ddl-duplicate-object` | `ddl.validation.ts:53` | Throw | slug | — | **throw removed** — the notification at `ddl.validation.ts:31` already reports it |
@@ -895,7 +906,7 @@ would stop republishing if the message stays `Error`, so it is what the severity
 | `ref-has-siblings` | `utils/document.ts:173`, `RICH_REF_NOT_ALLOWED` | Error | fileId → slug | often | **→ Warning.** Not a broken reference: a `$ref` with sibling keys, which OpenAPI 3.0 disallows stylistically and 3.1 permits. Resolution succeeds and operations build. Largest single blast radius in the whole set |
 | `invalid-text-file` | `builder.ts:754` → moves to the document build | Error | *move* — slug of the document whose bundle contains the file; **message names the offending `fileId`** when it is a dependency | often | **→ Warning**, and take severity from the parser rather than the constant — see [Severity must come from the source](#severity-must-come-from-the-source). Usage data shows the volume is entirely REST/AJV metaschema nitpicking, and nearly every affected release version still has operations — the documents work |
 | `ref-not-allowed` | `utils/document.ts:173`, `REF_NOT_ALLOWED` | Error | fileId → slug | often | **→ Warning.** The reference is valid, just not permitted at that position in the schema. Does not prevent the build, and thousands of releases already live with it |
-| `duplicate-operation-id` | `components/operations.ts:29` | Error | slug (already carried) | sometimes | **→ Warning now, Error later.** The problem is real — one operation overwrites another — but the check is recent and hundreds of releases already contain it. Blocking retroactively is not acceptable. Deferred, see [Follow-up — severity tightening](#follow-up--severity-tightening) |
+| `duplicate-operation-id` | `components/operations.ts:29` | Error | slug (already carried) | sometimes | **→ Warning now, Error later.** The problem is real — one operation overwrites another — but the check is recent and hundreds of releases already contain it. Blocking retroactively is not acceptable. Deferred, see [Follow-up — severity tightening](#follow-up--severity-tightening). Detected **per api type** — see [An operation is identified by its api type and its id](#an-operation-is-identified-by-its-api-type-and-its-id) |
 | `ref-not-found` | `utils/document.ts:173`, `REF_NOT_FOUND` | Error | fileId → slug | sometimes | **from `validationRulesSeverity.brokenRefs`** — Error under the default configuration, Warning where the installation sets `failBuildOnBrokenRefs: false`. Interim, like the deferred rows: still scheduled to become Error unconditionally once the flag is retired, see [Follow-up — severity tightening](#follow-up--severity-tightening). Nothing that builds today stops building, because today the same input throws. See [Broken references: severity comes from the build config](#broken-references-severity-comes-from-the-build-config). The grade understates the family: the `Unable to resolve the file …` messages counted separately in the analysis are the same error type, raised with api-processor's own text (`utils/document.ts:194/203`) |
 | `double-slash-path` | `rest.operations.ts:134` | Warning | fileId → slug | rare | keep Warning |
 | `file-not-parsed` | `files.ts:46` | Error | fileId → slug | rare | **keep Error.** The file did not parse at all. Last occurrence 2024-07-29 — two years quiet, negligible risk |
@@ -925,7 +936,6 @@ severities differ — two are fixed at `Warning`, two are configured. See
 | `risky-origins` | `rest.changes.ts:278` | Error | *add* — operation's slug | never | **→ Warning**, as `risky-before-value`. No release version affected |
 | `version-refs-not-resolved` | `builder.ts:682` | Error | none (version-level) | never | keep Error — zero occurrences |
 | `version-documents-missing` | `builder.ts:563` | Warning | none (version-level) | rare | **keep Warning now, Error later.** A comparison side whose documents cannot be resolved yields an unreliable changelog, so Error is the right end state — but releases already carry it. Deferred, see [Follow-up — severity tightening](#follow-up--severity-tightening) |
-| `operation-data-missing` | `builder.ts:465` | Warning | none (version-level) | never | **→ Error.** Missing operation data makes the comparison silently incomplete, which is exactly what the changelog gate exists to catch. Zero blast radius — no occurrences on record |
 | `comparison-serialization` | `components/package.ts:64` | Error | none (comparison-level) | never | keep Error — zero occurrences |
 
 ¹ `version-documents-missing` (`:563`) and `group-documents-missing` (`:496`, transform build types) share the
@@ -958,7 +968,7 @@ not.
 | Id | Site | Severity today | DocumentId | Occurrence | Severity decision |
 |----|------|----------------|------------|------------|-------------------|
 | `group-documents-missing` | `builder.ts:496` | Warning | none | rare | keep Warning |
-| `partial-group-documents` | `builder.ts:502` | Warning | none | never | keep Warning |
+| `partial-group-documents` | `builder.ts:502` | Warning | none | never | keep Warning. It cannot fire in the case its text names — it is raised inside the branch that already found no documents, where `[].every(...)` holds — but the nesting predates this design and is left alone here |
 
 ¹ Shared bucket with `version-documents-missing` — see the footnote under the `changelog` phase table.
 
@@ -984,6 +994,13 @@ export function calculateTolerantHash(
   documentId: string,          // NEW
 ): string | undefined
 ```
+
+**A deprecated AsyncAPI channel does not ask for a tolerant hash.** The unifier stamps the hash flag on schema
+and parameter nodes, never on a channel, so the request there could only ever report the hash missing — which
+every build with a deprecated channel did. There is no deprecated-item reclassification for AsyncAPI channels
+to need one, so the call is removed rather than the notification suppressed. The schema-derived deprecated
+items of the same document still ask for theirs, and deprecation history is unaffected: matching needs a hash
+on both sides and falls back to declaration paths otherwise, so items published by the old code still match.
 
 Both call sites already have the slug in scope: `rest.operation.ts:105` (`documentSlug`, destructured at
 `rest.operation.ts:87`) and `async.operation.ts:196/211` (`documentSlug`, used at `:115`). Making the
@@ -1013,10 +1030,10 @@ filtering even for warnings, and is required if they stay `Error` so a blocked `
 
 #### Notifications with no `documentId`
 
-Five sites remain unattributed by design, all in the comparison stream: `version-not-resolved`,
-`version-refs-not-resolved`, `operation-data-missing`, `version-documents-missing` and
-`comparison-serialization`. The first four are about a *version* as a whole; the last is about a version
-*pair*. There is no document to point at, and inventing one would be wrong.
+Four sites remain unattributed by design, all in the comparison stream: `version-not-resolved`,
+`version-refs-not-resolved`, `version-documents-missing` and `comparison-serialization`. The first three are
+about a *version* as a whole; the last is about a version *pair*. There is no document to point at, and
+inventing one would be wrong.
 
 Consequence to accept: a comparison can have `hasErrors: true` while no document is flagged, and — for the
 build stream — the same shape would arise for any future version-level build error. The UI must handle a mark
@@ -1056,10 +1073,13 @@ into notifications.
   produced.
 - cross-document duplicate handlers: emit one `Error` notification **per involved document**, same text; do
   not throw. Which entity survives is decided by the rule in
-  [Duplicate resolution](#duplicate-resolution) below. Covers `async-duplicate-operation`,
+  [Duplicate resolution](#duplicate-resolution) below. Covers `duplicate-operation-id`,
   `mcp-duplicate-entity`, `ddl-duplicate-entity`, all of which take the slug straight from
   `entity.documentId` / `operation.documentId` — for the MCP and DDL pair this depends on
   [`documentId` Unification](#documentid-unification-mcp-and-ddl-entities) landing first.
+- `buildAsyncApiOperations`: the same **intra-document** check for AsyncAPI, reported under
+  `async-duplicate-operation` — its own category, the counterpart of `rest-duplicate-operation`, not the
+  cross-document `duplicate-operation-id`.
 - `buildRestOperations` (`rest.operations.ts:109-112`): the duplicate check is **intra-document** —
   `operationIdMap` is built inside the function for a single document, and a collision means two
   `(path, method)` pairs compute the same operationId. Replace the throw with one `Error` notification
@@ -1171,6 +1191,37 @@ while `buildUnknownDocument` and `buildBinaryDocument` set `filename: fileId`. R
 the binary path and build failures through `buildErrorDocument` would give the two flavors of error document
 different filename conventions in the same build result. Pick one — `fileId` matches what unknown documents
 already ship today.
+
+#### An operation is identified by its api type and its id
+
+Operations are discriminated by api type first: a REST `GET /pets` and an AsyncAPI `pets`/`get` are two
+different operations even when both derive the `operationId` `pets-get`. The backend already addresses them
+that way — `/versions/{version}/{apiType}/operations/{operationId}`.
+
+The published operation index does not. It is one global map keyed by the `operationId` string alone, so the
+second operation to arrive evicts the first, and the eviction is then reported as a cross-document duplicate.
+That mixup is introduced by the duplicate-detection mechanism itself, not by the documents.
+
+**The index is keyed by `(apiType, operationId)`, and duplicates are detected within one api type.** A
+cross-api-type match is not a collision and raises nothing: both operations are published, and each document
+announces the id it derived. Only documents of one api type can contest an id, and the contest is decided the
+way it always was — the lexicographically smallest slug keeps the entry, and every claimant is told.
+
+Two consequences follow for anything that reads the index:
+
+- ownership is looked up by the claim a document made, never by a bare id, because a bare id no longer
+  identifies an entry. That covers withdrawing a lost id from a document, evicting a document's operations on
+  an incremental rebuild, and dropping them when the file leaves `config.files`;
+- any list ordered by `operationId` needs the api type in its sort key, or two rows tie and the archive's row
+  order follows `config.files`.
+
+`calculateHistoryForDeprecatedItems` resolves history for one api type at a time and must therefore filter the
+version's operations to that type before matching them by id; otherwise the history of a REST operation can
+land on an AsyncAPI operation that happens to share its id.
+
+**What this does not change.** Within one api type the diagnostic stands as designed: two documents deriving
+one id still overwrite each other, still get one message each, and still carry the severity of their api type
+— `Error` for AsyncAPI, the staged `Warning` for REST and GraphQL.
 
 #### Duplicate resolution
 
@@ -1362,11 +1413,37 @@ version, so neither flag has a consumer there — emitting them would invite a r
 artifact as if it said something about the version's own content, which it does not. A `changelog` therefore
 carries the comparison flags and `comparison-notifications.json`, nothing else.
 
+**A `changelog` archive carries no version content at all.** `notifications.json`, `documents.json`,
+`operations.json` and `version-internal-documents.json` are not written for a `changelog`-only build, nor are
+the document and operation data directories that belong to them. A changelog recalculates the changes of a
+version that is already published; its own documents and operations are empty, and the backend replaces a
+version's rows from what the archive holds. An empty `documents.json` would therefore describe the published
+version as having no documents, and an empty `notifications.json` would delete the diagnostics the build that
+did publish it recorded — the same hazard this design already closes for comparison rows. The archive holds
+`info.json`, the comparisons and `comparison-notifications.json`.
+
+This has to be confirmed against the backend's reader and stated in the API specification, which currently
+describes the build result without distinguishing the build types.
+
 | Build | `info.json.hasErrors` | document `hasErrors` | comparison `hasErrors` |
 |-------|:---------------------:|:--------------------:|:----------------------:|
 | `build`, no `previousVersion` | ✓ | ✓ | — (no comparisons) |
 | `build` with `previousVersion` | ✓ | ✓ | ✓ |
 | `changelog` | — | — | ✓ |
+
+#### Specification descriptions this changes
+
+Two descriptions in the API specification state the pre-tolerance behaviour and are now false. The wire format
+is right — only the prose needs correcting, in both `APIHUB_API.yaml` and `APIHUB_API_internal.yaml`:
+
+| Spec text | What is true after this change |
+|-----------|-------------------------------|
+| Document `hasErrors`: "published, but exposes **no operations** or contract entities" | A flagged document keeps whatever it managed to build. Only a document whose parse or build left no model has nothing to expose, and that is a consequence rather than the rule |
+| Comparison `hasErrors`: "does **not** prevent publication in `release` status" | The release gate blocks on comparison-stream `Error`s as well as build-stream ones. What the flag still does *not* do is mark the version — that half of the sentence stands |
+
+**A pre-existing typo, not caused by this design, worth fixing while the file is open.** `documents.json`
+items list `operations` in `required` while defining `operationIds`; api-processor ships `operationIds`. The
+required list should name the field that exists.
 
 #### Every comparison notification belongs to one version pair
 
@@ -1409,7 +1486,7 @@ report it:
   through it — `rest.changes.ts:268/277` included — lands in the right place.
 - The compare-scoped resolvers take the pair's array as their notifications argument, the same
   leading-parameter mechanism used to separate the two streams, so `version-not-resolved`,
-  `version-refs-not-resolved`, `operation-data-missing` and `version-documents-missing` attribute to the pair
+  `version-refs-not-resolved` and `version-documents-missing` attribute to the pair
   being computed when they fire.
 - `comparison-serialization` (`components/package.ts:64`) is raised from the `logError` closure passed to
   `toVersionsComparisonDto` / `toDdlComparisonDto`, and each of those calls is already *for* one comparison —
@@ -1593,6 +1670,9 @@ Guards the finding that a tolerated document must still survive packaging.
 - `rest-duplicate-operation` is **intra-document**: two `(path, method)` pairs in one document computing the
   same operationId produce a single notification on that document, the remaining operations of the document
   are still built, and no other document is flagged. Distinct from `duplicate-operation-id`.
+- `async-duplicate-operation` is the same check for AsyncAPI, under its own category: two operations of one
+  document deriving one id, one notification on that document. Cover it beside the REST case, so the pair
+  cannot drift apart.
 - order-independence: building the same file set with `config.files` in two different orders yields the same
   winner — the entity from the lexicographically-smallest `documentId` — and identical notifications. Cover all
   four duplicate kinds.
@@ -1642,7 +1722,7 @@ coverage — see [Severity must come from the source](#severity-must-come-from-t
   **Warning**, so a `release` build carrying only those succeeds; `ref-not-found` and `ref-not-valid-format`
   emit what `brokenRefs` selects, asserted by the two bullets above. Guards against the tightening being
   applied early — see [Follow-up — severity tightening](#follow-up--severity-tightening).
-- the promoted sites emit **Error**: `ddl-parse-issue` and `operation-data-missing`.
+- the promoted site emits **Error**: `ddl-parse-issue`.
 
 #### T11. Failures that stay fatal
 
@@ -2072,7 +2152,7 @@ of it; no further backend work is implied.
 
 **The UI must provide a way to see errors that are not attributable to any specific document.** Four `Error`
 notifications are inherently version-level: `version-not-resolved` (a previous version that is deleted or does
-not exist), `version-refs-not-resolved`, `operation-data-missing` and `comparison-serialization`. They set the
+not exist), `version-refs-not-resolved` and `comparison-serialization`. They set the
 version's
 `hasErrors` flag but flag **no document** and **no API type**, so a UI that only surfaces errors through the
 documents list or the API type dropdown would show an error mark the user cannot explain or act on.
