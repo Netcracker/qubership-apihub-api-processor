@@ -1802,7 +1802,7 @@ In the `BuildResult` schema ("Build result for build"):
 | `GET /api/v3/packages/{packageId}/versions/{version}/documents/{slug}` | add `hasErrors: boolean` (per-document detail already an on-demand fetch) |
 | `GET /api/v3/packages/{packageId}/versions/{version}` — `includeSummary=true` | add `changelogHasErrors: boolean` — `true` when the version's own comparison (against its `previousVersion`) has `hasErrors` |
 | `GET /api/v2/packages/{packageId}/versions/{version}/changes/summary` | add `hasErrors: boolean` — `true` when the comparison for the requested version pair has `hasErrors`. For a dashboard comparison the flag also appears per `refs[]` entry, since each ref is its own comparison. |
-| **NEW** `GET /api/v2/packages/{packageId}/versions/{version}/notifications` | returns the version's **build** notifications, **filterable** by `documentId`, `severity`, `category` (repeatable query params) and paged with the shared `limit` / `page` parameters. Served from `builder_notifications`. |
+| **NEW** `GET /api/v2/packages/{packageId}/versions/{version}/notifications` | returns the version's **build** notifications, **filterable** by `documentId`, `severity`, `category` (comma-separated query params) and paged with the shared `limit` / `page` parameters. Served from `builder_notifications`. |
 | **NEW** `GET /api/v2/packages/{packageId}/versions/{version}/changes/notifications` | returns the **comparison** notifications, same filters and paging plus `previousVersion` and `previousVersionPackageId` to select the comparison. Served from `comparison_notifications`. |
 
 Both require **read permission on the package**, the same access the version content and documents endpoints
@@ -1832,16 +1832,20 @@ New endpoint sketch:
         schema: { type: string }
       - name: severity
         in: query
-        description: Filter by severity (repeatable).
+        description: Filter by severity (comma-separated).
         schema:
           type: array
           items: { type: string, enum: [error, warning, information, hint] }
+        style: form
+        explode: false
       - name: category
         in: query
-        description: Filter by message category (repeatable).
+        description: Filter by message category (comma-separated).
         schema:
           type: array
           items: { type: string }
+        style: form
+        explode: false
       - $ref: "#/components/parameters/limit"
       - $ref: "#/components/parameters/page"
     responses:
@@ -1930,7 +1934,7 @@ persistence, the derived views and the refusals, none of which the api-processor
 #### Endpoints
 
 - both notification endpoints filter by `documentId`, `severity` and `category`, singly and combined, and
-  repeated `severity` / `category` parameters OR together.
+  comma-separated `severity` / `category` values OR together.
 - paging: `limit` and `page` return disjoint slices that reassemble into the unfiltered set, ordering is
   stable across pages, and paging composes with the filters rather than being applied before them.
 - `/changes/notifications` selects the comparison by `previousVersion` + `previousVersionPackageId`, and
