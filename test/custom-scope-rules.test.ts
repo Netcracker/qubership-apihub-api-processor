@@ -8,6 +8,7 @@ import {
   unclassified,
 } from '@netcracker/qubership-apihub-api-diff'
 import type { Diff, DiffType } from '@netcracker/qubership-apihub-api-diff'
+import type { ApihubApiCompatibilityKind } from '../src'
 import {
   APIHUB_API_COMPATIBILITY_KIND_BWC,
   APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL,
@@ -22,7 +23,7 @@ import { apiKindReclassificationRule, CUSTOM_SCOPE_ELEMENT_API_KIND } from '../s
  */
 
 /** A removal, since that is the shape both rules are asked about most, under the given api kind. */
-function removalUnder(type: DiffType, apiKind?: string): Diff {
+function removalUnder(type: DiffType, apiKind?: ApihubApiCompatibilityKind): Diff {
   return {
     action: DiffAction.remove,
     type,
@@ -35,9 +36,17 @@ function removalUnder(type: DiffType, apiKind?: string): Diff {
 
 const EVERY_DIFF_TYPE: DiffType[] = [breaking, nonBreaking, risky, annotation, deprecated, unclassified]
 
+/** Every api kind a route can be reached under, `undefined` for a route carrying no mark at all. */
+const EVERY_API_KIND: (ApihubApiCompatibilityKind | undefined)[] = [
+  undefined,
+  APIHUB_API_COMPATIBILITY_KIND_BWC,
+  APIHUB_API_COMPATIBILITY_KIND_NO_BWC,
+  APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL,
+]
+
 describe('apiKindReclassificationRule', () => {
   // The api kinds a no-BWC-like mark can take, and the ones that must leave the verdict alone
-  it.each<[string, DiffType | undefined]>([
+  it.each<[ApihubApiCompatibilityKind, DiffType | undefined]>([
     [APIHUB_API_COMPATIBILITY_KIND_NO_BWC, risky],
     [APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL, risky],
     [APIHUB_API_COMPATIBILITY_KIND_BWC, undefined],
@@ -52,7 +61,11 @@ describe('apiKindReclassificationRule', () => {
   })
 
   it('should decline a value no api kind of ours spells', () => {
-    expect(apiKindReclassificationRule(removalUnder(breaking, 'no-bwc-ish'))).toBeUndefined()
+    // Cast on purpose: the point is a value outside the type, which is what a stale or hand-edited
+    // custom scope would carry, and the rule has to answer it rather than treat it as no-BWC-like
+    const outsideTheType = 'no-bwc-ish' as ApihubApiCompatibilityKind
+
+    expect(apiKindReclassificationRule(removalUnder(breaking, outsideTheType))).toBeUndefined()
   })
 
   // The guard the end-to-end suites cannot see: dropping it leaves all of them green, because no fixture
@@ -64,13 +77,9 @@ describe('apiKindReclassificationRule', () => {
     },
   )
 
-  it('should only ever soften, never sharpen', () => {
-    const answers = EVERY_DIFF_TYPE.flatMap(type => [
-      undefined,
-      APIHUB_API_COMPATIBILITY_KIND_BWC,
-      APIHUB_API_COMPATIBILITY_KIND_NO_BWC,
-      APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL,
-    ].map(apiKind => apiKindReclassificationRule(removalUnder(type, apiKind))))
+  it('should answer only risky or nothing, whatever the difference and the mark', () => {
+    const answers = EVERY_DIFF_TYPE.flatMap(type =>
+      EVERY_API_KIND.map(apiKind => apiKindReclassificationRule(removalUnder(type, apiKind))))
 
     // The whole APIHUB policy in one line: a marked operation makes a breaking change risky and nothing
     // else. A rule that could return `nonBreaking` or `breaking` would change what the order of the
@@ -78,7 +87,7 @@ describe('apiKindReclassificationRule', () => {
     expect(new Set(answers)).toEqual(new Set([risky, undefined]))
   })
 
-  it('should read the api kind of the difference it is given, not of the one before', () => {
+  it('should answer from the api kind of the difference it is given', () => {
     const marked = removalUnder(breaking, APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
     const unmarked = removalUnder(breaking)
 

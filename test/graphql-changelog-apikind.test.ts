@@ -29,7 +29,7 @@ import {
   VERSION_STATUS,
 } from '../src'
 import { createGraphqlApiKindValueAt } from '../src/components/compare/graphql.api-kind'
-import { changesSummaryMatcher, Editor, LocalRegistry, nodeAt } from './helpers'
+import { changesSummaryMatcher, Editor, LocalRegistry, customScopeElementContext } from './helpers'
 import { takeIfDefined } from '../src/utils'
 
 const BWC = APIHUB_API_COMPATIBILITY_KIND_BWC
@@ -50,7 +50,7 @@ describe('GraphQL api kind scope element', () => {
       [BWC, EXPERIMENTAL, NO_BWC],
       [EXPERIMENTAL, BWC, NO_BWC],
     ] as const)('should classify root scope prev(%s) curr(%s) as %s', (prev, curr, expected) => {
-      expect(createGraphqlApiKindValueAt(prev, curr)(nodeAt([], OBJ, OBJ))).toBe(expected)
+      expect(createGraphqlApiKindValueAt(prev, curr)(customScopeElementContext([], OBJ, OBJ))).toBe(expected)
     })
   })
 
@@ -63,7 +63,7 @@ describe('GraphQL api kind scope element', () => {
       [NO_BWC, EXPERIMENTAL, NO_BWC],
       [EXPERIMENTAL, BWC, NO_BWC],
     ] as const)('should classify operation modification prev(%s) curr(%s) as %s', (prev, curr, expected) => {
-      expect(createGraphqlApiKindValueAt(prev, curr)(nodeAt(OP, OBJ, OBJ))).toBe(expected)
+      expect(createGraphqlApiKindValueAt(prev, curr)(customScopeElementContext(OP, OBJ, OBJ))).toBe(expected)
     })
   })
 
@@ -75,7 +75,7 @@ describe('GraphQL api kind scope element', () => {
       [NO_BWC, NO_BWC, NO_BWC],
       [EXPERIMENTAL, BWC, NO_BWC],
     ] as const)('should classify operation removal prev(%s) curr(%s) as %s', (prev, curr, expected) => {
-      expect(createGraphqlApiKindValueAt(prev, curr)(nodeAt(OP, OBJ, undefined))).toBe(expected)
+      expect(createGraphqlApiKindValueAt(prev, curr)(customScopeElementContext(OP, OBJ, undefined))).toBe(expected)
     })
   })
 
@@ -86,7 +86,7 @@ describe('GraphQL api kind scope element', () => {
       [NO_BWC, BWC, NO_BWC], // either side no-bwc → risky
       [EXPERIMENTAL, BWC, NO_BWC],
     ] as const)('should classify operation addition prev(%s) curr(%s) as %s', (prev, curr, expected) => {
-      expect(createGraphqlApiKindValueAt(prev, curr)(nodeAt(OP, undefined, OBJ))).toBe(expected)
+      expect(createGraphqlApiKindValueAt(prev, curr)(customScopeElementContext(OP, undefined, OBJ))).toBe(expected)
     })
   })
 
@@ -100,7 +100,7 @@ describe('GraphQL api kind scope element', () => {
       ['subscriptions', 's1'],
     ] as const)('should classify %s modification by either side', (segment, name) => {
       const fn = createGraphqlApiKindValueAt(NO_BWC, BWC)
-      expect(fn(nodeAt([segment, name], OBJ, OBJ))).toBe(NO_BWC) // either side no-bwc → risky
+      expect(fn(customScopeElementContext([segment, name], OBJ, OBJ))).toBe(NO_BWC) // either side no-bwc → risky
     })
   })
 
@@ -112,8 +112,8 @@ describe('GraphQL api kind scope element', () => {
 
     it.each(docs)('should produce the same root scope result as no-BWC (document=%s)', (prev) => {
       for (const curr of docs) {
-        const noBwc = createGraphqlApiKindValueAt(prev, curr)(nodeAt([], OBJ, OBJ))
-        const exp = createGraphqlApiKindValueAt(replace(prev), replace(curr))(nodeAt([], OBJ, OBJ))
+        const noBwc = createGraphqlApiKindValueAt(prev, curr)(customScopeElementContext([], OBJ, OBJ))
+        const exp = createGraphqlApiKindValueAt(replace(prev), replace(curr))(customScopeElementContext([], OBJ, OBJ))
         expect(exp).toBe(noBwc)
       }
     })
@@ -121,8 +121,8 @@ describe('GraphQL api kind scope element', () => {
     it.each(docs)('should produce the same operation scope result as no-BWC (document=%s)', (prev) => {
       for (const curr of docs) {
         for (const [before, after] of beforeAfter) {
-          const noBwc = createGraphqlApiKindValueAt(prev, curr)(nodeAt(OP, before, after))
-          const exp = createGraphqlApiKindValueAt(replace(prev), replace(curr))(nodeAt(OP, before, after))
+          const noBwc = createGraphqlApiKindValueAt(prev, curr)(customScopeElementContext(OP, before, after))
+          const exp = createGraphqlApiKindValueAt(replace(prev), replace(curr))(customScopeElementContext(OP, before, after))
           expect(exp).toBe(noBwc)
         }
       }
@@ -133,13 +133,13 @@ describe('GraphQL api kind scope element', () => {
     const fn = createGraphqlApiKindValueAt(NO_BWC, NO_BWC)
 
     it('should return undefined when the operation is absent on both sides', () => {
-      expect(fn(nodeAt(OP, undefined, undefined))).toBeUndefined()
+      expect(fn(customScopeElementContext(OP, undefined, undefined))).toBeUndefined()
     })
     it('should return undefined for a non-operation top-level segment', () => {
-      expect(fn(nodeAt(['components', 'Foo'], OBJ, OBJ))).toBeUndefined()
+      expect(fn(customScopeElementContext(['components', 'Foo'], OBJ, OBJ))).toBeUndefined()
     })
     it('should return undefined for a deeper-than-operation path', () => {
-      expect(fn(nodeAt(['queries', 'q1', 'args'], OBJ, OBJ))).toBeUndefined()
+      expect(fn(customScopeElementContext(['queries', 'q1', 'args'], OBJ, OBJ))).toBeUndefined()
     })
   })
 })

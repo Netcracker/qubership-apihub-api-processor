@@ -5,7 +5,7 @@ import {
   generateAsyncApiTwoChannelsSpec,
   generateAsyncApiTwoMessagesSpec,
   generateAsyncApiTwoOperationsSpec,
-  nodeAt,
+  customScopeElementContext,
 } from './helpers'
 import {
   API_KIND_SPECIFICATION_EXTENSION,
@@ -96,7 +96,7 @@ describe('AsyncAPI api kind scope element', () => {
       [NO_BWC, EXPERIMENTAL, NO_BWC],
     ] as const)('should classify root scope prev(%s) curr(%s) as %s', (prev, curr, expected) => {
       const scopeFunction = createAsyncApiKindValueAt(prev, curr)
-      expect(scopeFunction(nodeAt([], {}, {}))).toBe(expected)
+      expect(scopeFunction(customScopeElementContext([], {}, {}))).toBe(expected)
     })
   })
 
@@ -146,7 +146,7 @@ describe('AsyncAPI api kind scope element', () => {
       expected,
     ) => {
       const scopeFunction = createAsyncApiKindValueAt(documentApiKind, documentApiKind)
-      expect(scopeFunction(nodeAt(['channels', 'ch1'], buildChannel(beforeKind), buildChannel(afterKind)))).toBe(expected)
+      expect(scopeFunction(customScopeElementContext(['channels', 'ch1'], buildChannel(beforeKind), buildChannel(afterKind)))).toBe(expected)
     })
   })
 
@@ -202,7 +202,7 @@ describe('AsyncAPI api kind scope element', () => {
       expected,
     ) => {
       const scopeFunction = createAsyncApiKindValueAt(documentApiKind, documentApiKind)
-      expect(scopeFunction(nodeAt(['operations', 'op1'], buildOperation(beforeKind), buildOperation(afterKind)))).toBe(expected)
+      expect(scopeFunction(customScopeElementContext(['operations', 'op1'], buildOperation(beforeKind), buildOperation(afterKind)))).toBe(expected)
     })
 
     it('should use channel x-api-kind as fallback when operation has no x-api-kind', () => {
@@ -212,7 +212,7 @@ describe('AsyncAPI api kind scope element', () => {
         channel: { [API_KIND_SPECIFICATION_EXTENSION]: NO_BWC },
       }
       const after = { action: 'send' as const, channel: {} }
-      expect(scopeFunction(nodeAt(['operations', 'op1'], before, after))).toBe(NO_BWC)
+      expect(scopeFunction(customScopeElementContext(['operations', 'op1'], before, after))).toBe(NO_BWC)
     })
 
     it('should let operation x-api-kind override channel x-api-kind', () => {
@@ -227,7 +227,7 @@ describe('AsyncAPI api kind scope element', () => {
         [API_KIND_SPECIFICATION_EXTENSION]: BWC,
         channel: { [API_KIND_SPECIFICATION_EXTENSION]: NO_BWC },
       }
-      expect(scopeFunction(nodeAt(['operations', 'op1'], before, after))).toBe(BWC)
+      expect(scopeFunction(customScopeElementContext(['operations', 'op1'], before, after))).toBe(BWC)
     })
   })
 
@@ -242,8 +242,8 @@ describe('AsyncAPI api kind scope element', () => {
 
     it.each(documentKinds)('should produce same root scope results as no-BWC (document=%s)', (doc) => {
       for (const otherDoc of documentKinds) {
-        const noBwcResult = createAsyncApiKindValueAt(doc, otherDoc)(nodeAt([], {}, {}))
-        const expResult = createAsyncApiKindValueAt(replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind, replaceNoBwcWithExperimental(otherDoc) as ApihubApiCompatibilityKind)(nodeAt([], {}, {}))
+        const noBwcResult = createAsyncApiKindValueAt(doc, otherDoc)(customScopeElementContext([], {}, {}))
+        const expResult = createAsyncApiKindValueAt(replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind, replaceNoBwcWithExperimental(otherDoc) as ApihubApiCompatibilityKind)(customScopeElementContext([], {}, {}))
         expect(expResult).toBe(noBwcResult)
       }
     })
@@ -253,8 +253,8 @@ describe('AsyncAPI api kind scope element', () => {
       const expDocScope = createAsyncApiKindValueAt(replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind, replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind)
       for (const before of allKinds) {
         for (const after of allKinds) {
-          const noBwcResult = scope(nodeAt(['channels', 'ch1'], buildChannel(before), buildChannel(after)))
-          const expResult = expDocScope(nodeAt(['channels', 'ch1'], buildChannel(replaceNoBwcWithExperimental(before)), buildChannel(replaceNoBwcWithExperimental(after))))
+          const noBwcResult = scope(customScopeElementContext(['channels', 'ch1'], buildChannel(before), buildChannel(after)))
+          const expResult = expDocScope(customScopeElementContext(['channels', 'ch1'], buildChannel(replaceNoBwcWithExperimental(before)), buildChannel(replaceNoBwcWithExperimental(after))))
           expect(expResult).toBe(noBwcResult)
         }
       }
@@ -265,8 +265,8 @@ describe('AsyncAPI api kind scope element', () => {
       const expDocScope = createAsyncApiKindValueAt(replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind, replaceNoBwcWithExperimental(doc) as ApihubApiCompatibilityKind)
       for (const before of allKinds) {
         for (const after of allKinds) {
-          const noBwcResult = scope(nodeAt(['operations', 'op1'], buildOperation(before), buildOperation(after)))
-          const expResult = expDocScope(nodeAt(['operations', 'op1'], buildOperation(replaceNoBwcWithExperimental(before)), buildOperation(replaceNoBwcWithExperimental(after))))
+          const noBwcResult = scope(customScopeElementContext(['operations', 'op1'], buildOperation(before), buildOperation(after)))
+          const expResult = expDocScope(customScopeElementContext(['operations', 'op1'], buildOperation(replaceNoBwcWithExperimental(before)), buildOperation(replaceNoBwcWithExperimental(after))))
           expect(expResult).toBe(noBwcResult)
         }
       }
@@ -277,15 +277,15 @@ describe('AsyncAPI api kind scope element', () => {
     const scopeFunction = createAsyncApiKindValueAt()
 
     it('should return undefined for non-operations/non-channels paths', () => {
-      expect(scopeFunction(nodeAt(['components', 'messages'], {}, {}))).toBeUndefined()
+      expect(scopeFunction(customScopeElementContext(['components', 'messages'], {}, {}))).toBeUndefined()
     })
 
     it('should return undefined for deeper operation paths', () => {
-      expect(scopeFunction(nodeAt(['operations', 'op1', 'channel'], {}, {}))).toBeUndefined()
+      expect(scopeFunction(customScopeElementContext(['operations', 'op1', 'channel'], {}, {}))).toBeUndefined()
     })
 
     it('should return undefined for deeper channel paths', () => {
-      expect(scopeFunction(nodeAt(['channels', 'ch1', 'messages'], {}, {}))).toBeUndefined()
+      expect(scopeFunction(customScopeElementContext(['channels', 'ch1', 'messages'], {}, {}))).toBeUndefined()
     })
   })
 })

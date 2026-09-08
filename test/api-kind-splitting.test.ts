@@ -1,6 +1,5 @@
 import { BUILD_TYPE, BuildResult, VERSION_STATUS } from '../src'
-import type { OperationChanges } from '../src'
-import { Editor, LocalRegistry } from './helpers'
+import { Editor, expectSummariesMatchDiffs, LocalRegistry, operationChangesOf } from './helpers'
 
 /**
  * The point of the api kind scope element in one document: two operations share a schema, one of them is
@@ -54,18 +53,19 @@ describe('One removal, two operations, two verdicts', () => {
     }, {}, portal).run()
   })
 
-  it('reports the same removal as risky for the marked operation and breaking for the other', () => {
-    const changesOf = (path: string): OperationChanges => {
-      const changes = result.comparisons[0]?.data?.find(item => item.operationId?.includes(path))
-      if (!changes) {
-        throw new Error(`No changes for ${path}. Operations: ${result.comparisons[0]?.data?.map(item => item.operationId).join(', ')}`)
-      }
-      return changes
-    }
+  it('should report the same removal as risky for the marked operation and breaking for the other', () => {
+    const marked = operationChangesOf(result, 'marked-post')
+    const plain = operationChangesOf(result, 'plain-post')
 
-    expect(changesOf('marked').changeSummary.risky).toBe(1)
-    expect(changesOf('marked').changeSummary.breaking).toBe(0)
-    expect(changesOf('plain').changeSummary.breaking).toBe(1)
-    expect(changesOf('plain').changeSummary.risky).toBe(0)
+    expect(marked.changeSummary.risky).toBe(1)
+    expect(marked.changeSummary.breaking).toBe(0)
+    expect(plain.changeSummary.breaking).toBe(1)
+    expect(plain.changeSummary.risky).toBe(0)
+  })
+
+  it('should give every operation a changeSummary matching its own changes', () => {
+    // The same shape that produced the reported bug, softened by the api kind rule rather than the
+    // deprecation one: one removal, two operations, two verdicts
+    expectSummariesMatchDiffs(result)
   })
 })

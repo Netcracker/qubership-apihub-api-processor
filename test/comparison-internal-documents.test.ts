@@ -19,10 +19,13 @@ import {
   buildChangelogPackage,
   buildGqlChangelogPackage,
   DEFAULT_PROJECTS_PATH,
+  deserializeDocument,
   Editor,
   loadFileAsString,
   LocalRegistry,
 } from './helpers'
+import { DIFFS_AGGREGATED_META_KEY } from '@netcracker/qubership-apihub-api-diff'
+import type { Diff } from '@netcracker/qubership-apihub-api-diff'
 import {
   APIHUB_API_COMPATIBILITY_KIND_BWC,
   BUILD_TYPE,
@@ -33,8 +36,6 @@ import {
   VERSION_STATUS,
 } from '../src'
 import { CUSTOM_SCOPE_ELEMENT_API_KIND } from '../src/components/compare/custom-scope'
-
-const DIFF_ACTIONS = new Set(['add', 'remove', 'replace', 'rename'])
 
 describe('Comparison Internal Documents tests', () => {
 
@@ -310,18 +311,14 @@ describe('Comparison Internal Documents tests', () => {
       let inspected = 0
       for (const comparison of result.comparisons) {
         for (const document of comparison.comparisonInternalDocuments) {
-          const slots = JSON.parse(document.serializedComparisonDocument) as unknown[]
-          const deref = (value: unknown): unknown => (typeof value === 'string' ? slots[Number(value)] : value)
-          const differences = slots.filter((slot): slot is Record<string, string> =>
-            !!slot && typeof slot === 'object' && 'action' in slot && 'type' in slot && 'scope' in slot &&
-            DIFF_ACTIONS.has(String(deref((slot as Record<string, string>).action))))
+          const stored: unknown = deserializeDocument(document.serializedComparisonDocument)
+          const differences = (stored as Record<symbol, unknown>)[DIFFS_AGGREGATED_META_KEY]
+          expect(differences).toBeInstanceOf(Set)
 
-          for (const difference of differences) {
-            const customScope = deref(difference.customScope) as Record<string, string> | undefined
-            expect(customScope).toBeDefined()
-            expect(deref(customScope?.[CUSTOM_SCOPE_ELEMENT_API_KIND])).toBe(APIHUB_API_COMPATIBILITY_KIND_BWC)
+          for (const difference of differences as Set<Diff>) {
+            expect(difference.customScope?.[CUSTOM_SCOPE_ELEMENT_API_KIND]).toBe(APIHUB_API_COMPATIBILITY_KIND_BWC)
+            inspected += 1
           }
-          inspected += differences.length
         }
       }
 

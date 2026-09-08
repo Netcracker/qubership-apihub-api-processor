@@ -58,7 +58,7 @@ const SUFFICIENT_DEPRECATION_HISTORY = 1
 const OPERATION_PATH_LENGTH = 3 // paths/<path>/<method>
 
 /**
- * The APIHUB rule for removal of long-deprecated elements: the scope element says which traversals may
+ * The APIHUB rule for removal of long-deprecated elements: the scope element says which routes may
  * disagree, the rule says what each decides. Both empty when nothing was announced long enough.
  */
 type DeprecatedRemovalRules = {
@@ -80,7 +80,7 @@ type OperationKey = string
 type SeasonedDeprecations = ReadonlySet<DeprecatedElementId>
 
 /** What the traversal asks about an operation, settled up front. One lookup answers both. */
-type PreparedOperation = {
+type OperationDeprecation = {
   isOperationSeasoned: boolean
   partition: DeprecationPartition | undefined
 }
@@ -88,9 +88,10 @@ type PreparedOperation = {
 /**
  * Builds the deprecated-removal rules for one document pair.
  * Two operations sharing a schema can disagree about the same removed element, since whether a removal
- * breaks consumers depends on how long they were warned. api-diff yields one difference per change, not
- * per route to it, so partitions are what keep the two verdicts apart. Deciding inside apiDiff, instead
- * of rewriting types afterwards, makes the result independent of the order operations are visited.
+ * breaks consumers depends on how long they were warned. Declaring a custom scope element is what lets them:
+ * api-diff gives routes that answer it differently their own difference instances, and the partitions below
+ * are the values it answers with. Deciding inside apiDiff, instead of rewriting types afterwards, makes the
+ * result independent of the order operations are visited.
  * History comes from the previous version, so it is fetched up front: what api-diff then calls — the
  * scope element's `valueAt` and the rule — has to be synchronous.
  */
@@ -106,18 +107,18 @@ export async function createDeprecatedRemovalRules(
   }
 
   const previousOperations = await resolvePreviousDeprecations(operationsMap, previousDocument, ctx)
-  const { preparedByOperationId, seasonedByPartition } = prepareOperations(previousOperations ?? [])
-  if (!preparedByOperationId.size) {
+  const { deprecationByOperationId, seasonedByPartition } = indexDeprecationHistory(previousOperations ?? [])
+  if (!deprecationByOperationId.size) {
     return NOTHING_TO_DOWNGRADE
   }
-  const preparedOf = createPreparedOperationLookup(operationsMap, previousDocumentData?.servers, preparedByOperationId)
+  const deprecationOf = createOperationDeprecationLookup(operationsMap, previousDocumentData?.servers, deprecationByOperationId)
   const reportBrokenOrigins = createBrokenOriginsReporter(ctx)
 
   return {
     customScopeElementProviders: [{
       name: CUSTOM_SCOPE_ELEMENT_DEPRECATION,
       valueAt: ({ path, beforeJso }) => (
-        isOperationPath(path) ? preparedOf(path[1], path[2], beforeJso)?.partition : undefined
+        isOperationPath(path) ? deprecationOf(path[1], path[2], beforeJso)?.partition : undefined
       ),
     }],
 
@@ -126,7 +127,7 @@ export async function createDeprecatedRemovalRules(
         return undefined
       }
 
-      const operationVerdict = classifyOperationRemoval(diff, preparedOf)
+      const operationVerdict = classifyOperationRemoval(diff, deprecationOf)
       if (operationVerdict) {
         return operationVerdict
       }
@@ -148,12 +149,12 @@ export async function createDeprecatedRemovalRules(
  * declared through a path-item `$ref` visible. The comparison reports normalized paths, where the
  * reference is already resolved, while the raw document shows only the `$ref`.
  */
-function createPreparedOperationLookup(
+function createOperationDeprecationLookup(
   operationsMap: OperationsMap,
   previousDocumentServers: OpenAPIV3.ServerObject[] | undefined,
-  preparedByOperationId: Map<string, PreparedOperation>,
-): PreparedOperationLookup {
-  const resolved = new Map<OperationKey, PreparedOperation | undefined>()
+  deprecationByOperationId: Map<string, OperationDeprecation>,
+): OperationDeprecationLookup {
+  const resolved = new Map<OperationKey, OperationDeprecation | undefined>()
 
   return (path, method, operation) => {
     // Memoized on path and method alone: every caller passes the normalized operation object, where path
@@ -165,22 +166,23 @@ function createPreparedOperationLookup(
 
     const basePath = extractOperationBasePath((operation as OpenAPIV3.OperationObject | undefined)?.servers || previousDocumentServers || [])
     const previousOperationId = operationsMap[calculateNormalizedRestOperationId(basePath, String(path), String(method))]?.previous?.operationId
-    const prepared = previousOperationId ? preparedByOperationId.get(previousOperationId) : undefined
+    const deprecation = previousOperationId ? deprecationByOperationId.get(previousOperationId) : undefined
 
-    resolved.set(key, prepared)
-    return prepared
+    resolved.set(key, deprecation)
+    return deprecation
   }
 }
 
-type PreparedOperationLookup = (
+type OperationDeprecationLookup = (
   path: PropertyKey | undefined,
   method: PropertyKey | undefined,
   operation: unknown,
-) => PreparedOperation | undefined
+) => OperationDeprecation | undefined
 
 /**
- * Settles, per operation of the previous version, everything the comparison will ask: whether the
- * operation itself was announced long enough, and which partition it belongs to.
+ * Indexes the deprecation history of the previous version twice, which is everything the comparison goes
+ * on to ask: by operation, whether that operation was itself announced long enough and which partition it
+ * belongs to; and by partition, the elements its operations were warned about.
  *
  * Operations need separate partitions only where they can disagree, which means only about an element
  * another operation can reach (see `isPrivateToOperation`). Keying on those alone keeps the common cleanup
@@ -190,13 +192,12 @@ type PreparedOperationLookup = (
  * A partition answers with the union of its operations' seasoned elements, which is sound because its
  * shareable elements are identical by construction and the private ones reach a single operation.
  */
-function prepareOperations(operations: ResolvedDeprecatedOperation[]): {
-  preparedByOperationId: Map<string, PreparedOperation>
+function indexDeprecationHistory(operations: ResolvedDeprecatedOperation[]): {
+  deprecationByOperationId: Map<string, OperationDeprecation>
   seasonedByPartition: Map<DeprecationPartition, SeasonedDeprecations>
 } {
-  const partitionBySignature = new Map<string, DeprecationPartition>()
   const seasonedByPartition = new Map<DeprecationPartition, Set<DeprecatedElementId>>()
-  const preparedByOperationId = new Map<string, PreparedOperation>()
+  const deprecationByOperationId = new Map<string, OperationDeprecation>()
 
   for (const operation of operations) {
     const isOperationSeasoned = (operation.deprecatedInPreviousVersions?.length ?? 0) > SUFFICIENT_DEPRECATION_HISTORY
@@ -211,7 +212,7 @@ function prepareOperations(operations: ResolvedDeprecatedOperation[]): {
     // difference instances. Recorded only because `classifyOperationRemoval` still reads the flag
     if (!seasonedItems.length) {
       if (isOperationSeasoned) {
-        preparedByOperationId.set(operation.operationId, { isOperationSeasoned, partition: undefined })
+        deprecationByOperationId.set(operation.operationId, { isOperationSeasoned, partition: undefined })
       }
       continue
     }
@@ -221,19 +222,19 @@ function prepareOperations(operations: ResolvedDeprecatedOperation[]): {
       .map(deprecatedItemId)
       .sort()
       .join('\n')
-    // An opaque grouping key, not a contract: nothing outside reads its shape, and its number depends on
-    // the order the resolver answered in
-    const partition = partitionBySignature.get(signature) ?? `deprecated-${partitionBySignature.size}`
-    partitionBySignature.set(signature, partition)
+    // Derived from the signature rather than counted, because the label is serialized into the stored
+    // comparison document: a counter would number the same partition differently depending on the order
+    // the resolver answered in, so identical inputs could produce different stored bytes
+    const partition = `deprecated-${calculateHash(signature)}`
 
     const pooled = seasonedByPartition.get(partition) ?? new Set<DeprecatedElementId>()
     seasonedByPartition.set(partition, pooled)
     seasonedItems.forEach(item => pooled.add(deprecatedItemId(item)))
 
-    preparedByOperationId.set(operation.operationId, { isOperationSeasoned, partition })
+    deprecationByOperationId.set(operation.operationId, { isOperationSeasoned, partition })
   }
 
-  return { preparedByOperationId, seasonedByPartition }
+  return { deprecationByOperationId, seasonedByPartition }
 }
 
 /**
@@ -294,10 +295,10 @@ async function resolvePreviousDeprecations(
  */
 function classifyOperationRemoval(
   { beforeDeclarationPaths, beforeValue }: DiffRemove,
-  preparedOf: PreparedOperationLookup,
+  deprecationOf: OperationDeprecationLookup,
 ): DiffType | undefined {
   const isSeasoned = beforeDeclarationPaths.some(path =>
-    isOperationPath(path) && preparedOf(path[1], path[2], beforeValue)?.isOperationSeasoned,
+    isOperationPath(path) && deprecationOf(path[1], path[2], beforeValue)?.isOperationSeasoned,
   )
   return isSeasoned ? risky : undefined
 }
