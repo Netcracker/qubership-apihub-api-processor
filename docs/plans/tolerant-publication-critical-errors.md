@@ -124,6 +124,7 @@ Detail in [api-processor](#api-processor) and [Backend](#backend); this is the s
 |----------|--------|
 | `GET /api/v3/packages/{packageId}/versions` | `hasErrors` and `changelogHasErrors` per version |
 | `GET /api/v3/packages/{packageId}/versions/{version}` | `hasErrors` for the version; `hasErrors` per `operationTypes` entry and per `contractsSummary.ddl` / `.mcp`; `changelogHasErrors` when `includeSummary=true` |
+| `GET /api/v3/packages/{packageId}/versions/{version}/revisions` | `hasErrors` and `changelogHasErrors` per revision |
 | `GET /api/v2/packages/{packageId}/versions/{version}/documents` | `hasErrors` per document |
 | `GET /api/v3/packages/{packageId}/versions/{version}/documents/{slug}` | `hasErrors` for the document |
 | `GET /api/v2/packages/{packageId}/versions/{version}/changes/summary` | `hasErrors` for the comparison |
@@ -1731,6 +1732,14 @@ In the `BuildResult` schema ("Build result for build"):
   selects that comparison's `hasErrors`. The join is left so that versions with no previous version stay in the
   result with the flag unset. This is the bulk form of the `isVersionUnsound` lookup below — both read the same
   stored flag, so a list row and a guard cannot disagree about a version.
+- **Revisions-list flags.** `GetVersionRevisionsList` (`repository/PublishedRepositoryPG.go:363`) already
+  selects `pv.*`, so version-level `hasErrors` arrives with `published_version.metadata` and only has to be
+  read out in `MakePackageVersionRevisionView` (`entity/PublishedEntities.go:579`). `changelogHasErrors` needs
+  the same left join to `version_comparison` as the versions list, keyed on the revision's own
+  `(package_id, version, revision)` and previous-version columns. Both flags are revision-scoped in storage
+  already, so a revision published with errors keeps its mark while a later, fixed revision of the same
+  version reports neither — which is exactly why the revisions list has to carry them: the versions list shows
+  only the latest revision, and the mark on an older one is otherwise unreachable.
 - **`ValidateBuildResultAgainstConfig`** (`service/validation/PublishedValidator.go:121`): keep the strict
   `info.status == buildConfig.status` check (no downgrade). **Add** a defensive rule: if
   `buildConfig.status == release` and **either** `info.hasErrors == true` **or** any entry of
@@ -1800,6 +1809,7 @@ In the `BuildResult` schema ("Build result for build"):
 | `GET /api/v3/packages/{packageId}/versions/{version}` — `PackageVersionContent` | add `hasErrors: boolean` (from build result); add `hasErrors: boolean` on each `operationTypes.*` item and on `contractsSummary.ddl` / `contractsSummary.mcp` — **calculated by the backend** from the version's documents (a document with `hasErrors` contributes to its apiType/contractType) |
 | `GET /api/v2/packages/{packageId}/versions/{version}/documents` — `PackageVersionFile` | add `hasErrors: boolean` (default `false`) — from build result (`published_version_content.metadata`) |
 | `GET /api/v3/packages/{packageId}/versions/{version}/documents/{slug}` | add `hasErrors: boolean` (per-document detail already an on-demand fetch) |
+| `GET /api/v3/packages/{packageId}/versions/{version}/revisions` — `PackageVersionRevision` | add `hasErrors: boolean` (default `false`) — from that revision's `published_version.metadata`; add `changelogHasErrors: boolean` (default `false`) — from the `version_comparison` row of that revision's comparison against its `previousVersion`, absent when it has none. Same two flags and same sources as `PackageVersion`, read per revision instead of per version |
 | `GET /api/v3/packages/{packageId}/versions/{version}` — `includeSummary=true` | add `changelogHasErrors: boolean` — `true` when the version's own comparison (against its `previousVersion`) has `hasErrors` |
 | `GET /api/v2/packages/{packageId}/versions/{version}/changes/summary` | add `hasErrors: boolean` — `true` when the comparison for the requested version pair has `hasErrors`. For a dashboard comparison the flag also appears per `refs[]` entry, since each ref is its own comparison. |
 | **NEW** `GET /api/v2/packages/{packageId}/versions/{version}/notifications` | returns the version's **build** notifications, **filterable** by `documentId`, `severity`, `category` (comma-separated query params) and paged with the shared `limit` / `page` parameters. Served from `builder_notifications`. |
@@ -1897,8 +1907,22 @@ failed before its type could be determined maps to no
   apiType/contractType; and a version-level `Error` (previous-version or reference resolution) flags no
   document at all. In both cases `hasErrors` on the version is the only signal, and the notifications endpoint
   is where the explanation lives.
+- The comparison flag is one shared schema, `ChangelogHasErrors`, referenced from all five places it appears:
+  `PackageVersion`, `PackageVersionRevision`, the `includeSummary` branch of the version content, and both the
+  version pair and the `refs[]` entries of `/changes/summary`. It is named `changelogHasErrors` where it
+  qualifies a version and `hasErrors` where it qualifies a comparison, but it is the same flag with the same
+  meaning, so its wording is defined once. The version-level and per-document flags stay inline, because each
+  of those names a different subject and the subject is what the text has to say.
 - Flags are per revision (both tables are revision-keyed); the mark disappears when a fixed revision is
-  published.
+  published. The versions list and the version content report the latest revision, so the flags of an earlier
+  revision are visible only on the revisions list — which is why it carries them too.
+- Addressing a revision needs no new parameter. The shared `version` path parameter already resolves the
+  `version@revision` mask and falls back to the latest revision when no `@revision` is given —
+  `SplitVersionRevision` in `repository/PublishedRepositoryPG.go`, applied by the `GetVersion` family every
+  version endpoint goes through. The mask was simply never documented on the shared parameter, so the spec
+  change is to describe it there once rather than per endpoint. The revisions list returns `version` in
+  exactly that mask, so a flagged revision row leads straight to the messages that flagged it without the
+  caller assembling a key of its own.
 - Dashboard viewing: `GET .../documents` resolves referenced packages' documents, so per-document `hasErrors`
   propagates to the dashboard document list automatically, satisfying "indicate an errored referenced version
   when viewing the dashboard's packages."
@@ -1930,6 +1954,9 @@ persistence, the derived views and the refusals, none of which the api-processor
 - `changelogHasErrors` on the versions list and on version content reflects the version's own comparison
   against its `previousVersion`, and is absent when there is none. Both endpoints read the same
   `version_comparison` flag, so a version reports the same value in the list and on its own page.
+- the revisions list reports `hasErrors` and `changelogHasErrors` per revision: a version whose revision 1 was
+  published with errors and whose revision 2 fixed them shows the flags set on revision 1 and unset on
+  revision 2, while the versions list and the version content — both reading revision 2 — report neither.
 
 #### Endpoints
 
@@ -1940,6 +1967,8 @@ persistence, the derived views and the refusals, none of which the api-processor
 - `/changes/notifications` selects the comparison by `previousVersion` + `previousVersionPackageId`, and
   returns only that pair's messages in a build that produced several.
 - an unfiltered query returns messages that carry no `documentId`.
+- both endpoints resolve the `version@revision` mask through the shared parameter: querying an earlier
+  revision returns that revision's messages, and querying without `@revision` returns the latest revision's.
 - both endpoints require read permission on the package: a caller without it gets `403` from each, and a
   caller with it gets the notifications.
 
@@ -2106,6 +2135,11 @@ remains the right entry point for it.
   using both list flags, `hasErrors` and `changelogHasErrors`, since those are exactly the versions the backend
   refuses. An unreliable changelog disqualifies a baseline just as its own errors do, so a selector that reads
   only `hasErrors` would still offer versions that are then rejected.
+- revision list and revision selectors: mark a revision that was published with errors, from the revisions
+  list flags. `CompareRevisionsDialogForm` picks a revision the way the version selectors pick a baseline, so
+  it should mark unsound revisions the same way. Because the flags are per revision, the list is where a
+  version's error history is legible: the revision that carried a problem stays marked after a later revision
+  fixed it.
 - per-document error mark in the documents list, and error details on the document details screen.
 - error icon per API type in the `ApiTypeSelector` dropdown and on the overview page, from
   `operationTypes.*.hasErrors` and `contractsSummary.ddl|mcp.hasErrors`.
@@ -2154,6 +2188,11 @@ All open questions are closed. Recorded here so they are not reopened:
   basis.
 - **One unsound-version predicate for all four backend refusals** — version `hasErrors` **or** its comparison's
   `hasErrors`. See [Backend — new refusals](#backend--new-refusals).
+- **The revisions list carries the same two flags as the versions list** — `hasErrors` and
+  `changelogHasErrors` per revision, from the same stored sources. The flags are revision-scoped, so without
+  this the mark on any revision but the latest is unreachable through the API. Drilling into a flagged
+  revision's messages needs no API change: the shared `version` path parameter already accepts the
+  `version@revision` mask, it was only undocumented.
 - **Version and document `hasErrors` are emitted only by a `build`** — a `changelog` carries the comparison
   flags and `comparison-notifications.json` only. See
   [`hasErrors` flags in the build result](#haserrors-flags-in-the-build-result).
