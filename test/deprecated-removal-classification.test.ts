@@ -352,7 +352,6 @@ async function publishSeries(fixture: string, versionLabels?: SeriesLabels, vers
     previousVersion = version
   }
 
-  dumpComparison(result!)
   return result!
 }
 
@@ -385,25 +384,4 @@ function requestRemoval(changes: OperationChanges): NonNullable<OperationChanges
     'beforeDeclarationPaths' in diff &&
     (diff.beforeDeclarationPaths ?? []).some(jsonPath => jsonPath.join('.') === LEGACY_PROPERTY_PATH),
   )
-}
-
-/** Every summary and diff of the comparison, for a debugging run. Off unless DEPRECATED_REMOVAL_DUMP is set. */
-function dumpComparison(result: BuildResult): void {
-  if (!process.env.DEPRECATED_REMOVAL_DUMP) {
-    return
-  }
-
-  const { changesSummary, numberOfImpactedOperations } = restOperationType(result)
-  console.log('\n=== operationTypes[rest] ===')
-  console.log('changesSummary              ', JSON.stringify(changesSummary))
-  console.log('numberOfImpactedOperations  ', JSON.stringify(numberOfImpactedOperations))
-
-  for (const changes of result.comparisons[0]?.data ?? []) {
-    console.log(`\n=== ${changes.operationId ?? changes.previousOperationId} ===`)
-    console.log('changeSummary  ', JSON.stringify(changes.changeSummary))
-    console.log('impactedSummary', JSON.stringify(changes.impactedSummary))
-    for (const diff of changes.diffs ?? []) {
-      console.log(`  [${diff.type}] ${diff.action} scope=${diff.scope} :: ${diff.description}`)
-    }
-  }
 }
