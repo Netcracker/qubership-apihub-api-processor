@@ -67,7 +67,7 @@ export const createVersionPackage = async (
 ): Promise<any> => {
   const logError = (message: string): void => {
     ctx.notifications.push({
-      severity: MESSAGE_SEVERITY.Error,
+      severity: MESSAGE_SEVERITY.Warning,
       message: message,
     })
   }
