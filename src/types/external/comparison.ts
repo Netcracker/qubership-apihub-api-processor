@@ -43,6 +43,8 @@ export interface ResolvedComparisonSummary {
   previousVersionPackageId: PackageId
   previousVersionRevision: number
   operationTypes: OperationType[]
+  // the flag the host already holds for this pair; a cached comparison carries it through unchanged
+  hasErrors?: boolean
 }
 
 export interface OperationType<T extends DiffType | DiffTypeDto = DiffType> {

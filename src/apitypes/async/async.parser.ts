@@ -26,6 +26,7 @@ import { RulesetOptions } from '@asyncapi/parser/esm/ruleset'
 interface ValidationError {
   message: string
   path?: string
+  severity?: number
 }
 
 class AsyncApiValidationError extends Error {
@@ -158,6 +159,7 @@ async function validateAsyncApiDocument(sourceString: string): Promise<Validatio
       return nonCriticalDiagnostics.map(diagnostic => ({
         message: diagnostic.message,
         path: diagnostic.range ? `Line ${diagnostic.range.start.line}` : undefined,
+        severity: diagnostic.severity,
       }))
     }
 

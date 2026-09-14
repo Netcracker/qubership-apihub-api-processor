@@ -15,6 +15,8 @@
  */
 
 import { Editor } from './helpers'
+import { operationKey } from '../src/components/operations'
+import { REST_API_TYPE } from '../src/consts'
 
 describe('Operation metadata test', () => {
   test('custom tag should exist in operation if provided in operationData', async () => {
@@ -24,12 +26,12 @@ describe('Operation metadata test', () => {
       packageId: 'custom-tags',
     })
 
-    const firstOperationWithCustomTag = result.operations.get('api-v1-integrations-gitlab-apikey-get')
+    const firstOperationWithCustomTag = result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'api-v1-integrations-gitlab-apikey-get' }))
     expect(firstOperationWithCustomTag!.metadata.customTags['x-operation-meta']).toEqual('Custom tag exists')
-    const secondOperationWithCustomTag = result.operations.get('api-v1-integrations-gitlab-apikey-put')
+    const secondOperationWithCustomTag = result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'api-v1-integrations-gitlab-apikey-put' }))
     expect(JSON.stringify(secondOperationWithCustomTag!.metadata.customTags['x-operation-meta']))
       .toBe(JSON.stringify({ 'message': 'Custom tag can contain objects too' }))
-    const thirdOperationWithCustomTag = result.operations.get('api-v1-integrations-_integrationType_-repositories-get')
+    const thirdOperationWithCustomTag = result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'api-v1-integrations-_integrationType_-repositories-get' }))
     expect(JSON.stringify(thirdOperationWithCustomTag!.metadata.customTags['x-operation-meta']))
       .toBe(JSON.stringify(['There can be arrays passed too']))
   })
@@ -41,7 +43,7 @@ describe('Operation metadata test', () => {
       packageId: 'metadata',
     })
 
-    const operation = result.operations.get('test-_id_--get')
+    const operation = result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'test-_id_--get' }))
     expect(operation).toBeDefined()
 
     expect(operation!.metadata.operationIdV1).toBeDefined()
