@@ -22,13 +22,13 @@ import { getFileExtension } from '../../../src/utils'
 
 /**
  * Set FS_MODE=disk to write build results to disk instead of memory.
- * Useful for debugging test output.
+ * Useful for debugging test output. Each jest worker writes under its own `test/versions/worker-<id>`.
  *
  * Usage:
  *   npm run test:disk
  */
 const FS_MODE = process.env.FS_MODE ?? 'memory'
-const useDisk = FS_MODE === 'disk'
+export const useDisk = FS_MODE === 'disk'
 
 if (useDisk) {
   console.warn('[registryFs] Running in DISK mode')
