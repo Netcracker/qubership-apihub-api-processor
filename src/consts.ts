@@ -108,7 +108,6 @@ export const MESSAGE_CATEGORY = {
   VersionNotResolved: 'version-not-resolved',
   VersionRefsNotResolved: 'version-refs-not-resolved',
   VersionDocumentsMissing: 'version-documents-missing',
-  RiskyBeforeValue: 'risky-before-value',
   RiskyOrigins: 'risky-origins',
   ComparisonSerialization: 'comparison-serialization',
   // transform build types
@@ -170,7 +169,6 @@ export type ExportBuildType = typeof EXPORT_BUILD_TYPES[number]
 export const VERSION_STATUS = {
   RELEASE: 'release',
   DRAFT: 'draft',
-  ARCHIVED: 'archived',
   NONE: '', // non-existent status for changelog builds
 } as const
 

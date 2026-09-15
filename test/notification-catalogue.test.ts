@@ -127,25 +127,6 @@ paths:
         '200': { description: ok }
 `
 
-// a removed enum value: the diff's normalized before-value is the removed scalar, not an object
-const restWithEnum = (values: string): string => `openapi: 3.0.1
-info: { title: t, version: 1.0.0 }
-paths:
-  /pets:
-    post:
-      operationId: addPet
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                kind: { type: string, enum: ${values} }
-                legacy: { type: string, deprecated: true }
-      responses:
-        '200': { description: ok }
-`
-
 const CASES: Case[] = [
   {
     name: 'a file whose parser threw',
@@ -346,15 +327,6 @@ const CASES: Case[] = [
     project: 'reference-bundling/case2',
     baseline: { content: { 'async.yaml': ASYNC_REFERENCED_MESSAGE }, config: { files: [file('async.yaml')] } },
     content: { 'api.yaml': REST_MINIMAL },
-    config: { files: [file('api.yaml')], previousVersion: 'v1' },
-  },
-  {
-    name: 'a removed enum value on an operation that carries a deprecated item',
-    category: MESSAGE_CATEGORY.RiskyBeforeValue,
-    severity: MESSAGE_SEVERITY.Warning, attributed: true, blocksRelease: false, stream: 'comparison',
-    project: 'reference-bundling/case2',
-    baseline: { content: { 'api.yaml': restWithEnum('[cat, dog]') }, config: { files: [file('api.yaml')] } },
-    content: { 'api.yaml': restWithEnum('[cat]') },
     config: { files: [file('api.yaml')], previousVersion: 'v1' },
   },
   {

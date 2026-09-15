@@ -15,11 +15,13 @@
  */
 
 import { describe, expect, test } from '@jest/globals'
-import { DiffAction } from '@netcracker/qubership-apihub-api-diff'
+import { breaking, DiffAction } from '@netcracker/qubership-apihub-api-diff'
 import { calculateHistoryForDeprecatedItems, calculateTolerantHash } from '../src/components/deprecated'
-import { reclassifyBreakingChanges } from '../src/apitypes/rest/rest.changes'
-import { ASYNCAPI_API_TYPE, BEFORE_VALUE_NORMALIZED_PROPERTY, HASH_FLAG, MESSAGE_CATEGORY, MESSAGE_SEVERITY, REST_API_TYPE } from '../src/consts'
-import { BuilderContext, CompareOperationsPairContext, NotificationMessage } from '../src/types'
+import { CUSTOM_SCOPE_ELEMENT_DEPRECATION } from '../src/components/compare/custom-scope'
+import { createDeprecatedRemovalRules } from '../src/apitypes/rest/rest.deprecated.classification'
+import { ASYNCAPI_API_TYPE, HASH_FLAG, MESSAGE_CATEGORY, MESSAGE_SEVERITY, REST_API_TYPE } from '../src/consts'
+import { BuilderContext, CompareOperationsPairContext, NotificationMessage, ResolvedVersionDocument } from '../src/types'
+import { calculateNormalizedRestOperationId } from '../src/utils'
 
 // Diagnostics of the calculation, not of the contract: they fire when the builder's own inputs arrive in a
 // shape it cannot use. A real comparison does not produce them, so they are driven directly — and each one
@@ -114,41 +116,42 @@ describe('Calculation diagnostics carry their category, severity and document', 
     }])
   })
 
-  describe('Changelog: the risky reclassification', () => {
-    // the reclassification only looks at breaking removals of an operation whose previous version carried
-    // deprecated items, so the context stands in for the resolver that would supply them
-    const contextWith = (notifications: NotificationMessage[]): CompareOperationsPairContext => ({
-      notifications,
-      previousVersion: 'v1',
-      previousPackageId: 'pkg',
-      versionDeprecatedResolver: async () => ({
-        operations: [{ operationId: 'pets-get', deprecatedItems: [{}], deprecatedInPreviousVersions: ['v1'] }],
-      }),
-    } as unknown as CompareOperationsPairContext)
-
-    // `beforeDeclarationPaths` is read before the diagnostics, by the operation-removal check
-    const breakingRemoval = (extra: Record<symbol, unknown> = {}): unknown =>
-      ({ action: DiffAction.remove, type: 'breaking', beforeDeclarationPaths: [['paths', '/pets', 'get']], ...extra })
-
-    test('should report a diff whose normalized before-value is missing', async () => {
+  describe('Changelog: the deprecated-removal rule', () => {
+    // The rule reaches a removed element only inside a partition that holds a long-announced element, so the
+    // resolver supplies one and the partition is read back from the scope element, the way api-diff reads it
+    test('should report a removed deprecated element that carries no origins', async () => {
       const notifications: NotificationMessage[] = []
+      const operationsMap = {
+        [calculateNormalizedRestOperationId('', '/pets', 'get')]: { previous: { operationId: 'pets-get', documentId: DOCUMENT } },
+      }
+      const ctx = {
+        notifications,
+        previousVersion: 'v2',
+        previousPackageId: 'pkg',
+        versionDeprecatedResolver: async () => ({
+          operations: [{
+            operationId: 'pets-get',
+            deprecatedItems: [{ hash: 'pet-hash', declarationJsonPaths: [['components', 'schemas', 'Pet']], deprecatedInPreviousVersions: ['v1', 'v2'] }],
+          }],
+        }),
+      } as unknown as CompareOperationsPairContext
+      const previousDocument = { slug: DOCUMENT } as ResolvedVersionDocument
+      const previousDocumentData = { components: { schemas: { Pet: { deprecated: true } } } } as never
 
-      await reclassifyBreakingChanges('pets-get', {}, [breakingRemoval() as never], contextWith(notifications), DOCUMENT)
+      const { customScopeElementProviders, reclassificationRules } =
+        await createDeprecatedRemovalRules(operationsMap as never, previousDocument, previousDocumentData, ctx)
+      const partition = customScopeElementProviders[0].valueAt({ path: ['paths', '/pets', 'get'], beforeJso: {} } as never)
+      const withoutOrigins = {
+        action: DiffAction.remove,
+        type: breaking,
+        beforeDeclarationPaths: [['components', 'schemas', 'Pet']],
+        beforeValue: { deprecated: true },
+        customScope: { [CUSTOM_SCOPE_ELEMENT_DEPRECATION]: partition },
+      }
 
-      expect(notifications).toEqual([{
-        category: MESSAGE_CATEGORY.RiskyBeforeValue,
-        severity: MESSAGE_SEVERITY.Warning,
-        message: expect.any(String),
-        documentId: DOCUMENT,
-      }])
-    })
-
-    test('should report a deprecated before-value that carries no origins', async () => {
-      const notifications: NotificationMessage[] = []
-      const withoutOrigins = breakingRemoval({ [BEFORE_VALUE_NORMALIZED_PROPERTY]: { deprecated: true } })
-
-      await reclassifyBreakingChanges('pets-get', {}, [withoutOrigins as never], contextWith(notifications), DOCUMENT)
-
+      expect(partition).toBeDefined()
+      // the removal stays breaking: without origins the element's history cannot be looked up
+      expect(reclassificationRules[0](withoutOrigins as never)).toBeUndefined()
       expect(notifications).toEqual([{
         category: MESSAGE_CATEGORY.RiskyOrigins,
         severity: MESSAGE_SEVERITY.Warning,
