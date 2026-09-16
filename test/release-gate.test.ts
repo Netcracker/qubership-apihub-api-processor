@@ -19,6 +19,7 @@ import { Editor, LocalRegistry } from './helpers'
 import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, VERSION_STATUS } from '../src/consts'
 import * as transformToDto from '../src/utils/transformToDto'
 import { toVersionsComparisonDto } from '../src/utils/transformToDto'
+import { BuildResult } from '../src/types'
 import { NotificationMessage } from '../src/types/package/notifications'
 import { assertReleaseIsPublishable, comparisonPhaseNotifications } from '../src/components/release-gate'
 
@@ -159,13 +160,13 @@ describe('Release gate and migration builds', () => {
   }, 30000)
 })
 
-// `comparison-serialization` is raised while the comparison DTOs are built, which happens after the gate in
-// `BuildStrategy` has passed. Left there, a release would ship with `hasErrors` on the comparison — the one
-// state the design says a release cannot be in.
-describe('Release gate and a comparison that cannot be serialized', () => {
+// A malformed diff breaks api-diff's output contract rather than anything a document says, so
+// `comparison-serialization` is a `Warning`: the publisher has nothing to fix, and the version publishes with
+// the message on the comparison that produced it.
+describe('A comparison that cannot be serialized', () => {
   afterEach(() => { jest.restoreAllMocks() })
 
-  const buildAgainstPrevious = async (status: string, buildType: string = BUILD_TYPE.BUILD): Promise<Editor> => {
+  const buildAgainstPrevious = async (status: string): Promise<{ editor: Editor; buildResult: BuildResult }> => {
     const packageId = 'declarative-changes-in-rest-operation/case1'
     const registry = new LocalRegistry(packageId)
     await registry.publish(packageId, { packageId, version: 'v1', files: [{ fileId: 'before.yaml' }] })
@@ -175,44 +176,62 @@ describe('Release gate and a comparison that cannot be serialized', () => {
       version: 'v2',
       previousVersion: 'v1',
       status,
-      buildType,
       files: [{ fileId: 'after.yaml' }],
     } as never, {}, registry)
-    await editor.run()
-    return editor
+    return { editor, buildResult: await editor.run() }
   }
 
   const failSerialization = (): void => {
     const serialize = toVersionsComparisonDto
     jest.spyOn(transformToDto, 'toVersionsComparisonDto')
-      .mockImplementation((comparison, cache, logError) => {
-        logError('Add diff has undefined afterValueNormalized')
-        return serialize(comparison, cache, logError)
+      .mockImplementation((comparison, cache, reportProblem) => {
+        reportProblem('Add diff has undefined afterValueNormalized')
+        return serialize(comparison, cache, reportProblem)
       })
   }
 
-  test('should fail a release when the comparison fails to serialize', async () => {
-    const editor = await buildAgainstPrevious(VERSION_STATUS.RELEASE)
-    failSerialization()
-
-    await expect(editor.createNodeVersionPackage())
-      .rejects.toThrow(/Add diff has undefined afterValueNormalized/)
-  }, 30000)
-
-  test('should let the same draft publish, flagged on the comparison', async () => {
-    const editor = await buildAgainstPrevious(VERSION_STATUS.DRAFT)
+  test.each([
+    ['release', VERSION_STATUS.RELEASE],
+    ['draft', VERSION_STATUS.DRAFT],
+  ])('should let a %s publish, reporting the malformed diff as a warning', async (_name, status) => {
+    const { editor, buildResult } = await buildAgainstPrevious(status)
     failSerialization()
 
     await expect(editor.createNodeVersionPackage()).resolves.toBeDefined()
+    expect(buildResult.comparisons.flatMap(({ notifications }) => notifications)).toContainEqual({
+      category: MESSAGE_CATEGORY.ComparisonSerialization,
+      severity: MESSAGE_SEVERITY.Warning,
+      message: 'Add diff has undefined afterValueNormalized',
+    })
   }, 30000)
+})
 
-  // A standalone changelog recalculates the changes of a version that is already published, so its `status`
-  // describes that version rather than a publication being attempted. Gating it would make an unreliable
-  // changelog unrecalculable — the gate belongs to the `build` type, and the packager checks `buildType`.
-  test('should not gate a standalone changelog, whatever the status of the version it describes', async () => {
-    const editor = await buildAgainstPrevious(VERSION_STATUS.RELEASE, BUILD_TYPE.CHANGELOG)
-    failSerialization()
+// A standalone changelog recalculates the changes of a version that is already published, so its `status`
+// describes that version rather than a publication being attempted. `ChangelogStrategy` does not gate:
+// gating would leave a version with an unreliable changelog impossible to recalculate.
+describe('A standalone changelog of a release version', () => {
+  test('should recalculate although its comparison stream carries errors', async () => {
+    const packageId = 'declarative-changes-in-rest-operation/case1'
+    const registry = new LocalRegistry(packageId)
+    await registry.publish(packageId, { packageId, version: 'v1', files: [{ fileId: 'before.yaml' }] })
 
+    // a baseline that does not resolve is the cheapest comparison-phase error a document can produce
+    const editor = new Editor(packageId, {
+      packageId,
+      version: 'v2',
+      previousVersion: 'no-such-version',
+      status: VERSION_STATUS.RELEASE,
+      buildType: BUILD_TYPE.CHANGELOG,
+      files: [{ fileId: 'after.yaml' }],
+    } as never, {}, registry)
+    const buildResult = await editor.run()
+
+    expect(buildResult.comparisons.flatMap(({ notifications }) => notifications)).toContainEqual(
+      expect.objectContaining({
+        category: MESSAGE_CATEGORY.VersionNotResolved,
+        severity: MESSAGE_SEVERITY.Error,
+      }),
+    )
     await expect(editor.createNodeVersionPackage()).resolves.toBeDefined()
   }, 30000)
 })
