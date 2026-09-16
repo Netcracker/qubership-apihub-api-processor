@@ -505,8 +505,10 @@ within a doc, `processMcpDocument` across docs).
   unqualified → `public`; segments slugified with `SLUG_OPTIONS_OPERATION_ID`, `kind` literal.
   ```
 
-- [x] **Done (2026-06-12):** `name`, `schemaName`, `description` populated; `description` from the table's `Comment` attr (via `findAttr`, `''` when absent).
-- [x] **Done (2026-06-12):** Two tables colliding on `ddlEntityId` **within the same document** (incl. post-slugify) throw (D10);
+- [x] **Done (2026-06-12):** `name`, `schemaName`, `description` populated; `description` from the table's
+      `Comment` attr (via `findAttr`, `''` when absent).
+- [x] **Done (2026-06-12):** Two tables colliding on `ddlEntityId` **within the same document** (incl.
+      post-slugify) throw (D10);
       cross-document collisions are **not** this task's concern (Task 6). *(Note: slugify preserves case —
       see deviation; the test uses a space-vs-hyphen collision, not the D10 `Users`/`users` example.)*
 
@@ -590,7 +592,8 @@ serialized later per **D5** (`normalizedResult:false` + before/after-normalized 
 **Acceptance criteria:**
 
 - [x] **Done (2026-06-12):** Diffs are attributed to the owning table's `ddlEntityId`, including index/FK/comment changes.
-- [x] **Done (2026-06-12):** A shared-type change appears on all referencing tables; an unreferenced-type change yields nothing (D2).
+- [x] **Done (2026-06-12):** A shared-type change appears on all referencing tables; an unreferenced-type
+      change yields nothing (D2).
 - [x] **Done (2026-06-12):** Added / removed / changed tables are each represented; empty-diff tables are skipped.
 - [x] **Done (2026-06-12):** Uses `aggregateDiffsWithRollup` consistently with REST (the rolled-up value is a `Set<Diff>`).
 
@@ -621,13 +624,17 @@ it stays a clean change to the operation path. (Bucket-1 helpers need no change 
 **Acceptance criteria:**
 
 - [x] **Done (2026-06-12):** Operation comparison types **and** the extracted helpers leave REST/async/graphql/MCP output
-      **byte-identical** (regression suites green: `changes`, `graphql-changes`, `asyncapi-changes`, `compare.utils`, `mcp-build`, risky/declarative).
+      **byte-identical** (regression suites green: `changes`, `graphql-changes`, `asyncapi-changes`,
+      `compare.utils`, `mcp-build`, risky/declarative).
 - [x] **Done (2026-06-12):** `createPairOperationsMap` is re-expressed via `pairByKey`; `createOperationChange` via `createChangeBase`.
 - [x] **Done (2026-06-12):** DDL variant types compile with the AD2 field names (`contractType`, `ddlEntityId`,
-      `numberOfImpactedEntities`, `contractTypes`, metadata `{ kind, name, schemaName, description }`); DTOs + `toDdlComparisonDto`/`toDdlChangesDto`/`convertDtoFieldContractTypes` added.
-- [x] **Done (2026-06-12):** `createComparisonDocument`/`serializeDocument` accept a `Realm` (the `ApiDocument` widening landed in Task 3) without a DDL-specific serializer.
+      `numberOfImpactedEntities`, `contractTypes`, metadata `{ kind, name, schemaName, description }`);
+      DTOs + `toDdlComparisonDto`/`toDdlChangesDto`/`convertDtoFieldContractTypes` added.
+- [x] **Done (2026-06-12):** `createComparisonDocument`/`serializeDocument` accept a `Realm` (the
+      `ApiDocument` widening landed in Task 3) without a DDL-specific serializer.
 
-**Verification:** `npm run build`; `npm test -- changes asyncapi-changes graphql-changes compare.utils comparison-internal-documents` (regression for both the type and helper extractions).
+**Verification:** `npm run build`; `npm test -- changes asyncapi-changes graphql-changes compare.utils
+comparison-internal-documents` (regression for both the type and helper extractions).
 **Dependencies:** Task 1.
 **Files:** `src/types/internal/compare.ts`, `src/types/external/comparison.ts`,
 `src/types/package/comparisons.ts`, `src/types/package/ddl.ts`, `src/utils/transformToDto.ts`,
@@ -661,14 +668,17 @@ id helpers, `removeObjectDuplicates`+`calculateDiffId`, `calculateChangeSummary`
 **Acceptance criteria:**
 
 - [x] **Done (2026-06-12):** Added/removed/changed tables produce correct `DdlChanges` keyed by `ddlEntityId`.
-- [x] **Done (2026-06-12):** Reuses the AD7 shared helpers (`pairByKey`, `dedupeTuples`/`removeRedundantPartialPairs`, `createChangeBase`, `createComparison*`, `removeObjectDuplicates`+`calculateDiffId`, summaries).
+- [x] **Done (2026-06-12):** Reuses the AD7 shared helpers (`pairByKey`,
+      `dedupeTuples`/`removeRedundantPartialPairs`, `createChangeBase`, `createComparison*`,
+      `removeObjectDuplicates`+`calculateDiffId`, summaries).
 - [x] **Done (2026-06-12):** Pairing by `ddlEntityId` happens **before** `apiDiff`; a table moved between `.sql` files
 
   ```text
   across versions is a change, not remove+add (covered by per-entity `belongsToPair` attribution).
   ```
 
-- [x] **Done (2026-06-12):** `metadata`/`previousMetadata` carry the full descriptor (`kind`, `name`, `schemaName`, `description`) via `collectTableDescriptors`.
+- [x] **Done (2026-06-12):** `metadata`/`previousMetadata` carry the full descriptor (`kind`, `name`,
+      `schemaName`, `description`) via `collectTableDescriptors`.
 - [x] **Done (2026-06-12):** Version summary dedup matches REST semantics (no double-counting across document pairs).
 - [x] **Done (2026-06-12):** One merged comparison-internal document per document pair, referenced back by each change.
 
@@ -690,9 +700,12 @@ comparison-internal documents go into the **shared** `comparison-internal-docume
 
 **Acceptance criteria:**
 
-- [x] **Done (2026-06-12):** `build` with a `previousVersion` and `changelog` both emit DDL comparisons into the sibling files (wired in both strategies).
-- [x] **Done (2026-06-12):** DDL change entries reference their `comparisonInternalDocumentId` in the shared internal-docs set.
-- [x] **Done (2026-06-12):** REST/async/graphql/MCP comparison output (`comparisons.json`/`comparisons/`) is byte-unchanged (full regression green).
+- [x] **Done (2026-06-12):** `build` with a `previousVersion` and `changelog` both emit DDL comparisons
+      into the sibling files (wired in both strategies).
+- [x] **Done (2026-06-12):** DDL change entries reference their `comparisonInternalDocumentId` in the
+      shared internal-docs set.
+- [x] **Done (2026-06-12):** REST/async/graphql/MCP comparison output (`comparisons.json`/`comparisons/`)
+      is byte-unchanged (full regression green).
 
 **Verification:** `npm test -- ddl-changelog changes compare.utils comparison-internal-documents`.
 **Dependencies:** Task 9.
@@ -723,7 +736,8 @@ comparisons the same way it does operations.
 - [x] **Done (2026-06-12):** A dashboard `build` with DDL-bearing refs surfaces their DDL content/comparisons — each
       ref package's own build writes its `ddl.json`/`ddl-comparisons.json` (Tasks 6/10); the dashboard does not
       re-aggregate ref entities into its own `ddl.json` (matching how it does not re-emit ref `operations.json`).
-- [x] **Done (2026-06-12):** Resolvers are not called for empty versions (existing resolver-guard test still passes; `compareVersionsDdl` guards `null` params).
+- [x] **Done (2026-06-12):** Resolvers are not called for empty versions (existing resolver-guard test
+      still passes; `compareVersionsDdl` guards `null` params).
 - [x] **Done (2026-06-12):** Pure-REST dashboards are unaffected (existing dashboard tests green).
 
 **Verification:** `npm test -- dashboards ddl-changelog`.
@@ -758,7 +772,8 @@ notification codes are **deferred** (see Deferred below) — for v1 the code liv
 
 **Acceptance criteria:**
 
-- [x] **Done (2026-06-13):** Severity / break mapping matches the spec; warnings don't abort, parse errors / duplicates do (`ddl.validation.ts`).
+- [x] **Done (2026-06-13):** Severity / break mapping matches the spec; warnings don't abort, parse
+      errors / duplicates do (`ddl.validation.ts`).
 - [x] **Done (2026-06-13):** `out-of-scope-statement` emits one Warning per statement (D7); notifications carry `fileId`.
 - [x] **Done (2026-06-13):** `NotificationMessage` is unchanged (no new fields).
 
@@ -776,7 +791,8 @@ DDL compare hook), export from `src/apitypes/index.ts`, and push it into `apiBui
 
 **Acceptance criteria:**
 
-- [x] **Done (2026-06-12):** `ddlBuilder` registered (pulled forward to Task 6); `.sql`/`.ddl` files route to it end-to-end; `compareDdlDocuments` attached in Task 7; no `createExportDocument` (D13).
+- [x] **Done (2026-06-12):** `ddlBuilder` registered (pulled forward to Task 6); `.sql`/`.ddl` files route
+      to it end-to-end; `compareDdlDocuments` attached in Task 7; no `createExportDocument` (D13).
 
 **Verification:** `npm test -- ddl-build ddl-changelog` (end-to-end through the real registry).
 **Dependencies:** Tasks 3, 6, 9.
