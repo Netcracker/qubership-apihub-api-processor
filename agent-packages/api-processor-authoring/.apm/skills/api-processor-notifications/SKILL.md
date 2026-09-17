@@ -138,8 +138,10 @@ The deliberate exceptions, all of them:
 The last one is the only comparison error that aborts a **draft** as well. Every other release rule is about
 status: a draft publishes marked, a release throws. `src/components/release-gate.ts` owns that, and no other
 site should be checking `status` to decide whether an error is fatal. `BuildStrategy` gates before the archive
-is written, and nothing raised while writing it may be an `Error`: `comparison-serialization` reports what
-api-diff put in the diff, which no document of the publisher's can fix, so it is a `Warning`.
+is written, so `createVersionPackage` gates the comparison stream again, for `BUILD_TYPE.BUILD` only. Nothing
+raised while writing the archive is an `Error` today: `comparison-serialization` reports what api-diff put in
+the diff, which no document of the publisher's can fix, so it is a `Warning`. The second call is there for the
+first packaging `Error` someone adds, and `test/release-gate.test.ts` covers it with a mock.
 
 Fatal failures are covered by `test/fatal-failures.test.ts`, except the dashboard rule, which sits with the
 other dashboard cases in `test/dashboards.test.ts`. Adding one means adding a case in the matching file — a

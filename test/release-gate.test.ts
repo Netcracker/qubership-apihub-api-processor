@@ -41,6 +41,26 @@ const gate = (status: string, build: NotificationMessage[], changelog: Notificat
 
 const HINT = 'You can publish version in draft status for troubleshooting'
 
+// v2 of a package whose v1 is published, built against v1 but not yet packaged
+const buildAgainstPrevious = async (
+  status: string,
+  buildType: string = BUILD_TYPE.BUILD,
+): Promise<{ editor: Editor; buildResult: BuildResult }> => {
+  const packageId = 'declarative-changes-in-rest-operation/case1'
+  const registry = new LocalRegistry(packageId)
+  await registry.publish(packageId, { packageId, version: 'v1', files: [{ fileId: 'before.yaml' }] })
+
+  const editor = new Editor(packageId, {
+    packageId,
+    version: 'v2',
+    previousVersion: 'v1',
+    status,
+    buildType,
+    files: [{ fileId: 'after.yaml' }],
+  } as never, {}, registry)
+  return { editor, buildResult: await editor.run() }
+}
+
 describe('Release gate', () => {
   test('should let a draft publish whatever the errors are', () => {
     expect(gate(VERSION_STATUS.DRAFT, [error('broken', 'petstore')], [error('bad changelog')])).not.toThrow()
@@ -166,36 +186,17 @@ describe('Release gate and migration builds', () => {
 describe('A comparison that cannot be serialized', () => {
   afterEach(() => { jest.restoreAllMocks() })
 
-  const buildAgainstPrevious = async (status: string): Promise<{ editor: Editor; buildResult: BuildResult }> => {
-    const packageId = 'declarative-changes-in-rest-operation/case1'
-    const registry = new LocalRegistry(packageId)
-    await registry.publish(packageId, { packageId, version: 'v1', files: [{ fileId: 'before.yaml' }] })
-
-    const editor = new Editor(packageId, {
-      packageId,
-      version: 'v2',
-      previousVersion: 'v1',
-      status,
-      files: [{ fileId: 'after.yaml' }],
-    } as never, {}, registry)
-    return { editor, buildResult: await editor.run() }
-  }
-
-  const failSerialization = (): void => {
+  test.each([
+    ['release', VERSION_STATUS.RELEASE],
+    ['draft', VERSION_STATUS.DRAFT],
+  ])('should let a %s publish, reporting the malformed diff as a warning', async (_name, status) => {
+    const { editor, buildResult } = await buildAgainstPrevious(status)
     const serialize = toVersionsComparisonDto
     jest.spyOn(transformToDto, 'toVersionsComparisonDto')
       .mockImplementation((comparison, cache, reportProblem) => {
         reportProblem('Add diff has undefined afterValueNormalized')
         return serialize(comparison, cache, reportProblem)
       })
-  }
-
-  test.each([
-    ['release', VERSION_STATUS.RELEASE],
-    ['draft', VERSION_STATUS.DRAFT],
-  ])('should let a %s publish, reporting the malformed diff as a warning', async (_name, status) => {
-    const { editor, buildResult } = await buildAgainstPrevious(status)
-    failSerialization()
 
     await expect(editor.createNodeVersionPackage()).resolves.toBeDefined()
     expect(buildResult.comparisons.flatMap(({ notifications }) => notifications)).toContainEqual({
@@ -203,6 +204,70 @@ describe('A comparison that cannot be serialized', () => {
       severity: MESSAGE_SEVERITY.Warning,
       message: 'Add diff has undefined afterValueNormalized',
     })
+  }, 30000)
+})
+
+// The gate in `BuildStrategy` runs before the archive is written, so `createVersionPackage` gates the
+// comparison stream again. Nothing raised while packaging is an `Error` today, so the mock plays the part of
+// the first one that will be.
+describe('An error raised while the archive is written', () => {
+  afterEach(() => { jest.restoreAllMocks() })
+
+  const PACKAGING_ERROR = 'Comparison cannot be packaged'
+
+  const raiseErrorWhilePackaging = (): void => {
+    const serialize = toVersionsComparisonDto
+    jest.spyOn(transformToDto, 'toVersionsComparisonDto')
+      .mockImplementation((comparison, cache, reportProblem) => {
+        comparison.notifications.push({
+          category: MESSAGE_CATEGORY.ComparisonSerialization,
+          severity: MESSAGE_SEVERITY.Error,
+          message: PACKAGING_ERROR,
+        })
+        return serialize(comparison, cache, reportProblem)
+      })
+  }
+
+  test('should fail a release', async () => {
+    const { editor } = await buildAgainstPrevious(VERSION_STATUS.RELEASE)
+    raiseErrorWhilePackaging()
+
+    await expect(editor.createNodeVersionPackage()).rejects.toThrow(`${PACKAGING_ERROR}. ${HINT}`)
+  }, 30000)
+
+  test('should let a draft publish', async () => {
+    const { editor } = await buildAgainstPrevious(VERSION_STATUS.DRAFT)
+    raiseErrorWhilePackaging()
+
+    await expect(editor.createNodeVersionPackage()).resolves.toBeDefined()
+  }, 30000)
+
+  // the standalone changelog's own suite explains why it is never gated; this case pins the packager's side
+  test('should not gate a standalone changelog of a release version', async () => {
+    const { editor } = await buildAgainstPrevious(VERSION_STATUS.RELEASE, BUILD_TYPE.CHANGELOG)
+    raiseErrorWhilePackaging()
+
+    await expect(editor.createNodeVersionPackage()).resolves.toBeDefined()
+  }, 30000)
+})
+
+// The unit tests above check what the gate decides; this one checks that `BuildStrategy` asks it about the
+// comparison stream at all.
+describe('A release whose comparison phase raises an error', () => {
+  test('should fail the build', async () => {
+    const packageId = 'declarative-changes-in-rest-operation/case1'
+    const registry = new LocalRegistry(packageId)
+    // a baseline that does not resolve is the cheapest comparison-phase error a document can produce
+    const editor = new Editor(packageId, {
+      packageId,
+      version: 'v2',
+      previousVersion: 'no-such-version',
+      status: VERSION_STATUS.RELEASE,
+      buildType: BUILD_TYPE.BUILD,
+      files: [{ fileId: 'after.yaml' }],
+    } as never, {}, registry)
+
+    await expect(editor.run()).rejects.toThrow(/^No such version: .*You can publish version in draft status for troubleshooting$/)
   }, 30000)
 })
 

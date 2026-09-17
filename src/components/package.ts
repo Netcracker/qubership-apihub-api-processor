@@ -39,6 +39,7 @@ import { unknownApiBuilder } from '../apitypes'
 import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, PACKAGE } from '../consts'
 import { ComparisonErrorSource, comparisonHasErrors, EXPORT_FORMAT_TO_FILE_FORMAT, getSplittedVersionKey } from '../utils'
 import { toDdlComparisonDto, toVersionsComparisonDto } from '../utils/transformToDto'
+import { assertReleaseIsPublishable, comparisonPhaseNotifications } from './release-gate'
 import { erroredDocumentSlugs } from './errored-documents'
 import { McpEntityIndex } from '../types/package/mcp'
 import { DdlEntityIndex } from '../types/package/ddl'
@@ -177,6 +178,13 @@ export const createVersionPackage = async (
   if (publishesDocuments) { createNotificationsFile(zip, { notifications: buildResultDto.notifications }) }
   // built from the pair arrays themselves, not from the DTOs — the DTOs deliberately drop `notifications`
   createComparisonNotificationsFile(zip, [...buildResult.comparisons, ...buildResult.ddlComparisons], buildResult)
+
+  // `BuildStrategy` gates before the archive is written, so a message raised while writing it arrives too late
+  // for that check. Nothing raised here is an `Error` today; without this call, the first one would let a
+  // release ship with `hasErrors` on the comparison.
+  if (buildType === BUILD_TYPE.BUILD) {
+    assertReleaseIsPublishable(ctx.config.status, [], comparisonPhaseNotifications(buildResult))
+  }
 
   return await zip.buildResult(options)
 }
