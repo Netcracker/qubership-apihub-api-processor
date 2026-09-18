@@ -19,7 +19,7 @@ import { Editor, LocalRegistry } from './helpers'
 import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, VERSION_STATUS } from '../src/consts'
 import * as transformToDto from '../src/utils/transformToDto'
 import { toVersionsComparisonDto } from '../src/utils/transformToDto'
-import { BuildResult } from '../src/types'
+import { BuildConfig, BuildResult, BuildType, VersionStatus } from '../src/types'
 import { NotificationMessage } from '../src/types/package/notifications'
 import { assertReleaseIsPublishable, comparisonPhaseNotifications } from '../src/components/release-gate'
 
@@ -43,8 +43,8 @@ const HINT = 'You can publish version in draft status for troubleshooting'
 
 // v2 of a package whose v1 is published, built against v1 but not yet packaged
 const buildAgainstPrevious = async (
-  status: string,
-  buildType: string = BUILD_TYPE.BUILD,
+  status: VersionStatus,
+  buildType: BuildType = BUILD_TYPE.BUILD,
 ): Promise<{ editor: Editor; buildResult: BuildResult }> => {
   const packageId = 'declarative-changes-in-rest-operation/case1'
   const registry = new LocalRegistry(packageId)
@@ -57,7 +57,7 @@ const buildAgainstPrevious = async (
     status,
     buildType,
     files: [{ fileId: 'after.yaml' }],
-  } as never, {}, registry)
+  }, {}, registry)
   return { editor, buildResult: await editor.run() }
 }
 
@@ -141,7 +141,7 @@ describe('The early checkpoint', () => {
       status: VERSION_STATUS.RELEASE,
       buildType: BUILD_TYPE.BUILD,
       files: [{ fileId: 'rest.json' }, { fileId: 'broken-async.yaml' }],
-    } as never, {}, registry)
+    }, {}, registry)
 
     await expect(editor.run()).rejects.toThrow(/You can publish version in draft status/)
     expect(comparisonWork).not.toHaveBeenCalled()
@@ -149,7 +149,7 @@ describe('The early checkpoint', () => {
 })
 
 describe('Release gate and migration builds', () => {
-  const migrationConfig = (status: string): Record<string, unknown> => ({
+  const migrationConfig = (status: VersionStatus): Partial<BuildConfig> & Record<string, unknown> => ({
     status,
     // api-processor never reads this field — the test states that absence of an exemption is deliberate
     migrationBuild: true,
@@ -160,17 +160,17 @@ describe('Release gate and migration builds', () => {
     // its own package id: another suite owns the `tolerant-publication` version directory
     const packageId = 'tolerant-publication/migration'
     const registry = LocalRegistry.openPackage('tolerant-publication')
-    await expect(registry.publish('tolerant-publication', { packageId, ...migrationConfig(VERSION_STATUS.RELEASE) } as never))
+    await expect(registry.publish('tolerant-publication', { packageId, ...migrationConfig(VERSION_STATUS.RELEASE) }))
       .rejects.toThrow(/You can publish version in draft status/)
 
-    const result = await registry.publish('tolerant-publication', { packageId, ...migrationConfig(VERSION_STATUS.DRAFT) } as never)
+    const result = await registry.publish('tolerant-publication', { packageId, ...migrationConfig(VERSION_STATUS.DRAFT) })
     expect(result.notifications.some(({ severity }) => severity === MESSAGE_SEVERITY.Error)).toBe(true)
   }, 30000)
 
   test('should let a migration release through when its only problems are broken references', async () => {
     // no `validationRulesSeverity` in the config, which is what a migration build arrives with
     const pkg = LocalRegistry.openPackage('reference-bundling/case2')
-    const result = await pkg.publish(pkg.packageId, migrationConfig(VERSION_STATUS.RELEASE) as never)
+    const result = await pkg.publish(pkg.packageId, migrationConfig(VERSION_STATUS.RELEASE))
 
     const refProblems = result.notifications.filter(({ category }) => category.startsWith('ref-'))
     expect(refProblems.length).toBeGreaterThan(0)
@@ -186,7 +186,7 @@ describe('Release gate and migration builds', () => {
 describe('A comparison that cannot be serialized', () => {
   afterEach(() => { jest.restoreAllMocks() })
 
-  test.each([
+  test.each<[string, VersionStatus]>([
     ['release', VERSION_STATUS.RELEASE],
     ['draft', VERSION_STATUS.DRAFT],
   ])('should let a %s publish, reporting the malformed diff as a warning', async (_name, status) => {
@@ -265,7 +265,7 @@ describe('A release whose comparison phase raises an error', () => {
       status: VERSION_STATUS.RELEASE,
       buildType: BUILD_TYPE.BUILD,
       files: [{ fileId: 'after.yaml' }],
-    } as never, {}, registry)
+    }, {}, registry)
 
     await expect(editor.run()).rejects.toThrow(/^No such version: .*You can publish version in draft status for troubleshooting$/)
   }, 30000)
@@ -288,7 +288,7 @@ describe('A standalone changelog of a release version', () => {
       status: VERSION_STATUS.RELEASE,
       buildType: BUILD_TYPE.CHANGELOG,
       files: [{ fileId: 'after.yaml' }],
-    } as never, {}, registry)
+    }, {}, registry)
     const buildResult = await editor.run()
 
     expect(buildResult.comparisons.flatMap(({ notifications }) => notifications)).toContainEqual(
