@@ -15,8 +15,9 @@
  */
 
 import { afterEach, describe, expect, jest, test } from '@jest/globals'
+import JSZip from 'jszip'
 import { Editor, LocalRegistry } from './helpers'
-import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, VERSION_STATUS } from '../src/consts'
+import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, PACKAGE, VERSION_STATUS } from '../src/consts'
 import * as transformToDto from '../src/utils/transformToDto'
 import { toVersionsComparisonDto } from '../src/utils/transformToDto'
 import { BuildConfig, BuildResult, BuildType, VersionStatus } from '../src/types'
@@ -183,7 +184,7 @@ describe('Release gate and migration builds', () => {
 // A malformed diff breaks api-diff's output contract rather than anything a document says, so
 // `comparison-serialization` is a `Warning`: the publisher has nothing to fix, and the version publishes with
 // the message on the comparison that produced it.
-describe('A comparison that cannot be serialized', () => {
+describe('A malformed diff in a published comparison', () => {
   afterEach(() => { jest.restoreAllMocks() })
 
   test.each<[string, VersionStatus]>([
@@ -198,18 +199,27 @@ describe('A comparison that cannot be serialized', () => {
         return serialize(comparison, cache, reportProblem)
       })
 
-    await expect(editor.createNodeVersionPackage()).resolves.toBeDefined()
+    const zip = await JSZip.loadAsync(await editor.createVersionPackage())
     expect(buildResult.comparisons.flatMap(({ notifications }) => notifications)).toContainEqual({
       category: MESSAGE_CATEGORY.ComparisonSerialization,
       severity: MESSAGE_SEVERITY.Warning,
       message: 'Add diff has undefined afterValueNormalized',
     })
+
+    // the consumer-visible half of Warning: an unflagged comparison is one a dashboard changelog can still be
+    // built on, since `assertReferencesAreSound` aborts on a reference whose comparison has errors
+    const { comparisons } = JSON.parse(await zip.file(PACKAGE.COMPARISONS_FILE_NAME)!.async('string')) as {
+      comparisons: Array<Record<string, unknown>>
+    }
+    expect(comparisons.length).toBeGreaterThan(0)
+    expect(comparisons.every(comparison => !('hasErrors' in comparison))).toBe(true)
   }, 30000)
 })
 
 // The gate in `BuildStrategy` runs before the archive is written, so `createVersionPackage` gates the
 // comparison stream again. Nothing raised while packaging is an `Error` today, so the mock plays the part of
-// the first one that will be.
+// the first one that will be. Its category is borrowed from the comparison phase, where that category really
+// does carry an `Error`; `comparison-serialization` would state a pair the reporter no longer produces.
 describe('An error raised while the archive is written', () => {
   afterEach(() => { jest.restoreAllMocks() })
 
@@ -220,7 +230,7 @@ describe('An error raised while the archive is written', () => {
     jest.spyOn(transformToDto, 'toVersionsComparisonDto')
       .mockImplementation((comparison, cache, reportProblem) => {
         comparison.notifications.push({
-          category: MESSAGE_CATEGORY.ComparisonSerialization,
+          category: MESSAGE_CATEGORY.VersionNotResolved,
           severity: MESSAGE_SEVERITY.Error,
           message: PACKAGING_ERROR,
         })
