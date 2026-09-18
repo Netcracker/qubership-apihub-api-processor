@@ -75,18 +75,19 @@ export const createVersionPackage = async (
   ctx: BuilderContext,
   options?: JSZip.JSZipGeneratorOptions,
 ): Promise<any> => {
-  // a serialization failure belongs to the comparison being serialized, so the closure is per comparison
-  const logErrorFor = (notifications: NotificationMessage[]) => (message: string): void => {
+  // a malformed diff belongs to the comparison being serialized, so the closure is per comparison; it is a
+  // Warning because api-diff produced the diff and the publisher has nothing to fix in their documents
+  const reportProblemFor = (notifications: NotificationMessage[]) => (message: string): void => {
     notifications.push({
       category: MESSAGE_CATEGORY.ComparisonSerialization,
-      severity: MESSAGE_SEVERITY.Error,
+      severity: MESSAGE_SEVERITY.Warning,
       message: message,
     })
   }
   const buildResultDto: BuildResultDto = {
     ...buildResult,
     comparisons: buildResult.comparisons.map(comparison =>
-      withComparisonErrors(toVersionsComparisonDto(comparison, ctx.normalizedSpecFragmentsHashCache, logErrorFor(comparison.notifications)), comparison)),
+      withComparisonErrors(toVersionsComparisonDto(comparison, ctx.normalizedSpecFragmentsHashCache, reportProblemFor(comparison.notifications)), comparison)),
   }
   // merged REST documents and merged Realms share one index and one directory, so both kinds are collected
   const comparisonInternalDocuments: ComparisonInternalDocument[] = [
@@ -158,7 +159,7 @@ export const createVersionPackage = async (
 
   // DDL comparisons ship as siblings, leaving the operation comparisons untouched (AD2).
   const ddlComparisonsDto = buildResult.ddlComparisons.map(comparison =>
-    withComparisonErrors(toDdlComparisonDto(comparison, ctx.normalizedSpecFragmentsHashCache, logErrorFor(comparison.notifications)), comparison))
+    withComparisonErrors(toDdlComparisonDto(comparison, ctx.normalizedSpecFragmentsHashCache, reportProblemFor(comparison.notifications)), comparison))
   if (ddlComparisonsDto.length) {
     zip.file(PACKAGE.DDL_COMPARISONS_FILE_NAME, buildDdlComparisonsIndex(ddlComparisonsDto))
     const ddlComparisonsDir = zip.folder(PACKAGE.DDL_COMPARISONS_DIR_NAME)
@@ -178,8 +179,9 @@ export const createVersionPackage = async (
   // built from the pair arrays themselves, not from the DTOs — the DTOs deliberately drop `notifications`
   createComparisonNotificationsFile(zip, [...buildResult.comparisons, ...buildResult.ddlComparisons], buildResult)
 
-  // `comparison-serialization` is raised while the DTOs above are built, after `BuildStrategy` has gated.
-  // Without this call the release ships with `hasErrors` on the comparison.
+  // `BuildStrategy` gates before the archive is written, so a message raised while writing it arrives too late
+  // for that check. Nothing raised here is an `Error` today; without this call, the first one would let a
+  // release ship with `hasErrors` on the comparison.
   if (buildType === BUILD_TYPE.BUILD) {
     assertReleaseIsPublishable(ctx.config.status, [], comparisonPhaseNotifications(buildResult))
   }
