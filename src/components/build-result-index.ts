@@ -19,10 +19,12 @@ import {
   ChangeMessage,
   ComparisonInternalDocument,
   ComparisonInternalDocumentMetadata,
+  ComparisonKey,
   DdlChangesDto,
   DiffTypeDto,
   InternalDocumentMetadata,
   NotificationMessage,
+  PackageCachedComparisons,
   PackageComparisonOperation,
   PackageComparisonOperations,
   PackageComparisons,
@@ -62,16 +64,7 @@ const encodeKeyPart = (part: KeyPart): string | null => {
 
 const tupleKey = (...parts: KeyPart[]): string => JSON.stringify(parts.map(encodeKeyPart))
 
-type ComparisonKeyFields = {
-  packageId: string
-  version: string
-  revision?: number
-  previousVersionPackageId: string
-  previousVersion: string
-  previousVersionRevision?: number
-}
-
-const comparisonSortKey = (comparison: ComparisonKeyFields): string => tupleKey(
+const comparisonSortKey = (comparison: ComparisonKey): string => tupleKey(
   comparison.packageId,
   comparison.version,
   comparison.revision ?? null,
@@ -189,11 +182,36 @@ export function buildComparisonInternalDocumentsIndex(comparisonDocuments: Compa
   return { documents: sortByKey(index, document => document.id) }
 }
 
-const buildComparisonIndex = <T extends ComparisonKeyFields & { data?: unknown }>(comparisons: T[]): Omit<T, 'data'>[] =>
+const buildComparisonIndex = <T extends ComparisonKey & { data?: unknown }>(comparisons: T[]): Omit<T, 'data'>[] =>
   sortByKey(comparisons.map(({ data, ...rest }) => rest), comparisonSortKey)
 
 export function buildComparisonsIndex(comparisons: VersionsComparisonDto[]): PackageComparisons {
   return { comparisons: buildComparisonIndex(comparisons) }
+}
+
+/**
+ * Build `cached-comparisons.json`: the version pairs this build reused from the host instead of calculating.
+ *
+ * One entry per pair, not per comparison — both of a pair's comparisons reach one row in the host's store.
+ * Values are copied, never derived: a key must match the comparison it names field for field.
+ */
+export function buildCachedComparisons(comparisons: Array<VersionsComparison | DdlComparison>): PackageCachedComparisons {
+  const byPair = new Map<string, ComparisonKey>()
+
+  for (const comparison of comparisons) {
+    if (!comparison.fromCache) { continue }
+    const key: ComparisonKey = {
+      packageId: comparison.packageId,
+      version: comparison.version,
+      revision: comparison.revision,
+      previousVersionPackageId: comparison.previousVersionPackageId,
+      previousVersion: comparison.previousVersion,
+      previousVersionRevision: comparison.previousVersionRevision,
+    }
+    byPair.set(comparisonSortKey(key), key)
+  }
+
+  return { cachedComparisons: sortByKey([...byPair.values()], comparisonSortKey) }
 }
 
 export function buildComparisonOperations(operations: PackageComparisonOperation[]): PackageComparisonOperations {
