@@ -94,8 +94,11 @@ export function createDiskZipTool(basePath: string): ZipTool {
     folder(name: string): ZipTool {
       return at(`${base}/${name}`)
     },
-    async buildResult(): Promise<void> {
+    // The archive is the directory tree this sink just wrote, so there is no buffer to hand back.
+    // `publishVersionPackage` is its only caller and ignores the result.
+    async buildResult(): Promise<Buffer> {
       await Promise.all(pending)
+      return Buffer.alloc(0)
     },
   })
 

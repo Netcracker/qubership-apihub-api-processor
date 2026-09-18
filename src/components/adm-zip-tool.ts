@@ -28,7 +28,7 @@ export class AdmZipTool implements ZipTool {
     this.folderName = folderName
   }
 
-  async buildResult(): Promise<any> {
+  async buildResult(): Promise<Buffer> {
     return await this.zip.toBufferPromise()
   }
 
