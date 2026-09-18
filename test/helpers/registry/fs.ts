@@ -19,6 +19,7 @@ import * as realFs from 'fs/promises'
 import path from 'path'
 import mime from 'mime-types'
 import { getFileExtension } from '../../../src/utils'
+import type { BuildConfig } from '../../../src/processor'
 
 /**
  * Set FS_MODE=disk to write build results to disk instead of memory.
@@ -70,7 +71,7 @@ export async function loadFileAsStringFromRegistry(filePath: string, folder: str
  * Use this to read config files produced by the build process.
  * For reading source/input configs from the real filesystem, use {@link loadConfig} from `../utils.ts` instead.
  */
-export async function loadConfigFromRegistry(filePath: string, folder: string, filename?: string): Promise<any | null> {
+export async function loadConfigFromRegistry(filePath: string, folder: string, filename?: string): Promise<BuildConfig | null> {
   try {
     const fullPath = registryPath(filePath, folder, filename ?? 'config.json')
     const file = await registryFs.readFile(fullPath, 'utf8')

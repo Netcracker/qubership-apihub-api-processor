@@ -14,24 +14,13 @@
  * limitations under the License.
  */
 
-import JSZip from 'jszip'
-import fs from 'fs/promises'
-import path from 'path'
-import mime from 'mime-types'
-import type { CustomScopeElementContext } from '@netcracker/qubership-apihub-api-diff'
-import type { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
-
 import {
-  ApiDocument,
   BUILD_TYPE,
   BuildConfig,
   BuildConfigFile,
   BuildResult,
   BuildType,
-  ChangeSummary,
-  EMPTY_CHANGE_SUMMARY, Labels,
-  OperationChanges,
-  SERIALIZE_SYMBOL_STRING_MAPPING,
+  Labels,
   VERSION_STATUS,
   VERSION_VALIDATION_LEVEL,
   PackageVersionBuilder,
@@ -40,87 +29,10 @@ import {
 } from '../../src/processor'
 import { LocalRegistry, VersionOverrideRegistry } from './registry'
 import { Editor } from './editor'
-import { getFileExtension, normalizeGraphQL, parseGraphQLSource, takeIfDefined } from '../../src/utils'
-import { deserialize } from '@netcracker/qubership-apihub-api-unifier'
-import { parse } from 'yaml'
-import { GraphApiSchema } from '@netcracker/qubership-apihub-graphapi'
-
-/**
- * Read a file as string from the real filesystem (source/input files).
- * Use this to read original project files before the build.
- * For reading build result files from registry, use {@link loadFileAsStringFromRegistry} from `./registry/fs` instead.
- */
-export const loadFileAsString = async (filePath: string, folder: string, fileName: string): Promise<string | null> => {
-  return (await loadFile(filePath, folder, fileName))?.text() ?? null
-}
-
-/**
- * Read a file from the real filesystem (source/input files).
- * Use this to read original project files before the build.
- * For reading build result files from registry, use {@link loadFileFromRegistry} from `./registry/fs` instead.
- */
-export const loadFile = async (filePath: string, folder: string, fileName: string): Promise<File | null> => {
-  try {
-    const filepath = path.join(process.cwd(), filePath, folder, fileName)
-    const mediaType = mime.lookup(fileName) || (['graphql', 'gql'].includes(getFileExtension(fileName)) ? 'text/plain' : false)
-    if (!mediaType) {
-      console.error('Can\'t lookup the media type')
-    }
-    return new File([await fs.readFile(filepath)], fileName, { type: mediaType || '' })
-  } catch (error) {
-    //throw new Error(`Error while reading file: ${error}`)
-    return null
-  }
-}
-
-export interface PackageInfo {
-  packageName: string
-}
-
-/**
- * Read a JSON config from the real filesystem (source/input configs).
- * Use this to read original project configs before the build.
- * For reading build result configs from registry, use {@link loadConfigFromRegistry} from `./registry/fs` instead.
- */
-export const loadConfig = async (filePath: string, folder: string, filename?: string): Promise<BuildConfig & PackageInfo | null> => {
-  try {
-    const filepath = path.join(process.cwd(), filePath, folder, filename ?? 'config.json')
-    const file = await fs.readFile(filepath, 'utf8')
-    return JSON.parse(file.toString())
-  } catch (error) {
-    return null
-  }
-}
-
-/**
- * The changes one operation carries in the first comparison of a build. Throws rather than returning
- * `undefined`, and names the operations that are there, because a lookup missing here usually means the
- * fixture produced different ids, not that the operation has no changes.
- */
-export function operationChangesOf(result: BuildResult, operationId: string): OperationChanges {
-  const changes = result.comparisons[0]?.data?.find(item => item.operationId === operationId)
-  if (!changes) {
-    const available = result.comparisons[0]?.data?.map(item => item.operationId).join(', ')
-    throw new Error(`Comparison has no changes for operation ${operationId}. Operations: ${available}`)
-  }
-  return changes
-}
-
-export const getVersionChanges = (result: BuildResult): { [key: string]: ChangeSummary } => {
-  const summary: any = {}
-  for (const comparison of result.comparisons) {
-    for (const { apiType, changesSummary = {} } of comparison.operationTypes) {
-      summary[apiType] = summary[apiType] || EMPTY_CHANGE_SUMMARY
-
-      for (const [key, value] of Object.entries(changesSummary)) {
-        summary[apiType][key] += value
-      }
-    }
-  }
-  return summary
-}
+import { takeIfDefined } from '../../src/utils'
 
 const BEFORE_VERSION_ID = 'v1'
+
 const AFTER_VERSION_ID = 'v2'
 
 export async function buildChangelogPackage(
@@ -384,7 +296,6 @@ export async function buildChangelogPackageDefaultConfig(
   return await editor.run()
 }
 
-
 export async function buildChangelogFromContent(
   packageId: string,
   beforeContent: string,
@@ -419,33 +330,6 @@ export async function buildChangelogFromContent(
     status: VERSION_STATUS.RELEASE,
   })
   return await editor.run()
-}
-
-const invertMap = <K, V>(map: Map<K, V>): Map<V, K> => {
-  return new Map(
-    [...map].map(([key, value]: [K, V]) => [value, key]),
-  )
-}
-
-const DESERIALIZE_SYMBOL_STRING_MAPPING = invertMap(SERIALIZE_SYMBOL_STRING_MAPPING)
-
-export function deserializeDocument(serializedDocument: string): ApiDocument {
-  return deserialize(serializedDocument, DESERIALIZE_SYMBOL_STRING_MAPPING) as ApiDocument
-}
-
-export const cloneDocument = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
-
-// Helper function to load YAML test files
-export const loadYamlFile = async <T>(relativePath: string): Promise<T> => {
-  const filePath = path.join(process.cwd(), 'test/projects', relativePath)
-  const content = await fs.readFile(filePath, 'utf8')
-  return parse(content) as T
-}
-
-export function parseAndNormalizeGraphQLSchema(sdl: string): { source: GraphApiSchema; normalized: GraphApiSchema } {
-  const source = parseGraphQLSource(sdl)
-  const normalized = normalizeGraphQL(source)
-  return { source, normalized }
 }
 
 const DEFAULT_SPEC = JSON.stringify({
@@ -521,22 +405,3 @@ export async function buildWithVersionOverrides(
   })
   return builder.run({ apiProcessorVersionValidationLevel: validationLevel })
 }
-
-export const readJsonFromZip = async <T>(zip: JSZip, name: string): Promise<T> => {
-  const entry = zip.file(name)
-  if (!entry) {
-    throw new Error(`Cannot find ${name} in the build result`)
-  }
-  return JSON.parse(await entry.async('string')) as T
-}
-
-/**
- * Builds what api-diff hands a custom scope element provider when it asks about one node. The single
- * place tests construct it, so a property added to the context later is a change here rather than at
- * every call site.
- */
-export const customScopeElementContext = (
-  path: JsonPath,
-  beforeJso?: unknown,
-  afterJso?: unknown,
-): CustomScopeElementContext => ({ path, beforeJso, afterJso })

@@ -24,7 +24,7 @@ import {
   BuildResult,
   PackageVersionBuilder,
 } from '../../../src/processor'
-import { loadConfig, loadFile } from '../utils'
+import { loadConfig, loadFile } from '../files'
 import { LocalRegistry } from '../registry'
 import { IRegistry } from '../registry/types'
 import fs from 'fs/promises'
@@ -46,13 +46,13 @@ export class Editor {
 
   static async createProject(projectId: string, config: BuildConfig, registry?: IRegistry): Promise<Editor> {
     config.files = config.files ?? []
-    return new Editor(projectId, config, registry)
+    return new Editor(projectId, config, {}, registry)
   }
 
   constructor(
     public projectId: string,
     public config: BuildConfig,
-    configuration?: any,
+    configuration?: BuilderConfiguration,
     registry?: IRegistry,
     projectsDir: string = 'test/projects',
   ) {

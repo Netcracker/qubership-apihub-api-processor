@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { loadConfig, loadFile } from '../utils'
+import { loadConfig, loadFile } from '../files'
 import { registryFs, loadFileFromRegistry, loadFileAsStringFromRegistry, loadConfigFromRegistry, registryPath } from './fs'
 import {
   ApiOperation,
@@ -638,17 +638,6 @@ export class LocalRegistry implements IRegistry {
 
     this.versions.set(compositeKey, versionCache)
     return versionCache
-  }
-
-  async updateVersionFile(version: string, slug: string, modifier: (data: any) => any): Promise<void> {
-    const versionCache = await this.getVersion(this.packageId, version)
-
-    const document = versionCache?.documents.get(slug)
-    if (!document) {
-      return
-    }
-
-    versionCache?.documents.set(slug, { ...document, data: modifier(document.data) })
   }
 
   async updateVersionOperation(version: string, operationId: string, modifier: (data: ApiOperation) => ApiOperation): Promise<void> {
