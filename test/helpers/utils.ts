@@ -38,7 +38,6 @@ import {
   VersionStatus,
   VersionValidationLevel,
 } from '../../src/processor'
-import { buildSchema, introspectionFromSchema } from 'graphql/utilities'
 import { LocalRegistry, VersionOverrideRegistry } from './registry'
 import { Editor } from './editor'
 import { getFileExtension, normalizeGraphQL, parseGraphQLSource, takeIfDefined } from '../../src/utils'
@@ -88,51 +87,6 @@ export const loadConfig = async (filePath: string, folder: string, filename?: st
     const filepath = path.join(process.cwd(), filePath, folder, filename ?? 'config.json')
     const file = await fs.readFile(filepath, 'utf8')
     return JSON.parse(file.toString())
-  } catch (error) {
-    return null
-  }
-}
-
-export const convertToIntrospection = async (filePath: string, folder: string, filename?: string): Promise<void> => {
-  try {
-    const { files } = await loadConfig(filePath, folder, filename) ?? { files: [] }
-
-    for (const { fileId } of files!) {
-      const file = await loadFileAsString(filePath, folder, fileId)
-      if (!file) {
-        continue
-      }
-
-      const outputPath = path.join(filePath, 'cloud-graphql-intros', fileId)
-      const schema = buildSchema(file, { assumeValid: true, assumeValidSDL: true })
-      const introspection = introspectionFromSchema(schema)
-      const data = JSON.stringify(introspection)
-      await fs.writeFile(outputPath, data)
-    }
-
-  } catch (error) {
-    console.error(error)
-  }
-}
-
-export const getConfigFilesForDir = async (folder: string): Promise<Pick<BuildConfig, 'files'> | null> => {
-  try {
-    const filepath = path.join(process.cwd(), 'test/projects', folder)
-    const dir = await fs.readdir(filepath)
-
-    const files = []
-
-    for (const filename of dir) {
-      if (filename === 'config.json') {
-        continue
-      }
-
-      files.push({ fileId: `${folder}/${filename}`, publish: true })
-    }
-
-    return {
-      files: files,
-    }
   } catch (error) {
     return null
   }

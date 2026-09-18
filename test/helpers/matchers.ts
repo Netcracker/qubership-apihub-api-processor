@@ -16,7 +16,6 @@
 
 import {
   BuildResult,
-  ChangeMessage,
   ChangeSummary,
   ComparisonInternalDocument,
   DeprecateItem,
@@ -27,13 +26,10 @@ import {
   type OperationsApiType,
   OperationType,
   REST_API_TYPE,
-  VersionsComparison,
   ZippableDocument,
 } from '../../src'
-import { JsonPath } from 'json-crawl'
-import { ActionType, Diff, DIFFS_AGGREGATED_META_KEY, DiffType } from '@netcracker/qubership-apihub-api-diff'
+import { Diff, DIFFS_AGGREGATED_META_KEY, DiffType } from '@netcracker/qubership-apihub-api-diff'
 import {
-  ArrayContaining,
   AsymmetricMatcher,
   ExpectedRecursive,
   ObjectContaining,
@@ -46,35 +42,13 @@ import { deserializeDocument } from './utils'
 
 type SecuritySchemesObject = OpenAPIV3.ComponentsObject['securitySchemes']
 
-export type ApihubComparisonMatcher = ObjectContaining<VersionsComparison> & VersionsComparison
 export type ApihubOperationChangesMatcher = ObjectContaining<OperationChanges> & OperationChanges
 export type ApihubChangesSummaryMatcher = ObjectContaining<ChangeSummary> & ChangeSummary
 export type ApihubNotificationsMatcher = ObjectContaining<BuildResult> & BuildResult
 export type ApihubNotificationMatcher = ObjectContaining<NotificationMessage> & NotificationMessage
-export type ApihubChangeMessagesMatcher = ArrayContaining<ChangeMessage> & ChangeMessage[]
 export type ApihubExportDocumentsMatcher = ObjectContaining<BuildResult> & BuildResult
 export type ApihubExportDocumentMatcher = ObjectContaining<ZippableDocument> & ZippableDocument
-export type ApihubComparisonDocumentMatcher = ObjectContaining<ComparisonInternalDocument> & ComparisonInternalDocument
-
-export function apihubComparisonMatcher(
-  expected: RecursiveMatcher<VersionsComparison>,
-): ApihubComparisonMatcher {
-  return expect.arrayContaining([
-    expect.objectContaining(expected),
-  ])
-}
-
-export function apihubOperationChangesMatcher(
-  expected: RecursiveMatcher<OperationChanges>,
-): ApihubOperationChangesMatcher {
-  return expect.arrayContaining([
-    expect.objectContaining({
-      data: expect.arrayContaining([
-        expect.objectContaining(expected),
-      ]),
-    }),
-  ])
-}
+type ApihubComparisonDocumentMatcher = ObjectContaining<ComparisonInternalDocument> & ComparisonInternalDocument
 
 export function noChangesMatcher(
   apiType: OperationsApiType = REST_API_TYPE,
@@ -127,7 +101,7 @@ export function operationTypeMatcher(
   )
 }
 
-export function comparisonDocumentDiffMatcher(
+function comparisonDocumentDiffMatcher(
   expected: RecursiveMatcher<{ serializedComparisonDocument: AsymmetricMatcher<string> }>,
 ): ApihubComparisonDocumentMatcher {
   return expect.objectContaining({
@@ -153,32 +127,6 @@ export function operationChangesMatcher(
     ]),
   },
   )
-}
-
-export function apihubChangeMessageMatcher(
-  path: JsonPath,
-  action: ActionType,
-): ApihubChangeMessagesMatcher {
-  return apihubChangeMessagesMatcher([
-    expect.objectContaining({
-      jsonPath: path,
-      action: action,
-    }),
-  ])
-}
-
-export function apihubChangeMessagesMatcher(
-  expected: Array<RecursiveMatcher<ChangeMessage>>,
-): ApihubChangeMessagesMatcher {
-  return expect.arrayContaining([
-    expect.objectContaining({
-      data: expect.arrayContaining([
-        expect.objectContaining({
-          changes: expect.toIncludeSameMembers(expected),
-        }),
-      ]),
-    }),
-  ])
 }
 
 export function deprecatedItemDescriptionMatcher(
