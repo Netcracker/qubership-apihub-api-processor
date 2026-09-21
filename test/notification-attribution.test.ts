@@ -33,10 +33,13 @@ import { PackageVersionBuilder } from '../src/builder'
 // Whole-result invariants over the notification contract. They hold for every build, so any raising site
 // that forgets a category or ships a fileId where a slug belongs fails here rather than in production.
 describe('Notification attribution invariants', () => {
+  // drafts: one of these cases is a REST pair whose documents differ, which a release is refused for, and
+  // what is under test here is how a notification is attributed rather than what it costs
   const publish = (projectId: string, files: string[]): Promise<BuildResult> => {
     const pkg = LocalRegistry.openPackage(projectId)
     return pkg.publish(pkg.packageId, {
       packageId: pkg.packageId,
+      status: VERSION_STATUS.DRAFT,
       version: 'v1',
       files: files.map(fileId => ({ fileId })),
     })
@@ -90,6 +93,7 @@ describe('Notification invariants hold in the published archive', () => {
     const pkg = LocalRegistry.openPackage('operationId-collisions/same-path-different-documents')
     await pkg.publish(pkg.packageId, {
       packageId: pkg.packageId,
+      status: VERSION_STATUS.DRAFT,
       version: 'v1',
       files: [{ fileId: 'spec1.json' }, { fileId: 'spec2.json' }],
     })
