@@ -46,11 +46,6 @@ export class Editor {
     return new Editor(projectId, { ...defaults, ...config } as BuildConfig, configuration ?? {}, registry, projectsDir)
   }
 
-  static async createProject(projectId: string, config: BuildConfig, registry?: IRegistry): Promise<Editor> {
-    config.files = config.files ?? []
-    return new Editor(projectId, config, {}, registry)
-  }
-
   constructor(
     public projectId: string,
     public config: BuildConfig,
