@@ -149,14 +149,17 @@ describe('Editor scenarios', () => {
   describe('PathItems build', () => {
     const COMPONENTS_ITEM_1_PATH = ['components', 'pathItems', 'componentsPathItem1']
     test('should have separate operations with pathitems', async () => {
+      // This fixture carries no config.json, so the build config lives here.
+      const files = [{ fileId: '1.yaml' }]
       const pkg = LocalRegistry.openPackage('builder/define-pathitems-via-reference-object-chain')
       const editor = await Editor.openProject(pkg.packageId, pkg)
 
-      await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+      await pkg.publish(pkg.packageId, { packageId: pkg.packageId, version: 'v1', files })
       const result = await editor.run({
         version: 'v1',
         status: VERSION_STATUS.RELEASE,
         buildType: BUILD_TYPE.BUILD,
+        files,
       })
 
       const resultOperations = Array.from(result.operations.values())

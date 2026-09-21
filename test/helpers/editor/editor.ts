@@ -37,11 +37,13 @@ export class Editor {
   registry: IRegistry
   projectsDir: string
 
+  // A fixture folder need not carry a config.json, and most do not. The caller passes what the missing
+  // file would have named to `publish` or `run` — `files` above all.
   static async openProject(projectId: string, registry?: IRegistry, configuration?: BuilderConfiguration, projectsDir: string = 'test/projects'): Promise<Editor> {
-    const config = await loadConfig(projectsDir, projectId) as BuildConfig
-    config.version = config?.version ?? 'v100'
-    config.files = config?.files ?? []
-    return new Editor(projectId, config, configuration ?? {}, registry)
+    const config = await loadConfig(projectsDir, projectId)
+    const defaults: Pick<BuildConfig, 'packageId' | 'version' | 'files'> = { packageId: projectId, version: 'v100', files: [] }
+    // No config.json carries `status` or `buildType`; `run` supplies them.
+    return new Editor(projectId, { ...defaults, ...config } as BuildConfig, configuration ?? {}, registry, projectsDir)
   }
 
   static async createProject(projectId: string, config: BuildConfig, registry?: IRegistry): Promise<Editor> {

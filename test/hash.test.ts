@@ -12,9 +12,10 @@ const groupToOnePathOperationIdsMap = {
 
 describe('Hash test', () => {
   describe('Document group hash', () => {
+    // Neither fixture carries a config.json; the version and the file list live here instead.
     async function publishAndGetHash(packagePath: string): Promise<void> {
       const pkg = LocalRegistry.openPackage(packagePath, groupToOnePathOperationIdsMap)
-      await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+      await pkg.publish(pkg.packageId, { packageId: pkg.packageId, version: 'v1', files: [{ fileId: '1.yaml' }] })
 
       const operationFile = await loadFileAsStringFromRegistry(
         VERSIONS_PATH,

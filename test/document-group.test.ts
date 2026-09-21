@@ -19,6 +19,7 @@ import {
   BUILD_TYPE,
   BuildConfig,
   BuildConfigAggregator,
+  BuildConfigFile,
   BuildResult,
   FILE_FORMAT_GRAPHQL,
   GRAPHQL_API_TYPE,
@@ -34,6 +35,7 @@ import { parseGraphQLSource } from '../src/utils/graphql-transformer'
 import { Editor, loadFileAsString, LocalRegistry, VERSIONS_PATH, loadFileAsStringFromRegistry } from './helpers'
 
 const GROUP_NAME = 'manualGroup'
+const VERSION_ID = 'v1'
 const groupToOperationIdsMap = {
   [GROUP_NAME]: [
     'path1-get',
@@ -71,6 +73,13 @@ const operationIdsForGroupWithMultipleOperations = {
 const groupWithOneOperationIdsMap = {
   [GROUP_NAME]: [
     'path1-post',
+  ],
+}
+
+// The self-referencing fixtures declare `/path`, not `/path1`.
+const groupToSelfReferencingOperationIdsMap = {
+  [GROUP_NAME]: [
+    'path-post',
   ],
 }
 
@@ -357,9 +366,11 @@ describe('Document Group test', () => {
       })
 
       test('should delete pathItems object which is not referenced', async () => {
+        // The two fixtures carry different operations: the base one has only `/path1: post`, so the
+        // shared map matched nothing there and the build returned no documents at all.
         const { result } = await runPublishPackage(
           `document-group/${folder}/not-referenced-object`,
-          groupToOperationIdsMap,
+          folder === PATH_ITEMS_OPERATION_PATH ? groupToOperationIdsMap : groupWithOneOperationIdsMap,
         )
 
         for (const document of Array.from(result.documents.values())) {
@@ -384,17 +395,19 @@ describe('Document Group test', () => {
       })
 
       test('should not hang up when processing for response which points to itself', async () => {
+        // `SuccessResponse` references itself. The group has to name the operation the fixture really
+        // carries: with a map that matches nothing the build returns nothing, and the cycle is never walked.
         const { result } = await runPublishPackage(
           `document-group/${folder}/not-hang-up-when-processing-for-response-which-points-to-itself`,
-          groupToOnePathOperationIdsMap,
+          groupToSelfReferencingOperationIdsMap,
         )
 
-        expect(result.documents.size).toEqual(0)
+        expect(result.documents.size).toEqual(1)
       })
 
       test('should not hang up when processing cycled chain for response', async () => {
         const pkg = LocalRegistry.openPackage(`document-group/${folder}/not-hang-up-when-processing-cycled-chain-for-response`, groupToOnePathOperationIdsMap)
-        await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+        await pkg.publish(pkg.packageId, { packageId: pkg.packageId, version: VERSION_ID, files: [{ fileId: '1.yaml' }] })
 
         const notificationFile = await loadFileAsStringFromRegistry(
           VERSIONS_PATH,
@@ -422,6 +435,7 @@ describe('Document Group test', () => {
         `merge-operations/${caseName}`,
         groupToOperationIdsMap,
         { buildType: BUILD_TYPE.MERGED_SPECIFICATION, apiType: REST_API_TYPE },
+        [{ fileId: '1.yaml' }, { fileId: '2.yaml' }],
       )
 
       const expectedResult = loadYaml(
@@ -438,12 +452,14 @@ describe('Document Group test', () => {
       apiType: GRAPHQL_API_TYPE,
       format: FILE_FORMAT_GRAPHQL,
     }
+    const graphqlFiles = [{ fileId: 'queries-only.gql' }]
 
     test('operation group export should produce a valid GraphQL document', async () => {
       const { result } = await runPublishPackage(
         'graphql/document-group',
         operationIdsForGroupWithSingleOperation,
         graphqlOptions,
+        graphqlFiles,
       )
 
       expect(result.documents.size).toBeGreaterThan(0)
@@ -460,6 +476,7 @@ describe('Document Group test', () => {
         'graphql/document-group',
         operationIdsForGroupWithSingleOperation,
         graphqlOptions,
+        graphqlFiles,
       )
 
       const [document] = Array.from(result.documents.values())
@@ -477,6 +494,7 @@ describe('Document Group test', () => {
         'graphql/document-group',
         operationIdsForGroupWithMultipleOperations,
         graphqlOptions,
+        graphqlFiles,
       )
 
       expect(result.documents.size).toBeGreaterThan(0)
@@ -495,26 +513,36 @@ describe('Document Group test', () => {
           buildType: TRANSFORMATION_KIND_MERGED,
           apiType: GRAPHQL_API_TYPE,
         },
+        graphqlFiles,
       )).rejects.toThrow('mergedSourceSpecifications transformation is not supported for API type: graphql')
     })
   })
 
+  // The fixtures these tests open carry no config.json, so the version and the file list are named here.
+  // Only `publish` needs the list; a group build resolves its documents from the published version.
+  // The three `merge-operations` fixtures also hold a `result.yaml`, which the list keeps out of the build
+  // the way the config's partial list did.
   async function runPublishPackage(
     packageId: string,
     groupOperationIds: Record<string, string[]>,
     options: Partial<BuildConfigAggregator> = { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS },
+    files: BuildConfigFile[] = [{ fileId: '1.yaml' }],
   ): Promise<{ pkg: LocalRegistry; result: BuildResult }> {
     const pkg = LocalRegistry.openPackage(packageId, groupOperationIds)
     const editor = await Editor.openProject(pkg.packageId, pkg)
-    await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+    await pkg.publish(pkg.packageId, { packageId: pkg.packageId, version: VERSION_ID, files })
 
     const result = await editor.run({
       ...{
         packageId: pkg.packageId,
+        version: VERSION_ID,
         groupName: GROUP_NAME,
       },
       ...options,
     })
+    // A group build over a version that was never published is not an error: it warns and returns nothing.
+    // Every caller below loops over `result.documents`, so an empty set would pass them all silently.
+    expect(result.documents.size).toBeGreaterThan(0)
     return { pkg, result }
   }
 })
