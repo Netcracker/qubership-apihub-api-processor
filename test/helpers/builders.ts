@@ -24,6 +24,7 @@ import {
   VERSION_STATUS,
   VERSION_VALIDATION_LEVEL,
   PackageVersionBuilder,
+  VersionId,
   VersionStatus,
   VersionValidationLevel,
 } from '../../src/processor'
@@ -36,6 +37,16 @@ export const BEFORE_VERSION_ID = 'v1'
 export const AFTER_VERSION_ID = 'v2'
 
 const DEFAULT_DASHBOARD_ID = 'dashboards/dashboard'
+
+// Publish one file as one version of a package: the sentence ~100 test call sites write out by hand.
+// `extra` carries whatever else the config needs — `previousVersion` and `status` are the common ones.
+export const publishVersion = (
+  packageId: string,
+  version: VersionId,
+  fileId: string,
+  extra: Partial<BuildConfig> = {},
+): Promise<BuildResult> =>
+  LocalRegistry.openPackage(packageId).publish(packageId, { packageId, version, files: [{ fileId }], ...extra })
 
 // Every changelog wrapper asks for the same thing: compare this package's `v2` against its own `v1`.
 const changelogConfig = (packageId: string): BuildConfig => ({
@@ -127,8 +138,8 @@ export async function publishDashboardWithTwoRefs(
   dashboardPackageId: string = DEFAULT_DASHBOARD_ID,
 ): Promise<LocalRegistry> {
   for (const version of [BEFORE_VERSION_ID, AFTER_VERSION_ID]) {
-    await LocalRegistry.openPackage(packageId1).publish(packageId1, { version, packageId: packageId1, files: [{ fileId: 'v1.yaml' }] })
-    await LocalRegistry.openPackage(packageId2).publish(packageId2, { version, packageId: packageId2, files: [{ fileId: 'v2.yaml' }] })
+    await publishVersion(packageId1, version, 'v1.yaml')
+    await publishVersion(packageId2, version, 'v2.yaml')
   }
 
   const dashboard = LocalRegistry.openPackage(dashboardPackageId)
@@ -155,16 +166,8 @@ export async function prepareChangelogDashboard(
   packageId1: string,
   packageId2: string,
 ): Promise<Editor> {
-  await LocalRegistry.openPackage(packageId1).publish(packageId1, {
-    packageId: packageId1,
-    version: BEFORE_VERSION_ID,
-    files: [{ fileId: 'v1.yaml' }],
-  })
-  await LocalRegistry.openPackage(packageId2).publish(packageId2, {
-    packageId: packageId2,
-    version: AFTER_VERSION_ID,
-    files: [{ fileId: 'v2.yaml' }],
-  })
+  await publishVersion(packageId1, BEFORE_VERSION_ID, 'v1.yaml')
+  await publishVersion(packageId2, AFTER_VERSION_ID, 'v2.yaml')
 
   const dashboard = LocalRegistry.openPackage(DEFAULT_DASHBOARD_ID)
   await dashboard.publish(DEFAULT_DASHBOARD_ID, {

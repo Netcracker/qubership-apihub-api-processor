@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import JSZip from 'jszip'
 import { Editor, LocalRegistry, VERSIONS_PATH, registryFs } from './helpers'
 import { DOCUMENT_TYPE } from '../src'
 
@@ -46,15 +47,25 @@ describe('Unsupported files test', () => {
     expect(png?.source instanceof Blob).toBe(true)
   })
 
+  // Packing is what these two check, so the archive has to be opened again: writing it out and stopping
+  // there passes whatever the packer produced, including nothing.
+  const PACKED_DOCUMENTS = ['documents/Document.docx', 'documents/Test.png']
+
   test('Pack unsupported files using js zip', async () => {
     await editor.run()
     const packageZip = await editor.createVersionPackage()
     await registryFs.writeFile(`${VERSIONS_PATH}/unsupported-files-jszip-result.zip`, packageZip)
+
+    const zip = await JSZip.loadAsync(packageZip)
+    expect(Object.keys(zip.files)).toEqual(expect.arrayContaining(PACKED_DOCUMENTS))
   }, 100000)
 
   test('Pack unsupported files using admzip', async () => {
     await editor.run()
     const { packageVersion } = await editor.createNodeVersionPackage()
     await registryFs.writeFile(`${VERSIONS_PATH}/unsupported-files-admzip-result.zip`, packageVersion)
+
+    const zip = await JSZip.loadAsync(packageVersion)
+    expect(Object.keys(zip.files)).toEqual(expect.arrayContaining(PACKED_DOCUMENTS))
   }, 100000)
 })

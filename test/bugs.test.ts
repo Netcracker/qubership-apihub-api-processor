@@ -277,6 +277,7 @@ describe('Operation Bugs', () => {
     const editor = await Editor.openProject('migration_bug', migrationBug)
     const result = await editor.run()
 
+    expect(result.documents.size).toBeGreaterThan(0)
     for (const [, document] of result.documents) {
       expect(!!document.type).toBeTruthy()
       expect(!!document.title).toBeTruthy()

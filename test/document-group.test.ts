@@ -115,13 +115,9 @@ describe('Document Group test', () => {
   describe('Base path operations', () => {
     runCommonTests(BASE_OPERATION_PATH)
 
-    test('should have documents stripped of operations other than from provided group', async () => {
-      // todo
-    })
+    test.todo('should have documents stripped of operations other than from provided group')
 
-    test('should have merged operations from provided group', async () => {
-      // todo
-    })
+    test.todo('should have merged operations from provided group')
 
     test('should have properly merged documents', async () => {
       await runMergeOperationsCase('basic-documents-for-merge')

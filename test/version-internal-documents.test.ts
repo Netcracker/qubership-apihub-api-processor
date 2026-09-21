@@ -75,6 +75,7 @@ describe('Version Internal Documents tests', () => {
     test('should documents have internalDocumentId', async () => {
       const result = await buildPackage(packageId)
       const documents: VersionDocument[] = Array.from(result.documents.values())
+      expect(documents).toHaveLength(files.length)
       Array.from(documents).forEach((document, i) => {
         expect(document).toHaveProperty(['versionInternalDocument', 'versionDocumentId'], files[i])
       })
@@ -83,6 +84,7 @@ describe('Version Internal Documents tests', () => {
     test('should operations have versionInternalDocumentId', async () => {
       const result = await buildPackage(packageId)
       const operations: ApiOperation[] = Array.from(result.operations.values())
+      expect(operations.length).toBeGreaterThan(0)
       Array.from(operations).forEach((operation, i) => {
         expect(operation).toHaveProperty('versionInternalDocumentId')
         expect(operation['versionInternalDocumentId']).toEqual(files[i])
@@ -128,6 +130,7 @@ describe('Version Internal Documents tests', () => {
           loadFileAsString(DEFAULT_PROJECTS_PATH, packageId, `version-${item}.json`),
         ),
       )
+      expect(documents).toHaveLength(files.length)
       documents.forEach((document, i) => {
         expect(JSON.parse(document.versionInternalDocument.serializedVersionDocument as string)).toEqual(JSON.parse(versionSpecs[i] as string))
       })

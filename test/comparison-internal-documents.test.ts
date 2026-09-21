@@ -290,6 +290,7 @@ describe('Comparison Internal Documents tests', () => {
         'comparison.json',
       )
 
+      expect(comparisons.length).toBeGreaterThan(0)
       comparisons.forEach(comparison => {
         const [document] = comparison.comparisonInternalDocuments
         expect(document.comparisonDocumentId).toEqual(comparisonInternalDocumentId)
@@ -331,6 +332,7 @@ describe('Comparison Internal Documents tests', () => {
       const result = isGraphql ? await buildGqlChangelogPackage(packageId) : await buildChangelogPackage(packageId)
       const { comparisons } = result
 
+      expect(comparisons.length).toBeGreaterThan(0)
       comparisons.forEach(comparison => {
         const { data } = comparison
         expect(data).not.toBeNull()
@@ -345,6 +347,7 @@ describe('Comparison Internal Documents tests', () => {
       const result = isGraphql ? await buildGqlChangelogPackage(packageId) : await buildChangelogPackage(packageId)
       const { comparisons } = result
 
+      expect(comparisons.length).toBeGreaterThan(0)
       comparisons.forEach(comparison => {
         const { comparisonFileId, comparisonInternalDocuments } = comparison
         const [document] = comparisonInternalDocuments
@@ -357,6 +360,7 @@ describe('Comparison Internal Documents tests', () => {
       const result = isGraphql ? await buildGqlChangelogPackage(packageId) : await buildChangelogPackage(packageId)
       const { comparisons } = result
 
+      expect(comparisons.length).toBeGreaterThan(0)
       comparisons.forEach(comparison => {
         const { data, comparisonInternalDocuments } = comparison
         const [document] = comparisonInternalDocuments

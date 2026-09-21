@@ -618,6 +618,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       })
 
       test('should set search config with useOperationDataAsSearchText=true on all operations', () => {
+        expect(operations.length).toBeGreaterThan(0)
         for (const operation of operations) {
           expect(operation.search).toEqual({ useOperationDataAsSearchText: true })
         }

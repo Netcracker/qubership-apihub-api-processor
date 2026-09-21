@@ -290,6 +290,7 @@ describe('BuildGraphQLSearchText unit tests', () => {
     })
 
     test('should set search config with useOperationDataAsSearchText=false on all operations', () => {
+      expect(operations.size).toBeGreaterThan(0)
       for (const op of Array.from(operations.values())) {
         expect(op.search).toEqual({
           useOperationDataAsSearchText: false,

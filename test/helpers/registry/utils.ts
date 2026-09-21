@@ -25,7 +25,7 @@ export const VERSIONS_PATH = useDisk ? `test/versions/worker-${process.env.JEST_
 
 // Publishing an EXPORT_* build would leave an empty version directory: createVersionPackage returns
 // the export documents and writes no package. Fail here, not later on a missing operations.json.
-export function assertPublishableBuildType({ buildType }: PackageConfig): void {
+function assertPublishableBuildType({ buildType }: PackageConfig): void {
   if (EXPORT_BUILD_TYPES.some(exportBuildType => exportBuildType === buildType)) {
     throw new Error(`Cannot publish a '${buildType}' build: it produces export documents, not a version package`)
   }
@@ -52,7 +52,7 @@ export async function publishVersionPackage(
 
 // Mirrors JSZip: objects → pretty JSON, strings → raw, Blobs → binary. Since callers fire `file()`
 // without awaiting, writes are tracked in `pending` and drained by the always-awaited `buildResult()`.
-export function createDiskZipTool(basePath: string): ZipTool {
+function createDiskZipTool(basePath: string): ZipTool {
   const pending: Promise<void>[] = []
   const dirPromises = new Map<string, Promise<unknown>>()
   const writeChains = new Map<string, Promise<void>>()
