@@ -31,37 +31,36 @@ import { LocalRegistry, VersionOverrideRegistry } from './registry'
 import { Editor } from './editor'
 import { takeIfDefined } from '../../src/utils'
 
-const BEFORE_VERSION_ID = 'v1'
+export const BEFORE_VERSION_ID = 'v1'
 
-const AFTER_VERSION_ID = 'v2'
+export const AFTER_VERSION_ID = 'v2'
+
+const DEFAULT_DASHBOARD_ID = 'dashboards/dashboard'
+
+// Every changelog wrapper asks for the same thing: compare this package's `v2` against its own `v1`.
+const changelogConfig = (packageId: string): BuildConfig => ({
+  version: AFTER_VERSION_ID,
+  packageId,
+  previousVersionPackageId: packageId,
+  previousVersion: BEFORE_VERSION_ID,
+  buildType: BUILD_TYPE.CHANGELOG,
+  status: VERSION_STATUS.RELEASE,
+})
 
 export async function buildChangelogPackage(
   packageId: string,
   filesBefore: BuildConfigFile[] = [{ fileId: 'before.yaml' }],
   filesAfter: BuildConfigFile[] = [{ fileId: 'after.yaml' }],
+  // the pair's own status: a fixture that carries an Error publishes as a draft, and the changelog over it
+  // is what the test is about
+  status: VersionStatus = VERSION_STATUS.RELEASE,
 ): Promise<BuildResult> {
   const pkg = LocalRegistry.openPackage(packageId)
 
-  await pkg.publish(pkg.packageId, {
-    packageId: pkg.packageId,
-    version: BEFORE_VERSION_ID,
-    files: filesBefore,
-  })
-  await pkg.publish(pkg.packageId, {
-    packageId: pkg.packageId,
-    version: AFTER_VERSION_ID,
-    files: filesAfter,
-  })
+  await pkg.publish(packageId, { packageId, version: BEFORE_VERSION_ID, files: filesBefore, status })
+  await pkg.publish(packageId, { packageId, version: AFTER_VERSION_ID, files: filesAfter, status })
 
-  const editor = new Editor(pkg.packageId, {
-    version: AFTER_VERSION_ID,
-    packageId: pkg.packageId,
-    previousVersionPackageId: pkg.packageId,
-    previousVersion: BEFORE_VERSION_ID,
-    buildType: BUILD_TYPE.CHANGELOG,
-    status: VERSION_STATUS.RELEASE,
-  })
-  return await editor.run()
+  return new Editor(packageId, changelogConfig(packageId)).run()
 }
 
 export async function buildPrefixGroupChangelogPackage(options: {
@@ -75,21 +74,21 @@ export async function buildPrefixGroupChangelogPackage(options: {
       currentGroup = '/api/v2/',
       previousGroup = '/api/v1/',
     } = {},
-  } = options ?? {}
+  } = options
 
   const pkg = LocalRegistry.openPackage(packageId)
 
-  await pkg.publish(pkg.packageId, {
-    packageId: pkg.packageId,
+  await pkg.publish(packageId, {
+    packageId,
     version: BEFORE_VERSION_ID,
-    files: files,
+    files,
   })
 
-  const editor = new Editor(pkg.packageId, {
+  const editor = new Editor(packageId, {
     version: BEFORE_VERSION_ID,
-    packageId: pkg.packageId,
-    currentGroup: currentGroup,
-    previousGroup: previousGroup,
+    packageId,
+    currentGroup,
+    previousGroup,
     buildType: BUILD_TYPE.PREFIX_GROUPS_CHANGELOG,
     status: VERSION_STATUS.RELEASE,
   })
@@ -105,10 +104,10 @@ export async function buildGqlChangelogPackage(
 export async function buildPackage(
   packageId: string,
 ): Promise<BuildResult> {
-  const localRegistry: LocalRegistry = LocalRegistry.openPackage(packageId)
-  const editor: Editor = await Editor.openProject(localRegistry.packageId, localRegistry)
-  await localRegistry.publish(localRegistry.packageId, { packageId: localRegistry.packageId })
-  return await editor.run({
+  const registry = LocalRegistry.openPackage(packageId)
+  const editor = await Editor.openProject(packageId, registry)
+  await registry.publish(packageId, { packageId })
+  return editor.run({
     version: BEFORE_VERSION_ID,
     status: VERSION_STATUS.RELEASE,
     buildType: BUILD_TYPE.BUILD,
@@ -125,7 +124,7 @@ export async function buildPackage(
 export async function publishDashboardWithTwoRefs(
   packageId1: string,
   packageId2: string,
-  dashboardPackageId: string = 'dashboards/dashboard',
+  dashboardPackageId: string = DEFAULT_DASHBOARD_ID,
 ): Promise<LocalRegistry> {
   for (const version of [BEFORE_VERSION_ID, AFTER_VERSION_ID]) {
     await LocalRegistry.openPackage(packageId1).publish(packageId1, { version, packageId: packageId1, files: [{ fileId: 'v1.yaml' }] })
@@ -134,8 +133,8 @@ export async function publishDashboardWithTwoRefs(
 
   const dashboard = LocalRegistry.openPackage(dashboardPackageId)
   for (const version of [BEFORE_VERSION_ID, AFTER_VERSION_ID]) {
-    await dashboard.publish(dashboard.packageId, {
-      packageId: dashboard.packageId,
+    await dashboard.publish(dashboardPackageId, {
+      packageId: dashboardPackageId,
       version,
       apiType: 'rest',
       refs: [{ refId: packageId1, version }, { refId: packageId2, version }],
@@ -147,62 +146,46 @@ export async function publishDashboardWithTwoRefs(
 export async function buildChangelogDashboard(
   packageId1: string,
   packageId2: string,
-  dashboardPackageId: string = 'dashboards/dashboard',
-  filesBefore: BuildConfigFile[] = [{ fileId: 'v1.yaml' }],
-  filesAfter: BuildConfigFile[] = [{ fileId: 'v2.yaml' }],
 ): Promise<BuildResult> {
-  const editor = await prepareChangelogDashboard(packageId1, packageId2, dashboardPackageId, filesBefore, filesAfter)
-  return await editor.run()
+  const editor = await prepareChangelogDashboard(packageId1, packageId2)
+  return editor.run()
 }
 
 export async function prepareChangelogDashboard(
   packageId1: string,
   packageId2: string,
-  dashboardPackageId: string = 'dashboards/dashboard',
-  filesBefore: BuildConfigFile[] = [{ fileId: 'v1.yaml' }],
-  filesAfter: BuildConfigFile[] = [{ fileId: 'v2.yaml' }],
 ): Promise<Editor> {
-  const pkg1 = LocalRegistry.openPackage(packageId1)
-  const pkg2 = LocalRegistry.openPackage(packageId2)
-
-  await pkg1.publish(pkg1.packageId, {
-    packageId: pkg1.packageId,
+  await LocalRegistry.openPackage(packageId1).publish(packageId1, {
+    packageId: packageId1,
     version: BEFORE_VERSION_ID,
-    files: filesBefore,
+    files: [{ fileId: 'v1.yaml' }],
   })
-  await pkg2.publish(pkg2.packageId, {
-    packageId: pkg2.packageId,
+  await LocalRegistry.openPackage(packageId2).publish(packageId2, {
+    packageId: packageId2,
     version: AFTER_VERSION_ID,
-    files: filesAfter,
+    files: [{ fileId: 'v2.yaml' }],
   })
 
-  const dashboard = LocalRegistry.openPackage(dashboardPackageId)
-  await dashboard.publish(dashboard.packageId, {
-    packageId: dashboardPackageId,
+  const dashboard = LocalRegistry.openPackage(DEFAULT_DASHBOARD_ID)
+  await dashboard.publish(DEFAULT_DASHBOARD_ID, {
+    packageId: DEFAULT_DASHBOARD_ID,
     version: BEFORE_VERSION_ID,
     apiType: 'rest',
     refs: [
-      { refId: pkg1.packageId, version: BEFORE_VERSION_ID },
+      { refId: packageId1, version: BEFORE_VERSION_ID },
     ],
   })
 
-  await dashboard.publish(dashboard.packageId, {
-    packageId: dashboardPackageId,
+  await dashboard.publish(DEFAULT_DASHBOARD_ID, {
+    packageId: DEFAULT_DASHBOARD_ID,
     version: AFTER_VERSION_ID,
     apiType: 'rest',
     refs: [
-      { refId: pkg2.packageId, version: AFTER_VERSION_ID },
+      { refId: packageId2, version: AFTER_VERSION_ID },
     ],
   })
 
-  return new Editor(dashboard.packageId, {
-    version: AFTER_VERSION_ID,
-    packageId: dashboard.packageId,
-    previousVersionPackageId: dashboard.packageId,
-    previousVersion: BEFORE_VERSION_ID,
-    buildType: BUILD_TYPE.CHANGELOG,
-    status: VERSION_STATUS.RELEASE,
-  })
+  return new Editor(DEFAULT_DASHBOARD_ID, changelogConfig(DEFAULT_DASHBOARD_ID))
 }
 
 export async function buildPackageWithDefaultConfig(
@@ -262,40 +245,6 @@ export async function buildPackageFromContent(
   )
 }
 
-export async function buildChangelogPackageDefaultConfig(
-  packageId: string,
-  filesBefore: BuildConfigFile[] = [{ fileId: 'before.yaml', publish: true }],
-  filesAfter: BuildConfigFile[] = [{ fileId: 'after.yaml' }],
-  // the pair's own status: a fixture that carries an Error publishes as a draft, and the changelog over it
-  // is what the test is about
-  status: VersionStatus = VERSION_STATUS.RELEASE,
-): Promise<BuildResult> {
-  const portal = new LocalRegistry(packageId)
-
-  await portal.publish(packageId, {
-    packageId: packageId,
-    version: BEFORE_VERSION_ID,
-    files: filesBefore,
-    status,
-  })
-  await portal.publish(packageId, {
-    packageId: packageId,
-    version: AFTER_VERSION_ID,
-    files: filesAfter,
-    status,
-  })
-
-  const editor = new Editor(packageId, {
-    version: AFTER_VERSION_ID,
-    packageId: packageId,
-    previousVersionPackageId: packageId,
-    previousVersion: BEFORE_VERSION_ID,
-    buildType: BUILD_TYPE.CHANGELOG,
-    status: VERSION_STATUS.RELEASE,
-  })
-  return await editor.run()
-}
-
 export async function buildChangelogFromContent(
   packageId: string,
   beforeContent: string,
@@ -321,15 +270,7 @@ export async function buildChangelogFromContent(
     },
   )
 
-  const editor = new Editor(packageId, {
-    version: AFTER_VERSION_ID,
-    packageId: packageId,
-    previousVersionPackageId: packageId,
-    previousVersion: BEFORE_VERSION_ID,
-    buildType: BUILD_TYPE.CHANGELOG,
-    status: VERSION_STATUS.RELEASE,
-  })
-  return await editor.run()
+  return new Editor(packageId, changelogConfig(packageId)).run()
 }
 
 const DEFAULT_SPEC = JSON.stringify({
@@ -342,14 +283,8 @@ export async function buildChangelogWithVersionOverrides(
   packageId: string,
   overrides: Record<string, string>,
   validationLevel: VersionValidationLevel = VERSION_VALIDATION_LEVEL.MAJOR,
-  beforeContent: string = DEFAULT_SPEC,
-  afterContent: string = DEFAULT_SPEC,
 ): Promise<BuildResult> {
-  return buildWithVersionOverrides(packageId, overrides, {
-    validationLevel,
-    beforeContent,
-    afterContent,
-  })
+  return buildWithVersionOverrides(packageId, overrides, { validationLevel })
 }
 
 export async function buildWithVersionOverrides(
@@ -357,14 +292,10 @@ export async function buildWithVersionOverrides(
   overrides: Record<string, string>,
   {
     validationLevel = VERSION_VALIDATION_LEVEL.MAJOR,
-    beforeContent = DEFAULT_SPEC,
-    afterContent = DEFAULT_SPEC,
     buildType = BUILD_TYPE.CHANGELOG,
     status = VERSION_STATUS.RELEASE,
   }: {
     validationLevel?: VersionValidationLevel
-    beforeContent?: string
-    afterContent?: string
     buildType?: BuildType
     status?: VersionStatus
   } = {},
@@ -375,11 +306,11 @@ export async function buildWithVersionOverrides(
   }
 
   await registry.publishFromContent(
-    { 'spec.json': beforeContent },
+    { 'spec.json': DEFAULT_SPEC },
     { packageId, version: 'v1', files: [{ fileId: 'spec.json', publish: true }] },
   )
   await registry.publishFromContent(
-    { 'spec.json': afterContent },
+    { 'spec.json': DEFAULT_SPEC },
     { packageId, version: 'v2', files: [{ fileId: 'spec.json' }] },
   )
 
@@ -398,7 +329,7 @@ export async function buildWithVersionOverrides(
     resolvers: {
       // a changelog reads no source files; a build reads the same spec the version was published from
       fileResolver: (fileId) => Promise.resolve(
-        fileId === 'spec.json' ? new File([afterContent], fileId, { type: 'application/json' }) : null,
+        fileId === 'spec.json' ? new File([DEFAULT_SPEC], fileId, { type: 'application/json' }) : null,
       ),
       ...registry.versionResolvers,
     },

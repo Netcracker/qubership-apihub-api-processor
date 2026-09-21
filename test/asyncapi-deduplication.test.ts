@@ -1,5 +1,5 @@
 import {
-  buildChangelogPackageDefaultConfig,
+  buildChangelogPackage,
   changesSummaryMatcher,
   numberOfImpactedOperationsMatcher,
 } from './helpers'
@@ -26,7 +26,7 @@ describe('AsyncAPI deduplication tests', () => {
       // Two operations (operation1=receive, operation2=send) on different channels,
       // both messages referencing SharedPayload. Changing SharedPayload type (number → string).
       // apiDiff resolves $refs per scope → separate diff instances per scope.
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-deduplication/shared-schema-across-operations')
+      const result = await buildChangelogPackage('asyncapi-deduplication/shared-schema-across-operations')
 
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
@@ -36,7 +36,7 @@ describe('AsyncAPI deduplication tests', () => {
       // Two operations (both receive) on different channels,
       // both messages referencing SharedPayload. Changing SharedPayload type (number → string).
       // Same scope → diffs should be deduplicated by reference identity within one apiDiff call.
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-deduplication/shared-schema-same-scope')
+      const result = await buildChangelogPackage('asyncapi-deduplication/shared-schema-same-scope')
 
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
@@ -46,7 +46,7 @@ describe('AsyncAPI deduplication tests', () => {
       // Two operations. info.version changed (1.0.0 → 2.0.0).
       // The info diff is extracted and added to every operation via extractInfoDiffs(),
       // but it's the same semantic change — changesSummary should count 1, impacted 2.
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-deduplication/root-info-change-multiple-operations')
+      const result = await buildChangelogPackage('asyncapi-deduplication/root-info-change-multiple-operations')
 
       expect(result).toEqual(changesSummaryMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [ANNOTATION_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
@@ -58,7 +58,7 @@ describe('AsyncAPI deduplication tests', () => {
       // Each scope (receive/send) gets its own unclassified diff via channel.servers aggregation.
       // No root-level diffs — server diffs come only through channel aggregation.
       // unclassified: 2 in summary (one per scope), impacted 2.
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-deduplication/root-server-change-multiple-operations')
+      const result = await buildChangelogPackage('asyncapi-deduplication/root-server-change-multiple-operations')
 
       expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
@@ -68,7 +68,7 @@ describe('AsyncAPI deduplication tests', () => {
       // One operation with two messages, both without explicit contentType.
       // defaultContentType changed (json → xml) — both messages inherit it.
       // The diff should be counted once in changesSummary but impact both apihub operations.
-      const result = await buildChangelogPackageDefaultConfig('asyncapi-deduplication/default-content-type-multiple-messages')
+      const result = await buildChangelogPackage('asyncapi-deduplication/default-content-type-multiple-messages')
 
       expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
@@ -82,7 +82,7 @@ describe('AsyncAPI deduplication tests', () => {
       // Different scopes → separate apiDiff calls → separate diff instances.
       // Cross-document content-based dedup (calculateDiffId) applies per operation,
       // but these operations have different scope, so both changes are counted.
-      const result = await buildChangelogPackageDefaultConfig(
+      const result = await buildChangelogPackage(
         'asyncapi-deduplication/shared-schema-cross-specs',
         [{ fileId: 'before1.yaml', publish: true }, { fileId: 'before2.yaml', publish: true }],
         [{ fileId: 'after1.yaml' }, { fileId: 'after2.yaml' }],
@@ -97,7 +97,7 @@ describe('AsyncAPI deduplication tests', () => {
       // Both specs define SharedPayload with same change (number → string).
       // Same scope → same group, but different documents → separate doc pairs → two apiDiff calls.
       // Cross-document content-based dedup via calculateDiffId merges identical diffs.
-      const result = await buildChangelogPackageDefaultConfig(
+      const result = await buildChangelogPackage(
         'asyncapi-deduplication/shared-schema-cross-specs-same-scope',
         [{ fileId: 'before1.yaml', publish: true }, { fileId: 'before2.yaml', publish: true }],
         [{ fileId: 'after1.yaml' }, { fileId: 'after2.yaml' }],
@@ -111,7 +111,7 @@ describe('AsyncAPI deduplication tests', () => {
       // operation1 in doc1 with SharedPayload{userId: number→string},
       // operation2 in doc2 with SharedPayload{orderId: integer→string}.
       // Same schema name but different properties/changes → no dedup, both counted separately.
-      const result = await buildChangelogPackageDefaultConfig(
+      const result = await buildChangelogPackage(
         'asyncapi-deduplication/shared-schema-cross-specs-different-content',
         [{ fileId: 'before1.yaml', publish: true }, { fileId: 'before2.yaml', publish: true }],
         [{ fileId: 'after1.yaml' }, { fileId: 'after2.yaml' }],
