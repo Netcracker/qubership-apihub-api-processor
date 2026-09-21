@@ -15,11 +15,16 @@
  */
 
 import {
+  ApiOperation,
   BuildResult,
   ChangeSummary,
   EMPTY_CHANGE_SUMMARY,
   OperationChanges,
+  OperationsApiType,
+  REST_API_TYPE,
+  VersionDocument,
 } from '../../src/processor'
+import { operationKey } from '../../src/components/operations'
 
 /**
  * The changes one operation carries in the first comparison of a build. Throws rather than returning
@@ -27,12 +32,55 @@ import {
  * fixture produced different ids, not that the operation has no changes.
  */
 export function operationChangesOf(result: BuildResult, operationId: string): OperationChanges {
-  const changes = result.comparisons[0]?.data?.find(item => item.operationId === operationId)
+  const data = result.comparisons[0]?.data ?? []
+  const changes = data.find(item => item.operationId === operationId)
   if (!changes) {
-    const available = result.comparisons[0]?.data?.map(item => item.operationId).join(', ')
-    throw new Error(`Comparison has no changes for operation ${operationId}. Operations: ${available}`)
+    throw new Error(`Comparison has no changes for operation ${operationId}. Operations: ${listOf(data.map(item => item.operationId))}`)
   }
   return changes
+}
+
+/**
+ * One operation of a build result. Throws rather than returning `undefined`, and names the keys that are
+ * there: a miss is usually a fixture producing different ids, and `result.operations.get(id)?.field` turns
+ * that into a complaint about the field instead of about the id.
+ *
+ * Takes the bare `operationId` and builds the map key, so call sites stop spelling
+ * `operationKey({ apiType: REST_API_TYPE, operationId })` by hand.
+ */
+export function operationOf(
+  result: BuildResult,
+  operationId: string,
+  apiType: OperationsApiType = REST_API_TYPE,
+): ApiOperation {
+  const key = operationKey({ apiType, operationId })
+  const operation = result.operations.get(key)
+  if (!operation) {
+    throw new Error(`Build result has no operation ${key}. Operations: ${keysOf(result.operations)}`)
+  }
+  return operation
+}
+
+/**
+ * One document of a build result, by `fileId`. Not by slug: every writer of that map — `setDocument`,
+ * `buildDocuments` and the document-group strategy — keys it by `fileId`.
+ */
+export function documentOf(result: BuildResult, fileId: string): VersionDocument {
+  const document = result.documents.get(fileId)
+  if (!document) {
+    throw new Error(`Build result has no document ${fileId}. Documents: ${keysOf(result.documents)}`)
+  }
+  return document
+}
+
+// Nothing at all is the most confusing miss of the three, so the message says so instead of trailing
+// off after the colon, which is what `operationChangesOf` printed as a bare `undefined`.
+function listOf(names: readonly (string | undefined)[]): string {
+  return names.length ? names.join(', ') : '(none)'
+}
+
+function keysOf(map: ReadonlyMap<string, unknown>): string {
+  return listOf(Array.from(map.keys()))
 }
 
 export const getVersionChanges = (result: BuildResult): Record<string, ChangeSummary> => {
