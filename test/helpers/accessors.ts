@@ -17,15 +17,15 @@
 import {
   ApiOperation,
   BuildResult,
-  ChangeSummary,
-  EMPTY_CHANGE_SUMMARY,
   MESSAGE_SEVERITY,
   MessageCategory,
   NotificationMessage,
   OperationChanges,
   OperationsApiType,
+  OperationType,
   REST_API_TYPE,
   VersionDocument,
+  VersionsComparison,
 } from '../../src/processor'
 import { operationKey } from '../../src/components/operations'
 
@@ -76,7 +76,7 @@ export function documentOf(result: BuildResult, fileId: string): VersionDocument
   return document
 }
 
-// Nothing at all is the most confusing miss of the three, so the message says so instead of trailing
+// Nothing at all is the most confusing miss of them all, so the message says so instead of trailing
 // off after the colon, which is what `operationChangesOf` printed as a bare `undefined`.
 function listOf(names: readonly (string | undefined)[]): string {
   return names.length ? names.join(', ') : '(none)'
@@ -84,6 +84,30 @@ function listOf(names: readonly (string | undefined)[]): string {
 
 function keysOf(map: ReadonlyMap<string, unknown>): string {
   return listOf(Array.from(map.keys()))
+}
+
+/**
+ * The operation types of one comparison, selected by api type.
+ *
+ * Throws on anything but exactly one comparison. A dashboard changelog produces one per reference pair,
+ * so that case needs an index rather than a looser guard — see T9 in `tasks/plan.md`.
+ */
+export function operationTypeOf(result: BuildResult, apiType: OperationsApiType = REST_API_TYPE): OperationType {
+  const comparison = soleComparisonOf(result)
+  const operationType = comparison.operationTypes.find(type => type.apiType === apiType)
+  if (!operationType) {
+    const available = comparison.operationTypes.map(type => type.apiType)
+    throw new Error(`Comparison carries no '${apiType}' operation type. API types: ${listOf(available)}`)
+  }
+  return operationType
+}
+
+function soleComparisonOf(result: BuildResult): VersionsComparison {
+  const { comparisons } = result
+  if (comparisons.length !== 1) {
+    throw new Error(`Expected the build to carry one comparison, found ${comparisons.length}`)
+  }
+  return comparisons[0]
 }
 
 /**
@@ -111,19 +135,4 @@ export function inCategory(
   category: MessageCategory,
 ): NotificationMessage[] {
   return notifications.filter(({ category: actual }) => actual === category)
-}
-
-export const getVersionChanges = (result: BuildResult): Record<string, ChangeSummary> => {
-  const summary: Record<string, ChangeSummary> = {}
-  for (const comparison of result.comparisons) {
-    for (const { apiType, changesSummary } of comparison.operationTypes) {
-      // a copy per api type: accumulating onto the shared EMPTY_CHANGE_SUMMARY corrupts it for every other reader
-      const totals = summary[apiType] ?? (summary[apiType] = { ...EMPTY_CHANGE_SUMMARY })
-
-      for (const [key, value] of Object.entries(changesSummary ?? {})) {
-        totals[key as keyof ChangeSummary] += value
-      }
-    }
-  }
-  return summary
 }

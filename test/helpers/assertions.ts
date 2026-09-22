@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-import { BuildResult } from '../../src'
+import { BuildResult, ChangeSummary, EMPTY_CHANGE_SUMMARY, OperationsApiType, REST_API_TYPE } from '../../src'
 import { calculateChangeSummary } from '../../src/utils'
+import { operationTypeOf } from './accessors'
 
 /**
  * A summary that contradicts the changes it counts is the symptom users report: an operation shown as
@@ -34,4 +35,28 @@ export function expectSummariesMatchDiffs(result: BuildResult): void {
   // Outside both loops: a build that produced no comparison, or none carrying operation changes, would
   // otherwise pass this having asserted nothing
   expect(checked).toBeGreaterThan(0)
+}
+
+/**
+ * The change counts one comparison reports, and the operations those changes touched.
+ *
+ * Plain functions rather than `expect.extend` matchers: a custom matcher shortens the failure by one
+ * more line and costs a type-declaration surface that has to be kept in sync by hand. The evidence is
+ * in T9 of `tasks/plan.md`.
+ */
+export function expectChangesSummary(
+  result: BuildResult,
+  expected: Partial<ChangeSummary>,
+  apiType: OperationsApiType = REST_API_TYPE,
+): void {
+  expect(operationTypeOf(result, apiType).changesSummary).toEqual({ ...EMPTY_CHANGE_SUMMARY, ...expected })
+}
+
+export function expectImpactedOperations(
+  result: BuildResult,
+  expected: Partial<ChangeSummary>,
+  apiType: OperationsApiType = REST_API_TYPE,
+): void {
+  expect(operationTypeOf(result, apiType).numberOfImpactedOperations)
+    .toEqual({ ...EMPTY_CHANGE_SUMMARY, ...expected })
 }
