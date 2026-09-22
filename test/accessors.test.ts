@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { BuildResult, GRAPHQL_API_TYPE } from '../src'
-import { buildPackageFromContent, documentOf, operationOf } from './helpers'
+import { BuildResult, GRAPHQL_API_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, NotificationMessage } from '../src'
+import { buildPackageFromContent, documentOf, errorsOf, notificationsOf, operationOf, warningsOf } from './helpers'
 
 // Its own packageId. In disk mode the version directory is shared by every suite that lands in the same
 // jest worker, so two suites publishing under one name overwrite each other. This suite never reads back
@@ -79,5 +79,35 @@ describe('Build result accessors', () => {
       expect(slug).not.toBe(FILE_ID)
       expect(() => documentOf(result, slug)).toThrow(/has no document/)
     })
+  })
+})
+
+// These three select rather than look up, so they take a hand-written list: a real build would add a minute
+// to the suite and prove nothing the filter does not. What is worth pinning is that the two severity
+// selectors are not each other — `MESSAGE_SEVERITY.Error` is 0 and `Warning` is 1, so a swap is silent.
+describe('Notification selectors', () => {
+  const result = {
+    notifications: [
+      { severity: MESSAGE_SEVERITY.Error, category: MESSAGE_CATEGORY.ParseFile, message: 'broken' },
+      { severity: MESSAGE_SEVERITY.Warning, category: MESSAGE_CATEGORY.ParseFile, message: 'odd' },
+      { severity: MESSAGE_SEVERITY.Information, category: MESSAGE_CATEGORY.BuildOperations, message: 'fyi' },
+    ] as NotificationMessage[],
+  } as BuildResult
+
+  test('errorsOf should return the errors and nothing else', () => {
+    expect(errorsOf(result).map(({ message }) => message)).toEqual(['broken'])
+  })
+
+  test('warningsOf should return the warnings and nothing else', () => {
+    expect(warningsOf(result).map(({ message }) => message)).toEqual(['odd'])
+  })
+
+  test('notificationsOf should select by category across severities', () => {
+    expect(notificationsOf(result, MESSAGE_CATEGORY.ParseFile).map(({ message }) => message))
+      .toEqual(['broken', 'odd'])
+  })
+
+  test('should return an empty list rather than throw when nothing matches', () => {
+    expect(errorsOf({ notifications: [] } as unknown as BuildResult)).toEqual([])
   })
 })

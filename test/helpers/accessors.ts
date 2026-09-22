@@ -19,6 +19,9 @@ import {
   BuildResult,
   ChangeSummary,
   EMPTY_CHANGE_SUMMARY,
+  MESSAGE_SEVERITY,
+  MessageCategory,
+  NotificationMessage,
   OperationChanges,
   OperationsApiType,
   REST_API_TYPE,
@@ -81,6 +84,18 @@ function listOf(names: readonly (string | undefined)[]): string {
 
 function keysOf(map: ReadonlyMap<string, unknown>): string {
   return listOf(Array.from(map.keys()))
+}
+
+export function errorsOf(result: BuildResult): NotificationMessage[] {
+  return result.notifications.filter(({ severity }) => severity === MESSAGE_SEVERITY.Error)
+}
+
+export function warningsOf(result: BuildResult): NotificationMessage[] {
+  return result.notifications.filter(({ severity }) => severity === MESSAGE_SEVERITY.Warning)
+}
+
+export function notificationsOf(result: BuildResult, category: MessageCategory): NotificationMessage[] {
+  return result.notifications.filter(notification => notification.category === category)
 }
 
 export const getVersionChanges = (result: BuildResult): Record<string, ChangeSummary> => {
