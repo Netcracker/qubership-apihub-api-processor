@@ -69,8 +69,14 @@ describe('Notification attribution invariants', () => {
     const result = await build()
     const slugs = new Set([...result.documents.values()].map(({ slug }) => slug))
 
-    for (const { documentId } of result.notifications) {
-      if (documentId === undefined) { continue }
+    // Skipping the unattributed ones inside the loop hid the case this test cares about least but
+    // relies on most: with nothing attributed at all, there is no documentId to check against a slug.
+    const attributed = result.notifications
+      .map(({ documentId }) => documentId)
+      .filter((documentId): documentId is string => documentId !== undefined)
+    expect(attributed.length).toBeGreaterThan(0)
+
+    for (const documentId of attributed) {
       expect(slugs.has(documentId)).toBe(true)
     }
   })

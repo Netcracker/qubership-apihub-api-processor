@@ -362,6 +362,10 @@ describe('The index and the documents agree', () => {
       files: fileIds.map(fileId => ({ fileId })),
     })
 
+    // The three loops below are the whole test, and every one of them passes over an empty build.
+    // Guarding the operations is enough: with documents empty and operations not, the last loop fails.
+    expect(result.operations.size).toBeGreaterThan(0)
+
     // an operation is identified by its api type and its id, which is how the index is keyed
     const announced = new Map<string, string>()
     for (const document of result.documents.values()) {

@@ -84,7 +84,9 @@ describe('Version Internal Documents tests', () => {
     test('should operations have versionInternalDocumentId', async () => {
       const result = await buildPackage(packageId)
       const operations: ApiOperation[] = Array.from(result.operations.values())
-      expect(operations.length).toBeGreaterThan(0)
+      // the loop below pairs operations[i] with files[i], and the third test in this block pins the
+      // same count from the serialized side, so the strong form is the one that matches the claim
+      expect(operations).toHaveLength(files.length)
       Array.from(operations).forEach((operation, i) => {
         expect(operation).toHaveProperty('versionInternalDocumentId')
         expect(operation['versionInternalDocumentId']).toEqual(files[i])
