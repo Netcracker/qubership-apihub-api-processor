@@ -86,16 +86,31 @@ function keysOf(map: ReadonlyMap<string, unknown>): string {
   return listOf(Array.from(map.keys()))
 }
 
-export function errorsOf(result: BuildResult): NotificationMessage[] {
-  return result.notifications.filter(({ severity }) => severity === MESSAGE_SEVERITY.Error)
+/**
+ * Select notifications by severity or by category.
+ *
+ * Unlike the lookups above, these return a list instead of throwing: no errors is a real answer, and a
+ * good many tests assert exactly that.
+ *
+ * They take the list, not the `BuildResult`, for two reasons. A build carries three separate sets —
+ * `notifications`, `comparisonNotifications`, and one per entry of `comparisons` — so a helper that
+ * picked `result.notifications` for you would quietly answer about the wrong one. And a third of the
+ * call sites hold a bare array to begin with, out of a capability check or an archive, and could not
+ * have called it at all.
+ */
+export function errorsOf(notifications: readonly NotificationMessage[]): NotificationMessage[] {
+  return notifications.filter(({ severity }) => severity === MESSAGE_SEVERITY.Error)
 }
 
-export function warningsOf(result: BuildResult): NotificationMessage[] {
-  return result.notifications.filter(({ severity }) => severity === MESSAGE_SEVERITY.Warning)
+export function warningsOf(notifications: readonly NotificationMessage[]): NotificationMessage[] {
+  return notifications.filter(({ severity }) => severity === MESSAGE_SEVERITY.Warning)
 }
 
-export function notificationsOf(result: BuildResult, category: MessageCategory): NotificationMessage[] {
-  return result.notifications.filter(notification => notification.category === category)
+export function inCategory(
+  notifications: readonly NotificationMessage[],
+  category: MessageCategory,
+): NotificationMessage[] {
+  return notifications.filter(({ category: actual }) => actual === category)
 }
 
 export const getVersionChanges = (result: BuildResult): Record<string, ChangeSummary> => {
