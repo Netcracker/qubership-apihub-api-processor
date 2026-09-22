@@ -15,6 +15,8 @@
  */
 
 import {
+  AFTER_VERSION_ID,
+  BEFORE_VERSION_ID,
   buildChangelogFromContent,
   buildChangelogPackage,
   changesSummaryMatcher,
@@ -39,8 +41,6 @@ let beforePackage: LocalRegistry
 let afterPackage: LocalRegistry
 const BEFORE_PACKAGE_ID = 'changes_test_before'
 const AFTER_PACKAGE_ID = 'changes_test_after'
-const BEFORE_VERSION_ID = 'v1'
-const AFTER_VERSION_ID = 'v2'
 
 describe('Changelog build type', () => {
   beforeAll(async () => {

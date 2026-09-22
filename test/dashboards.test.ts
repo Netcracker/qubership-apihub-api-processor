@@ -167,7 +167,7 @@ describe('Dashboard build', () => {
 
 describe('Dashboard changelog omits intermediate dashboard comparisons', () => {
   // a minimal REST spec whose operation description changes between versions
-  const restSpec = (description: string): string => `openapi: "3.0.0"
+  const leafSpec = (description: string): string => `openapi: "3.0.0"
 info:
   title: leaf
   version: 0.1.0
@@ -188,7 +188,7 @@ paths:
     description: string,
   ): ReturnType<LocalRegistry['publishFromContent']> =>
     reg.publishFromContent(
-      { 'spec.yaml': restSpec(description) },
+      { 'spec.yaml': leafSpec(description) },
       { packageId, version, buildType: BUILD_TYPE.BUILD, files: [{ fileId: 'spec.yaml' }] },
     )
 

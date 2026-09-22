@@ -14,8 +14,25 @@
  * limitations under the License.
  */
 
-import { BuildResult, GRAPHQL_API_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, NotificationMessage } from '../src'
-import { buildPackageFromContent, documentOf, errorsOf, inCategory, operationOf, warningsOf } from './helpers'
+import {
+  ASYNCAPI_API_TYPE,
+  BuildResult,
+  GRAPHQL_API_TYPE,
+  MESSAGE_CATEGORY,
+  MESSAGE_SEVERITY,
+  NotificationMessage,
+  OperationType,
+  REST_API_TYPE,
+} from '../src'
+import {
+  buildPackageFromContent,
+  documentOf,
+  errorsOf,
+  inCategory,
+  operationOf,
+  operationTypeOf,
+  warningsOf,
+} from './helpers'
 
 // Its own packageId. In disk mode the version directory is shared by every suite that lands in the same
 // jest worker, so two suites publishing under one name overwrite each other. This suite never reads back
@@ -111,5 +128,32 @@ describe('Notification selectors', () => {
     // the case that actually occurs is a full list with no match, not an empty one
     expect(inCategory(NOTIFICATIONS, MESSAGE_CATEGORY.RefNotFound)).toEqual([])
     expect(errorsOf([])).toEqual([])
+  })
+})
+
+describe('operationTypeOf', () => {
+  const comparisonOver = (...apiTypes: OperationType['apiType'][]): BuildResult =>
+    ({ comparisons: [{ operationTypes: apiTypes.map(apiType => ({ apiType })) }] } as BuildResult)
+
+  test('should default the api type to rest', () => {
+    expect(operationTypeOf(comparisonOver(REST_API_TYPE)).apiType).toBe(REST_API_TYPE)
+  })
+
+  test('should say which api types were there when the one asked for is absent', () => {
+    expect(() => operationTypeOf(comparisonOver(REST_API_TYPE), GRAPHQL_API_TYPE))
+      .toThrow("Comparison carries no 'graphql' operation type. API types: rest")
+  })
+
+  test('should select by api type when a comparison carries more than one', () => {
+    // the shape of asyncapi-changes.test.ts: one changelog over a REST and an AsyncAPI document
+    const mixed = comparisonOver(REST_API_TYPE, ASYNCAPI_API_TYPE)
+
+    expect(operationTypeOf(mixed, ASYNCAPI_API_TYPE).apiType).toBe(ASYNCAPI_API_TYPE)
+    expect(operationTypeOf(mixed).apiType).toBe(REST_API_TYPE)
+  })
+
+  test('should say how many comparisons there were rather than search for one', () => {
+    expect(() => operationTypeOf({ comparisons: [] } as unknown as BuildResult))
+      .toThrow('Expected the build to carry one comparison, found 0')
   })
 })

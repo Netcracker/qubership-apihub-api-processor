@@ -33,13 +33,13 @@ const OTHER_SLUG = 'spec2'
 
 const servedUnder = (basePath: string): { root: string } => ({ root: `servers: [{ url: 'https://host${basePath}' }]\n` })
 
-const documentOf = (slug: string, yaml: string): VersionDocument =>
+const documentFrom = (slug: string, yaml: string): VersionDocument =>
   versionDocument(slug, { data: parse(yaml) as OpenAPIV3.Document })
 
 /** The comparison reads only the contested ids off the operations, so the operations carry nothing else. */
 const pairOf = (anchorYaml: string, otherYaml: string, operationIds: string[]): ContestedDocumentPair => ({
-  anchorDocument: documentOf(ANCHOR_SLUG, anchorYaml),
-  otherDocument: documentOf(OTHER_SLUG, otherYaml),
+  anchorDocument: documentFrom(ANCHOR_SLUG, anchorYaml),
+  otherDocument: documentFrom(OTHER_SLUG, otherYaml),
   operations: operationIds.map(operationId => ({
     operationId,
     anchorOperation: restOperation({ operationId }),
@@ -120,7 +120,7 @@ describe('compareContestedOperations', () => {
 test('should refuse two documents that derive one contested id from different paths', () => {
   const contestedId = 'res-data-get'
   const claimOf = (slug: string, path: string, summary: string): DocumentClaim => ({
-    document: documentOf(slug, restSpec({ [path]: summary })),
+    document: documentFrom(slug, restSpec({ [path]: summary })),
     documentId: slug,
     operation: restOperation({ operationId: contestedId, documentId: slug }),
   })

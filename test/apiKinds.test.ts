@@ -36,7 +36,7 @@ import * as bwcValidation from '../src/components/compare/rest.api-kind'
 
 let afterPackage: LocalRegistry
 const AFTER_PACKAGE_ID = 'api-kinds'
-const AFTER_VERSION_ID = 'v1'
+const PACKAGE_VERSION_ID = 'v1'
 
 describe('API Kinds test', () => {
   beforeAll(() => {
@@ -46,7 +46,7 @@ describe('API Kinds test', () => {
   test('document with label must have no-bwc api kind', async () => {
     const editor = await Editor.openProject(AFTER_PACKAGE_ID, afterPackage)
     const result = await editor.run({
-      version: AFTER_VERSION_ID,
+      version: PACKAGE_VERSION_ID,
       packageId: AFTER_PACKAGE_ID,
       files: [{
         fileId: 'Petstore.yaml',
@@ -61,7 +61,7 @@ describe('API Kinds test', () => {
   test('document with uppercase label must have no-bwc api kind', async () => {
     const editor = await Editor.openProject(AFTER_PACKAGE_ID, afterPackage)
     const result = await editor.run({
-      version: AFTER_VERSION_ID,
+      version: PACKAGE_VERSION_ID,
       packageId: AFTER_PACKAGE_ID,
       files: [{
         fileId: 'Petstore.yaml',
@@ -76,7 +76,7 @@ describe('API Kinds test', () => {
   test('document with label must have experimental api kind', async () => {
     const editor = await Editor.openProject(AFTER_PACKAGE_ID, afterPackage)
     const result = await editor.run({
-      version: AFTER_VERSION_ID,
+      version: PACKAGE_VERSION_ID,
       packageId: AFTER_PACKAGE_ID,
       files: [{
         fileId: 'Petstore.yaml',
@@ -91,7 +91,7 @@ describe('API Kinds test', () => {
   test('document with incorrect label value must have bwc api kind', async () => {
     const editor = await Editor.openProject(AFTER_PACKAGE_ID, afterPackage)
     const result = await editor.run({
-      version: AFTER_VERSION_ID,
+      version: PACKAGE_VERSION_ID,
       packageId: AFTER_PACKAGE_ID,
       files: [{
         fileId: 'Petstore.yaml',
@@ -106,7 +106,7 @@ describe('API Kinds test', () => {
   test('document metadata must not carry xApiKind', async () => {
     const editor = await Editor.openProject(AFTER_PACKAGE_ID, afterPackage)
     const result = await editor.run({
-      version: AFTER_VERSION_ID,
+      version: PACKAGE_VERSION_ID,
       packageId: AFTER_PACKAGE_ID,
       files: [{
         fileId: 'Petstore.yaml',
@@ -123,7 +123,7 @@ describe('API Kinds test', () => {
   test('rebuilt document must keep the api kind resolved from xApiKind', async () => {
     const editor = await Editor.openProject(AFTER_PACKAGE_ID, afterPackage)
     await editor.run({
-      version: AFTER_VERSION_ID,
+      version: PACKAGE_VERSION_ID,
       packageId: AFTER_PACKAGE_ID,
       files: [{
         fileId: 'Petstore.yaml',
@@ -143,11 +143,11 @@ describe('API Kinds test', () => {
 
     await portal.publish(packageId, {
       packageId,
-      version: AFTER_VERSION_ID,
+      version: PACKAGE_VERSION_ID,
       files: [{ fileId: '1.yaml', xApiKind: 'no-BWC' }],
     })
 
-    const resolved = await portal.versionDocumentsResolver(AFTER_VERSION_ID, packageId)
+    const resolved = await portal.versionDocumentsResolver(PACKAGE_VERSION_ID, packageId)
 
     expect(resolved?.documents).toEqual([
       expect.objectContaining({ fileId: '1.yaml', apiKind: APIHUB_API_COMPATIBILITY_KIND_NO_BWC }),
@@ -165,7 +165,7 @@ describe('API Kinds test', () => {
     const editor = await Editor.openProject(packageId, LocalRegistry.openPackage(packageId))
     const result = await editor.run({
       packageId,
-      version: AFTER_VERSION_ID,
+      version: PACKAGE_VERSION_ID,
       files: [{ fileId: 'Test.png', xApiKind: 'no-BWC' }],
     })
 
@@ -175,7 +175,7 @@ describe('API Kinds test', () => {
   test('version with label must have no-bwc api kind', async () => {
     const editor = await Editor.openProject(AFTER_PACKAGE_ID, afterPackage)
     const result = await editor.run({
-      version: AFTER_VERSION_ID,
+      version: PACKAGE_VERSION_ID,
       packageId: AFTER_PACKAGE_ID,
       files: [{
         fileId: 'Petstore.yaml',

@@ -155,8 +155,8 @@ describe('Comparison Internal Documents tests', () => {
       packageId1: string,
       packageId2: string,
     ): Promise<BuildResult> {
-      const AFTER_VERSION_ID = 'v1'
-      const BEFORE_VERSION_ID = 'v2'
+      const CURRENT_VERSION_ID = 'v1'
+      const PREVIOUS_VERSION_ID = 'v2'
       const dashboardPackageId1 = 'dashboards/dashboard1'
       const dashboardPackageId2 = 'dashboards/dashboard2'
       const filesBefore: BuildConfigFile[] = [{ fileId: 'v1.yaml' }]
@@ -165,60 +165,60 @@ describe('Comparison Internal Documents tests', () => {
       const pkg1 = LocalRegistry.openPackage(packageId1)
       await pkg1.publish(pkg1.packageId, {
         packageId: pkg1.packageId,
-        version: BEFORE_VERSION_ID,
+        version: PREVIOUS_VERSION_ID,
         files: filesBefore,
       })
 
       await pkg1.publish(pkg1.packageId, {
         packageId: pkg1.packageId,
-        version: AFTER_VERSION_ID,
-        previousVersion: BEFORE_VERSION_ID,
+        version: CURRENT_VERSION_ID,
+        previousVersion: PREVIOUS_VERSION_ID,
         files: filesAfter,
       })
 
       const pkg2 = LocalRegistry.openPackage(packageId2)
       await pkg2.publish(pkg2.packageId, {
         packageId: pkg2.packageId,
-        version: BEFORE_VERSION_ID,
+        version: PREVIOUS_VERSION_ID,
         files: filesBefore,
       })
 
       await pkg2.publish(pkg2.packageId, {
         packageId: pkg2.packageId,
-        version: AFTER_VERSION_ID,
-        previousVersion: BEFORE_VERSION_ID,
+        version: CURRENT_VERSION_ID,
+        previousVersion: PREVIOUS_VERSION_ID,
         files: filesAfter,
       })
 
       const dashboard1 = LocalRegistry.openPackage(dashboardPackageId1)
       await dashboard1.publish(dashboard1.packageId, {
         packageId: dashboardPackageId1,
-        version: BEFORE_VERSION_ID,
+        version: PREVIOUS_VERSION_ID,
         apiType: 'rest',
         refs: [
-          { refId: pkg1.packageId, version: BEFORE_VERSION_ID },
-          { refId: pkg2.packageId, version: BEFORE_VERSION_ID },
+          { refId: pkg1.packageId, version: PREVIOUS_VERSION_ID },
+          { refId: pkg2.packageId, version: PREVIOUS_VERSION_ID },
         ],
       })
 
       const dashboard2 = LocalRegistry.openPackage(dashboardPackageId2)
       await dashboard2.publish(dashboard2.packageId, {
         packageId: dashboardPackageId2,
-        version: AFTER_VERSION_ID,
+        version: CURRENT_VERSION_ID,
         apiType: 'rest',
-        previousVersion: BEFORE_VERSION_ID,
+        previousVersion: PREVIOUS_VERSION_ID,
         previousVersionPackageId: dashboard1.packageId,
         refs: [
-          { refId: pkg1.packageId, version: AFTER_VERSION_ID },
-          { refId: pkg2.packageId, version: AFTER_VERSION_ID },
+          { refId: pkg1.packageId, version: CURRENT_VERSION_ID },
+          { refId: pkg2.packageId, version: CURRENT_VERSION_ID },
         ],
       })
 
       const editor = new Editor(dashboard2.packageId, {
-        version: AFTER_VERSION_ID,
+        version: CURRENT_VERSION_ID,
         packageId: dashboard2.packageId,
         previousVersionPackageId: dashboard2.packageId,
-        previousVersion: BEFORE_VERSION_ID,
+        previousVersion: PREVIOUS_VERSION_ID,
         buildType: BUILD_TYPE.CHANGELOG,
         status: VERSION_STATUS.RELEASE,
       })
