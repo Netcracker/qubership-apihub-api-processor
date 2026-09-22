@@ -296,14 +296,6 @@ const DEFAULT_SPEC = JSON.stringify({
   paths: { '/test': { get: { operationId: 'getTest', responses: { '200': { description: 'OK' } } } } },
 })
 
-export async function buildChangelogWithVersionOverrides(
-  packageId: string,
-  overrides: Record<string, string>,
-  validationLevel: VersionValidationLevel = VERSION_VALIDATION_LEVEL.MAJOR,
-): Promise<BuildResult> {
-  return buildWithVersionOverrides(packageId, overrides, { validationLevel })
-}
-
 export async function buildWithVersionOverrides(
   packageId: string,
   overrides: Record<string, string>,
