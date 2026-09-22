@@ -30,7 +30,7 @@ import {
 } from '../../src/processor'
 import { LocalRegistry, VersionOverrideRegistry } from './registry'
 import { Editor } from './editor'
-import { takeIfDefined } from '../../src/utils'
+import { isString, takeIfDefined } from '../../src/utils'
 
 export const BEFORE_VERSION_ID = 'v1'
 
@@ -38,15 +38,29 @@ export const AFTER_VERSION_ID = 'v2'
 
 const DEFAULT_DASHBOARD_ID = 'dashboards/dashboard'
 
-// Publish one file as one version of a package: the sentence ~100 test call sites write out by hand.
-// `extra` carries whatever else the config needs — `previousVersion` and `status` are the common ones.
+/**
+ * Publish one file as one version of a package: the sentence most test call sites write out by hand.
+ *
+ * The file is a bare `fileId` for the common case, or a whole entry when the call needs `publish`,
+ * `labels` or `xApiKind` on it — 76 of the matching call sites pass only an id and 26 carry one more
+ * property, and a signature that took only the id would have turned those 26 into `extra.files`,
+ * repeating the id and defeating the point.
+ *
+ * `extra` cannot restate `files`, `packageId` or `version`: those are the arguments above, and a call
+ * that set both would silently contradict itself.
+ */
 export const publishVersion = (
   packageId: string,
   version: VersionId,
-  fileId: string,
-  extra: Partial<BuildConfig> = {},
+  file: string | BuildConfigFile,
+  extra: Omit<Partial<BuildConfig>, 'files' | 'packageId' | 'version'> = {},
 ): Promise<BuildResult> =>
-  LocalRegistry.openPackage(packageId).publish(packageId, { packageId, version, files: [{ fileId }], ...extra })
+  LocalRegistry.openPackage(packageId).publish(packageId, {
+    packageId,
+    version,
+    files: [isString(file) ? { fileId: file } : file],
+    ...extra,
+  })
 
 // Every changelog wrapper asks for the same thing: compare this package's `v2` against its own `v1`.
 const changelogConfig = (packageId: string): BuildConfig => ({
