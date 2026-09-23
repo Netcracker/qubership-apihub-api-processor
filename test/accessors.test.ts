@@ -29,6 +29,7 @@ import {
   documentOf,
   errorsOf,
   inCategory,
+  notificationOf,
   operationOf,
   operationTypeOf,
   warningsOf,
@@ -128,6 +129,29 @@ describe('Notification selectors', () => {
     // the case that actually occurs is a full list with no match, not an empty one
     expect(inCategory(NOTIFICATIONS, MESSAGE_CATEGORY.RefNotFound)).toEqual([])
     expect(errorsOf([])).toEqual([])
+  })
+
+  describe('notificationOf', () => {
+    test('should return the one notification of a category', () => {
+      expect(notificationOf(NOTIFICATIONS, MESSAGE_CATEGORY.BuildOperations).message).toBe('fyi')
+    })
+
+    test('should say which categories were there when the one asked for is absent', () => {
+      expect(() => notificationOf(NOTIFICATIONS, MESSAGE_CATEGORY.RefNotFound))
+        .toThrow("Expected one 'ref-not-found' notification, found 0. Categories: parse-file, parse-file, build-operations")
+    })
+
+    // the call sites it replaced were `find(...)!`, which answers about the first of several and says
+    // nothing about the rest — one of them turned out to have two, and was asserting about an arbitrary one
+    test('should refuse to pick one of several rather than answer about the first', () => {
+      expect(() => notificationOf(NOTIFICATIONS, MESSAGE_CATEGORY.ParseFile))
+        .toThrow("Expected one 'parse-file' notification, found 2")
+    })
+
+    test('should name the empty list rather than print nothing', () => {
+      expect(() => notificationOf([], MESSAGE_CATEGORY.ParseFile))
+        .toThrow("Expected one 'parse-file' notification, found 0. Categories: (none)")
+    })
   })
 })
 

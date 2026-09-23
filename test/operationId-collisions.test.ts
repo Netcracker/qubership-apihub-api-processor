@@ -19,6 +19,7 @@ import {
   Editor,
   LocalRegistry,
   notificationMatcher,
+  notificationOf,
   notificationsMatcher,
   numberOfImpactedOperationsMatcher,
 } from './helpers'
@@ -32,11 +33,10 @@ import { REST_API_TYPE } from '../src/consts'
 // An intra-document duplicate no longer costs the version: it is reported against that document, and the
 // operations the document did build stay in the result.
 const expectIntraDocumentDuplicate = (result: BuildResult, expectedMessage: string): void => {
-  const failure = result.notifications.find(({ category }) => category === MESSAGE_CATEGORY.RestDuplicateOperation)
-  expect(failure).toBeDefined()
-  expect(failure!.severity).toBe(MESSAGE_SEVERITY.Error)
-  expect(failure!.message).toBe(expectedMessage)
-  expect(failure!.documentId).toBeDefined()
+  const failure = notificationOf(result.notifications, MESSAGE_CATEGORY.RestDuplicateOperation)
+  expect(failure.severity).toBe(MESSAGE_SEVERITY.Error)
+  expect(failure.message).toBe(expectedMessage)
+  expect(failure.documentId).toBeDefined()
 }
 
 describe('Operation ID collisions', () => {

@@ -15,7 +15,14 @@
  */
 
 import { afterEach, describe, expect, jest, test } from '@jest/globals'
-import { loadFileAsStringFromRegistry, LocalRegistry, notificationMatcher, notificationsMatcher, VERSIONS_PATH } from './helpers'
+import {
+  loadFileAsStringFromRegistry,
+  LocalRegistry,
+  notificationMatcher,
+  notificationOf,
+  notificationsMatcher,
+  VERSIONS_PATH,
+} from './helpers'
 import { MESSAGE_CATEGORY, MESSAGE_SEVERITY, VERSION_STATUS } from '../src/consts'
 import { restApiBuilder, unknownApiBuilder } from '../src/apitypes'
 import * as restOperation from '../src/apitypes/rest/rest.operation'
@@ -153,7 +160,7 @@ describe('Catch points report instead of aborting', () => {
     const pkg = LocalRegistry.openPackage('tolerant-publication')
     const result = await pkg.publish(pkg.packageId, { status: VERSION_STATUS.DRAFT })
 
-    const failure = result.notifications.find(({ category }) => category === MESSAGE_CATEGORY.BuildOperations)
+    const failure = notificationOf(result.notifications, MESSAGE_CATEGORY.BuildOperations)
     expect(failure).toMatchObject({
       severity: MESSAGE_SEVERITY.Error,
       message: expect.stringContaining('operations exploded'),

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Editor, LocalRegistry } from './helpers'
+import { Editor, LocalRegistry, notificationOf } from './helpers'
 import { MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../src/consts'
 
 const asyncValidationPackage = LocalRegistry.openPackage('asyncapi-validation')
@@ -69,11 +69,10 @@ describe('AsyncAPI Validation', () => {
       expect(document?.source).toBeDefined()
       expect(result.operations.size).toBe(0)
 
-      const parseFailure = result.notifications.find(({ category }) => category === MESSAGE_CATEGORY.ParseFile)
-      expect(parseFailure).toBeDefined()
-      expect(parseFailure!.severity).toBe(MESSAGE_SEVERITY.Error)
-      expect(parseFailure!.documentId).toBe(document!.slug)
-      return parseFailure!.message
+      const parseFailure = notificationOf(result.notifications, MESSAGE_CATEGORY.ParseFile)
+      expect(parseFailure.severity).toBe(MESSAGE_SEVERITY.Error)
+      expect(parseFailure.documentId).toBe(document!.slug)
+      return parseFailure.message
     }
   })
 

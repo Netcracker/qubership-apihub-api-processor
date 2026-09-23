@@ -15,7 +15,7 @@
  */
 
 import { describe, expect, test } from '@jest/globals'
-import { Editor, LocalRegistry } from './helpers'
+import { Editor, LocalRegistry, notificationOf } from './helpers'
 import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, VERSION_STATUS } from '../src/consts'
 import { BuildConfigFile, BuildResult } from '../src/types'
 
@@ -52,10 +52,9 @@ describe('DDL validation', () => {
     expect(document?.source).toBeDefined()
     expect(result.ddlEntities.size).toBe(0)
 
-    const parseFailure = result.notifications.find(({ category }) => category === MESSAGE_CATEGORY.ParseFile)
-    expect(parseFailure).toBeDefined()
-    expect(parseFailure!.severity).toBe(MESSAGE_SEVERITY.Error)
-    expect(parseFailure!.documentId).toBe(document!.slug)
+    const parseFailure = notificationOf(result.notifications, MESSAGE_CATEGORY.ParseFile)
+    expect(parseFailure.severity).toBe(MESSAGE_SEVERITY.Error)
+    expect(parseFailure.documentId).toBe(document!.slug)
   })
 
   test('a within-file duplicate object is an Error, reported not thrown', async () => {

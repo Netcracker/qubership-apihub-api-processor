@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Editor, LocalRegistry } from './helpers'
+import { Editor, LocalRegistry, notificationOf } from './helpers'
 import { MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../src/consts'
 import { buildDocument } from '../src/components/document'
 import { DocumentBuildError } from '../src/errors'
@@ -34,11 +34,10 @@ const expectToleratedParseFailure = async (fileId: string): Promise<void> => {
   expect(document!.source).toBeDefined()
   expect(result.operations.size).toBe(0)
 
-  const parseFailure = result.notifications.find(({ category }) => category === MESSAGE_CATEGORY.ParseFile)
-  expect(parseFailure).toBeDefined()
-  expect(parseFailure!.severity).toBe(MESSAGE_SEVERITY.Error)
-  expect(parseFailure!.message).toContain(`Cannot parse file ${fileId}.`)
-  expect(parseFailure!.documentId).toBe(document!.slug)
+  const parseFailure = notificationOf(result.notifications, MESSAGE_CATEGORY.ParseFile)
+  expect(parseFailure.severity).toBe(MESSAGE_SEVERITY.Error)
+  expect(parseFailure.message).toContain(`Cannot parse file ${fileId}.`)
+  expect(parseFailure.documentId).toBe(document!.slug)
 }
 
 // The packaging regression this tolerance would otherwise hit: an error document with no source used to make

@@ -3,7 +3,7 @@ import { afterEach, jest } from '@jest/globals'
 import { restApiBuilder } from '../src/apitypes'
 import { REST_DOCUMENT_TYPE } from '../src/apitypes/rest/rest.consts'
 import { FILE_FORMAT_YAML, FILE_KIND } from '../src'
-import { LocalRegistry, notificationMatcher, notificationsMatcher } from './helpers'
+import { LocalRegistry, notificationMatcher, notificationOf, notificationsMatcher } from './helpers'
 import {
   MESSAGE_CATEGORY,
   MESSAGE_SEVERITY,
@@ -267,12 +267,11 @@ describe('A broken file behind a $ref', () => {
       files: [{ fileId: 'root.yaml' }],
     })
 
-    const parseFailure = result.notifications.find(({ category }) => category === MESSAGE_CATEGORY.ParseFile)
-    expect(parseFailure).toBeDefined()
-    expect(parseFailure!.severity).toBe(MESSAGE_SEVERITY.Error)
-    expect(parseFailure!.documentId).toBe('root')
-    expect(parseFailure!.message).toContain('\'broken.yaml\' referenced from this document')
+    const parseFailure = notificationOf(result.notifications, MESSAGE_CATEGORY.ParseFile)
+    expect(parseFailure.severity).toBe(MESSAGE_SEVERITY.Error)
+    expect(parseFailure.documentId).toBe('root')
+    expect(parseFailure.message).toContain('\'broken.yaml\' referenced from this document')
     // the parser's own words: what to fix is in the file, not in the $ref
-    expect(parseFailure!.message).toContain('Nested mappings are not allowed')
+    expect(parseFailure.message).toContain('Nested mappings are not allowed')
   })
 })

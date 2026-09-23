@@ -136,3 +136,24 @@ export function inCategory(
 ): NotificationMessage[] {
   return notifications.filter(({ category: actual }) => actual === category)
 }
+
+/**
+ * The one notification of a category, for the tests that go on to assert its severity, message or document.
+ *
+ * Throws on none and on several. Every call site this replaced read `the` parse failure, `the` collision —
+ * `find` answers about the first of them and says nothing about the rest, which is the silent pass the
+ * lookups above exist to prevent.
+ */
+export function notificationOf(
+  notifications: readonly NotificationMessage[],
+  category: MessageCategory,
+): NotificationMessage {
+  const matching = inCategory(notifications, category)
+  if (matching.length !== 1) {
+    const available = notifications.map(({ category: actual }) => actual)
+    throw new Error(
+      `Expected one '${category}' notification, found ${matching.length}. Categories: ${listOf(available)}`,
+    )
+  }
+  return matching[0]
+}
