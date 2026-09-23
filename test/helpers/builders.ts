@@ -38,27 +38,27 @@ export const AFTER_VERSION_ID = 'v2'
 
 const DEFAULT_DASHBOARD_ID = 'dashboards/dashboard'
 
+/** A bare `fileId`, or a whole entry when the call needs `publish`, `labels`, or `xApiKind` on it. */
+type FileArg = string | BuildConfigFile
+
 /**
- * Publish one file as one version of a package: the sentence most test call sites write out by hand.
+ * Publish a version of a package from the files it contains: the sentence most call sites write by hand.
  *
- * The file is a bare `fileId` for the common case, or a whole entry when the call needs `publish`,
- * `labels` or `xApiKind` on it — 76 of the matching call sites pass only an id and 26 carry one more
- * property, and a signature that took only the id would have turned those 26 into `extra.files`,
- * repeating the id and defeating the point.
+ * One file or a list — a quarter of the call sites publish several, and some assemble the list at runtime.
  *
- * `extra` cannot restate `files`, `packageId` or `version`: those are the arguments above, and a call
- * that set both would silently contradict itself.
+ * `extra` cannot restate `files`, `packageId`, or `version`: those are the arguments above, and a call that
+ * set both would silently contradict itself.
  */
 export const publishVersion = (
   packageId: string,
   version: VersionId,
-  file: string | BuildConfigFile,
+  files: FileArg | readonly FileArg[],
   extra: Omit<Partial<BuildConfig>, 'files' | 'packageId' | 'version'> = {},
 ): Promise<BuildResult> =>
   LocalRegistry.openPackage(packageId).publish(packageId, {
     packageId,
     version,
-    files: [isString(file) ? { fileId: file } : file],
+    files: (Array.isArray(files) ? files : [files]).map(file => isString(file) ? { fileId: file } : file),
     ...extra,
   })
 
