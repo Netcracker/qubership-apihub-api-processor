@@ -19,9 +19,12 @@ import JSZip from 'jszip'
 import {
   buildChangelogPackage,
   Editor,
+  errorsOf,
+  inCategory,
   loadFileAsStringFromRegistry,
   LocalRegistry,
   publishDashboardWithTwoRefs,
+  publishVersion,
   VERSIONS_PATH,
 } from './helpers'
 import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, PACKAGE, VERSION_STATUS } from '../src/consts'
@@ -35,23 +38,18 @@ import { PackageVersionBuilder } from '../src/builder'
 describe('Notification attribution invariants', () => {
   // drafts: one of these cases is a REST pair whose documents differ, which a release is refused for, and
   // what is under test here is how a notification is attributed rather than what it costs
-  const publish = (projectId: string, files: string[]): Promise<BuildResult> => {
-    const pkg = LocalRegistry.openPackage(projectId)
-    return pkg.publish(pkg.packageId, {
-      packageId: pkg.packageId,
-      status: VERSION_STATUS.DRAFT,
-      version: 'v1',
-      files: files.map(fileId => ({ fileId })),
-    })
-  }
+  const publish = (projectId: string, files: string[]): Promise<BuildResult> =>
+    publishVersion(projectId, 'v1', files, { status: VERSION_STATUS.DRAFT })
 
-  const CASES: Array<[string, () => Promise<BuildResult>]> = [
+  // The flag says whether the case raises a build-phase `Error`; only one of the three does today, and the
+  // attribution test below asserts nothing on a case that raises none, so it pins which is which.
+  const CASES: Array<[string, () => Promise<BuildResult>, boolean]> = [
     // a document whose references do not resolve — the `ref-*` family comes from this one site
-    ['broken references', () => LocalRegistry.openPackage('reference-bundling/case2').publish('reference-bundling/case2')],
+    ['broken references', () => LocalRegistry.openPackage('reference-bundling/case2').publish('reference-bundling/case2'), false],
     // a path that fails validation — `double-slash-path`
-    ['invalid paths', () => publish('operationId-collisions/double-slash-in-path', ['spec.json'])],
+    ['invalid paths', () => publish('operationId-collisions/double-slash-in-path', ['spec.json']), false],
     // the same operationId in two documents — `duplicate-operation-id`, the one cross-document case today
-    ['duplicate operation ids', () => publish('operationId-collisions/same-path-different-documents', ['spec1.json', 'spec2.json'])],
+    ['duplicate operation ids', () => publish('operationId-collisions/same-path-different-documents', ['spec1.json', 'spec2.json']), true],
   ]
 
   const KNOWN_CATEGORIES = new Set<string>(Object.values(MESSAGE_CATEGORY))
@@ -82,13 +80,12 @@ describe('Notification attribution invariants', () => {
   })
 
   // the release-failure message relies on this: an attributed error always has a document to name
-  test.each(CASES)('should attribute every build-phase Error to a document — %s', async (_name, build) => {
+  test.each(CASES)('should attribute every build-phase Error to a document — %s', async (_name, build, raisesError) => {
     const result = await build()
 
-    const unattributed = result.notifications.filter(
-      ({ severity, documentId }) => severity === MESSAGE_SEVERITY.Error && documentId === undefined,
-    )
-    expect(unattributed).toEqual([])
+    const errors = errorsOf(result.notifications)
+    expect(errors.length > 0).toBe(raisesError)
+    expect(errors.filter(({ documentId }) => documentId === undefined)).toEqual([])
   })
 })
 
@@ -96,15 +93,10 @@ describe('Notification attribution invariants', () => {
 // routed correctly and still never be serialised — so assert them again on the published files.
 describe('Notification invariants hold in the published archive', () => {
   test('should categorise every notification in notifications.json and name a real document', async () => {
-    const pkg = LocalRegistry.openPackage('operationId-collisions/same-path-different-documents')
-    await pkg.publish(pkg.packageId, {
-      packageId: pkg.packageId,
-      status: VERSION_STATUS.DRAFT,
-      version: 'v1',
-      files: [{ fileId: 'spec1.json' }, { fileId: 'spec2.json' }],
-    })
+    const packageId = 'operationId-collisions/same-path-different-documents'
+    await publishVersion(packageId, 'v1', ['spec1.json', 'spec2.json'], { status: VERSION_STATUS.DRAFT })
 
-    const versionPath = `${pkg.packageId}/v1`
+    const versionPath = `${packageId}/v1`
     const notifications = JSON.parse(
       (await loadFileAsStringFromRegistry(VERSIONS_PATH, versionPath, 'notifications.json'))!,
     ).notifications as Array<{ category: string; severity: number; documentId?: string }>
@@ -155,11 +147,13 @@ describe('Notification stream routing', () => {
 
     // the baseline could not be resolved — a comparison problem, so it belongs to the comparison stream, and
     // within it to the pair whose baseline it is: the build-level array reaches no file
-    expect(result.comparisons.flatMap(({ notifications }) => notifications).map(({ category }) => category))
-      .toContain(MESSAGE_CATEGORY.VersionNotResolved)
+    const onPairs = result.comparisons.flatMap(({ notifications }) => notifications)
+    expect(onPairs.map(({ category }) => category)).toContain(MESSAGE_CATEGORY.VersionNotResolved)
     expect(result.comparisonNotifications).toEqual([])
-    expect(result.notifications.map(({ category }) => category))
-      .not.toContain(MESSAGE_CATEGORY.VersionNotResolved)
+    // asserted empty rather than free of this one category: a standalone changelog builds no documents, so
+    // this array is empty and a category check over it could not fail. The empty array is the contract —
+    // `Which notification files a build writes` below asserts the changelog ships no notifications file
+    expect(result.notifications).toEqual([])
   })
 
   test('should empty the arrays in place so a context built earlier keeps writing to the live one', async () => {
@@ -202,7 +196,7 @@ describe('Comparison notifications belong to a version pair', () => {
 
     // one pair, and it reports the unresolvable baseline exactly once — not once per comparison kind
     expect(result.comparisons.map(({ notifications }) =>
-      notifications.filter(({ category }) => category === MESSAGE_CATEGORY.VersionNotResolved).length))
+      inCategory(notifications, MESSAGE_CATEGORY.VersionNotResolved).length))
       .toEqual([1])
   }, 60000)
 
@@ -279,9 +273,8 @@ describe('Comparison notifications belong to a version pair', () => {
     } as never, {}, registry)
     const result = await editor.run()
 
-    const raised = result.comparisons.flatMap(({ notifications }) => notifications)
-      .filter(({ category }) => category === MESSAGE_CATEGORY.VersionRefsNotResolved)
-    expect(raised.length).toBeGreaterThan(0)
+    const onPairs = result.comparisons.flatMap(({ notifications }) => notifications)
+    expect(onPairs.map(({ category }) => category)).toContain(MESSAGE_CATEGORY.VersionRefsNotResolved)
     expect(result.comparisonNotifications).toEqual([])
   }, 30000)
 })
