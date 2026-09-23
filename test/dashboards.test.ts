@@ -18,7 +18,7 @@ import { LocalRegistry } from './helpers/registry'
 import { BUILD_TYPE, VERSION_STATUS } from '../src/consts'
 import { Editor } from './helpers/editor'
 import { PackageVersionBuilder } from '../src/processor'
-import { prepareChangelogDashboard, publishDashboardWithTwoRefs } from './helpers'
+import { changelogEditor, prepareChangelogDashboard, publishDashboardWithTwoRefs, publishVersion } from './helpers'
 
 describe('Dashboard build', () => {
   test.todo('dashboard should have changes')
@@ -62,29 +62,13 @@ describe('Dashboard build', () => {
     const pckg1Id = 'dashboards/pckg1'
     const pckg2Id = 'dashboards/pckg2'
 
-    await LocalRegistry.openPackage(pckg1Id).publish(pckg1Id, {
-      version: 'v1',
-      packageId: pckg1Id,
-      files: [{ fileId: 'v1.yaml' }],
-    })
+    await publishVersion(pckg1Id, 'v1', 'v1.yaml')
 
-    await LocalRegistry.openPackage(pckg1Id).publish(pckg1Id, {
-      version: 'v2',
-      packageId: pckg1Id,
-      files: [{ fileId: 'v1.yaml' }],
-    })
+    await publishVersion(pckg1Id, 'v2', 'v1.yaml')
 
-    await LocalRegistry.openPackage(pckg2Id).publish(pckg2Id, {
-      version: 'v1',
-      packageId: pckg2Id,
-      files: [{ fileId: 'v2.yaml' }],
-    })
+    await publishVersion(pckg2Id, 'v1', 'v2.yaml')
 
-    await LocalRegistry.openPackage(pckg2Id).publish(pckg2Id, {
-      version: 'v2',
-      packageId: pckg2Id,
-      files: [{ fileId: 'v2.yaml' }],
-    })
+    await publishVersion(pckg2Id, 'v2', 'v2.yaml')
 
     const dashboard = LocalRegistry.openPackage('dashboards/dashboard')
     await dashboard.publish(dashboard.packageId, {
@@ -107,14 +91,7 @@ describe('Dashboard build', () => {
       ],
     })
 
-    const editor = new Editor(dashboard.packageId, {
-      version: 'v2',
-      packageId: dashboard.packageId,
-      previousVersionPackageId: dashboard.packageId,
-      previousVersion: 'v1',
-      buildType: BUILD_TYPE.CHANGELOG,
-      status: VERSION_STATUS.RELEASE,
-    })
+    const editor = changelogEditor(dashboard.packageId)
 
     // Simulate that previous dashboard version was built with an outdated api-processor
     // Mock the builder's versionResolver method (not the registry's)
@@ -261,14 +238,7 @@ paths:
 
     // changelog build of the root dashboard: the resolver flattens the whole tree (CHANGELOG is not
     // resolvable-locally, so refs are the full descendant set, not just the root's direct children)
-    const editor = new Editor(rootId, {
-      packageId: rootId,
-      version: 'v2',
-      previousVersionPackageId: rootId,
-      previousVersion: 'v1',
-      buildType: BUILD_TYPE.CHANGELOG,
-      status: VERSION_STATUS.RELEASE,
-    }, {}, reg)
+    const editor = changelogEditor(rootId, reg)
     const result = await editor.run()
 
     const ids = result.comparisons.map(packageOf)
@@ -306,14 +276,7 @@ paths:
     await publishDashboard(reg, rootId, 'v1', [{ refId: midId, version: 'v1' }])
     await publishDashboard(reg, rootId, 'v2', [{ refId: midId, version: 'v2' }])
 
-    const editor = new Editor(rootId, {
-      packageId: rootId,
-      version: 'v2',
-      previousVersionPackageId: rootId,
-      previousVersion: 'v1',
-      buildType: BUILD_TYPE.CHANGELOG,
-      status: VERSION_STATUS.RELEASE,
-    }, {}, reg)
+    const editor = changelogEditor(rootId, reg)
     const result = await editor.run()
 
     const ddlIds = result.ddlComparisons.map(packageOf)
@@ -347,14 +310,7 @@ paths:
     await publishDashboard(reg, rootId, 'v1', [{ refId: subAId, version: 'v1' }, { refId: subBId, version: 'v1' }])
     await publishDashboard(reg, rootId, 'v2', [{ refId: subAId, version: 'v2' }, { refId: subBId, version: 'v2' }])
 
-    const editor = new Editor(rootId, {
-      packageId: rootId,
-      version: 'v2',
-      previousVersionPackageId: rootId,
-      previousVersion: 'v1',
-      buildType: BUILD_TYPE.CHANGELOG,
-      status: VERSION_STATUS.RELEASE,
-    }, {}, reg)
+    const editor = changelogEditor(rootId, reg)
     const result = await editor.run()
 
     const leafComparisons = result.comparisons.filter(comparison => packageOf(comparison) === leafId)
@@ -396,14 +352,7 @@ paths:
     await publishDashboard(reg, rootId, 'v1', [{ refId: subAId, version: 'v1' }, { refId: subBId, version: 'v1' }])
     await publishDashboard(reg, rootId, 'v2', [{ refId: subAId, version: 'v2' }, { refId: subBId, version: 'v2' }])
 
-    const editor = new Editor(rootId, {
-      packageId: rootId,
-      version: 'v2',
-      previousVersionPackageId: rootId,
-      previousVersion: 'v1',
-      buildType: BUILD_TYPE.CHANGELOG,
-      status: VERSION_STATUS.RELEASE,
-    }, {}, reg)
+    const editor = changelogEditor(rootId, reg)
     const result = await editor.run()
 
     const leafDdlComparisons = result.ddlComparisons.filter(comparison => packageOf(comparison) === leafId)
@@ -426,7 +375,7 @@ paths:
     const PCKG1 = 'dashboards/pckg1'
     const PCKG2 = 'dashboards/pckg2'
 
-    const changelogEditor = (
+    const dashboardChangelogEditor = (
       dashboard: LocalRegistry,
       status: string,
       buildType: string = BUILD_TYPE.CHANGELOG,
@@ -468,7 +417,7 @@ paths:
         hasErrors: true,
       } as never)
 
-      await expect(changelogEditor(dashboard, VERSION_STATUS.RELEASE).run())
+      await expect(dashboardChangelogEditor(dashboard, VERSION_STATUS.RELEASE).run())
         .rejects.toThrow(/Cannot build a dashboard changelog/)
     }, 60000)
 
@@ -476,7 +425,7 @@ paths:
       const dashboard = await publishDashboardWithTwoRefs(PCKG1, PCKG2)
       failOneReference()
 
-      await expect(changelogEditor(dashboard, VERSION_STATUS.DRAFT).run())
+      await expect(dashboardChangelogEditor(dashboard, VERSION_STATUS.DRAFT).run())
         .rejects.toThrow(/Cannot build a dashboard changelog/)
     }, 60000)
 
@@ -484,7 +433,7 @@ paths:
       const dashboard = await publishDashboardWithTwoRefs(PCKG1, PCKG2)
       failOneReference()
 
-      await expect(changelogEditor(dashboard, VERSION_STATUS.DRAFT, BUILD_TYPE.BUILD).run())
+      await expect(dashboardChangelogEditor(dashboard, VERSION_STATUS.DRAFT, BUILD_TYPE.BUILD).run())
         .rejects.toThrow(/Cannot build a dashboard changelog/)
     }, 60000)
   })

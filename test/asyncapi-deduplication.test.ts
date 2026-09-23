@@ -1,7 +1,6 @@
 import {
   buildChangelogPackage,
-  changesSummaryMatcher,
-  numberOfImpactedOperationsMatcher,
+  expectChangeCounts,
 } from './helpers'
 import { ANNOTATION_CHANGE_TYPE, ASYNCAPI_API_TYPE, BREAKING_CHANGE_TYPE, UNCLASSIFIED_CHANGE_TYPE } from '../src'
 
@@ -28,8 +27,7 @@ describe('AsyncAPI deduplication tests', () => {
       // apiDiff resolves $refs per scope → separate diff instances per scope.
       const result = await buildChangelogPackage('asyncapi-deduplication/shared-schema-across-operations')
 
-      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
+      expectChangeCounts(result, { changes: { [BREAKING_CHANGE_TYPE]: 2 } }, ASYNCAPI_API_TYPE)
     })
 
     test('shared schema, same scope (both receive)', async () => {
@@ -38,8 +36,10 @@ describe('AsyncAPI deduplication tests', () => {
       // Same scope → diffs should be deduplicated by reference identity within one apiDiff call.
       const result = await buildChangelogPackage('asyncapi-deduplication/shared-schema-same-scope')
 
-      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
+      expectChangeCounts(result, {
+        changes: { [BREAKING_CHANGE_TYPE]: 1 },
+        impacted: { [BREAKING_CHANGE_TYPE]: 2 },
+      }, ASYNCAPI_API_TYPE)
     })
 
     test('should count info.version change once in changesSummary but impact all operations', async () => {
@@ -48,8 +48,10 @@ describe('AsyncAPI deduplication tests', () => {
       // but it's the same semantic change — changesSummary should count 1, impacted 2.
       const result = await buildChangelogPackage('asyncapi-deduplication/root-info-change-multiple-operations')
 
-      expect(result).toEqual(changesSummaryMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [ANNOTATION_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
+      expectChangeCounts(result, {
+        changes: { [ANNOTATION_CHANGE_TYPE]: 1 },
+        impacted: { [ANNOTATION_CHANGE_TYPE]: 2 },
+      }, ASYNCAPI_API_TYPE)
     })
 
     test('should count root server change once in changesSummary but impact all operations', async () => {
@@ -60,8 +62,7 @@ describe('AsyncAPI deduplication tests', () => {
       // unclassified: 2 in summary (one per scope), impacted 2.
       const result = await buildChangelogPackage('asyncapi-deduplication/root-server-change-multiple-operations')
 
-      expect(result).toEqual(changesSummaryMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [UNCLASSIFIED_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
+      expectChangeCounts(result, { changes: { [UNCLASSIFIED_CHANGE_TYPE]: 2 } }, ASYNCAPI_API_TYPE)
     })
 
     test('should deduplicate defaultContentType diff across multiple messages without explicit contentType', async () => {
@@ -70,8 +71,10 @@ describe('AsyncAPI deduplication tests', () => {
       // The diff should be counted once in changesSummary but impact both apihub operations.
       const result = await buildChangelogPackage('asyncapi-deduplication/default-content-type-multiple-messages')
 
-      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
+      expectChangeCounts(result, {
+        changes: { [BREAKING_CHANGE_TYPE]: 1 },
+        impacted: { [BREAKING_CHANGE_TYPE]: 2 },
+      }, ASYNCAPI_API_TYPE)
     })
   })
 
@@ -88,8 +91,7 @@ describe('AsyncAPI deduplication tests', () => {
         [{ fileId: 'after1.yaml' }, { fileId: 'after2.yaml' }],
       )
 
-      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
+      expectChangeCounts(result, { changes: { [BREAKING_CHANGE_TYPE]: 2 } }, ASYNCAPI_API_TYPE)
     })
 
     test('shared schema name in two specs, same scope (both receive)', async () => {
@@ -103,8 +105,10 @@ describe('AsyncAPI deduplication tests', () => {
         [{ fileId: 'after1.yaml' }, { fileId: 'after2.yaml' }],
       )
 
-      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
+      expectChangeCounts(result, {
+        changes: { [BREAKING_CHANGE_TYPE]: 1 },
+        impacted: { [BREAKING_CHANGE_TYPE]: 2 },
+      }, ASYNCAPI_API_TYPE)
     })
 
     test('same schema name in two specs but different content should not deduplicate', async () => {
@@ -117,8 +121,7 @@ describe('AsyncAPI deduplication tests', () => {
         [{ fileId: 'after1.yaml' }, { fileId: 'after2.yaml' }],
       )
 
-      expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE))
+      expectChangeCounts(result, { changes: { [BREAKING_CHANGE_TYPE]: 2 } }, ASYNCAPI_API_TYPE)
     })
 
   })

@@ -28,7 +28,7 @@ import {
   VERSION_STATUS,
 } from '../src'
 import { jest } from '@jest/globals'
-import { buildPackageFromContent, changesSummaryMatcher, Editor, loadFileAsString, LocalRegistry, serializedComparisonDocumentMatcher } from './helpers'
+import { buildPackageFromContent, Editor, expectChangesSummary, loadFileAsString, LocalRegistry, serializedComparisonDocumentMatcher } from './helpers'
 import { DiffType } from '@netcracker/qubership-apihub-api-diff'
 import { takeIfDefined } from '../src/utils'
 import { DEFAULT_PROJECTS_PATH } from './helpers/registry/local'
@@ -318,7 +318,7 @@ describe('Check Api Compatibility Function tests', () => {
       { desc: 'should apply a padded xApiKind no-BWC in curr', currXApiKind: ' no-BWC ', expected: EXPECT_RISKY },
     ])('$desc', async ({ prevFileLabels, currFileLabels, prevVersionLabels, currVersionLabels, prevXApiKind, currXApiKind, expected: { summary, types } }) => {
       const result = await runApiKindTest('api-kinds/no-api-kind-in-documents', prevFileLabels, currFileLabels, prevVersionLabels, currVersionLabels, prevXApiKind, currXApiKind)
-      expect(result).toEqual(changesSummaryMatcher(summary))
+      expectChangesSummary(result, summary)
       expect(result).toEqual(serializedComparisonDocumentMatcher(types))
     })
   })
@@ -352,7 +352,7 @@ describe('Check Api Compatibility Function tests', () => {
       { desc: 'should prioritize info BWC in curr over file no-BWC in curr', prev: undefined, curr: 'BWC', currFileLabels: [NB_LABEL], expected: EXPECT_BREAKING },
     ])('$desc', async ({ prev, curr, prevFileLabels, currFileLabels, expected: { summary, types } }) => {
       const result = await runApiKindTestFromTemplate('api-kinds/info-apiKind', prev, curr, prevFileLabels, currFileLabels)
-      expect(result).toEqual(changesSummaryMatcher(summary))
+      expectChangesSummary(result, summary)
       expect(result).toEqual(serializedComparisonDocumentMatcher(types))
     })
   })
@@ -386,7 +386,7 @@ describe('Check Api Compatibility Function tests', () => {
       { desc: 'should prioritize operation no-BWC in prev over file BWC in curr', prev: 'no-BWC', curr: undefined, currFileLabels: [BWC_LABEL], expected: EXPECT_OP_RISKY },
     ])('$desc', async ({ prev, curr, prevFileLabels, currFileLabels, expected: { summary, types } }) => {
       const result = await runApiKindTestFromTemplate('api-kinds/operation-apiKind', prev, curr, prevFileLabels, currFileLabels)
-      expect(result).toEqual(changesSummaryMatcher(summary))
+      expectChangesSummary(result, summary)
       expect(result).toEqual(serializedComparisonDocumentMatcher(types))
     })
   })
@@ -409,7 +409,7 @@ describe('Check Api Compatibility Function tests', () => {
       { desc: 'should apply experimental by default', prev: 'experimental', curr: 'experimental', expected: EXPECT_RISKY },
     ])('$desc', async ({ prev, curr, prevFileLabels, currFileLabels, expected: { summary, types } }) => {
       const result = await runApiKindTestFromTemplate('api-kinds/remove-operations-apiKind', prev, curr, prevFileLabels, currFileLabels)
-      expect(result).toEqual(changesSummaryMatcher(summary))
+      expectChangesSummary(result, summary)
       expect(result).toEqual(serializedComparisonDocumentMatcher(types))
     })
   })
@@ -427,7 +427,7 @@ describe('Check Api Compatibility Function tests', () => {
         { desc: 'should apply file no-BWC in curr (removed pathItem uses prev)', currFileLabels: [NB_LABEL], expected: EXPECT_BREAKING },
       ])('$desc', async ({ prevFileLabels, currFileLabels, expected: { summary, types } }) => {
         const result = await runApiKindTest('api-kinds/remove-pathItem-no-api-kind-in-documents', prevFileLabels, currFileLabels)
-        expect(result).toEqual(changesSummaryMatcher(summary))
+        expectChangesSummary(result, summary)
         expect(result).toEqual(serializedComparisonDocumentMatcher(types))
       })
     })
@@ -449,7 +449,7 @@ describe('Check Api Compatibility Function tests', () => {
         { desc: 'should apply experimental by default', prev: 'experimental', expected: EXPECT_RISKY },
       ])('$desc', async ({ prev, prevFileLabels, currFileLabels, expected: { summary, types } }) => {
         const result = await runApiKindTestFromTemplate('api-kinds/remove-pathItem-operation-apiKind', prev, undefined, prevFileLabels, currFileLabels)
-        expect(result).toEqual(changesSummaryMatcher(summary))
+        expectChangesSummary(result, summary)
         expect(result).toEqual(serializedComparisonDocumentMatcher(types))
       })
     })
@@ -470,7 +470,7 @@ describe('Check Api Compatibility Function tests', () => {
         { desc: 'should prioritize operation no-BWC over file BWC in curr', prev: 'no-BWC', currFileLabels: [BWC_LABEL], expected: EXPECT_RISKY_X2 },
       ])('$desc', async ({ prev, prevFileLabels, currFileLabels, expected: { summary, types } }) => {
         const result = await runApiKindTestFromTemplate('api-kinds/remove-pathItem-operations-apiKind', prev, undefined, prevFileLabels, currFileLabels)
-        expect(result).toEqual(changesSummaryMatcher(summary))
+        expectChangesSummary(result, summary)
         expect(result).toEqual(serializedComparisonDocumentMatcher(types))
       })
     })
@@ -492,7 +492,7 @@ describe('Check Api Compatibility Function tests', () => {
         { desc: 'should apply no-BWC and experimental', pkg: MIXED_NB_EXP, expected: EXPECT_RISKY_X2 },
       ])('$desc', async ({ pkg, prevFileLabels, currFileLabels, expected: { summary, types } }) => {
         const result = await runApiKindTest(pkg, prevFileLabels, currFileLabels)
-        expect(result).toEqual(changesSummaryMatcher(summary))
+        expectChangesSummary(result, summary)
         expect(result).toEqual(serializedComparisonDocumentMatcher(types))
       })
     })

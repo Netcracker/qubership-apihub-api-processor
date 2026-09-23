@@ -14,32 +14,28 @@
  * limitations under the License.
  */
 
-import { buildChangelogPackage, changesSummaryMatcher, numberOfImpactedOperationsMatcher } from './helpers'
+import { buildChangelogPackage, expectChangeCounts } from './helpers'
 import { BREAKING_CHANGE_TYPE, NON_BREAKING_CHANGE_TYPE, RISKY_CHANGE_TYPE } from '../src'
 
 describe('Number of declarative changes in rest package version test', () => {
   test('Two operations use one schema in response', async () => {
     const result = await buildChangelogPackage('declarative-changes-in-rest-package-version/case1')
-    expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }))
-    expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 2 }))
+    expectChangeCounts(result, { changes: { [BREAKING_CHANGE_TYPE]: 1 }, impacted: { [BREAKING_CHANGE_TYPE]: 2 } })
   })
 
   test('Two operations use one schema in response and request (same severity)', async () => {
     const result = await buildChangelogPackage('declarative-changes-in-rest-package-version/case2')
-    expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 2 }))
-    expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 2 }))
+    expectChangeCounts(result, { changes: { [BREAKING_CHANGE_TYPE]: 2 } })
   })
 
   test('Two operations use one schema in response and request (different severity)', async () => {
     const result = await buildChangelogPackage('declarative-changes-in-rest-package-version/case3')
-    expect(result).toEqual(changesSummaryMatcher({
-      [BREAKING_CHANGE_TYPE]: 1,
-      [NON_BREAKING_CHANGE_TYPE]: 1,
-    }))
-    expect(result).toEqual(numberOfImpactedOperationsMatcher({
-      [BREAKING_CHANGE_TYPE]: 1,
-      [NON_BREAKING_CHANGE_TYPE]: 1,
-    }))
+    expectChangeCounts(result, {
+      changes: {
+        [BREAKING_CHANGE_TYPE]: 1,
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+      },
+    })
   })
 
   test('Two operations use different schemas but the same schema names', async () => {
@@ -48,20 +44,17 @@ describe('Number of declarative changes in rest package version test', () => {
       [{ fileId: 'before/spec1.yaml' }, { fileId: 'before/spec2.yaml' }],
       [{ fileId: 'after/spec1.yaml' }, { fileId: 'after/spec2.yaml' }],
     )
-    expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 2 }))
-    expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 2 }))
+    expectChangeCounts(result, { changes: { [NON_BREAKING_CHANGE_TYPE]: 2 } })
   })
 
   test('Two operations use one schema in response but one of the operations is no-BWC', async () => {
     const result = await buildChangelogPackage('declarative-changes-in-rest-package-version/case5')
-    expect(result).toEqual(changesSummaryMatcher({
-      [BREAKING_CHANGE_TYPE]: 1,
-      [RISKY_CHANGE_TYPE]: 1,
-    }))
-    expect(result).toEqual(numberOfImpactedOperationsMatcher({
-      [BREAKING_CHANGE_TYPE]: 1,
-      [RISKY_CHANGE_TYPE]: 1,
-    }))
+    expectChangeCounts(result, {
+      changes: {
+        [BREAKING_CHANGE_TYPE]: 1,
+        [RISKY_CHANGE_TYPE]: 1,
+      },
+    })
   })
 
   test('Uses synthetic document when there is no existing appropriate document pair', async () => {
@@ -70,14 +63,12 @@ describe('Number of declarative changes in rest package version test', () => {
       [{ fileId: 'before/spec1.yaml' }],
       [{ fileId: 'after/spec2.yaml' }],
     )
-    expect(result).toEqual(changesSummaryMatcher({
-      [BREAKING_CHANGE_TYPE]: 1,
-      [NON_BREAKING_CHANGE_TYPE]: 1,
-    }))
-    expect(result).toEqual(numberOfImpactedOperationsMatcher({
-      [BREAKING_CHANGE_TYPE]: 1,
-      [NON_BREAKING_CHANGE_TYPE]: 1,
-    }))
+    expectChangeCounts(result, {
+      changes: {
+        [BREAKING_CHANGE_TYPE]: 1,
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+      },
+    })
   })
 
   test('Changes are not duplicated when deleted operation could be mapped to several documents', async () => {
@@ -86,7 +77,6 @@ describe('Number of declarative changes in rest package version test', () => {
       [{ fileId: 'before/spec1.yaml' }],
       [{ fileId: 'after/spec2.yaml' }, { fileId: 'after/spec3.yaml' }],
     )
-    expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }))
-    expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }))
+    expectChangeCounts(result, { changes: { [BREAKING_CHANGE_TYPE]: 1 } })
   })
 })

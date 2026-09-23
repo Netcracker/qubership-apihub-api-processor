@@ -16,11 +16,10 @@
 
 import { describe, expect, test } from '@jest/globals'
 import JSZip from 'jszip'
-import { Editor, loadFileAsStringFromRegistry, LocalRegistry, VERSIONS_PATH } from './helpers'
+import { documentOf, Editor, loadFileAsStringFromRegistry, LocalRegistry, operationOf, VERSIONS_PATH } from './helpers'
 import { ASYNCAPI_API_TYPE, BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, PACKAGE, REST_API_TYPE, VERSION_STATUS } from '../src/consts'
 import { VALIDATION_RULES_SEVERITY_LEVEL_ERROR } from '../src'
 import { BuildConfig, BuildResult } from '../src/types'
-import { operationKey } from '../src/components/operations'
 
 // The scenario the whole story exists for: one broken document must not cost the version the documents that
 // built cleanly. Everything else in the suite tests a single catch point; this tests the promise.
@@ -31,21 +30,19 @@ describe('Tolerant publication end to end', () => {
     const result = await pkg.publish(pkg.packageId, { status: VERSION_STATUS.DRAFT })
 
     // the healthy document is fully published
-    const rest = result.documents.get('rest.json')
-    expect(rest).toBeDefined()
+    const rest = documentOf(result, 'rest.json')
     expect(result.operations.size).toBeGreaterThan(0)
-    expect([...result.operations.values()].every(({ documentId }) => documentId === rest!.slug)).toBe(true)
+    expect([...result.operations.values()].every(({ documentId }) => documentId === rest.slug)).toBe(true)
 
     // the broken one is published too — visible, downloadable, and empty of operations
-    const broken = result.documents.get('broken-async.yaml')
-    expect(broken).toBeDefined()
-    expect(broken!.source).toBeDefined()
-    expect(broken!.operationIds).toEqual([])
+    const broken = documentOf(result, 'broken-async.yaml')
+    expect(broken.source).toBeDefined()
+    expect(broken.operationIds).toEqual([])
 
     // and only it is blamed
     const errors = result.notifications.filter(({ severity }) => severity === MESSAGE_SEVERITY.Error)
     expect(errors.length).toBeGreaterThan(0)
-    expect([...new Set(errors.map(({ documentId }) => documentId))]).toEqual([broken!.slug])
+    expect([...new Set(errors.map(({ documentId }) => documentId))]).toEqual([broken.slug])
   })
 
   test('should carry both documents in the archive, the broken one with its original bytes', async () => {
@@ -90,14 +87,14 @@ describe('A document an Error names still publishes what it built', () => {
     const packageId = 'tolerant-publication/mixed'
     const result = await publishDraft(packageId, ['healthy.yaml', 'colliding.yaml'])
 
-    const healthy = result.documents.get('healthy.yaml')!
-    const colliding = result.documents.get('colliding.yaml')!
+    const healthy = documentOf(result, 'healthy.yaml')
+    const colliding = documentOf(result, 'colliding.yaml')
 
     // the flagged document keeps what it built, contested id included: `colliding` sorts first
     expect(colliding.operationIds).toContain('pets-get')
     expect(colliding.operationIds!.length).toBeGreaterThan(1)
     expect(colliding.source).toBeDefined()
-    expect(result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'pets-get' }))!.documentId).toBe(colliding.slug)
+    expect(operationOf(result, 'pets-get').documentId).toBe(colliding.slug)
     // and the loser announces nothing it did not win
     expect(healthy.operationIds).toEqual([])
 
@@ -132,10 +129,10 @@ describe('A document an Error names still publishes what it built', () => {
     expect(owners).toEqual(new Map([[ASYNCAPI_API_TYPE, 'async-a'], [REST_API_TYPE, 'healthy']]))
 
     // the smallest slug keeps the id among the AsyncAPI pair, and the loser announces nothing
-    expect(result.documents.get('async-a.yaml')!.operationIds).toEqual(['pets-get'])
-    expect(result.documents.get('async-b.yaml')!.operationIds).toEqual([])
+    expect(documentOf(result, 'async-a.yaml').operationIds).toEqual(['pets-get'])
+    expect(documentOf(result, 'async-b.yaml').operationIds).toEqual([])
     // the REST document was never in that contest
-    expect(result.documents.get('healthy.yaml')!.operationIds).toEqual(['pets-get'])
+    expect(documentOf(result, 'healthy.yaml').operationIds).toEqual(['pets-get'])
   }, 30000)
 
   // A document already carrying an Error is processed anyway, so one publication reports everything wrong

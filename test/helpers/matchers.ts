@@ -16,16 +16,11 @@
 
 import {
   BuildResult,
-  ChangeSummary,
   ComparisonInternalDocument,
   DeprecateItem,
-  EMPTY_CHANGE_SUMMARY,
   MessageSeverity,
   NotificationMessage,
   OperationChanges,
-  type OperationsApiType,
-  OperationType,
-  REST_API_TYPE,
   ZippableDocument,
 } from '../../src'
 import { Diff, DIFFS_AGGREGATED_META_KEY, DiffType } from '@netcracker/qubership-apihub-api-diff'
@@ -43,63 +38,11 @@ import { deserializeDocument } from './documents'
 type SecuritySchemesObject = OpenAPIV3.ComponentsObject['securitySchemes']
 
 export type ApihubOperationChangesMatcher = ObjectContaining<OperationChanges> & OperationChanges
-export type ApihubChangesSummaryMatcher = ObjectContaining<ChangeSummary> & ChangeSummary
 export type ApihubNotificationsMatcher = ObjectContaining<BuildResult> & BuildResult
 export type ApihubNotificationMatcher = ObjectContaining<NotificationMessage> & NotificationMessage
 export type ApihubExportDocumentsMatcher = ObjectContaining<BuildResult> & BuildResult
 export type ApihubExportDocumentMatcher = ObjectContaining<ZippableDocument> & ZippableDocument
 type ApihubComparisonDocumentMatcher = ObjectContaining<ComparisonInternalDocument> & ComparisonInternalDocument
-
-export function noChangesMatcher(
-  apiType: OperationsApiType = REST_API_TYPE,
-): ApihubChangesSummaryMatcher {
-  return operationTypeMatcher({
-    apiType: apiType,
-    changesSummary: EMPTY_CHANGE_SUMMARY,
-    numberOfImpactedOperations: EMPTY_CHANGE_SUMMARY,
-  })
-}
-
-export function changesSummaryMatcher(
-  expected: Partial<ChangeSummary>,
-  apiType: OperationsApiType = REST_API_TYPE,
-): ApihubChangesSummaryMatcher {
-  return operationTypeMatcher({
-    apiType: apiType,
-    changesSummary: expect.objectContaining({
-      ...EMPTY_CHANGE_SUMMARY,
-      ...expected,
-    }),
-  })
-}
-
-export function numberOfImpactedOperationsMatcher(
-  expected: Partial<ChangeSummary>,
-  apiType: OperationsApiType = REST_API_TYPE,
-): ApihubChangesSummaryMatcher {
-  return operationTypeMatcher({
-    apiType: apiType,
-    numberOfImpactedOperations: expect.objectContaining({
-      ...EMPTY_CHANGE_SUMMARY,
-      ...expected,
-    }),
-  })
-}
-
-export function operationTypeMatcher(
-  expected: RecursiveMatcher<OperationType>,
-): ApihubChangesSummaryMatcher {
-  return expect.objectContaining({
-    comparisons: expect.arrayContaining([
-      expect.objectContaining({
-        operationTypes: expect.arrayContaining([
-          expect.objectContaining(expected),
-        ]),
-      }),
-    ]),
-  },
-  )
-}
 
 function comparisonDocumentDiffMatcher(
   expected: RecursiveMatcher<{ serializedComparisonDocument: AsymmetricMatcher<string> }>,

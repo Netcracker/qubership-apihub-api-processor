@@ -15,17 +15,16 @@
  */
 
 import {
-  changesSummaryMatcher,
-  Editor,
+  changelogEditor,
+  expectChangeCounts,
   LocalRegistry,
   notificationMatcher,
   notificationOf,
   notificationsMatcher,
-  numberOfImpactedOperationsMatcher,
 } from './helpers'
 import { describe, expect, test } from '@jest/globals'
 import { calculateRestOperationId, calculateNormalizedRestOperationId, _calculateRestOperationIdV1 } from '../src/utils/operations.utils'
-import { BUILD_TYPE, BuildResult, MESSAGE_CATEGORY, MESSAGE_SEVERITY, VERSION_STATUS } from '../src'
+import { BuildResult, MESSAGE_CATEGORY, MESSAGE_SEVERITY, VERSION_STATUS } from '../src'
 import { operationKey } from '../src/components/operations'
 import { REST_API_TYPE } from '../src/consts'
 
@@ -348,20 +347,12 @@ describe('Operation ID collisions', () => {
         notificationMatcher(MESSAGE_SEVERITY.Error, v2Message, { documentId: 'v2-spec2' }),
       ]))
 
-      const editor = new Editor(pkg.packageId, {
-        packageId: pkg.packageId,
-        version: 'v2',
-        previousVersion: 'v1',
-        previousVersionPackageId: pkg.packageId,
-        buildType: BUILD_TYPE.CHANGELOG,
-        status: VERSION_STATUS.RELEASE,
-      })
+      const editor = changelogEditor(pkg.packageId)
 
       const changelogResult = await editor.run()
 
       expect(changelogResult.notifications).toEqual([])
-      expect(changelogResult).toEqual(changesSummaryMatcher({ annotation: 1 }))
-      expect(changelogResult).toEqual(numberOfImpactedOperationsMatcher({ annotation: 1 }))
+      expectChangeCounts(changelogResult, { changes: { annotation: 1 } })
       // The indexed operation is the one from the lexicographically smallest documentId — `spec1`, not
       // `spec2` as under the old last-wins rule. The flip is the point: the winner no longer depends on the
       // order `config.files` happened to list the documents in.

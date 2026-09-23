@@ -1,7 +1,7 @@
 import {
   buildChangelogFromContent,
-  changesSummaryMatcher,
   customScopeElementContext,
+  expectChangesSummary,
 } from './helpers'
 import {
   API_KIND_SPECIFICATION_EXTENSION,
@@ -457,7 +457,7 @@ describe('AsyncAPI changelog api-kind tests', () => {
         const packageId = `asyncapi-apikind-remove-operation/channel-${beforeCh}-${afterCh}-operation-${beforeOp}`
 
         const result = await buildChangelogFromContent(packageId, beforeYaml, afterYaml)
-        expect(result).toEqual(changesSummaryMatcher(buildExpected(expectedType, unclassified), ASYNCAPI_API_TYPE))
+        expectChangesSummary(result, buildExpected(expectedType, unclassified), ASYNCAPI_API_TYPE)
       },
     )
   })
@@ -500,7 +500,7 @@ describe('AsyncAPI changelog api-kind tests', () => {
         const packageId = `asyncapi-apikind-changelog-remove-channel/channel-${beforeChannel}-operation-${beforeOperation}`
 
         const result = await buildChangelogFromContent(packageId, beforeYaml, afterYaml)
-        expect(result).toEqual(changesSummaryMatcher(buildExpected(expectedType, unclassified), ASYNCAPI_API_TYPE))
+        expectChangesSummary(result, buildExpected(expectedType, unclassified), ASYNCAPI_API_TYPE)
       },
     )
   })
@@ -680,7 +680,7 @@ describe('AsyncAPI changelog api-kind tests', () => {
         const packageId = `asyncapi-apikind-changelog-remove-message/channel-${beforeCh}-${afterCh}-operation-${beforeOp}-${afterOp}`
 
         const result = await buildChangelogFromContent(packageId, beforeYaml, afterYaml)
-        expect(result).toEqual(changesSummaryMatcher(buildExpected(expectedType, unclassified), ASYNCAPI_API_TYPE))
+        expectChangesSummary(result, buildExpected(expectedType, unclassified), ASYNCAPI_API_TYPE)
       },
     )
   })
@@ -824,7 +824,7 @@ describe('AsyncAPI changelog api-kind tests', () => {
         const packageId = `asyncapi-apikind-changelog/channel-${beforeChannel}-${afterChannel}-operation-${beforeOperation}-${afterOperation}`
 
         const result = await buildChangelogFromContent(packageId, beforeYaml, afterYaml)
-        expect(result).toEqual(changesSummaryMatcher(buildExpected(expectedType, unclassified), ASYNCAPI_API_TYPE))
+        expectChangesSummary(result, buildExpected(expectedType, unclassified), ASYNCAPI_API_TYPE)
       },
     )
   })

@@ -30,6 +30,7 @@ import {
 } from '../../src/processor'
 import { LocalRegistry, VersionOverrideRegistry } from './registry'
 import { Editor } from './editor'
+import { IRegistry } from './registry/types'
 import { isString, takeIfDefined } from '../../src/utils'
 
 export const BEFORE_VERSION_ID = 'v1'
@@ -58,7 +59,7 @@ export const publishVersion = (
   LocalRegistry.openPackage(packageId).publish(packageId, {
     packageId,
     version,
-    files: (Array.isArray(files) ? files : [files]).map(file => isString(file) ? { fileId: file } : file),
+    files: (Array.isArray(files) ? files : [files]).map(file => (isString(file) ? { fileId: file } : file)),
     ...extra,
   })
 
@@ -71,6 +72,14 @@ const changelogConfig = (packageId: string): BuildConfig => ({
   buildType: BUILD_TYPE.CHANGELOG,
   status: VERSION_STATUS.RELEASE,
 })
+
+/**
+ * An editor that builds this package's `v2` changelog against its own `v1`, for a test that needs the editor itself:
+ * to spy on its builder or to pack the result. Pass the registry the versions were published through when the test
+ * keeps using it, so the build reads the same instance.
+ */
+export const changelogEditor = (packageId: string, registry?: IRegistry): Editor =>
+  new Editor(packageId, changelogConfig(packageId), {}, registry)
 
 export async function buildChangelogPackage(
   packageId: string,
@@ -85,7 +94,7 @@ export async function buildChangelogPackage(
   await pkg.publish(packageId, { packageId, version: BEFORE_VERSION_ID, files: filesBefore, status })
   await pkg.publish(packageId, { packageId, version: AFTER_VERSION_ID, files: filesAfter, status })
 
-  return new Editor(packageId, changelogConfig(packageId)).run()
+  return changelogEditor(packageId).run()
 }
 
 export async function buildPrefixGroupChangelogPackage(options: {
@@ -287,7 +296,7 @@ export async function buildChangelogFromContent(
     },
   )
 
-  return new Editor(packageId, changelogConfig(packageId)).run()
+  return changelogEditor(packageId).run()
 }
 
 const DEFAULT_SPEC = JSON.stringify({
