@@ -30,6 +30,7 @@ import {
   errorsOf,
   inCategory,
   notificationOf,
+  operationChangesOf,
   operationOf,
   operationTypeOf,
   warningsOf,
@@ -179,5 +180,25 @@ describe('operationTypeOf', () => {
   test('should say how many comparisons there were rather than search for one', () => {
     expect(() => operationTypeOf({ comparisons: [] } as unknown as BuildResult))
       .toThrow('Expected the build to carry one comparison, found 0')
+  })
+})
+
+describe('operationChangesOf', () => {
+  const comparisonOf = (...operationIds: string[]): BuildResult =>
+    ({ comparisons: [{ data: operationIds.map(operationId => ({ operationId })) }] } as unknown as BuildResult)
+
+  test('should return the changes of the operation asked for', () => {
+    expect(operationChangesOf(comparisonOf('path1-get', 'path2-post'), 'path2-post').operationId).toBe('path2-post')
+  })
+
+  test('should name the operations that carry changes when the one asked for does not', () => {
+    expect(() => operationChangesOf(comparisonOf('path1-get', 'path2-post'), 'path3-delete'))
+      .toThrow('Comparison has no changes for operation path3-delete. Operations: path1-get, path2-post')
+  })
+
+  // it printed a bare `undefined` here before T7a
+  test('should say so when the build has no comparison at all', () => {
+    expect(() => operationChangesOf({ comparisons: [] } as unknown as BuildResult, 'path1-get'))
+      .toThrow('Operations: (none)')
   })
 })

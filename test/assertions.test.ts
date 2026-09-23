@@ -54,8 +54,9 @@ describe('Change count assertions', () => {
   test('should fail loudly when the summary is missing altogether', () => {
     // `ChangeSummary` is not optional on `OperationType`, so this is a shape the types say cannot
     // happen; the old matcher treated it as a match, which is the one way it differed from the factory
+    // `.*`, not ` *`: with colors on, as in an IDE, escape codes sit between the label and the value
     expect(() => expectChangesSummary(resultWith([{ apiType: REST_API_TYPE }]), {}))
-      .toThrow(/Received: *undefined/)
+      .toThrow(/Received:.*undefined/)
   })
 
   // The one behavior these functions changed: the factory wrapped `objectContaining`, which ignores a key
