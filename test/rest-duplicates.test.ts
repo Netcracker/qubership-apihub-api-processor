@@ -24,7 +24,8 @@ import {
   DocumentClaim,
   findContestedOperationConflicts,
 } from '../src/components/contested-operations'
-import { Claims, collectClaim } from '../src/components/duplicate-resolution'
+import { Claims } from '../src/components/duplicate-resolution'
+import { collectOperationClaim } from '../src/components/operations'
 import { VersionDocument } from '../src/types'
 import { restOperation, restSpec, versionDocument } from './helpers/factories'
 
@@ -119,15 +120,15 @@ describe('compareContestedOperations', () => {
 // the engine and the REST comparison together, on the case the feature exists for: one slug, two endpoints
 test('should refuse two documents that derive one contested id from different paths', () => {
   const contestedId = 'res-data-get'
-  const claimOf = (slug: string, path: string, summary: string): DocumentClaim => ({
-    document: documentFrom(slug, restSpec({ [path]: summary })),
-    documentId: slug,
-    operation: restOperation({ operationId: contestedId, documentId: slug }),
-  })
-
   const claims: Claims<DocumentClaim> = new Map()
-  collectClaim(claims, contestedId, claimOf(ANCHOR_SLUG, '/res/data', 'Read the resource'))
-  collectClaim(claims, contestedId, claimOf(OTHER_SLUG, '/res-data', 'Delete everything'))
+  const collect = (slug: string, path: string, summary: string): void => collectOperationClaim(
+    claims,
+    documentFrom(slug, restSpec({ [path]: summary })),
+    restOperation({ operationId: contestedId }),
+  )
+
+  collect(ANCHOR_SLUG, '/res/data', 'Read the resource')
+  collect(OTHER_SLUG, '/res-data', 'Delete everything')
 
   expect(findContestedOperationConflicts(claims, compareContestedOperations))
     .toEqual([{ operationId: contestedId, contentDiffers: true, differingFields: [] }])
