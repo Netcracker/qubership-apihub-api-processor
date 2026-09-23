@@ -60,3 +60,29 @@ export function expectImpactedOperations(
   expect(operationTypeOf(result, apiType).numberOfImpactedOperations)
     .toEqual({ ...EMPTY_CHANGE_SUMMARY, ...expected })
 }
+
+export interface ChangeCounts {
+  changes?: Partial<ChangeSummary>
+  impacted?: Partial<ChangeSummary>
+}
+
+/**
+ * Assert both counts in one `toEqual`, so a failure shows them side by side. `impacted` defaults to
+ * `changes`, and calling this with no counts asserts that nothing changed.
+ *
+ * Pass `impacted` explicitly whenever it differs from `changes`: one change can touch several operations,
+ * and `asyncapi-deduplication.test.ts` asserts `{ breaking: 1 }` against `{ breaking: 2 }` for that reason.
+ * A test that asserts only one of the two counts keeps `expectChangesSummary` or `expectImpactedOperations`,
+ * because this function would add an assertion on the other count.
+ */
+export function expectChangeCounts(
+  result: BuildResult,
+  { changes = {}, impacted = changes }: ChangeCounts = {},
+  apiType: OperationsApiType = REST_API_TYPE,
+): void {
+  const { changesSummary, numberOfImpactedOperations } = operationTypeOf(result, apiType)
+  expect({ changes: changesSummary, impacted: numberOfImpactedOperations }).toEqual({
+    changes: { ...EMPTY_CHANGE_SUMMARY, ...changes },
+    impacted: { ...EMPTY_CHANGE_SUMMARY, ...impacted },
+  })
+}

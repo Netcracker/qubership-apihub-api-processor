@@ -23,7 +23,7 @@ import {
   OperationType,
   REST_API_TYPE,
 } from '../src'
-import { expectChangesSummary, expectImpactedOperations } from './helpers'
+import { expectChangeCounts, expectChangesSummary, expectImpactedOperations } from './helpers'
 
 // `Partial<OperationType>` rather than `unknown`: the deliberately invalid shapes below still pass, but
 // `changeSummary` typed for `changesSummary` would not — this codebase has both, one keystroke apart.
@@ -81,6 +81,37 @@ describe('Change count assertions', () => {
     expectChangesSummary(mixed, { [NON_BREAKING_CHANGE_TYPE]: 2 }, ASYNCAPI_API_TYPE)
     expectChangesSummary(mixed, { [BREAKING_CHANGE_TYPE]: 1 })
     expect(() => expectChangesSummary(mixed, { [BREAKING_CHANGE_TYPE]: 1 }, ASYNCAPI_API_TYPE)).toThrow()
+  })
+
+  test('expectChangeCounts should keep the two counts apart when they differ', () => {
+    // the asyncapi-deduplication case: one change impacting more than one operation
+    expectChangeCounts(restComparison, {
+      changes: { [BREAKING_CHANGE_TYPE]: 2 },
+      impacted: { [BREAKING_CHANGE_TYPE]: 3 },
+    })
+    expect(() => expectChangeCounts(restComparison, { changes: { [BREAKING_CHANGE_TYPE]: 2 } }))
+      .toThrow(/"breaking": 3/)
+  })
+
+  test('expectChangeCounts should default the impacted counts to the change counts', () => {
+    const matching = resultWith([{
+      apiType: REST_API_TYPE,
+      changesSummary: { ...EMPTY_CHANGE_SUMMARY, [BREAKING_CHANGE_TYPE]: 2 },
+      numberOfImpactedOperations: { ...EMPTY_CHANGE_SUMMARY, [BREAKING_CHANGE_TYPE]: 2 },
+    }])
+
+    expectChangeCounts(matching, { changes: { [BREAKING_CHANGE_TYPE]: 2 } })
+  })
+
+  test('expectChangeCounts with no counts should assert that nothing changed', () => {
+    const unchanged = resultWith([{
+      apiType: ASYNCAPI_API_TYPE,
+      changesSummary: EMPTY_CHANGE_SUMMARY,
+      numberOfImpactedOperations: EMPTY_CHANGE_SUMMARY,
+    }])
+
+    expectChangeCounts(unchanged, {}, ASYNCAPI_API_TYPE)
+    expect(() => expectChangeCounts(restComparison)).toThrow()
   })
 
 })
