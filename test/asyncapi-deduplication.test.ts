@@ -27,7 +27,10 @@ describe('AsyncAPI deduplication tests', () => {
       // apiDiff resolves $refs per scope → separate diff instances per scope.
       const result = await buildChangelogPackage('asyncapi-deduplication/shared-schema-across-operations')
 
-      expectChangeCounts(result, { changes: { [BREAKING_CHANGE_TYPE]: 2 } }, ASYNCAPI_API_TYPE)
+      expectChangeCounts(result, {
+        changes: { [BREAKING_CHANGE_TYPE]: 2 },
+        impacted: { [BREAKING_CHANGE_TYPE]: 2 },
+      }, ASYNCAPI_API_TYPE)
     })
 
     test('shared schema, same scope (both receive)', async () => {
@@ -62,7 +65,10 @@ describe('AsyncAPI deduplication tests', () => {
       // unclassified: 2 in summary (one per scope), impacted 2.
       const result = await buildChangelogPackage('asyncapi-deduplication/root-server-change-multiple-operations')
 
-      expectChangeCounts(result, { changes: { [UNCLASSIFIED_CHANGE_TYPE]: 2 } }, ASYNCAPI_API_TYPE)
+      expectChangeCounts(result, {
+        changes: { [UNCLASSIFIED_CHANGE_TYPE]: 2 },
+        impacted: { [UNCLASSIFIED_CHANGE_TYPE]: 2 },
+      }, ASYNCAPI_API_TYPE)
     })
 
     test('should deduplicate defaultContentType diff across multiple messages without explicit contentType', async () => {
@@ -91,7 +97,10 @@ describe('AsyncAPI deduplication tests', () => {
         [{ fileId: 'after1.yaml' }, { fileId: 'after2.yaml' }],
       )
 
-      expectChangeCounts(result, { changes: { [BREAKING_CHANGE_TYPE]: 2 } }, ASYNCAPI_API_TYPE)
+      expectChangeCounts(result, {
+        changes: { [BREAKING_CHANGE_TYPE]: 2 },
+        impacted: { [BREAKING_CHANGE_TYPE]: 2 },
+      }, ASYNCAPI_API_TYPE)
     })
 
     test('shared schema name in two specs, same scope (both receive)', async () => {
@@ -121,7 +130,10 @@ describe('AsyncAPI deduplication tests', () => {
         [{ fileId: 'after1.yaml' }, { fileId: 'after2.yaml' }],
       )
 
-      expectChangeCounts(result, { changes: { [BREAKING_CHANGE_TYPE]: 2 } }, ASYNCAPI_API_TYPE)
+      expectChangeCounts(result, {
+        changes: { [BREAKING_CHANGE_TYPE]: 2 },
+        impacted: { [BREAKING_CHANGE_TYPE]: 2 },
+      }, ASYNCAPI_API_TYPE)
     })
 
   })

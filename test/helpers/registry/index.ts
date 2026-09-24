@@ -16,4 +16,4 @@
 
 export * from './local'
 export { VERSIONS_PATH } from './utils'
-export { loadFileAsStringFromRegistry, registryFs } from './fs'
+export { loadFileAsStringFromRegistry, loadJsonFromRegistry, registryFs } from './fs'

@@ -15,7 +15,7 @@
  */
 
 import { describe, test, expect } from '@jest/globals'
-import { buildChangelogPackage, expectChangeCounts, expectChangesSummary, operationChangesMatcher } from './helpers'
+import { buildChangelogPackage, changedOperationMatcher, expectChangeCounts, expectChangesSummary, NO_CHANGES, operationChangesMatcher } from './helpers'
 import { BREAKING_CHANGE_TYPE, NON_BREAKING_CHANGE_TYPE, UNCLASSIFIED_CHANGE_TYPE } from '../src/types/external/comparison'
 
 describe('Security Diff Collection', () => {
@@ -23,7 +23,7 @@ describe('Security Diff Collection', () => {
     test('Operation with explicit security ignores global security changes', async () => {
       const result = await buildChangelogPackage('changelog/security/operation-security-precedence/global-changes-ignored')
 
-      expectChangeCounts(result)
+      expectChangeCounts(result, NO_CHANGES)
     })
 
     test('Operation security changes are reported for operation with explicit security', async () => {
@@ -104,7 +104,7 @@ describe('Security Diff Collection', () => {
     test('Operation with explicit empty array as security ignores global changes', async () => {
       const result = await buildChangelogPackage('changelog/security/empty-security-array/empty-array-global-changes')
 
-      expectChangeCounts(result)
+      expectChangeCounts(result, NO_CHANGES)
     })
 
     test('Adding empty security array to operation', async () => {
@@ -152,25 +152,25 @@ describe('Security Diff Collection', () => {
     test('Unused scheme removed from components', async () => {
       const result = await buildChangelogPackage('changelog/security/scheme-relevance/unused-scheme-removed')
 
-      expectChangeCounts(result)
+      expectChangeCounts(result, NO_CHANGES)
     })
 
     test('Unused scheme added to components', async () => {
       const result = await buildChangelogPackage('changelog/security/scheme-relevance/unused-scheme-added')
 
-      expectChangeCounts(result)
+      expectChangeCounts(result, NO_CHANGES)
     })
 
     test('Unused security scheme changes are not reported', async () => {
       const result = await buildChangelogPackage('changelog/security/scheme-relevance/unused-scheme-changes')
 
-      expectChangeCounts(result)
+      expectChangeCounts(result, NO_CHANGES)
     })
 
     test('Security scheme used in global security is not reported if operation has explicit security', async () => {
       const result = await buildChangelogPackage('changelog/security/scheme-relevance/global-scheme-changes-ignored')
 
-      expectChangeCounts(result)
+      expectChangeCounts(result, NO_CHANGES)
     })
 
     test('Operation uses multiple schemes, several schemes changes', async () => {
@@ -237,10 +237,7 @@ describe('Security Diff Collection', () => {
         },
       })
       expect(result).toEqual(operationChangesMatcher([
-        expect.objectContaining({
-          operationId: 'test2-get',
-          previousOperationId: 'test2-get',
-        }),
+        changedOperationMatcher('test2-get'),
       ]))
     })
 
@@ -258,10 +255,7 @@ describe('Security Diff Collection', () => {
         },
       })
       expect(result).toEqual(operationChangesMatcher([
-        expect.objectContaining({
-          operationId: 'test1-get',
-          previousOperationId: 'test1-get',
-        }),
+        changedOperationMatcher('test1-get'),
       ]))
     })
 
@@ -278,10 +272,7 @@ describe('Security Diff Collection', () => {
         },
       })
       expect(result).toEqual(operationChangesMatcher([
-        expect.objectContaining({
-          operationId: 'test2-get',
-          previousOperationId: 'test2-get',
-        }),
+        changedOperationMatcher('test2-get'),
       ]))
     })
   })

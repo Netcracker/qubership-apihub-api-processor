@@ -25,13 +25,17 @@ describe('Number of declarative changes in rest package version test', () => {
 
   test('Two operations use one schema in response and request (same severity)', async () => {
     const result = await buildChangelogPackage('declarative-changes-in-rest-package-version/case2')
-    expectChangeCounts(result, { changes: { [BREAKING_CHANGE_TYPE]: 2 } })
+    expectChangeCounts(result, { changes: { [BREAKING_CHANGE_TYPE]: 2 }, impacted: { [BREAKING_CHANGE_TYPE]: 2 } })
   })
 
   test('Two operations use one schema in response and request (different severity)', async () => {
     const result = await buildChangelogPackage('declarative-changes-in-rest-package-version/case3')
     expectChangeCounts(result, {
       changes: {
+        [BREAKING_CHANGE_TYPE]: 1,
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+      },
+      impacted: {
         [BREAKING_CHANGE_TYPE]: 1,
         [NON_BREAKING_CHANGE_TYPE]: 1,
       },
@@ -44,13 +48,20 @@ describe('Number of declarative changes in rest package version test', () => {
       [{ fileId: 'before/spec1.yaml' }, { fileId: 'before/spec2.yaml' }],
       [{ fileId: 'after/spec1.yaml' }, { fileId: 'after/spec2.yaml' }],
     )
-    expectChangeCounts(result, { changes: { [NON_BREAKING_CHANGE_TYPE]: 2 } })
+    expectChangeCounts(result, {
+      changes: { [NON_BREAKING_CHANGE_TYPE]: 2 },
+      impacted: { [NON_BREAKING_CHANGE_TYPE]: 2 },
+    })
   })
 
   test('Two operations use one schema in response but one of the operations is no-BWC', async () => {
     const result = await buildChangelogPackage('declarative-changes-in-rest-package-version/case5')
     expectChangeCounts(result, {
       changes: {
+        [BREAKING_CHANGE_TYPE]: 1,
+        [RISKY_CHANGE_TYPE]: 1,
+      },
+      impacted: {
         [BREAKING_CHANGE_TYPE]: 1,
         [RISKY_CHANGE_TYPE]: 1,
       },
@@ -68,6 +79,10 @@ describe('Number of declarative changes in rest package version test', () => {
         [BREAKING_CHANGE_TYPE]: 1,
         [NON_BREAKING_CHANGE_TYPE]: 1,
       },
+      impacted: {
+        [BREAKING_CHANGE_TYPE]: 1,
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+      },
     })
   })
 
@@ -77,6 +92,6 @@ describe('Number of declarative changes in rest package version test', () => {
       [{ fileId: 'before/spec1.yaml' }],
       [{ fileId: 'after/spec2.yaml' }, { fileId: 'after/spec3.yaml' }],
     )
-    expectChangeCounts(result, { changes: { [BREAKING_CHANGE_TYPE]: 1 } })
+    expectChangeCounts(result, { changes: { [BREAKING_CHANGE_TYPE]: 1 }, impacted: { [BREAKING_CHANGE_TYPE]: 1 } })
   })
 })

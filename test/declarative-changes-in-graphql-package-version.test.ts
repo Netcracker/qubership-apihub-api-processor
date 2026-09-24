@@ -45,6 +45,10 @@ describe('Number of declarative changes in graphql package version test', () => 
         [RISKY_CHANGE_TYPE]: 1,
         [NON_BREAKING_CHANGE_TYPE]: 1,
       },
+      impacted: {
+        [RISKY_CHANGE_TYPE]: 1,
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+      },
     }, GRAPHQL_API_TYPE)
   })
 
@@ -56,6 +60,7 @@ describe('Number of declarative changes in graphql package version test', () => 
     )
     expectChangeCounts(result, {
       changes: { [BREAKING_CHANGE_TYPE]: 1,[NON_BREAKING_CHANGE_TYPE]: 1 },
+      impacted: { [BREAKING_CHANGE_TYPE]: 1,[NON_BREAKING_CHANGE_TYPE]: 1 },
     }, GRAPHQL_API_TYPE)
   })
 })

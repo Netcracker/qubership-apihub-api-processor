@@ -18,7 +18,7 @@ import { beforeAll, describe, expect, it, test } from '@jest/globals'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { createOperationSpec, createOperationSpecEnrichedWithRefs } from '../src/apitypes/async/async.operation'
 import { calculateAsyncOperationId, removeComponents } from '../src/utils'
-import { buildPackageWithDefaultConfig, cloneDocument, loadYamlFile, LocalRegistry, operationOf, publishVersion } from './helpers'
+import { buildPackageWithDefaultConfig, cloneDocument, expectNotEmpty, loadYamlFile, LocalRegistry, operationOf, publishVersion } from './helpers'
 import { extractProtocol, getRequiredDefaultContentType } from '../src/apitypes/async/async.utils'
 import { ASYNCAPI_API_TYPE, FIRST_REFERENCE_KEY_PROPERTY, INLINE_REFS_FLAG, MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../src/consts'
 import { ASYNC_EFFECTIVE_NORMALIZE_OPTIONS, BUILD_TYPE, VERSION_STATUS } from '../src'
@@ -617,7 +617,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       })
 
       test('should set search config with useOperationDataAsSearchText=true on all operations', () => {
-        expect(operations.length).toBeGreaterThan(0)
+        expectNotEmpty(operations)
         for (const operation of operations) {
           expect(operation.search).toEqual({ useOperationDataAsSearchText: true })
         }

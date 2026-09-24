@@ -71,18 +71,25 @@ describe('Changelog build type', () => {
         [BREAKING_CHANGE_TYPE]: 1,
         [ANNOTATION_CHANGE_TYPE]: 1,
       },
+      impacted: {
+        [BREAKING_CHANGE_TYPE]: 1,
+        [ANNOTATION_CHANGE_TYPE]: 1,
+      },
     })
   })
 
   describe('Added/removed/changed operations handling', () => {
     test('Add operation', async () => {
       const result = await buildChangelogPackage('changelog/add-operation')
-      expectChangeCounts(result, { changes: { [NON_BREAKING_CHANGE_TYPE]: 1 } })
+      expectChangeCounts(result, {
+        changes: { [NON_BREAKING_CHANGE_TYPE]: 1 },
+        impacted: { [NON_BREAKING_CHANGE_TYPE]: 1 },
+      })
     })
 
     test('Remove operation', async () => {
       const result = await buildChangelogPackage('changelog/remove-operation')
-      expectChangeCounts(result, { changes: { [BREAKING_CHANGE_TYPE]: 1 } })
+      expectChangeCounts(result, { changes: { [BREAKING_CHANGE_TYPE]: 1 }, impacted: { [BREAKING_CHANGE_TYPE]: 1 } })
     })
 
     test('Change operation content', async () => {
@@ -90,6 +97,10 @@ describe('Changelog build type', () => {
 
       expectChangeCounts(result, {
         changes: {
+          [BREAKING_CHANGE_TYPE]: 1,
+          [NON_BREAKING_CHANGE_TYPE]: 1,
+        },
+        impacted: {
           [BREAKING_CHANGE_TYPE]: 1,
           [NON_BREAKING_CHANGE_TYPE]: 1,
         },
@@ -102,7 +113,10 @@ describe('Changelog build type', () => {
         [{ fileId: 'before/spec1.yaml' }, { fileId: 'before/spec2.yaml' }],
         [{ fileId: 'after/spec1.yaml' }, { fileId: 'after/spec2.yaml' }, { fileId: 'after/evicted.yaml' }],
       )
-      expectChangeCounts(result, { changes: { [ANNOTATION_CHANGE_TYPE]: 3 } })
+      expectChangeCounts(result, {
+        changes: { [ANNOTATION_CHANGE_TYPE]: 3 },
+        impacted: { [ANNOTATION_CHANGE_TYPE]: 3 },
+      })
     })
 
     // `/res/data` and `/res-data` derive one operationId, so the changelog matches the operation to itself, while
@@ -120,6 +134,10 @@ paths:
 
       expectChangeCounts(result, {
         changes: {
+          [BREAKING_CHANGE_TYPE]: 1,
+          [NON_BREAKING_CHANGE_TYPE]: 1,
+        },
+        impacted: {
           [BREAKING_CHANGE_TYPE]: 1,
           [NON_BREAKING_CHANGE_TYPE]: 1,
         },
@@ -148,6 +166,10 @@ paths:
           [BREAKING_CHANGE_TYPE]: 1,
           [NON_BREAKING_CHANGE_TYPE]: 1,
         },
+        impacted: {
+          [BREAKING_CHANGE_TYPE]: 1,
+          [NON_BREAKING_CHANGE_TYPE]: 1,
+        },
       })
     })
 
@@ -156,6 +178,10 @@ paths:
 
       expectChangeCounts(result, {
         changes: {
+          [BREAKING_CHANGE_TYPE]: 1,
+          [NON_BREAKING_CHANGE_TYPE]: 1,
+        },
+        impacted: {
           [BREAKING_CHANGE_TYPE]: 1,
           [NON_BREAKING_CHANGE_TYPE]: 1,
         },
@@ -182,6 +208,11 @@ paths:
             [NON_BREAKING_CHANGE_TYPE]: 1,
             [ANNOTATION_CHANGE_TYPE]: 2, // todo: do we really need to count change in root servers[0].url in mapped operations with overridden servers?
           },
+          impacted: {
+            [BREAKING_CHANGE_TYPE]: 1,
+            [NON_BREAKING_CHANGE_TYPE]: 1,
+            [ANNOTATION_CHANGE_TYPE]: 2, // todo: do we really need to count change in root servers[0].url in mapped operations with overridden servers?
+          },
         },
       )
     })
@@ -195,6 +226,11 @@ paths:
           [NON_BREAKING_CHANGE_TYPE]: 1,
           [ANNOTATION_CHANGE_TYPE]: 2, // todo
         },
+        impacted: {
+          [BREAKING_CHANGE_TYPE]: 1,
+          [NON_BREAKING_CHANGE_TYPE]: 1,
+          [ANNOTATION_CHANGE_TYPE]: 2, // todo
+        },
       })
     })
   })
@@ -203,25 +239,37 @@ paths:
     test('Add root servers', async () => {
       const result = await buildChangelogPackage('changelog/add-root-servers')
 
-      expectChangeCounts(result, { changes: { [ANNOTATION_CHANGE_TYPE]: 1 } })
+      expectChangeCounts(result, {
+        changes: { [ANNOTATION_CHANGE_TYPE]: 1 },
+        impacted: { [ANNOTATION_CHANGE_TYPE]: 1 },
+      })
     })
 
     test('Remove root servers', async () => {
       const result = await buildChangelogPackage('changelog/remove-root-servers')
 
-      expectChangeCounts(result, { changes: { [ANNOTATION_CHANGE_TYPE]: 1 } })
+      expectChangeCounts(result, {
+        changes: { [ANNOTATION_CHANGE_TYPE]: 1 },
+        impacted: { [ANNOTATION_CHANGE_TYPE]: 1 },
+      })
     })
 
     test('Remove server', async () => {
       const result = await buildChangelogPackage('changelog/remove-server')
 
-      expectChangeCounts(result, { changes: { [ANNOTATION_CHANGE_TYPE]: 1 } })
+      expectChangeCounts(result, {
+        changes: { [ANNOTATION_CHANGE_TYPE]: 1 },
+        impacted: { [ANNOTATION_CHANGE_TYPE]: 1 },
+      })
     })
 
     test('Change root servers', async () => {
       const result = await buildChangelogPackage('changelog/change-root-servers')
 
-      expectChangeCounts(result, { changes: { [ANNOTATION_CHANGE_TYPE]: 1 } })
+      expectChangeCounts(result, {
+        changes: { [ANNOTATION_CHANGE_TYPE]: 1 },
+        impacted: { [ANNOTATION_CHANGE_TYPE]: 1 },
+      })
     })
 
     test('Add security', async () => {
@@ -247,6 +295,10 @@ paths:
           [BREAKING_CHANGE_TYPE]: 1,
           [NON_BREAKING_CHANGE_TYPE]: 1,
         },
+        impacted: {
+          [BREAKING_CHANGE_TYPE]: 1,
+          [NON_BREAKING_CHANGE_TYPE]: 1,
+        },
       })
     })
 
@@ -257,13 +309,19 @@ paths:
         changes: {
           [UNCLASSIFIED_CHANGE_TYPE]: 1,
         },
+        impacted: {
+          [UNCLASSIFIED_CHANGE_TYPE]: 1,
+        },
       })
     })
 
     test('Change openapi version', async () => {
       const result = await buildChangelogPackage('changelog/change-openapi-version')
 
-      expectChangeCounts(result, { changes: { [ANNOTATION_CHANGE_TYPE]: 1 } })
+      expectChangeCounts(result, {
+        changes: { [ANNOTATION_CHANGE_TYPE]: 1 },
+        impacted: { [ANNOTATION_CHANGE_TYPE]: 1 },
+      })
     })
   })
 

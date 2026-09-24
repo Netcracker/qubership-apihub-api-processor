@@ -351,7 +351,7 @@ describe('Operation ID collisions', () => {
       const changelogResult = await editor.run()
 
       expect(changelogResult.notifications).toEqual([])
-      expectChangeCounts(changelogResult, { changes: { annotation: 1 } })
+      expectChangeCounts(changelogResult, { changes: { annotation: 1 }, impacted: { annotation: 1 } })
       // The indexed operation is the one from the lexicographically smallest documentId — `spec1`, not
       // `spec2` as under the old last-wins rule. The flip is the point: the winner no longer depends on the
       // order `config.files` happened to list the documents in.

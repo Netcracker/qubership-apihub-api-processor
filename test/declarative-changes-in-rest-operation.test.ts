@@ -20,23 +20,27 @@ import { BREAKING_CHANGE_TYPE, NON_BREAKING_CHANGE_TYPE } from '../src'
 describe('Number of declarative changes in rest operation test', () => {
   test('Multiple use of one schema in response', async () => {
     const result = await buildChangelogPackage('declarative-changes-in-rest-operation/case1')
-    expectChangeCounts(result, { changes: { [BREAKING_CHANGE_TYPE]: 1 } })
+    expectChangeCounts(result, { changes: { [BREAKING_CHANGE_TYPE]: 1 }, impacted: { [BREAKING_CHANGE_TYPE]: 1 } })
   })
 
   test('Multiple use of one schema in another schema which is used in response', async () => {
     const result = await buildChangelogPackage('declarative-changes-in-rest-operation/case2')
-    expectChangeCounts(result, { changes: { [BREAKING_CHANGE_TYPE]: 1 } })
+    expectChangeCounts(result, { changes: { [BREAKING_CHANGE_TYPE]: 1 }, impacted: { [BREAKING_CHANGE_TYPE]: 1 } })
   })
 
   test('Multiple use of one schema in another schema which is used in response pathItems', async () => {
     const result = await buildChangelogPackage('declarative-changes-in-rest-operation/case8')
-    expectChangeCounts(result, { changes: { [BREAKING_CHANGE_TYPE]: 1 } })
+    expectChangeCounts(result, { changes: { [BREAKING_CHANGE_TYPE]: 1 }, impacted: { [BREAKING_CHANGE_TYPE]: 1 } })
   })
 
   test('Multiple use of one schema in both request and response (different severity)', async () => {
     const result = await buildChangelogPackage('declarative-changes-in-rest-operation/case3')
     expectChangeCounts(result, {
       changes: {
+        [BREAKING_CHANGE_TYPE]: 1,
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+      },
+      impacted: {
         [BREAKING_CHANGE_TYPE]: 1,
         [NON_BREAKING_CHANGE_TYPE]: 1,
       },
@@ -50,7 +54,7 @@ describe('Number of declarative changes in rest operation test', () => {
 
   test('Circular reference in response', async () => {
     const result = await buildChangelogPackage('declarative-changes-in-rest-operation/case5')
-    expectChangeCounts(result, { changes: { [BREAKING_CHANGE_TYPE]: 1 } })
+    expectChangeCounts(result, { changes: { [BREAKING_CHANGE_TYPE]: 1 }, impacted: { [BREAKING_CHANGE_TYPE]: 1 } })
   })
 
   test('Circular reference in response and request', async () => {

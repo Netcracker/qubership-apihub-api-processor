@@ -32,7 +32,7 @@ import {
   TRANSFORMATION_KIND_REDUCED,
 } from '../src'
 import { parseGraphQLSource } from '../src/utils/graphql-transformer'
-import { Editor, loadFileAsString, LocalRegistry, VERSIONS_PATH, loadFileAsStringFromRegistry } from './helpers'
+import { Editor, loadFileAsString, LocalRegistry, VERSIONS_PATH, loadFileAsStringFromRegistry, expectNotEmpty } from './helpers'
 
 const GROUP_NAME = 'manualGroup'
 const VERSION_ID = 'v1'
@@ -458,7 +458,7 @@ describe('Document Group test', () => {
         graphqlFiles,
       )
 
-      expect(result.documents.size).toBeGreaterThan(0)
+      expectNotEmpty(result.documents)
 
       const [document] = Array.from(result.documents.values())
       expect(typeof document.data).toBe('string')
@@ -493,7 +493,7 @@ describe('Document Group test', () => {
         graphqlFiles,
       )
 
-      expect(result.documents.size).toBeGreaterThan(0)
+      expectNotEmpty(result.documents)
 
       const [document] = Array.from(result.documents.values())
       const schema = parseGraphQLSource(document.data as string)
@@ -538,7 +538,7 @@ describe('Document Group test', () => {
     })
     // A group build over a version that was never published is not an error: it warns and returns nothing.
     // Every caller below loops over `result.documents`, so an empty set would pass them all silently.
-    expect(result.documents.size).toBeGreaterThan(0)
+    expectNotEmpty(result.documents)
     return { pkg, result }
   }
 })

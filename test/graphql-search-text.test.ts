@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, test } from '@jest/globals'
 import { buildGraphQLSearchText } from '../src/apitypes/graphql/graphql.utils'
 import { calculateGraphqlOperationId } from '../src/utils'
-import { Editor, LocalRegistry, parseAndNormalizeGraphQLSchema } from './helpers'
+import { Editor, expectNotEmpty, LocalRegistry, parseAndNormalizeGraphQLSchema } from './helpers'
 import { operationKey } from '../src/components/operations'
 import { GRAPHQL_API_TYPE } from '../src/consts'
 
@@ -290,7 +290,7 @@ describe('BuildGraphQLSearchText unit tests', () => {
     })
 
     test('should set search config with useOperationDataAsSearchText=false on all operations', () => {
-      expect(operations.size).toBeGreaterThan(0)
+      expectNotEmpty(operations)
       for (const op of Array.from(operations.values())) {
         expect(op.search).toEqual({
           useOperationDataAsSearchText: false,

@@ -15,7 +15,7 @@
  */
 
 import { afterEach, describe, expect, jest, test } from '@jest/globals'
-import { Editor, LocalRegistry } from './helpers'
+import { Editor, expectNotEmpty, LocalRegistry } from './helpers'
 import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, VERSION_STATUS } from '../src/consts'
 import * as transformToDto from '../src/utils/transformToDto'
 import { toVersionsComparisonDto } from '../src/utils/transformToDto'
@@ -152,7 +152,7 @@ describe('Release gate and migration builds', () => {
     const result = await pkg.publish(pkg.packageId, migrationConfig(VERSION_STATUS.RELEASE) as never)
 
     const refProblems = result.notifications.filter(({ category }) => category.startsWith('ref-'))
-    expect(refProblems.length).toBeGreaterThan(0)
+    expectNotEmpty(refProblems)
     expect(refProblems.every(({ severity }) => severity === MESSAGE_SEVERITY.Warning)).toBe(true)
     // the build completed and nothing is flagged, so the historical version stays rebuildable
     expect(result.notifications.some(({ severity }) => severity === MESSAGE_SEVERITY.Error)).toBe(false)

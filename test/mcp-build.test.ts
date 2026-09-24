@@ -18,11 +18,12 @@ import { describe, expect, test } from '@jest/globals'
 import {
   documentOf,
   Editor,
-  errorsOf,
-  loadFileAsStringFromRegistry,
+  errorNotificationsOf,
+  expectNotEmpty,
+  loadJsonFromRegistry,
   LocalRegistry,
   VERSIONS_PATH,
-  warningsOf,
+  warningNotificationsOf,
 } from './helpers'
 import { BUILD_TYPE, MESSAGE_CATEGORY, REST_API_TYPE, VERSION_STATUS } from '../src/consts'
 import { MCP_DOCUMENT_TYPE } from '../src/apitypes/mcp'
@@ -95,8 +96,8 @@ const expectReportedErrors = (
   result: BuildResult,
   expectedMessage: RegExp,
 ): void => {
-  const errors = errorsOf(result.notifications)
-  expect(errors.length).toBeGreaterThan(0)
+  const errors = errorNotificationsOf(result.notifications)
+  expectNotEmpty(errors)
   expect(errors.some(({ message }) => expectedMessage.test(message))).toBe(true)
   expect(errors.every(({ documentId }) => documentId !== undefined)).toBe(true)
 }
@@ -365,7 +366,7 @@ describe('MCP Build', () => {
       await registry.publishPackage(result, editor.builder.builderContext(editor.config), editor.config)
 
       // mcp.json — the lightweight index, grouped by kind, with payloads (`data`) stripped out
-      const index = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, 'mcp-build/v1', 'mcp.json'))!)
+      const index = await loadJsonFromRegistry(VERSIONS_PATH, 'mcp-build/v1', 'mcp.json')
       expect(index.inits).toHaveLength(1)
       expect(index.tools).toHaveLength(2)
       expect(index.resources).toHaveLength(2)
@@ -382,11 +383,11 @@ describe('MCP Build', () => {
       expect(searchDocs).not.toHaveProperty('data')
 
       // mcp/{id}.json — the full element payload lives here, not in the index
-      const payload = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, 'mcp-build/v1/mcp', searchDocs.mcpEntityId))!)
+      const payload = await loadJsonFromRegistry(VERSIONS_PATH, 'mcp-build/v1/mcp', searchDocs.mcpEntityId)
       expect(payload).toEqual(SEARCH_DOCS_TOOL_PAYLOAD)
 
       // every documentId is a document slug, never a fileId
-      const documents = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, 'mcp-build/v1', 'documents.json'))!)
+      const documents = await loadJsonFromRegistry(VERSIONS_PATH, 'mcp-build/v1', 'documents.json')
       const slugs = documents.documents.map((document: { slug: string }) => document.slug)
       const entities: PackageMcpEntity[] = [...index.inits, ...index.tools, ...index.resources, ...index.prompts]
       for (const entity of entities) {
@@ -405,7 +406,7 @@ describe('MCP Build', () => {
         ],
       })
 
-      const warnings = warningsOf(result.notifications)
+      const warnings = warningNotificationsOf(result.notifications)
       expect(warnings.some(w => w.message.includes('\'resources\'') && w.message.includes('no resource entities'))).toBe(true)
       expect(warnings.some(w => w.message.includes('\'prompts\'') && w.message.includes('no prompt entities'))).toBe(true)
       expect(warnings.some(w => w.message.includes('\'tools\''))).toBe(false)
@@ -422,7 +423,7 @@ describe('MCP Build', () => {
         ],
       })
 
-      const warnings = warningsOf(result.notifications)
+      const warnings = warningNotificationsOf(result.notifications)
       expect(warnings).toHaveLength(0)
     })
 
@@ -469,7 +470,7 @@ describe('MCP Build', () => {
 
       // intra-document: caught per entity, so the entity that failed is the only thing lost — the first
       // `search` is built and the document keeps it, and the failure is reported once
-      const errors = errorsOf(result.notifications)
+      const errors = errorNotificationsOf(result.notifications)
       expect(errors.map(({ category }) => category)).toEqual([MESSAGE_CATEGORY.McpEntityBuild])
       expect(errors[0].message).toMatch(/Duplicate MCP entity ID/)
       expect(entitiesOfKind(result, 'tool').map(({ description }) => description)).toEqual(['First search tool'])
@@ -494,7 +495,7 @@ describe('MCP Build', () => {
 
       // cross-document: one notification per involved document, and both keep their entities
       // exactly two errors, one per involved document — no third copy from another site
-      const errors = errorsOf(result.notifications)
+      const errors = errorNotificationsOf(result.notifications)
       expect(errors.map(({ category }) => category))
         .toEqual([MESSAGE_CATEGORY.McpDuplicateEntity, MESSAGE_CATEGORY.McpDuplicateEntity])
       expect(errors.map(({ documentId }) => documentId).sort())
@@ -617,7 +618,7 @@ describe('MCP Build', () => {
 
       await registry.publishPackage(result, editor.builder.builderContext(editor.config), editor.config)
 
-      const index = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, 'mcp-build/v1', 'mcp.json'))!)
+      const index = await loadJsonFromRegistry(VERSIONS_PATH, 'mcp-build/v1', 'mcp.json')
       expect(index.tools).toHaveLength(2)
       const ids = index.tools.map((t: PackageMcpEntity) => t.mcpEntityId)
       expect(new Set(ids).size).toBe(2)

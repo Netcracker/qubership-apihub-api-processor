@@ -19,13 +19,14 @@ import JSZip from 'jszip'
 import {
   buildChangelogPackage,
   Editor,
-  errorsOf,
-  inCategory,
-  loadFileAsStringFromRegistry,
+  errorNotificationsOf,
+  notificationsInCategory,
+  loadJsonFromRegistry,
   LocalRegistry,
   publishDashboardWithTwoRefs,
   publishVersion,
   VERSIONS_PATH,
+  expectNotEmpty,
 } from './helpers'
 import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, PACKAGE, VERSION_STATUS } from '../src/consts'
 import { BuildConfig, BuildResult } from '../src/types'
@@ -57,7 +58,7 @@ describe('Notification attribution invariants', () => {
   test.each(CASES)('should carry a known category on every notification — %s', async (_name, build) => {
     const result = await build()
 
-    expect(result.notifications.length).toBeGreaterThan(0)
+    expectNotEmpty(result.notifications)
     for (const { category } of result.notifications) {
       expect(KNOWN_CATEGORIES.has(category)).toBe(true)
     }
@@ -72,7 +73,7 @@ describe('Notification attribution invariants', () => {
     const attributed = result.notifications
       .map(({ documentId }) => documentId)
       .filter((documentId): documentId is string => documentId !== undefined)
-    expect(attributed.length).toBeGreaterThan(0)
+    expectNotEmpty(attributed)
 
     for (const documentId of attributed) {
       expect(slugs.has(documentId)).toBe(true)
@@ -83,7 +84,7 @@ describe('Notification attribution invariants', () => {
   test.each(CASES)('should attribute every build-phase Error to a document — %s', async (_name, build, raisesError) => {
     const result = await build()
 
-    const errors = errorsOf(result.notifications)
+    const errors = errorNotificationsOf(result.notifications)
     expect(errors.length > 0).toBe(raisesError)
     expect(errors.filter(({ documentId }) => documentId === undefined)).toEqual([])
   })
@@ -97,17 +98,13 @@ describe('Notification invariants hold in the published archive', () => {
     await publishVersion(packageId, 'v1', ['spec1.json', 'spec2.json'], { status: VERSION_STATUS.DRAFT })
 
     const versionPath = `${packageId}/v1`
-    const notifications = JSON.parse(
-      (await loadFileAsStringFromRegistry(VERSIONS_PATH, versionPath, 'notifications.json'))!,
-    ).notifications as Array<{ category: string; severity: number; documentId?: string }>
-    const documents = JSON.parse(
-      (await loadFileAsStringFromRegistry(VERSIONS_PATH, versionPath, 'documents.json'))!,
-    ).documents as Array<{ slug: string }>
+    const notifications = (await loadJsonFromRegistry(VERSIONS_PATH, versionPath, 'notifications.json')).notifications as Array<{ category: string; severity: number; documentId?: string }>
+    const documents = (await loadJsonFromRegistry(VERSIONS_PATH, versionPath, 'documents.json')).documents as Array<{ slug: string }>
 
     const slugs = new Set(documents.map(({ slug }) => slug))
     const known = new Set<string>(Object.values(MESSAGE_CATEGORY))
 
-    expect(notifications.length).toBeGreaterThan(0)
+    expectNotEmpty(notifications)
     for (const notification of notifications) {
       expect(known.has(notification.category)).toBe(true)
       expect(notification).not.toHaveProperty('fileId')
@@ -122,7 +119,7 @@ describe('Notification invariants hold in the published archive', () => {
 
   test('should keep notifications out of comparisons.json — they live in their own file', async () => {
     const result = await buildChangelogPackage('changelog/security/operation-security-precedence/both-change')
-    expect(result.comparisons.length).toBeGreaterThan(0)
+    expectNotEmpty(result.comparisons)
 
     // the DTO deliberately drops the field; a leak would duplicate the dedicated file, unsorted
     const dto = toVersionsComparisonDto(result.comparisons[0], new WeakMap(), () => undefined)
@@ -196,7 +193,7 @@ describe('Comparison notifications belong to a version pair', () => {
 
     // one pair, and it reports the unresolvable baseline exactly once — not once per comparison kind
     expect(result.comparisons.map(({ notifications }) =>
-      inCategory(notifications, MESSAGE_CATEGORY.VersionNotResolved).length))
+      notificationsInCategory(notifications, MESSAGE_CATEGORY.VersionNotResolved).length))
       .toEqual([1])
   }, 60000)
 
@@ -236,7 +233,7 @@ describe('Comparison notifications belong to a version pair', () => {
   test('should give each comparison its own array rather than a shared one', async () => {
     const result = await buildChangelogPackage('changelog/security/operation-security-precedence/both-change')
 
-    expect(result.comparisons.length).toBeGreaterThan(0)
+    expectNotEmpty(result.comparisons)
     for (const comparison of result.comparisons) {
       expect(Array.isArray(comparison.notifications)).toBe(true)
       // aliasing the build-level array would put another pair's messages on this comparison
@@ -318,9 +315,7 @@ describe('comparison-notifications.json', () => {
     } as never)
     expect(result.comparisons).toEqual([])
 
-    const file = JSON.parse(
-      (await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'comparison-notifications.json'))!,
-    ) as { comparisons: Array<{ previousVersion: string; notifications: Array<{ category: string }> }> }
+    const file = await loadJsonFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'comparison-notifications.json') as { comparisons: Array<{ previousVersion: string; notifications: Array<{ category: string }> }> }
 
     expect(file.comparisons).toHaveLength(1)
     expect(file.comparisons[0].previousVersion).toBe('no-such-version')
@@ -328,9 +323,7 @@ describe('comparison-notifications.json', () => {
       .toEqual([MESSAGE_CATEGORY.VersionNotResolved])
 
     // the version's own file stays clear of it: a baseline is the comparison's problem, not the version's
-    const notifications = JSON.parse(
-      (await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'notifications.json'))!,
-    ).notifications as Array<{ category: string }>
+    const notifications = (await loadJsonFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'notifications.json')).notifications as Array<{ category: string }>
     expect(notifications.map(({ category }) => category)).not.toContain(MESSAGE_CATEGORY.VersionNotResolved)
   }, 30000)
 })

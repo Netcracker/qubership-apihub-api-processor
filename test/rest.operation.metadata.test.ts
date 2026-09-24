@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Editor, operationOf } from './helpers'
+import { Editor, expectNotEmpty, operationOf } from './helpers'
 
 describe('Operation metadata test', () => {
   test('custom tag should exist in operation if provided in operationData', async () => {
@@ -45,6 +45,6 @@ describe('Operation metadata test', () => {
 
     expect(operation.metadata.operationIdV1).toBeDefined()
     expect(typeof operation.metadata.operationIdV1).toBe('string')
-    expect(operation.metadata.operationIdV1.length).toBeGreaterThan(0)
+    expectNotEmpty(operation.metadata.operationIdV1)
   })
 })

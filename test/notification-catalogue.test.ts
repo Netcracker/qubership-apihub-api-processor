@@ -15,7 +15,7 @@
  */
 
 import { describe, expect, test } from '@jest/globals'
-import { LocalRegistry } from './helpers'
+import { expectNotEmpty, LocalRegistry } from './helpers'
 import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, VERSION_STATUS } from '../src/consts'
 import { BuildConfig, BuildResult, MessageCategory, MessageSeverity, NotificationMessage } from '../src/types'
 
@@ -422,7 +422,7 @@ describe('A deprecated AsyncAPI channel', () => {
       .not.toContain(MESSAGE_CATEGORY.TolerantHashMissing)
     // the deprecated item itself is still published
     const [operation] = [...result.operations.values()]
-    expect(operation.deprecatedItems?.length).toBeGreaterThan(0)
+    expectNotEmpty(operation.deprecatedItems)
   }, 30000)
 })
 

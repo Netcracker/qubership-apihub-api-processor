@@ -27,13 +27,13 @@ import {
 import {
   buildPackageFromContent,
   documentOf,
-  errorsOf,
-  inCategory,
+  errorNotificationsOf,
+  notificationsInCategory,
   notificationOf,
   operationChangesOf,
   operationOf,
   operationTypeOf,
-  warningsOf,
+  warningNotificationsOf,
 } from './helpers'
 
 // Its own packageId. In disk mode the version directory is shared by every suite that lands in the same
@@ -111,25 +111,25 @@ describe('Notification selectors', () => {
     { severity: MESSAGE_SEVERITY.Information, category: MESSAGE_CATEGORY.BuildOperations, message: 'fyi' },
   ] as NotificationMessage[]
 
-  test('errorsOf should return the errors and nothing else', () => {
-    expect(errorsOf(NOTIFICATIONS).map(({ message }) => message)).toEqual(['broken'])
+  test('errorNotificationsOf should return the errors and nothing else', () => {
+    expect(errorNotificationsOf(NOTIFICATIONS).map(({ message }) => message)).toEqual(['broken'])
   })
 
-  test('warningsOf should return the warnings and nothing else', () => {
-    expect(warningsOf(NOTIFICATIONS).map(({ message }) => message)).toEqual(['odd'])
+  test('warningNotificationsOf should return the warnings and nothing else', () => {
+    expect(warningNotificationsOf(NOTIFICATIONS).map(({ message }) => message)).toEqual(['odd'])
   })
 
-  test('inCategory should select across severities, not within one', () => {
+  test('notificationsInCategory should select across severities, not within one', () => {
     // the two ParseFile rows differ in severity on purpose: a category selector that quietly filtered
     // by severity too would return one of them and still look right
-    expect(inCategory(NOTIFICATIONS, MESSAGE_CATEGORY.ParseFile).map(({ message }) => message))
+    expect(notificationsInCategory(NOTIFICATIONS, MESSAGE_CATEGORY.ParseFile).map(({ message }) => message))
       .toEqual(['broken', 'odd'])
   })
 
   test('should return an empty list rather than throw when nothing matches', () => {
     // the case that actually occurs is a full list with no match, not an empty one
-    expect(inCategory(NOTIFICATIONS, MESSAGE_CATEGORY.RefNotFound)).toEqual([])
-    expect(errorsOf([])).toEqual([])
+    expect(notificationsInCategory(NOTIFICATIONS, MESSAGE_CATEGORY.RefNotFound)).toEqual([])
+    expect(errorNotificationsOf([])).toEqual([])
   })
 
   describe('notificationOf', () => {

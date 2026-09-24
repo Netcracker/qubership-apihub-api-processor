@@ -23,7 +23,7 @@ import {
   OperationType,
   REST_API_TYPE,
 } from '../src'
-import { expectChangeCounts, expectChangesSummary, expectImpactedOperations } from './helpers'
+import { expectChangeCounts, expectChangesSummary, expectNotEmpty, NO_CHANGES } from './helpers'
 
 // `Partial<OperationType>` rather than `unknown`: the deliberately invalid shapes below still pass, but
 // `changeSummary` typed for `changesSummary` would not — this codebase has both, one keystroke apart.
@@ -44,11 +44,6 @@ describe('Change count assertions', () => {
   test('expectChangesSummary should require every count the caller left out to be zero', () => {
     expect(() => expectChangesSummary(restComparison, { [NON_BREAKING_CHANGE_TYPE]: 1 }))
       .toThrow(/"breaking": 2/)
-  })
-
-  test('expectImpactedOperations should read the impacted counts, not the change counts', () => {
-    expectImpactedOperations(restComparison, { [BREAKING_CHANGE_TYPE]: 3 })
-    expect(() => expectImpactedOperations(restComparison, { [BREAKING_CHANGE_TYPE]: 2 })).toThrow()
   })
 
   test('should fail loudly when the summary is missing altogether', () => {
@@ -91,29 +86,53 @@ describe('Change count assertions', () => {
       changes: { [BREAKING_CHANGE_TYPE]: 2 },
       impacted: { [BREAKING_CHANGE_TYPE]: 3 },
     })
-    expect(() => expectChangeCounts(restComparison, { changes: { [BREAKING_CHANGE_TYPE]: 2 } }))
+    expect(() => expectChangeCounts(restComparison, {
+      changes: { [BREAKING_CHANGE_TYPE]: 2 },
+      impacted: { [BREAKING_CHANGE_TYPE]: 2 },
+    }))
       .toThrow(/"breaking": 3/)
   })
 
-  test('expectChangeCounts should default the impacted counts to the change counts', () => {
+  // there is no default: an empty `impacted` asserts zero impacted operations, it does not borrow `changes`
+  test('expectChangeCounts should check the impacted counts even when they match the change counts', () => {
     const matching = resultWith([{
       apiType: REST_API_TYPE,
       changesSummary: { ...EMPTY_CHANGE_SUMMARY, [BREAKING_CHANGE_TYPE]: 2 },
       numberOfImpactedOperations: { ...EMPTY_CHANGE_SUMMARY, [BREAKING_CHANGE_TYPE]: 2 },
     }])
 
-    expectChangeCounts(matching, { changes: { [BREAKING_CHANGE_TYPE]: 2 } })
+    expectChangeCounts(matching, { changes: { [BREAKING_CHANGE_TYPE]: 2 }, impacted: { [BREAKING_CHANGE_TYPE]: 2 } })
+    expect(() => expectChangeCounts(matching, { changes: { [BREAKING_CHANGE_TYPE]: 2 }, impacted: {} })).toThrow()
   })
 
-  test('expectChangeCounts with no counts should assert that nothing changed', () => {
+  test('expectChangeCounts with NO_CHANGES should assert that nothing changed', () => {
     const unchanged = resultWith([{
       apiType: ASYNCAPI_API_TYPE,
       changesSummary: EMPTY_CHANGE_SUMMARY,
       numberOfImpactedOperations: EMPTY_CHANGE_SUMMARY,
     }])
 
-    expectChangeCounts(unchanged, {}, ASYNCAPI_API_TYPE)
-    expect(() => expectChangeCounts(restComparison)).toThrow()
+    expectChangeCounts(unchanged, NO_CHANGES, ASYNCAPI_API_TYPE)
+    expect(() => expectChangeCounts(restComparison, NO_CHANGES)).toThrow()
   })
 
+})
+
+describe('expectNotEmpty', () => {
+  test('should pass on an array, a string or a map with something in it', () => {
+    expectNotEmpty([1])
+    expectNotEmpty('x')
+    expectNotEmpty(new Map([['k', 1]]))
+  })
+
+  test('should fail on an empty collection of any of those kinds', () => {
+    expect(() => expectNotEmpty([])).toThrow()
+    expect(() => expectNotEmpty('')).toThrow()
+    expect(() => expectNotEmpty(new Map())).toThrow()
+  })
+
+  // the `?.length` it replaced failed on a missing value too, so this must not pass it quietly
+  test('should fail on a missing collection', () => {
+    expect(() => expectNotEmpty(undefined)).toThrow()
+  })
 })

@@ -17,7 +17,7 @@
 import { describe, expect, test } from '@jest/globals'
 import { FILE_FORMAT_GRAPHQL, FILE_FORMAT_HTML, FILE_FORMAT_JSON, FILE_FORMAT_YAML } from '../src/consts'
 import { ExportGraphQLOperationsGroupBuildConfig, OperationsApiType } from '../src/types'
-import { Editor, LocalRegistry } from './helpers'
+import { Editor, expectNotEmpty, LocalRegistry } from './helpers'
 import { BUILD_TYPE, TRANSFORMATION_KIND_MERGED, TRANSFORMATION_KIND_REDUCED } from '../src'
 import { parseGraphQLSource } from '../src/utils/graphql-transformer'
 
@@ -89,7 +89,7 @@ describe('Export GraphQL Operations Group integration tests', () => {
       expect(exportDocument.filename).toMatch(/\.graphql$/)
 
       const text = await exportDocument.data.text()
-      expect(text.length).toBeGreaterThan(0)
+      expectNotEmpty(text)
 
       const schema = parseGraphQLSource(text)
       expect(schema.graphapi).toBeDefined()
@@ -102,12 +102,12 @@ describe('Export GraphQL Operations Group integration tests', () => {
         format: FILE_FORMAT_HTML,
       })
 
-      expect(result.exportDocuments.length).toBeGreaterThan(0)
+      expectNotEmpty(result.exportDocuments)
 
       const graphqlDocs = result.exportDocuments
         .filter(exportDocument => exportDocument.filename.endsWith('.html') && !['index.html', 'ls.html']
           .includes(exportDocument.filename))
-      expect(graphqlDocs.length).toBeGreaterThan(0)
+      expectNotEmpty(graphqlDocs)
     })
   })
 

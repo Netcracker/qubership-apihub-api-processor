@@ -17,7 +17,9 @@
 import { afterEach, describe, expect, jest, test } from '@jest/globals'
 import {
   documentOf,
+  expectNotEmpty,
   loadFileAsStringFromRegistry,
+  loadJsonFromRegistry,
   LocalRegistry,
   notificationMatcher,
   notificationOf,
@@ -53,7 +55,7 @@ describe('Error documents survive packaging', () => {
 
     const document = documentOf(result, 'missing_brace.json')
 
-    const documents = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, 'broken/v1', 'documents.json'))!)
+    const documents = await loadJsonFromRegistry(VERSIONS_PATH, 'broken/v1', 'documents.json')
     expect(documents.documents.map(({ fileId }: { fileId: string }) => fileId)).toEqual(['missing_brace.json'])
 
     // the archive carries the broken file itself — that is the troubleshooting artifact
@@ -82,7 +84,7 @@ describe('A document whose file could not be fetched', () => {
     const document = documentOf(result, 'no-such-file.yaml')
     expect(document.source).toBeUndefined()
 
-    const documents = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'documents.json'))!)
+    const documents = await loadJsonFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'documents.json')
     expect(documents.documents.map(({ fileId }: { fileId: string }) => fileId)).toContain('no-such-file.yaml')
 
     const raw = await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1/documents`, document.filename)
@@ -108,7 +110,7 @@ describe('Catch points report instead of aborting', () => {
       }),
     ]))
     // the healthy document still built
-    expect(result.operations.size).toBeGreaterThan(0)
+    expectNotEmpty(result.operations)
   }, 30000)
 
   // The placeholder has to carry the failed file's bytes. `parser.test.ts` proves it when the parser is what
@@ -162,7 +164,7 @@ describe('Catch points report instead of aborting', () => {
       documentId: 'rest',
     })
     // the throw cost the document its operations, not the version its documents
-    expect(result.documents.size).toBeGreaterThan(0)
+    expectNotEmpty(result.documents)
   }, 30000)
 })
 

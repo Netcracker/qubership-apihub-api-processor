@@ -72,6 +72,17 @@ export function operationChangesMatcher(
   )
 }
 
+/**
+ * One entry of the list `operationChangesMatcher` expects: an operation compared with its previous version, under the
+ * same id unless it was renamed.
+ */
+export function changedOperationMatcher(
+  operationId: string,
+  previousOperationId: string = operationId,
+): ApihubOperationChangesMatcher {
+  return expect.objectContaining({ operationId, previousOperationId })
+}
+
 export function deprecatedItemDescriptionMatcher(
   description: string,
 ): Matcher {
@@ -85,7 +96,7 @@ type Matcher = ObjectContaining<DeprecateItem>
 /**
  * The whole notification list as a set: every notification the build reported matches one of `expected`, and
  * none is left over. For one notification of a known category use `notificationOf`; to count or filter, use
- * `errorsOf`, `warningsOf` or `inCategory`.
+ * `errorNotificationsOf`, `warningNotificationsOf` or `notificationsInCategory`.
  */
 export function notificationsMatcher(
   expected: Array<RecursiveMatcher<NotificationMessage>>,

@@ -55,6 +55,10 @@ describe('Risky changes test', () => {
         [NON_BREAKING_CHANGE_TYPE]: 1,
         [RISKY_CHANGE_TYPE]: 1,
       },
+      impacted: {
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+        [RISKY_CHANGE_TYPE]: 1,
+      },
     })
   })
 
@@ -93,6 +97,10 @@ describe('Risky changes test', () => {
         [BREAKING_CHANGE_TYPE]: 1,
         [RISKY_CHANGE_TYPE]: 1,
       },
+      impacted: {
+        [BREAKING_CHANGE_TYPE]: 1,
+        [RISKY_CHANGE_TYPE]: 1,
+      },
     })
   })
 
@@ -128,6 +136,9 @@ describe('Risky changes test', () => {
 
     expectChangeCounts(result, {
       changes: {
+        [RISKY_CHANGE_TYPE]: 2,
+      },
+      impacted: {
         [RISKY_CHANGE_TYPE]: 2,
       },
     })

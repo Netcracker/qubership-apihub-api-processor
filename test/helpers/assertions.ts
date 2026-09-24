@@ -38,7 +38,7 @@ export function expectSummariesMatchDiffs(result: BuildResult): void {
 }
 
 /**
- * The change counts one comparison reports, and the operations those changes touched.
+ * The change counts one comparison reports.
  *
  * Plain functions rather than `expect.extend` matchers. One wrong count printed 162 lines or more through
  * the old matcher factories and about 15 through these; a custom matcher would save one more line at the
@@ -52,32 +52,36 @@ export function expectChangesSummary(
   expect(operationTypeOf(result, apiType).changesSummary).toEqual({ ...EMPTY_CHANGE_SUMMARY, ...expected })
 }
 
-export function expectImpactedOperations(
-  result: BuildResult,
-  expected: Partial<ChangeSummary>,
-  apiType: OperationsApiType = REST_API_TYPE,
-): void {
-  expect(operationTypeOf(result, apiType).numberOfImpactedOperations)
-    .toEqual({ ...EMPTY_CHANGE_SUMMARY, ...expected })
+/**
+ * Assert a collection has at least one element. The guard before a loop over a build result, which would
+ * otherwise pass having checked nothing.
+ */
+export function expectNotEmpty(collection: string | { length: number } | { size: number } | undefined): void {
+  expect(collection).toBeDefined()
+  const count = typeof collection === 'object' && 'size' in collection ? collection.size : collection!.length
+  expect(count).toBeGreaterThan(0)
 }
 
 export interface ChangeCounts {
-  changes?: Partial<ChangeSummary>
-  impacted?: Partial<ChangeSummary>
+  changes: Partial<ChangeSummary>
+  impacted: Partial<ChangeSummary>
 }
 
+/** A comparison that found nothing: no changes, so no operation impacted by one. */
+export const NO_CHANGES: ChangeCounts = { changes: {}, impacted: {} }
+
 /**
- * Assert both counts in one `toEqual`, so a failure shows them side by side. `impacted` defaults to
- * `changes`, and calling this with no counts asserts that nothing changed.
+ * Assert the change counts and the impacted-operation counts in one `toEqual`, so a failure shows them side by
+ * side. Both are always spelled out, even when they agree, so a reader never has to know a default to see what
+ * is checked. A count left out of either is asserted to be zero.
  *
- * Pass `impacted` explicitly whenever it differs from `changes`: one change can touch several operations,
- * and `asyncapi-deduplication.test.ts` asserts `{ breaking: 1 }` against `{ breaking: 2 }` for that reason.
- * A test that asserts only one of the two counts keeps `expectChangesSummary` or `expectImpactedOperations`,
- * because this function would add an assertion on the other count.
+ * They differ when one change touches several operations: `asyncapi-deduplication.test.ts` asserts
+ * `{ breaking: 1 }` against `{ breaking: 2 }` for that reason. A test that asserts only the change counts keeps
+ * `expectChangesSummary`.
  */
 export function expectChangeCounts(
   result: BuildResult,
-  { changes = {}, impacted = changes }: ChangeCounts = {},
+  { changes, impacted }: ChangeCounts,
   apiType: OperationsApiType = REST_API_TYPE,
 ): void {
   const { changesSummary, numberOfImpactedOperations } = operationTypeOf(result, apiType)

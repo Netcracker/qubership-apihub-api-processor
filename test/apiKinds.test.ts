@@ -28,7 +28,7 @@ import {
   VERSION_STATUS,
 } from '../src'
 import { jest } from '@jest/globals'
-import { buildPackageFromContent, documentOf, Editor, expectChangesSummary, loadFileAsString, LocalRegistry, serializedComparisonDocumentMatcher } from './helpers'
+import { buildPackageFromContent, documentOf, Editor, expectChangesSummary, loadFileAsString, LocalRegistry, operationTypeOf, serializedComparisonDocumentMatcher } from './helpers'
 import { DiffType } from '@netcracker/qubership-apihub-api-diff'
 import { takeIfDefined } from '../src/utils'
 import { DEFAULT_PROJECTS_PATH } from './helpers/registry/local'
@@ -228,7 +228,7 @@ describe('Risky changes for no-bwc operations test', () => {
 
     const result = await editor.run()
 
-    expect(result.comparisons[0].operationTypes[0].changesSummary?.[RISKY_CHANGE_TYPE]).toBe(3)
+    expect(operationTypeOf(result).changesSummary[RISKY_CHANGE_TYPE]).toBe(3)
   })
 
   test('should have 1 breaking change', async () => {
@@ -242,7 +242,7 @@ describe('Risky changes for no-bwc operations test', () => {
 
     const result = await editor.run()
 
-    expect(result.comparisons[0].operationTypes[0].changesSummary?.[BREAKING_CHANGE_TYPE]).toBe(2)
+    expect(operationTypeOf(result).changesSummary[BREAKING_CHANGE_TYPE]).toBe(2)
   })
 })
 

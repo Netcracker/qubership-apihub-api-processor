@@ -17,6 +17,7 @@
 import {
   ApiOperation,
   BuildResult,
+  DeprecateItem,
   MESSAGE_SEVERITY,
   MessageCategory,
   NotificationMessage,
@@ -41,6 +42,15 @@ export function operationChangesOf(result: BuildResult, operationId: string): Op
     throw new Error(`Comparison has no changes for operation ${operationId}. Operations: ${listOf(data.map(item => item.operationId))}`)
   }
   return changes
+}
+
+/**
+ * Every deprecated item the build's operations carry, in operation order. An operation without any adds
+ * nothing, where a bare `flatMap(({ deprecatedItems }) => deprecatedItems)` adds an `undefined` and so changes
+ * the count.
+ */
+export function deprecatedItemsOf(result: BuildResult): DeprecateItem[] {
+  return Array.from(result.operations.values()).flatMap(({ deprecatedItems }) => deprecatedItems ?? [])
 }
 
 /**
@@ -122,15 +132,15 @@ function soleComparisonOf(result: BuildResult): VersionsComparison {
  * call sites hold a bare array to begin with, out of a capability check or an archive, and could not
  * have called it at all.
  */
-export function errorsOf(notifications: readonly NotificationMessage[]): NotificationMessage[] {
+export function errorNotificationsOf(notifications: readonly NotificationMessage[]): NotificationMessage[] {
   return notifications.filter(({ severity }) => severity === MESSAGE_SEVERITY.Error)
 }
 
-export function warningsOf(notifications: readonly NotificationMessage[]): NotificationMessage[] {
+export function warningNotificationsOf(notifications: readonly NotificationMessage[]): NotificationMessage[] {
   return notifications.filter(({ severity }) => severity === MESSAGE_SEVERITY.Warning)
 }
 
-export function inCategory(
+export function notificationsInCategory(
   notifications: readonly NotificationMessage[],
   category: MessageCategory,
 ): NotificationMessage[] {
@@ -148,7 +158,7 @@ export function notificationOf(
   notifications: readonly NotificationMessage[],
   category: MessageCategory,
 ): NotificationMessage {
-  const matching = inCategory(notifications, category)
+  const matching = notificationsInCategory(notifications, category)
   if (matching.length !== 1) {
     const available = notifications.map(({ category: actual }) => actual)
     throw new Error(

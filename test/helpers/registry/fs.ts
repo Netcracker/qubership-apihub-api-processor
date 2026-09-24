@@ -67,6 +67,19 @@ export async function loadFileAsStringFromRegistry(filePath: string, folder: str
 }
 
 /**
+ * A JSON file the build published, parsed. Throws with the path when the file is missing, where
+ * `JSON.parse(text!)` would report a syntax error about `null` instead. Untyped by default, like `JSON.parse`.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function loadJsonFromRegistry<T = any>(filePath: string, folder: string, fileName: string): Promise<T> {
+  const text = await loadFileAsStringFromRegistry(filePath, folder, fileName)
+  if (text === null) {
+    throw new Error(`Registry has no ${folder}/${fileName}`)
+  }
+  return JSON.parse(text)
+}
+
+/**
  * Read a JSON config from the build result stored in registry filesystem (memfs or disk).
  * Use this to read config files produced by the build process.
  * For reading source/input configs from the real filesystem, use {@link loadConfig} from `../utils.ts` instead.

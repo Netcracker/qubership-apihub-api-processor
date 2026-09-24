@@ -33,17 +33,26 @@ describe('Graphql changes test', () => {
   describe('Added/removed/changed operations handling', () => {
     test('Add operation', async () => {
       const result = await buildGqlChangelogPackage('graphql-changes/add-operation')
-      expectChangeCounts(result, { changes: { [NON_BREAKING_CHANGE_TYPE]: 1 } }, GRAPHQL_API_TYPE)
+      expectChangeCounts(result, {
+        changes: { [NON_BREAKING_CHANGE_TYPE]: 1 },
+        impacted: { [NON_BREAKING_CHANGE_TYPE]: 1 },
+      }, GRAPHQL_API_TYPE)
     })
 
     test('Remove operation', async () => {
       const result = await buildGqlChangelogPackage('graphql-changes/remove-operation')
-      expectChangeCounts(result, { changes: { [BREAKING_CHANGE_TYPE]: 1 } }, GRAPHQL_API_TYPE)
+      expectChangeCounts(result, {
+        changes: { [BREAKING_CHANGE_TYPE]: 1 },
+        impacted: { [BREAKING_CHANGE_TYPE]: 1 },
+      }, GRAPHQL_API_TYPE)
     })
 
     test('Change operation content', async () => {
       const result = await buildGqlChangelogPackage('graphql-changes/change-inside-operation')
-      expectChangeCounts(result, { changes: { [BREAKING_CHANGE_TYPE]: 1 } }, GRAPHQL_API_TYPE)
+      expectChangeCounts(result, {
+        changes: { [BREAKING_CHANGE_TYPE]: 1 },
+        impacted: { [BREAKING_CHANGE_TYPE]: 1 },
+      }, GRAPHQL_API_TYPE)
     })
   })
 
@@ -58,7 +67,10 @@ describe('Graphql changes test', () => {
 
     expect(result.notifications).toEqual([])
     // after.json adds Query.author to before.json
-    expectChangeCounts(result, { changes: { [NON_BREAKING_CHANGE_TYPE]: 1 } }, GRAPHQL_API_TYPE)
+    expectChangeCounts(result, {
+      changes: { [NON_BREAKING_CHANGE_TYPE]: 1 },
+      impacted: { [NON_BREAKING_CHANGE_TYPE]: 1 },
+    }, GRAPHQL_API_TYPE)
   })
 
   test.each([

@@ -15,7 +15,7 @@
  */
 
 import { describe, expect, test } from '@jest/globals'
-import { documentOf, Editor, inCategory, LocalRegistry, operationOf, publishVersion } from './helpers'
+import { documentOf, Editor, notificationsInCategory, LocalRegistry, operationOf, publishVersion, expectNotEmpty } from './helpers'
 import { setReportingDuplicate } from '../src/utils'
 import { operationKey } from '../src/components/operations'
 import { reportCollisions } from '../src/components/duplicate-resolution'
@@ -131,7 +131,7 @@ describe('Duplicate resolution tells the two cases apart', () => {
 
     expect(result.notifications.map(({ category }) => category))
       .toContain(MESSAGE_CATEGORY.RestDuplicateOperation)
-    expect(inCategory(result.notifications, MESSAGE_CATEGORY.DuplicateOperationId)).toEqual([])
+    expect(notificationsInCategory(result.notifications, MESSAGE_CATEGORY.DuplicateOperationId)).toEqual([])
     // the giveaway of the old behaviour: a message naming one document as two
     expect(result.notifications.every(({ message }) => !/'([^']+)' and '\1'/.test(message))).toBe(true)
   }, 30000)
@@ -239,7 +239,7 @@ describe('One operationId in two api types', () => {
       { operationId: 'pets-get', apiType: 'rest', documentId: 'api' },
     ])
 
-    expect(inCategory(result.notifications, MESSAGE_CATEGORY.DuplicateOperationId)).toEqual([])
+    expect(notificationsInCategory(result.notifications, MESSAGE_CATEGORY.DuplicateOperationId)).toEqual([])
   }, 30000)
 
   test('should let each document announce the id it derived', async () => {
@@ -267,7 +267,7 @@ describe('Two documents of one api type deriving one id', () => {
       files: fileIds.map(fileId => ({ fileId })),
     })
 
-    return inCategory(result.notifications, MESSAGE_CATEGORY.DuplicateOperationId)
+    return notificationsInCategory(result.notifications, MESSAGE_CATEGORY.DuplicateOperationId)
       .map(({ severity }) => severity)
   }
 
@@ -297,7 +297,7 @@ describe('A collision three documents share', () => {
       files: [{ fileId: 'api.yaml' }, { fileId: 'async-a.yaml' }, { fileId: 'async-b.yaml' }],
     })
 
-    const reported = inCategory(result.notifications, MESSAGE_CATEGORY.DuplicateOperationId)
+    const reported = notificationsInCategory(result.notifications, MESSAGE_CATEGORY.DuplicateOperationId)
       .map(({ documentId, severity }) => ({ documentId, severity }))
       .sort((left, right) => (left.documentId ?? '').localeCompare(right.documentId ?? ''))
     expect(reported).toEqual([
@@ -307,7 +307,7 @@ describe('A collision three documents share', () => {
 
     // Each claimant is told, so there are two messages, and both name the claimants of that api type and not
     // the REST document. Asserted over both: `find` answered about whichever the build happened to raise first.
-    const named = inCategory(result.notifications, MESSAGE_CATEGORY.DuplicateOperationId)
+    const named = notificationsInCategory(result.notifications, MESSAGE_CATEGORY.DuplicateOperationId)
       .map(({ message }) => ['api', 'async-a', 'async-b'].filter(slug => message.includes(slug)))
     expect(named).toEqual([['async-a', 'async-b'], ['async-a', 'async-b']])
   }, 30000)
@@ -341,7 +341,7 @@ describe('The index and the documents agree', () => {
 
     // The three loops below are the whole test, and every one of them passes over an empty build.
     // Guarding the operations is enough: with documents empty and operations not, the last loop fails.
-    expect(result.operations.size).toBeGreaterThan(0)
+    expectNotEmpty(result.operations)
 
     // an operation is identified by its api type and its id, which is how the index is keyed
     const announced = new Map<string, string>()
@@ -414,7 +414,7 @@ describe('The editor preview compares the documents behind a REST collision', ()
     `Duplicated operationId 'res-data-post' found in different documents: 'spec1' and 'spec2'. The documents ${reason}.`
 
   const collisionsIn = ({ notifications }: { notifications: NotificationMessage[] }): Array<Partial<NotificationMessage>> =>
-    inCategory(notifications, MESSAGE_CATEGORY.DuplicateOperationId)
+    notificationsInCategory(notifications, MESSAGE_CATEGORY.DuplicateOperationId)
       .map(({ documentId, severity, message }) => ({ documentId, severity, message }))
       .sort((left, right) => (left.documentId ?? '').localeCompare(right.documentId ?? ''))
 
@@ -485,9 +485,8 @@ describe('The editor preview agrees with the publication for MCP', () => {
     const built = await editor.run()
     const rebuilt = await editor.update(config, ['init.json'])
 
-    const collisions = (notifications: Array<{ category: string; documentId?: string }>): Array<string | undefined> =>
-      notifications
-        .filter(({ category }) => category === MESSAGE_CATEGORY.McpDuplicateEntity)
+    const collisions = (notifications: NotificationMessage[]): Array<string | undefined> =>
+      notificationsInCategory(notifications, MESSAGE_CATEGORY.McpDuplicateEntity)
         .map(({ documentId }) => documentId)
         .sort()
 

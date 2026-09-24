@@ -15,7 +15,7 @@
  */
 
 
-import { publishVersion } from './helpers'
+import { expectNotEmpty, publishVersion } from './helpers'
 
 // Two small documents no other suite publishes under these versions. Each test takes its own version, so
 // nothing here reads what another test wrote.
@@ -34,6 +34,6 @@ describe('publishVersion', () => {
 
     expect(Array.from(bare.documents.keys())).toEqual(['alpha.yaml'])
     expect(Array.from(entry.operations.keys())).toEqual(Array.from(bare.operations.keys()))
-    expect(bare.operations.size).toBeGreaterThan(0)
+    expectNotEmpty(bare.operations)
   })
 })

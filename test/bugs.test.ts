@@ -15,7 +15,7 @@
  */
 
 import { API_AUDIENCE_INTERNAL, APIHUB_API_COMPATIBILITY_KIND_BWC, APIHUB_API_COMPATIBILITY_KIND_NO_BWC } from '../src'
-import { Editor, errorsOf, LocalRegistry, operationOf, warningsOf } from './helpers'
+import { Editor, errorNotificationsOf, expectNotEmpty, LocalRegistry, operationOf, warningNotificationsOf } from './helpers'
 
 import { describe, expect, test } from '@jest/globals'
 import { calculateRestOperationTitle } from '../src/utils'
@@ -30,7 +30,7 @@ describe('Operation Bugs', () => {
     const editor = await Editor.openProject('bugs', bugsPackage)
     const result = await editor.run()
 
-    expect(errorsOf(result.notifications)).toHaveLength(9)
+    expect(errorNotificationsOf(result.notifications)).toHaveLength(9)
   })
 
   test('absolute server url: paths should start with v1', async () => {
@@ -84,7 +84,7 @@ describe('Operation Bugs', () => {
     const result = await editor.run()
 
     // AJV metaschema complaints are Warnings now: the document parses and its operations build
-    expect(warningsOf(result.notifications)).toHaveLength(1)
+    expect(warningNotificationsOf(result.notifications)).toHaveLength(1)
   })
 
   test('type error must not appear during build', async () => {
@@ -275,7 +275,7 @@ describe('Operation Bugs', () => {
     const editor = await Editor.openProject('migration_bug', migrationBug)
     const result = await editor.run()
 
-    expect(result.documents.size).toBeGreaterThan(0)
+    expectNotEmpty(result.documents)
     for (const [, document] of result.documents) {
       expect(!!document.type).toBeTruthy()
       expect(!!document.title).toBeTruthy()

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Editor, expectSummariesMatchDiffs, LocalRegistry, operationOf } from './helpers'
+import { deprecatedItemsOf, Editor, expectSummariesMatchDiffs, LocalRegistry, operationOf, operationTypeOf } from './helpers'
 import { BREAKING_CHANGE_TYPE, BUILD_TYPE, RISKY_CHANGE_TYPE, VERSION_STATUS } from '../src'
 
 const portal = new LocalRegistry('deprecated')
@@ -74,7 +74,7 @@ describe('Deprecated Items test', () => {
 
     const result = await editor.run()
 
-    const deprecatedItems = Array.from(result.operations.values()).flatMap(operation => operation.deprecatedItems)
+    const deprecatedItems = deprecatedItemsOf(result)
 
     expect(deprecatedItems.every(item => item?.description?.startsWith('[Deprecated]'))).toBeTruthy()
     expect(operationOf(result, 'auth-saml-post').deprecatedItems?.[0].deprecatedInPreviousVersions).toEqual(['v1', 'v2'])
@@ -95,8 +95,8 @@ describe('Deprecated Items test', () => {
     }, {}, portal)
 
     const result = await editor.run()
-    expect(result.comparisons[0].operationTypes[0].changesSummary?.[RISKY_CHANGE_TYPE]).toBe(1)
-    expect(result.comparisons[0].operationTypes[0].changesSummary?.[BREAKING_CHANGE_TYPE]).toBe(0)
+    expect(operationTypeOf(result).changesSummary[RISKY_CHANGE_TYPE]).toBe(1)
+    expect(operationTypeOf(result).changesSummary[BREAKING_CHANGE_TYPE]).toBe(0)
     // The version-level summary above counts distinct changes; this checks that each operation's own
     // summary still accounts for the changes it carries, which is where the two used to drift apart
     expectSummariesMatchDiffs(result)
@@ -112,7 +112,7 @@ describe('Deprecated Items test', () => {
     }, {}, portal)
 
     const result = await editor.run()
-    expect(result.comparisons[0].operationTypes[0].changesSummary?.[RISKY_CHANGE_TYPE]).toBe(4)
+    expect(operationTypeOf(result).changesSummary[RISKY_CHANGE_TYPE]).toBe(4)
     expectSummariesMatchDiffs(result)
   })
 })
