@@ -16,7 +16,7 @@
 
 import JSZip from 'jszip'
 import { describe, expect, it, jest } from '@jest/globals'
-import { Editor, LocalRegistry, publishDashboardWithTwoRefs, readJsonFromZip } from './helpers'
+import { changelogEditor, Editor, LocalRegistry, publishDashboardWithTwoRefs, readJsonFromZip } from './helpers'
 import {
   BUILD_TYPE,
   ChangeSummary,
@@ -63,15 +63,6 @@ const storedComparison = (refId: string): ResolvedComparisonSummary => ({
   operationTypes: [],
   noContent: false,
   contractsChangesSummary: { ddl: { changesSummary: DDL_SUMMARY, numberOfImpactedEntities: DDL_SUMMARY } },
-})
-
-const changelogEditor = (packageId: string): Editor => new Editor(packageId, {
-  packageId,
-  version: 'v2',
-  previousVersionPackageId: packageId,
-  previousVersion: 'v1',
-  buildType: BUILD_TYPE.CHANGELOG,
-  status: VERSION_STATUS.RELEASE,
 })
 
 const archiveOf = async (editor: Editor): Promise<JSZip> => {

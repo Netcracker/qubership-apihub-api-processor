@@ -24,7 +24,7 @@ import {
   BuildResult,
   PackageVersionBuilder,
 } from '../../../src/processor'
-import { loadConfig, loadFile } from '../utils'
+import { loadConfig, loadFile } from '../files'
 import { LocalRegistry } from '../registry'
 import { IRegistry } from '../registry/types'
 import fs from 'fs/promises'
@@ -37,22 +37,19 @@ export class Editor {
   registry: IRegistry
   projectsDir: string
 
+  // A fixture folder need not carry a config.json, and most do not. The caller passes what the missing
+  // file would have named to `publish` or `run` — `files` above all.
   static async openProject(projectId: string, registry?: IRegistry, configuration?: BuilderConfiguration, projectsDir: string = 'test/projects'): Promise<Editor> {
-    const config = await loadConfig(projectsDir, projectId) as BuildConfig
-    config.version = config?.version ?? 'v100'
-    config.files = config?.files ?? []
-    return new Editor(projectId, config, configuration ?? {}, registry)
-  }
-
-  static async createProject(projectId: string, config: BuildConfig, registry?: IRegistry): Promise<Editor> {
-    config.files = config.files ?? []
-    return new Editor(projectId, config, registry)
+    const config = await loadConfig(projectsDir, projectId)
+    const defaults: Pick<BuildConfig, 'packageId' | 'version' | 'files'> = { packageId: projectId, version: 'v100', files: [] }
+    // No config.json carries `status` or `buildType`; `run` supplies them.
+    return new Editor(projectId, { ...defaults, ...config } as BuildConfig, configuration ?? {}, registry, projectsDir)
   }
 
   constructor(
     public projectId: string,
     public config: BuildConfig,
-    configuration?: any,
+    configuration?: BuilderConfiguration,
     registry?: IRegistry,
     projectsDir: string = 'test/projects',
   ) {
@@ -102,6 +99,8 @@ export class Editor {
     this.state.set(fileId, new Blob([modifier(await data.text())], { type: data.type }))
   }
 
+  // `any` in both modifiers: the skipped suites in tests-v2 edit specs through them by path in 138 places, and
+  // ts-jest type-checks those suites too
   async updateJsonFile(fileId: string, modifier: (obj: any) => any): Promise<void> {
     return this.updateTextFile(fileId, (data: string) => {
       const parsedData = JSON.parse(data)
@@ -122,11 +121,11 @@ export class Editor {
     return await this.builder.run()
   }
 
-  async createVersionPackage(): Promise<any> {
+  async createVersionPackage(): Promise<Buffer> {
     return this.builder.createVersionPackage()
   }
 
-  async createNodeVersionPackage(): Promise<{ packageVersion: any; exportFileName?: string }> {
+  async createNodeVersionPackage(): Promise<{ packageVersion: Buffer; exportFileName?: string }> {
     return this.builder.createNodeVersionPackage()
   }
 

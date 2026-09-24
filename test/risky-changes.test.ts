@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { changesSummaryMatcher, Editor, LocalRegistry, numberOfImpactedOperationsMatcher } from './helpers'
+import { Editor, expectChangeCounts, LocalRegistry } from './helpers'
 import { BREAKING_CHANGE_TYPE, BUILD_TYPE, NON_BREAKING_CHANGE_TYPE, RISKY_CHANGE_TYPE, VERSION_STATUS } from '../src'
 
 const portal = new LocalRegistry('new-deprecated')
@@ -50,14 +50,16 @@ describe('Risky changes test', () => {
     }, {}, portal)
 
     const result = await editor.run()
-    expect(result).toEqual(changesSummaryMatcher({
-      [NON_BREAKING_CHANGE_TYPE]: 1,
-      [RISKY_CHANGE_TYPE]: 1,
-    }))
-    expect(result).toEqual(numberOfImpactedOperationsMatcher({
-      [NON_BREAKING_CHANGE_TYPE]: 1,
-      [RISKY_CHANGE_TYPE]: 1,
-    }))
+    expectChangeCounts(result, {
+      changes: {
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+        [RISKY_CHANGE_TYPE]: 1,
+      },
+      impacted: {
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+        [RISKY_CHANGE_TYPE]: 1,
+      },
+    })
   })
 
   test('should build 1 semi-breaking change and 1 breaking change', async () => {
@@ -90,14 +92,16 @@ describe('Risky changes test', () => {
     }, {}, portal)
 
     const result = await editor.run()
-    expect(result).toEqual(changesSummaryMatcher({
-      [BREAKING_CHANGE_TYPE]: 1,
-      [RISKY_CHANGE_TYPE]: 1,
-    }))
-    expect(result).toEqual(numberOfImpactedOperationsMatcher({
-      [BREAKING_CHANGE_TYPE]: 1,
-      [RISKY_CHANGE_TYPE]: 1,
-    }))
+    expectChangeCounts(result, {
+      changes: {
+        [BREAKING_CHANGE_TYPE]: 1,
+        [RISKY_CHANGE_TYPE]: 1,
+      },
+      impacted: {
+        [BREAKING_CHANGE_TYPE]: 1,
+        [RISKY_CHANGE_TYPE]: 1,
+      },
+    })
   })
 
   test('should build 1 semi-breaking change for schema', async () => {
@@ -130,12 +134,14 @@ describe('Risky changes test', () => {
 
     const result = await editor.run()
 
-    expect(result).toEqual(changesSummaryMatcher({
-      [RISKY_CHANGE_TYPE]: 2,
-    }))
-    expect(result).toEqual(numberOfImpactedOperationsMatcher({
-      [RISKY_CHANGE_TYPE]: 2,
-    }))
+    expectChangeCounts(result, {
+      changes: {
+        [RISKY_CHANGE_TYPE]: 2,
+      },
+      impacted: {
+        [RISKY_CHANGE_TYPE]: 2,
+      },
+    })
   })
 
   test('should build 3 risky change for removed required property and required status', async () => {
@@ -168,13 +174,15 @@ describe('Risky changes test', () => {
 
     const result = await editor.run()
 
-    expect(result).toEqual(changesSummaryMatcher({
-      [RISKY_CHANGE_TYPE]: 3,
-      [NON_BREAKING_CHANGE_TYPE]: 1,
-    }))
-    expect(result).toEqual(numberOfImpactedOperationsMatcher({
-      [RISKY_CHANGE_TYPE]: 1,
-      [NON_BREAKING_CHANGE_TYPE]: 1,
-    }))
+    expectChangeCounts(result, {
+      changes: {
+        [RISKY_CHANGE_TYPE]: 3,
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+      },
+      impacted: {
+        [RISKY_CHANGE_TYPE]: 1,
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+      },
+    })
   })
 })

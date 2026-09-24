@@ -15,7 +15,7 @@
  */
 
 import { describe, expect, test } from '@jest/globals'
-import { Editor, LocalRegistry } from './helpers'
+import { documentOf, Editor, errorNotificationsOf, notificationsInCategory, LocalRegistry, notificationOf } from './helpers'
 import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, VERSION_STATUS } from '../src/consts'
 import { BuildConfigFile, BuildResult } from '../src/types'
 
@@ -48,14 +48,13 @@ describe('DDL validation', () => {
   test('invalid SQL is reported, not fatal — the file publishes with its bytes', async () => {
     const result = await build('CREATE TABLE ( ;')
 
-    const document = result.documents.get('shop.sql')
-    expect(document?.source).toBeDefined()
+    const document = documentOf(result, 'shop.sql')
+    expect(document.source).toBeDefined()
     expect(result.ddlEntities.size).toBe(0)
 
-    const parseFailure = result.notifications.find(({ category }) => category === MESSAGE_CATEGORY.ParseFile)
-    expect(parseFailure).toBeDefined()
-    expect(parseFailure!.severity).toBe(MESSAGE_SEVERITY.Error)
-    expect(parseFailure!.documentId).toBe(document!.slug)
+    const parseFailure = notificationOf(result.notifications, MESSAGE_CATEGORY.ParseFile)
+    expect(parseFailure.severity).toBe(MESSAGE_SEVERITY.Error)
+    expect(parseFailure.documentId).toBe(document.slug)
   })
 
   test('a within-file duplicate object is an Error, reported not thrown', async () => {
@@ -77,7 +76,7 @@ describe('DDL validation', () => {
     )
     // one notification per out-of-scope statement (ALTER + DROP) — D7. Error, because the built Realm is
     // incomplete and a release must not ship an incomplete DDL contract.
-    const errors = result.notifications.filter(n => n.severity === MESSAGE_SEVERITY.Error)
+    const errors = errorNotificationsOf(result.notifications)
     expect(errors.length).toBeGreaterThanOrEqual(2)
     expect(result.notifications.every(n => n.documentId === 'shop')).toBe(true)
     expect(result.notifications.every(n => n.category === MESSAGE_CATEGORY.DdlParseIssue)).toBe(true)
@@ -87,7 +86,7 @@ describe('DDL validation', () => {
 
   test('an unresolved reference is reported; the partial entity is still built (no incomplete flag)', async () => {
     const result = await build('CREATE TABLE orders (id bigint PRIMARY KEY, uid bigint REFERENCES missing(id));')
-    const errors = result.notifications.filter(n => n.severity === MESSAGE_SEVERITY.Error)
+    const errors = errorNotificationsOf(result.notifications)
     expect(errors.length).toBeGreaterThanOrEqual(1)
     expect(result.ddlEntities.size).toBe(1)
     const [entity] = result.ddlEntities.values()
@@ -114,9 +113,7 @@ describe('DDL validation', () => {
     // both files define public.users → same id from different documents
     const result = await buildFixtureFiles([{ fileId: 'shop.sql' }, { fileId: 'dup-users.sql' }])
 
-    const duplicates = result.notifications.filter(
-      ({ category }) => category === MESSAGE_CATEGORY.DdlDuplicateEntity,
-    )
+    const duplicates = notificationsInCategory(result.notifications, MESSAGE_CATEGORY.DdlDuplicateEntity)
     expect(duplicates).toHaveLength(2)
     expect(duplicates.map(({ documentId }) => documentId).sort()).toEqual(['dup-users', 'shop'])
   })

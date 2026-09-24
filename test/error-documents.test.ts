@@ -15,7 +15,18 @@
  */
 
 import { afterEach, describe, expect, jest, test } from '@jest/globals'
-import { loadFileAsStringFromRegistry, LocalRegistry, notificationMatcher, notificationsMatcher, VERSIONS_PATH } from './helpers'
+import {
+  documentOf,
+  expectNotEmpty,
+  loadFileAsStringFromRegistry,
+  loadJsonFromRegistry,
+  LocalRegistry,
+  notificationMatcher,
+  notificationOf,
+  notificationsMatcher,
+  publishVersion,
+  VERSIONS_PATH,
+} from './helpers'
 import { MESSAGE_CATEGORY, MESSAGE_SEVERITY, VERSION_STATUS } from '../src/consts'
 import { restApiBuilder, unknownApiBuilder } from '../src/apitypes'
 import * as restOperation from '../src/apitypes/rest/rest.operation'
@@ -42,14 +53,13 @@ describe('Error documents survive packaging', () => {
       files: [{ fileId: 'missing_brace.json', publish: true }],
     })
 
-    const document = result.documents.get('missing_brace.json')
-    expect(document).toBeDefined()
+    const document = documentOf(result, 'missing_brace.json')
 
-    const documents = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, 'broken/v1', 'documents.json'))!)
+    const documents = await loadJsonFromRegistry(VERSIONS_PATH, 'broken/v1', 'documents.json')
     expect(documents.documents.map(({ fileId }: { fileId: string }) => fileId)).toEqual(['missing_brace.json'])
 
     // the archive carries the broken file itself — that is the troubleshooting artifact
-    const raw = await loadFileAsStringFromRegistry(VERSIONS_PATH, 'broken/v1/documents', document!.filename)
+    const raw = await loadFileAsStringFromRegistry(VERSIONS_PATH, 'broken/v1/documents', document.filename)
     expect(raw).toBeTruthy()
     expect(raw).toContain('openapi')
   }, 30000)
@@ -71,14 +81,13 @@ describe('A document whose file could not be fetched', () => {
       files: [{ fileId: 'rest.json' }, { fileId: 'no-such-file.yaml' }],
     })
 
-    const document = result.documents.get('no-such-file.yaml')
-    expect(document).toBeDefined()
-    expect(document!.source).toBeUndefined()
+    const document = documentOf(result, 'no-such-file.yaml')
+    expect(document.source).toBeUndefined()
 
-    const documents = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'documents.json'))!)
+    const documents = await loadJsonFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'documents.json')
     expect(documents.documents.map(({ fileId }: { fileId: string }) => fileId)).toContain('no-such-file.yaml')
 
-    const raw = await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1/documents`, document!.filename)
+    const raw = await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1/documents`, document.filename)
     expect(raw).toBe('')
   }, 30000)
 })
@@ -101,7 +110,7 @@ describe('Catch points report instead of aborting', () => {
       }),
     ]))
     // the healthy document still built
-    expect(result.operations.size).toBeGreaterThan(0)
+    expectNotEmpty(result.operations)
   }, 30000)
 
   // The placeholder has to carry the failed file's bytes. `parser.test.ts` proves it when the parser is what
@@ -131,12 +140,7 @@ describe('Catch points report instead of aborting', () => {
     })
 
     const packageId = 'reference-bundling/shared-broken-reference'
-    const result = await new LocalRegistry(packageId).publish(packageId, {
-      packageId,
-      version: 'v1',
-      status: VERSION_STATUS.DRAFT,
-      files: [{ fileId: 'shared.yaml' }],
-    })
+    const result = await publishVersion(packageId, 'v1', 'shared.yaml', { status: VERSION_STATUS.DRAFT })
 
     const categories = result.notifications.map(({ category }) => category)
     expect(categories).toContain(MESSAGE_CATEGORY.BuildDocument)
@@ -153,14 +157,14 @@ describe('Catch points report instead of aborting', () => {
     const pkg = LocalRegistry.openPackage('tolerant-publication')
     const result = await pkg.publish(pkg.packageId, { status: VERSION_STATUS.DRAFT })
 
-    const failure = result.notifications.find(({ category }) => category === MESSAGE_CATEGORY.BuildOperations)
+    const failure = notificationOf(result.notifications, MESSAGE_CATEGORY.BuildOperations)
     expect(failure).toMatchObject({
       severity: MESSAGE_SEVERITY.Error,
       message: expect.stringContaining('operations exploded'),
       documentId: 'rest',
     })
     // the throw cost the document its operations, not the version its documents
-    expect(result.documents.size).toBeGreaterThan(0)
+    expectNotEmpty(result.documents)
   }, 30000)
 })
 

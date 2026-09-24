@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Editor, LocalRegistry } from './helpers'
+import { Editor, expectNotEmpty, LocalRegistry } from './helpers'
 
 let pkg: LocalRegistry
 const PACKAGE_ID = 'graphql'
@@ -79,7 +79,7 @@ describe('GraphQL test', () => {
       const graphqlOperations = resolvedOperations!.operations
 
       // GraphQL operations should exist in the operations list
-      expect(graphqlOperations.length).toBeGreaterThan(0)
+      expectNotEmpty(graphqlOperations)
 
       // GraphQL operations should have undefined data (which prevents file creation)
       for (const operation of graphqlOperations) {

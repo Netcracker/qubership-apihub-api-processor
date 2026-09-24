@@ -16,11 +16,10 @@
 
 import { describe, expect, test } from '@jest/globals'
 import JSZip from 'jszip'
-import { Editor, loadFileAsStringFromRegistry, LocalRegistry, VERSIONS_PATH } from './helpers'
+import { documentOf, Editor, errorNotificationsOf, expectNotEmpty, loadFileAsStringFromRegistry, loadJsonFromRegistry, LocalRegistry, operationOf, VERSIONS_PATH } from './helpers'
 import { ASYNCAPI_API_TYPE, BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, PACKAGE, REST_API_TYPE, VERSION_STATUS } from '../src/consts'
 import { VALIDATION_RULES_SEVERITY_LEVEL_ERROR } from '../src'
 import { BuildConfig, BuildResult } from '../src/types'
-import { operationKey } from '../src/components/operations'
 
 // The scenario the whole story exists for: one broken document must not cost the version the documents that
 // built cleanly. Everything else in the suite tests a single catch point; this tests the promise.
@@ -31,30 +30,26 @@ describe('Tolerant publication end to end', () => {
     const result = await pkg.publish(pkg.packageId, { status: VERSION_STATUS.DRAFT })
 
     // the healthy document is fully published
-    const rest = result.documents.get('rest.json')
-    expect(rest).toBeDefined()
-    expect(result.operations.size).toBeGreaterThan(0)
-    expect([...result.operations.values()].every(({ documentId }) => documentId === rest!.slug)).toBe(true)
+    const rest = documentOf(result, 'rest.json')
+    expectNotEmpty(result.operations)
+    expect([...result.operations.values()].every(({ documentId }) => documentId === rest.slug)).toBe(true)
 
     // the broken one is published too — visible, downloadable, and empty of operations
-    const broken = result.documents.get('broken-async.yaml')
-    expect(broken).toBeDefined()
-    expect(broken!.source).toBeDefined()
-    expect(broken!.operationIds).toEqual([])
+    const broken = documentOf(result, 'broken-async.yaml')
+    expect(broken.source).toBeDefined()
+    expect(broken.operationIds).toEqual([])
 
     // and only it is blamed
-    const errors = result.notifications.filter(({ severity }) => severity === MESSAGE_SEVERITY.Error)
-    expect(errors.length).toBeGreaterThan(0)
-    expect([...new Set(errors.map(({ documentId }) => documentId))]).toEqual([broken!.slug])
+    const errors = errorNotificationsOf(result.notifications)
+    expectNotEmpty(errors)
+    expect([...new Set(errors.map(({ documentId }) => documentId))]).toEqual([broken.slug])
   })
 
   test('should carry both documents in the archive, the broken one with its original bytes', async () => {
     const pkg = LocalRegistry.openPackage('tolerant-publication')
     await pkg.publish(pkg.packageId, { status: VERSION_STATUS.DRAFT })
 
-    const documents = JSON.parse(
-      (await loadFileAsStringFromRegistry(VERSIONS_PATH, 'tolerant-publication/v1', 'documents.json'))!,
-    ).documents as Array<{ fileId: string; slug: string; filename: string }>
+    const documents = (await loadJsonFromRegistry(VERSIONS_PATH, 'tolerant-publication/v1', 'documents.json')).documents as Array<{ fileId: string; slug: string; filename: string }>
 
     expect(documents.map(({ fileId }) => fileId).sort()).toEqual(['broken-async.yaml', 'rest.json'])
 
@@ -90,34 +85,30 @@ describe('A document an Error names still publishes what it built', () => {
     const packageId = 'tolerant-publication/mixed'
     const result = await publishDraft(packageId, ['healthy.yaml', 'colliding.yaml'])
 
-    const healthy = result.documents.get('healthy.yaml')!
-    const colliding = result.documents.get('colliding.yaml')!
+    const healthy = documentOf(result, 'healthy.yaml')
+    const colliding = documentOf(result, 'colliding.yaml')
 
     // the flagged document keeps what it built, contested id included: `colliding` sorts first
     expect(colliding.operationIds).toContain('pets-get')
     expect(colliding.operationIds!.length).toBeGreaterThan(1)
     expect(colliding.source).toBeDefined()
-    expect(result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'pets-get' }))!.documentId).toBe(colliding.slug)
+    expect(operationOf(result, 'pets-get').documentId).toBe(colliding.slug)
     // and the loser announces nothing it did not win
     expect(healthy.operationIds).toEqual([])
 
     // and it is the only one blamed, for its own collision
     expect(result.notifications.map(({ category }) => category)).toContain(MESSAGE_CATEGORY.RestDuplicateOperation)
-    const errors = result.notifications.filter(({ severity }) => severity === MESSAGE_SEVERITY.Error)
+    const errors = errorNotificationsOf(result.notifications)
     expect([...new Set(errors.map(({ documentId }) => documentId))]).toEqual([colliding.slug])
 
     // the archive says the same: marked, and still carrying its operations
-    const documents = JSON.parse(
-      (await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'documents.json'))!,
-    ).documents as Array<{ fileId: string; hasErrors?: boolean; operationIds: string[] }>
+    const documents = (await loadJsonFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'documents.json')).documents as Array<{ fileId: string; hasErrors?: boolean; operationIds: string[] }>
 
     const flagged = documents.find(({ fileId }) => fileId === 'colliding.yaml')!
     expect(flagged.hasErrors).toBe(true)
     expect(flagged.operationIds.length).toBeGreaterThan(1)
 
-    const operations = JSON.parse(
-      (await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'operations.json'))!,
-    ).operations as Array<{ operationId: string; documentId: string }>
+    const operations = (await loadJsonFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'operations.json')).operations as Array<{ operationId: string; documentId: string }>
     expect(operations.every(({ documentId }) => documentId === 'colliding')).toBe(true)
     expect(operations.length).toBeGreaterThan(1)
   }, 30000)
@@ -132,10 +123,10 @@ describe('A document an Error names still publishes what it built', () => {
     expect(owners).toEqual(new Map([[ASYNCAPI_API_TYPE, 'async-a'], [REST_API_TYPE, 'healthy']]))
 
     // the smallest slug keeps the id among the AsyncAPI pair, and the loser announces nothing
-    expect(result.documents.get('async-a.yaml')!.operationIds).toEqual(['pets-get'])
-    expect(result.documents.get('async-b.yaml')!.operationIds).toEqual([])
+    expect(documentOf(result, 'async-a.yaml').operationIds).toEqual(['pets-get'])
+    expect(documentOf(result, 'async-b.yaml').operationIds).toEqual([])
     // the REST document was never in that contest
-    expect(result.documents.get('healthy.yaml')!.operationIds).toEqual(['pets-get'])
+    expect(documentOf(result, 'healthy.yaml').operationIds).toEqual(['pets-get'])
   }, 30000)
 
   // A document already carrying an Error is processed anyway, so one publication reports everything wrong
@@ -148,7 +139,7 @@ describe('A document an Error names still publishes what it built', () => {
     expect(categories).toContain(MESSAGE_CATEGORY.RefNotFound)
     expect(categories).toContain(MESSAGE_CATEGORY.DoubleSlashPath)
     // and what it could build is published
-    expect(result.operations.size).toBeGreaterThan(0)
+    expectNotEmpty(result.operations)
   }, 30000)
 })
 
@@ -161,12 +152,10 @@ describe('hasErrors flags', () => {
     await LocalRegistry.openPackage('tolerant-publication')
       .publish('tolerant-publication', { packageId, status: VERSION_STATUS.DRAFT })
 
-    const info = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'info.json'))!)
+    const info = await loadJsonFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'info.json')
     expect(info.hasErrors).toBe(true)
 
-    const documents = JSON.parse(
-      (await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'documents.json'))!,
-    ).documents as Array<{ fileId: string; hasErrors?: boolean }>
+    const documents = (await loadJsonFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'documents.json')).documents as Array<{ fileId: string; hasErrors?: boolean }>
 
     expect(documents.find(({ fileId }) => fileId === 'broken-async.yaml')?.hasErrors).toBe(true)
     // absent rather than false: the field is optional and defaults to false for every consumer
@@ -183,15 +172,13 @@ describe('hasErrors flags', () => {
       files: [{ fileId: 'spec.json' }],
     })
 
-    expect(result.notifications.length).toBeGreaterThan(0)
+    expectNotEmpty(result.notifications)
     expect(result.notifications.every(({ severity }) => severity === MESSAGE_SEVERITY.Warning)).toBe(true)
 
-    const info = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'info.json'))!)
+    const info = await loadJsonFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'info.json')
     expect(info).not.toHaveProperty('hasErrors')
 
-    const documents = JSON.parse(
-      (await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'documents.json'))!,
-    ).documents as Array<{ hasErrors?: boolean }>
+    const documents = (await loadJsonFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'documents.json')).documents as Array<{ hasErrors?: boolean }>
     expect(documents.every(document => !('hasErrors' in document))).toBe(true)
   }, 30000)
 
@@ -199,13 +186,11 @@ describe('hasErrors flags', () => {
     const pkg = LocalRegistry.openPackage('reference-bundling/case1')
     await pkg.publish(pkg.packageId)
 
-    const info = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, 'reference-bundling/case1/v1', 'info.json'))!)
+    const info = await loadJsonFromRegistry(VERSIONS_PATH, 'reference-bundling/case1/v1', 'info.json')
     expect(info).not.toHaveProperty('hasErrors')
 
-    const documents = JSON.parse(
-      (await loadFileAsStringFromRegistry(VERSIONS_PATH, 'reference-bundling/case1/v1', 'documents.json'))!,
-    ).documents as Array<{ hasErrors?: boolean }>
-    expect(documents.length).toBeGreaterThan(0)
+    const documents = (await loadJsonFromRegistry(VERSIONS_PATH, 'reference-bundling/case1/v1', 'documents.json')).documents as Array<{ hasErrors?: boolean }>
+    expectNotEmpty(documents)
     expect(documents.every(document => !('hasErrors' in document))).toBe(true)
   }, 30000)
 })
@@ -238,7 +223,7 @@ describe('A clean build is unchanged', () => {
 
     expect(notifications).toEqual([])
     // a clean build is not an empty one
-    expect(comparisons.length).toBeGreaterThan(0)
+    expectNotEmpty(comparisons)
     expect(comparisons.every(comparison => comparison.notifications.length === 0)).toBe(true)
     expect(comparisons.some(comparison => comparison.hasErrors)).toBe(false)
   }, 30000)
@@ -250,7 +235,7 @@ describe('A clean build is unchanged', () => {
       JSON.parse(await zip.file(name)!.async('string')) as T
 
     const { comparisons } = await read<{ comparisons: Array<Record<string, unknown>> }>(PACKAGE.COMPARISONS_FILE_NAME)
-    expect(comparisons.length).toBeGreaterThan(0)
+    expectNotEmpty(comparisons)
     // `notifications` belongs to its own file; `hasErrors` is written only when something is wrong
     expect(comparisons.every(comparison => !('notifications' in comparison) && !('hasErrors' in comparison))).toBe(true)
 

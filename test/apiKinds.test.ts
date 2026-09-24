@@ -28,7 +28,7 @@ import {
   VERSION_STATUS,
 } from '../src'
 import { jest } from '@jest/globals'
-import { buildPackageFromContent, changesSummaryMatcher, Editor, loadFileAsString, LocalRegistry, serializedComparisonDocumentMatcher } from './helpers'
+import { buildPackageFromContent, documentOf, Editor, expectChangesSummary, loadFileAsString, LocalRegistry, operationTypeOf, serializedComparisonDocumentMatcher } from './helpers'
 import { DiffType } from '@netcracker/qubership-apihub-api-diff'
 import { takeIfDefined } from '../src/utils'
 import { DEFAULT_PROJECTS_PATH } from './helpers/registry/local'
@@ -36,7 +36,7 @@ import * as bwcValidation from '../src/components/compare/rest.api-kind'
 
 let afterPackage: LocalRegistry
 const AFTER_PACKAGE_ID = 'api-kinds'
-const AFTER_VERSION_ID = 'v1'
+const PACKAGE_VERSION_ID = 'v1'
 
 describe('API Kinds test', () => {
   beforeAll(() => {
@@ -46,7 +46,7 @@ describe('API Kinds test', () => {
   test('document with label must have no-bwc api kind', async () => {
     const editor = await Editor.openProject(AFTER_PACKAGE_ID, afterPackage)
     const result = await editor.run({
-      version: AFTER_VERSION_ID,
+      version: PACKAGE_VERSION_ID,
       packageId: AFTER_PACKAGE_ID,
       files: [{
         fileId: 'Petstore.yaml',
@@ -55,13 +55,13 @@ describe('API Kinds test', () => {
       }],
     })
 
-    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
+    expect(documentOf(result, 'Petstore.yaml').apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
   })
 
   test('document with uppercase label must have no-bwc api kind', async () => {
     const editor = await Editor.openProject(AFTER_PACKAGE_ID, afterPackage)
     const result = await editor.run({
-      version: AFTER_VERSION_ID,
+      version: PACKAGE_VERSION_ID,
       packageId: AFTER_PACKAGE_ID,
       files: [{
         fileId: 'Petstore.yaml',
@@ -70,13 +70,13 @@ describe('API Kinds test', () => {
       }],
     })
 
-    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
+    expect(documentOf(result, 'Petstore.yaml').apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
   })
 
   test('document with label must have experimental api kind', async () => {
     const editor = await Editor.openProject(AFTER_PACKAGE_ID, afterPackage)
     const result = await editor.run({
-      version: AFTER_VERSION_ID,
+      version: PACKAGE_VERSION_ID,
       packageId: AFTER_PACKAGE_ID,
       files: [{
         fileId: 'Petstore.yaml',
@@ -85,13 +85,13 @@ describe('API Kinds test', () => {
       }],
     })
 
-    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL)
+    expect(documentOf(result, 'Petstore.yaml').apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL)
   })
 
   test('document with incorrect label value must have bwc api kind', async () => {
     const editor = await Editor.openProject(AFTER_PACKAGE_ID, afterPackage)
     const result = await editor.run({
-      version: AFTER_VERSION_ID,
+      version: PACKAGE_VERSION_ID,
       packageId: AFTER_PACKAGE_ID,
       files: [{
         fileId: 'Petstore.yaml',
@@ -100,13 +100,13 @@ describe('API Kinds test', () => {
       }],
     })
 
-    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_BWC)
+    expect(documentOf(result, 'Petstore.yaml').apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_BWC)
   })
 
   test('document metadata must not carry xApiKind', async () => {
     const editor = await Editor.openProject(AFTER_PACKAGE_ID, afterPackage)
     const result = await editor.run({
-      version: AFTER_VERSION_ID,
+      version: PACKAGE_VERSION_ID,
       packageId: AFTER_PACKAGE_ID,
       files: [{
         fileId: 'Petstore.yaml',
@@ -115,15 +115,15 @@ describe('API Kinds test', () => {
       }],
     })
 
-    const document = result.documents.get('Petstore.yaml')
-    expect(document?.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
-    expect(document?.metadata).not.toHaveProperty('xApiKind')
+    const document = documentOf(result, 'Petstore.yaml')
+    expect(document.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
+    expect(document.metadata).not.toHaveProperty('xApiKind')
   })
 
   test('rebuilt document must keep the api kind resolved from xApiKind', async () => {
     const editor = await Editor.openProject(AFTER_PACKAGE_ID, afterPackage)
     await editor.run({
-      version: AFTER_VERSION_ID,
+      version: PACKAGE_VERSION_ID,
       packageId: AFTER_PACKAGE_ID,
       files: [{
         fileId: 'Petstore.yaml',
@@ -134,7 +134,7 @@ describe('API Kinds test', () => {
 
     const result = await editor.update({}, 'Petstore.yaml')
 
-    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
+    expect(documentOf(result, 'Petstore.yaml').apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
   })
 
   test('published document must carry the api kind resolved from xApiKind', async () => {
@@ -143,11 +143,11 @@ describe('API Kinds test', () => {
 
     await portal.publish(packageId, {
       packageId,
-      version: AFTER_VERSION_ID,
+      version: PACKAGE_VERSION_ID,
       files: [{ fileId: '1.yaml', xApiKind: 'no-BWC' }],
     })
 
-    const resolved = await portal.versionDocumentsResolver(AFTER_VERSION_ID, packageId)
+    const resolved = await portal.versionDocumentsResolver(PACKAGE_VERSION_ID, packageId)
 
     expect(resolved?.documents).toEqual([
       expect.objectContaining({ fileId: '1.yaml', apiKind: APIHUB_API_COMPATIBILITY_KIND_NO_BWC }),
@@ -157,7 +157,7 @@ describe('API Kinds test', () => {
   test('metadata of a document without an api type must not carry xApiKind either', async () => {
     const result = await buildPackageFromContent('api-kinds-readme', 'readme.md', '# Readme', undefined, undefined, 'no-BWC')
 
-    expect(result.documents.get('readme.md')?.metadata).not.toHaveProperty('xApiKind')
+    expect(documentOf(result, 'readme.md').metadata).not.toHaveProperty('xApiKind')
   })
 
   test('metadata of a binary document must not carry xApiKind either', async () => {
@@ -165,17 +165,17 @@ describe('API Kinds test', () => {
     const editor = await Editor.openProject(packageId, LocalRegistry.openPackage(packageId))
     const result = await editor.run({
       packageId,
-      version: AFTER_VERSION_ID,
+      version: PACKAGE_VERSION_ID,
       files: [{ fileId: 'Test.png', xApiKind: 'no-BWC' }],
     })
 
-    expect(result.documents.get('Test.png')?.metadata).not.toHaveProperty('xApiKind')
+    expect(documentOf(result, 'Test.png').metadata).not.toHaveProperty('xApiKind')
   })
 
   test('version with label must have no-bwc api kind', async () => {
     const editor = await Editor.openProject(AFTER_PACKAGE_ID, afterPackage)
     const result = await editor.run({
-      version: AFTER_VERSION_ID,
+      version: PACKAGE_VERSION_ID,
       packageId: AFTER_PACKAGE_ID,
       files: [{
         fileId: 'Petstore.yaml',
@@ -186,7 +186,7 @@ describe('API Kinds test', () => {
       },
     })
 
-    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
+    expect(documentOf(result, 'Petstore.yaml').apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
   })
 })
 
@@ -228,7 +228,7 @@ describe('Risky changes for no-bwc operations test', () => {
 
     const result = await editor.run()
 
-    expect(result.comparisons[0].operationTypes[0].changesSummary?.[RISKY_CHANGE_TYPE]).toBe(3)
+    expect(operationTypeOf(result).changesSummary[RISKY_CHANGE_TYPE]).toBe(3)
   })
 
   test('should have 1 breaking change', async () => {
@@ -242,7 +242,7 @@ describe('Risky changes for no-bwc operations test', () => {
 
     const result = await editor.run()
 
-    expect(result.comparisons[0].operationTypes[0].changesSummary?.[BREAKING_CHANGE_TYPE]).toBe(2)
+    expect(operationTypeOf(result).changesSummary[BREAKING_CHANGE_TYPE]).toBe(2)
   })
 })
 
@@ -318,7 +318,7 @@ describe('Check Api Compatibility Function tests', () => {
       { desc: 'should apply a padded xApiKind no-BWC in curr', currXApiKind: ' no-BWC ', expected: EXPECT_RISKY },
     ])('$desc', async ({ prevFileLabels, currFileLabels, prevVersionLabels, currVersionLabels, prevXApiKind, currXApiKind, expected: { summary, types } }) => {
       const result = await runApiKindTest('api-kinds/no-api-kind-in-documents', prevFileLabels, currFileLabels, prevVersionLabels, currVersionLabels, prevXApiKind, currXApiKind)
-      expect(result).toEqual(changesSummaryMatcher(summary))
+      expectChangesSummary(result, summary)
       expect(result).toEqual(serializedComparisonDocumentMatcher(types))
     })
   })
@@ -352,7 +352,7 @@ describe('Check Api Compatibility Function tests', () => {
       { desc: 'should prioritize info BWC in curr over file no-BWC in curr', prev: undefined, curr: 'BWC', currFileLabels: [NB_LABEL], expected: EXPECT_BREAKING },
     ])('$desc', async ({ prev, curr, prevFileLabels, currFileLabels, expected: { summary, types } }) => {
       const result = await runApiKindTestFromTemplate('api-kinds/info-apiKind', prev, curr, prevFileLabels, currFileLabels)
-      expect(result).toEqual(changesSummaryMatcher(summary))
+      expectChangesSummary(result, summary)
       expect(result).toEqual(serializedComparisonDocumentMatcher(types))
     })
   })
@@ -386,7 +386,7 @@ describe('Check Api Compatibility Function tests', () => {
       { desc: 'should prioritize operation no-BWC in prev over file BWC in curr', prev: 'no-BWC', curr: undefined, currFileLabels: [BWC_LABEL], expected: EXPECT_OP_RISKY },
     ])('$desc', async ({ prev, curr, prevFileLabels, currFileLabels, expected: { summary, types } }) => {
       const result = await runApiKindTestFromTemplate('api-kinds/operation-apiKind', prev, curr, prevFileLabels, currFileLabels)
-      expect(result).toEqual(changesSummaryMatcher(summary))
+      expectChangesSummary(result, summary)
       expect(result).toEqual(serializedComparisonDocumentMatcher(types))
     })
   })
@@ -409,7 +409,7 @@ describe('Check Api Compatibility Function tests', () => {
       { desc: 'should apply experimental by default', prev: 'experimental', curr: 'experimental', expected: EXPECT_RISKY },
     ])('$desc', async ({ prev, curr, prevFileLabels, currFileLabels, expected: { summary, types } }) => {
       const result = await runApiKindTestFromTemplate('api-kinds/remove-operations-apiKind', prev, curr, prevFileLabels, currFileLabels)
-      expect(result).toEqual(changesSummaryMatcher(summary))
+      expectChangesSummary(result, summary)
       expect(result).toEqual(serializedComparisonDocumentMatcher(types))
     })
   })
@@ -427,7 +427,7 @@ describe('Check Api Compatibility Function tests', () => {
         { desc: 'should apply file no-BWC in curr (removed pathItem uses prev)', currFileLabels: [NB_LABEL], expected: EXPECT_BREAKING },
       ])('$desc', async ({ prevFileLabels, currFileLabels, expected: { summary, types } }) => {
         const result = await runApiKindTest('api-kinds/remove-pathItem-no-api-kind-in-documents', prevFileLabels, currFileLabels)
-        expect(result).toEqual(changesSummaryMatcher(summary))
+        expectChangesSummary(result, summary)
         expect(result).toEqual(serializedComparisonDocumentMatcher(types))
       })
     })
@@ -449,7 +449,7 @@ describe('Check Api Compatibility Function tests', () => {
         { desc: 'should apply experimental by default', prev: 'experimental', expected: EXPECT_RISKY },
       ])('$desc', async ({ prev, prevFileLabels, currFileLabels, expected: { summary, types } }) => {
         const result = await runApiKindTestFromTemplate('api-kinds/remove-pathItem-operation-apiKind', prev, undefined, prevFileLabels, currFileLabels)
-        expect(result).toEqual(changesSummaryMatcher(summary))
+        expectChangesSummary(result, summary)
         expect(result).toEqual(serializedComparisonDocumentMatcher(types))
       })
     })
@@ -470,7 +470,7 @@ describe('Check Api Compatibility Function tests', () => {
         { desc: 'should prioritize operation no-BWC over file BWC in curr', prev: 'no-BWC', currFileLabels: [BWC_LABEL], expected: EXPECT_RISKY_X2 },
       ])('$desc', async ({ prev, prevFileLabels, currFileLabels, expected: { summary, types } }) => {
         const result = await runApiKindTestFromTemplate('api-kinds/remove-pathItem-operations-apiKind', prev, undefined, prevFileLabels, currFileLabels)
-        expect(result).toEqual(changesSummaryMatcher(summary))
+        expectChangesSummary(result, summary)
         expect(result).toEqual(serializedComparisonDocumentMatcher(types))
       })
     })
@@ -492,7 +492,7 @@ describe('Check Api Compatibility Function tests', () => {
         { desc: 'should apply no-BWC and experimental', pkg: MIXED_NB_EXP, expected: EXPECT_RISKY_X2 },
       ])('$desc', async ({ pkg, prevFileLabels, currFileLabels, expected: { summary, types } }) => {
         const result = await runApiKindTest(pkg, prevFileLabels, currFileLabels)
-        expect(result).toEqual(changesSummaryMatcher(summary))
+        expectChangesSummary(result, summary)
         expect(result).toEqual(serializedComparisonDocumentMatcher(types))
       })
     })

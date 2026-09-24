@@ -14,9 +14,7 @@
  * limitations under the License.
  */
 
-import { Editor, LocalRegistry } from './helpers'
-import { operationKey } from '../src/components/operations'
-import { REST_API_TYPE } from '../src/consts'
+import { Editor, LocalRegistry, operationOf } from './helpers'
 
 const basicPackage = LocalRegistry.openPackage('basic')
 
@@ -37,7 +35,7 @@ describe('Config validation', () => {
 
       const result = await editor.update(editor.config, 'openapi.json')
 
-      expect(result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'api-pets-get' }))?.tags.join()).toEqual(tags.join())
+      expect(operationOf(result, 'api-pets-get').tags.join()).toEqual(tags.join())
 
       expect(Array.from(result.operations.values()).map(({ metadata }) => metadata)).toEqual(
         expect.toIncludeSameMembers([

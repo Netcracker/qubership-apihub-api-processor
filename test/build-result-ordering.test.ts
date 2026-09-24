@@ -15,7 +15,7 @@
  */
 
 import JSZip from 'jszip'
-import { Editor, LocalRegistry, readJsonFromZip } from './helpers'
+import { Editor, LocalRegistry, publishVersion, readJsonFromZip } from './helpers'
 import {
   ApiOperation,
   BUILD_TYPE,
@@ -110,12 +110,12 @@ describe('Build result list ordering', () => {
   it('should serialize comparison operations ordered by (operationId, previousOperationId)', async () => {
     // ChangelogStrategy resolves BOTH sides from the registry, so both versions must be published first.
     const publish = async (packageId: string, version: string): Promise<void> => {
-      await LocalRegistry.openPackage(packageId).publish(packageId, {
+      await publishVersion(
         packageId,
         version,
-        status: VERSION_STATUS.RELEASE,
-        files: [{ fileId: 'spec.yaml', publish: true }],
-      })
+        { fileId: 'spec.yaml', publish: true },
+        { status: VERSION_STATUS.RELEASE },
+      )
     }
     await publish('list-ordering-before', 'v1')
     await publish('list-ordering-after', 'v2')

@@ -19,11 +19,7 @@ describe('package test', () => {
     // todo
   }, 100000)
 
-  test('js zip package created successfully', async () => {
-    // todo
-  }, 100000)
+  test.todo('js zip package created successfully')
 
-  test('admzip package created successfully', async () => {
-    // todo
-  }, 100000)
+  test.todo('admzip package created successfully')
 })

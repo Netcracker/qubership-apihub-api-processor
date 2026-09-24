@@ -75,6 +75,7 @@ describe('Version Internal Documents tests', () => {
     test('should documents have internalDocumentId', async () => {
       const result = await buildPackage(packageId)
       const documents: VersionDocument[] = Array.from(result.documents.values())
+      expect(documents).toHaveLength(files.length)
       Array.from(documents).forEach((document, i) => {
         expect(document).toHaveProperty(['versionInternalDocument', 'versionDocumentId'], files[i])
       })
@@ -83,6 +84,9 @@ describe('Version Internal Documents tests', () => {
     test('should operations have versionInternalDocumentId', async () => {
       const result = await buildPackage(packageId)
       const operations: ApiOperation[] = Array.from(result.operations.values())
+      // the loop below pairs operations[i] with files[i], and the third test in this block pins the
+      // same count from the serialized side, so the strong form is the one that matches the claim
+      expect(operations).toHaveLength(files.length)
       Array.from(operations).forEach((operation, i) => {
         expect(operation).toHaveProperty('versionInternalDocumentId')
         expect(operation['versionInternalDocumentId']).toEqual(files[i])
@@ -128,6 +132,7 @@ describe('Version Internal Documents tests', () => {
           loadFileAsString(DEFAULT_PROJECTS_PATH, packageId, `version-${item}.json`),
         ),
       )
+      expect(documents).toHaveLength(files.length)
       documents.forEach((document, i) => {
         expect(JSON.parse(document.versionInternalDocument.serializedVersionDocument as string)).toEqual(JSON.parse(versionSpecs[i] as string))
       })

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Editor, LocalRegistry } from './helpers'
+import { deprecatedItemsOf, Editor, LocalRegistry } from './helpers'
 import { BUILD_TYPE, VERSION_STATUS } from '../src'
 
 const portal = new LocalRegistry('new-deprecated')
@@ -49,10 +49,10 @@ describe('Deprecated history test', () => {
 
     const result = await editor.run()
 
-    const deprecatedItems = Array.from(result.operations.values()).flatMap(operation => operation.deprecatedItems)
+    const deprecatedItems = deprecatedItemsOf(result)
 
-    expect(deprecatedItems.length === 2).toBeTruthy()
-    expect(deprecatedItems?.[0]?.deprecatedInPreviousVersions.length === 2).toBeTruthy()
+    expect(deprecatedItems).toHaveLength(2)
+    expect(deprecatedItems?.[0]?.deprecatedInPreviousVersions).toHaveLength(2)
   })
 
   test('should build deprecation history for components schema', async () => {
@@ -84,10 +84,10 @@ describe('Deprecated history test', () => {
 
     const result = await editor.run()
 
-    const deprecatedItems = Array.from(result.operations.values()).flatMap(operation => operation.deprecatedItems)
+    const deprecatedItems = deprecatedItemsOf(result)
 
-    expect(deprecatedItems.length === 1).toBeTruthy()
-    expect(deprecatedItems?.[0]?.deprecatedInPreviousVersions.length === 2).toBeTruthy()
+    expect(deprecatedItems).toHaveLength(1)
+    expect(deprecatedItems?.[0]?.deprecatedInPreviousVersions).toHaveLength(2)
   })
 
   test('should build deprecation history for step deprecation', async () => {
@@ -121,11 +121,11 @@ describe('Deprecated history test', () => {
 
     const result = await editor.run()
 
-    const deprecatedItems = Array.from(result.operations.values()).flatMap(operation => operation.deprecatedItems)
+    const deprecatedItems = deprecatedItemsOf(result)
 
-    expect(deprecatedItems.length === 2).toBeTruthy()
-    expect(deprecatedItems?.[0]?.deprecatedInPreviousVersions.length === 2).toBeTruthy()
-    expect(deprecatedItems?.[1]?.deprecatedInPreviousVersions.length === 1).toBeTruthy()
+    expect(deprecatedItems).toHaveLength(2)
+    expect(deprecatedItems?.[0]?.deprecatedInPreviousVersions).toHaveLength(2)
+    expect(deprecatedItems?.[1]?.deprecatedInPreviousVersions).toHaveLength(1)
   })
 
   test('should build deprecation history for refactoring (extract schema to components)', async () => {
@@ -159,7 +159,7 @@ describe('Deprecated history test', () => {
 
     const result = await editor.run()
 
-    const deprecatedItems = Array.from(result.operations.values()).flatMap(operation => operation.deprecatedItems)
+    const deprecatedItems = deprecatedItemsOf(result)
 
     expect(deprecatedItems.length).toEqual(1)
     expect(deprecatedItems?.[0]?.deprecatedInPreviousVersions.length).toEqual(2)
@@ -196,7 +196,7 @@ describe('Deprecated history test', () => {
 
     const result = await editor.run()
 
-    const deprecatedItems = Array.from(result.operations.values()).flatMap(operation => operation.deprecatedItems)
+    const deprecatedItems = deprecatedItemsOf(result)
 
     expect(deprecatedItems.length).toEqual(1)
     expect(deprecatedItems?.[0]?.deprecatedInPreviousVersions.length).toEqual(2)
@@ -233,10 +233,10 @@ describe('Deprecated history test', () => {
 
     const result = await editor.run()
 
-    const deprecatedItems = Array.from(result.operations.values()).flatMap(operation => operation.deprecatedItems)
+    const deprecatedItems = deprecatedItemsOf(result)
 
-    expect(deprecatedItems.length === 1).toBeTruthy()
-    expect(deprecatedItems?.[0]?.deprecatedInPreviousVersions.length === 2).toBeTruthy()
+    expect(deprecatedItems).toHaveLength(1)
+    expect(deprecatedItems?.[0]?.deprecatedInPreviousVersions).toHaveLength(2)
   })
 
   // We don't support refactoring inside components. Deprecation history will be lost for such cases
@@ -271,10 +271,10 @@ describe('Deprecated history test', () => {
 
     const result = await editor.run()
 
-    const deprecatedItems = Array.from(result.operations.values()).flatMap(operation => operation.deprecatedItems)
+    const deprecatedItems = deprecatedItemsOf(result)
 
-    expect(deprecatedItems.length === 1).toBeTruthy()
-    expect(deprecatedItems?.[0]?.deprecatedInPreviousVersions.length === 2).toBeTruthy()
+    expect(deprecatedItems).toHaveLength(1)
+    expect(deprecatedItems?.[0]?.deprecatedInPreviousVersions).toHaveLength(2)
   })
 
   // We don't support refactoring inside components. Deprecation history will be lost for such cases
@@ -309,9 +309,9 @@ describe('Deprecated history test', () => {
 
     const result = await editor.run()
 
-    const deprecatedItems = Array.from(result.operations.values()).flatMap(operation => operation.deprecatedItems)
+    const deprecatedItems = deprecatedItemsOf(result)
 
-    expect(deprecatedItems.length === 3).toBeTruthy()
+    expect(deprecatedItems).toHaveLength(3)
     expect(deprecatedItems?.every((item) => item?.deprecatedInPreviousVersions.length === 2)).toBeTruthy()
   })
 })

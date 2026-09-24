@@ -15,6 +15,8 @@
  */
 
 import { OpenAPIV3 } from 'openapi-types'
+import type { CustomScopeElementContext } from '@netcracker/qubership-apihub-api-diff'
+import type { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import { API_AUDIENCE_EXTERNAL, VersionDocument } from '../../src/types'
 import { RestOperationMeta, VersionRestOperation } from '../../src/apitypes/rest/rest.types'
 import { APIHUB_API_COMPATIBILITY_KIND_BWC, FILE_FORMAT, REST_API_TYPE } from '../../src/consts'
@@ -88,3 +90,14 @@ export const restSpec = (
 ): string => `openapi: ${openapi}\ninfo: { title: t, version: 1.0.0 }\n${root}paths:\n${Object.entries(paths)
   .map(([path, summary]) => `  ${path}:\n    get: { summary: ${summary}, ${operationFields}responses: { '200': { description: ok } } }`)
   .join('\n')}\n`
+
+/**
+ * Builds what api-diff hands a custom scope element provider when it asks about one node. The single
+ * place tests construct it, so a property added to the context later is a change here rather than at
+ * every call site.
+ */
+export const customScopeElementContext = (
+  path: JsonPath,
+  beforeJso?: unknown,
+  afterJso?: unknown,
+): CustomScopeElementContext => ({ path, beforeJso, afterJso })
