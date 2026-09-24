@@ -139,19 +139,19 @@ describe('Notification selectors', () => {
 
     test('should say which categories were there when the one asked for is absent', () => {
       expect(() => notificationOf(NOTIFICATIONS, MESSAGE_CATEGORY.RefNotFound))
-        .toThrow("Expected one 'ref-not-found' notification, found 0. Categories: parse-file, parse-file, build-operations")
+        .toThrow('Expected one \'ref-not-found\' notification, found 0. Categories: parse-file, parse-file, build-operations')
     })
 
     // the call sites it replaced were `find(...)!`, which answers about the first of several and says
     // nothing about the rest — one of them turned out to have two, and was asserting about an arbitrary one
     test('should refuse to pick one of several rather than answer about the first', () => {
       expect(() => notificationOf(NOTIFICATIONS, MESSAGE_CATEGORY.ParseFile))
-        .toThrow("Expected one 'parse-file' notification, found 2")
+        .toThrow('Expected one \'parse-file\' notification, found 2')
     })
 
     test('should name the empty list rather than print nothing', () => {
       expect(() => notificationOf([], MESSAGE_CATEGORY.ParseFile))
-        .toThrow("Expected one 'parse-file' notification, found 0. Categories: (none)")
+        .toThrow('Expected one \'parse-file\' notification, found 0. Categories: (none)')
     })
   })
 })
@@ -166,7 +166,7 @@ describe('operationTypeOf', () => {
 
   test('should say which api types were there when the one asked for is absent', () => {
     expect(() => operationTypeOf(comparisonOver(REST_API_TYPE), GRAPHQL_API_TYPE))
-      .toThrow("Comparison carries no 'graphql' operation type. API types: rest")
+      .toThrow('Comparison carries no \'graphql\' operation type. API types: rest')
   })
 
   test('should select by api type when a comparison carries more than one', () => {
@@ -196,7 +196,7 @@ describe('operationChangesOf', () => {
       .toThrow('Comparison has no changes for operation path3-delete. Operations: path1-get, path2-post')
   })
 
-  // it printed a bare `undefined` here before T7a
+  // the message used to end in a bare `undefined` here
   test('should say so when the build has no comparison at all', () => {
     expect(() => operationChangesOf({ comparisons: [] } as unknown as BuildResult, 'path1-get'))
       .toThrow('Operations: (none)')

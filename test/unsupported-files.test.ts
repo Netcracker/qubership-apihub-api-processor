@@ -15,7 +15,7 @@
  */
 
 import JSZip from 'jszip'
-import { Editor, LocalRegistry, VERSIONS_PATH, registryFs } from './helpers'
+import { Editor, LocalRegistry, VERSIONS_PATH, registryFs, documentOf } from './helpers'
 import { DOCUMENT_TYPE } from '../src'
 
 const packageId = 'unsupported'
@@ -35,16 +35,16 @@ describe('Unsupported files test', () => {
   test('Publish unsupported files', async () => {
     const result = await editor.run()
 
-    const doc = result.documents.get('Document.docx')
-    const png = result.documents.get('Test.png')
+    const doc = documentOf(result, 'Document.docx')
+    const png = documentOf(result, 'Test.png')
 
-    expect(doc?.format).toEqual(DOCUMENT_TYPE.UNKNOWN)
-    expect(doc?.type).toEqual(DOCUMENT_TYPE.UNKNOWN)
-    expect(doc?.source instanceof Blob).toBe(true)
+    expect(doc.format).toEqual(DOCUMENT_TYPE.UNKNOWN)
+    expect(doc.type).toEqual(DOCUMENT_TYPE.UNKNOWN)
+    expect(doc.source instanceof Blob).toBe(true)
 
-    expect(png?.format).toEqual(DOCUMENT_TYPE.UNKNOWN)
-    expect(png?.type).toEqual(DOCUMENT_TYPE.UNKNOWN)
-    expect(png?.source instanceof Blob).toBe(true)
+    expect(png.format).toEqual(DOCUMENT_TYPE.UNKNOWN)
+    expect(png.type).toEqual(DOCUMENT_TYPE.UNKNOWN)
+    expect(png.source instanceof Blob).toBe(true)
   })
 
   // Packing is what these two check, so the archive has to be opened again: writing it out and stopping

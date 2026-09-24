@@ -16,7 +16,7 @@
 
 import { describe, expect, test } from '@jest/globals'
 import JSZip from 'jszip'
-import { documentOf, Editor, loadFileAsStringFromRegistry, LocalRegistry, operationOf, VERSIONS_PATH } from './helpers'
+import { documentOf, Editor, errorsOf, loadFileAsStringFromRegistry, LocalRegistry, operationOf, VERSIONS_PATH } from './helpers'
 import { ASYNCAPI_API_TYPE, BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, PACKAGE, REST_API_TYPE, VERSION_STATUS } from '../src/consts'
 import { VALIDATION_RULES_SEVERITY_LEVEL_ERROR } from '../src'
 import { BuildConfig, BuildResult } from '../src/types'
@@ -40,7 +40,7 @@ describe('Tolerant publication end to end', () => {
     expect(broken.operationIds).toEqual([])
 
     // and only it is blamed
-    const errors = result.notifications.filter(({ severity }) => severity === MESSAGE_SEVERITY.Error)
+    const errors = errorsOf(result.notifications)
     expect(errors.length).toBeGreaterThan(0)
     expect([...new Set(errors.map(({ documentId }) => documentId))]).toEqual([broken.slug])
   })
@@ -100,7 +100,7 @@ describe('A document an Error names still publishes what it built', () => {
 
     // and it is the only one blamed, for its own collision
     expect(result.notifications.map(({ category }) => category)).toContain(MESSAGE_CATEGORY.RestDuplicateOperation)
-    const errors = result.notifications.filter(({ severity }) => severity === MESSAGE_SEVERITY.Error)
+    const errors = errorsOf(result.notifications)
     expect([...new Set(errors.map(({ documentId }) => documentId))]).toEqual([colliding.slug])
 
     // the archive says the same: marked, and still carrying its operations

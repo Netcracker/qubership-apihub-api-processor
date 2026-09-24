@@ -18,14 +18,13 @@ import { beforeAll, describe, expect, it, test } from '@jest/globals'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { createOperationSpec, createOperationSpecEnrichedWithRefs } from '../src/apitypes/async/async.operation'
 import { calculateAsyncOperationId, removeComponents } from '../src/utils'
-import { buildPackageWithDefaultConfig, cloneDocument, loadYamlFile, LocalRegistry } from './helpers'
+import { buildPackageWithDefaultConfig, cloneDocument, loadYamlFile, LocalRegistry, operationOf, publishVersion } from './helpers'
 import { extractProtocol, getRequiredDefaultContentType } from '../src/apitypes/async/async.utils'
 import { ASYNCAPI_API_TYPE, FIRST_REFERENCE_KEY_PROPERTY, INLINE_REFS_FLAG, MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../src/consts'
 import { ASYNC_EFFECTIVE_NORMALIZE_OPTIONS, BUILD_TYPE, VERSION_STATUS } from '../src'
 import { AsyncOperationData, VersionAsyncOperation } from '../src/apitypes/async/async.types'
 import { BuildResult, VersionStatus } from '../src/types'
 import { normalize } from '@netcracker/qubership-apihub-api-unifier'
-import { operationKey } from '../src/components/operations'
 
 describe('AsyncAPI 3.0 Operation Tests', () => {
   const normalizeAsyncApiDocument = (doc: AsyncAPIV3.AsyncAPIObject): AsyncAPIV3.AsyncAPIObject =>
@@ -734,16 +733,15 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       // deferral that makes REST and GraphQL a Warning has no population to protect here.
       const publishDuplicateCrossDocument = (status: VersionStatus): Promise<BuildResult> => {
         const packageId = 'asyncapi-changes/operation/duplicate-cross-document'
-        return new LocalRegistry(packageId).publish(packageId, {
+        return publishVersion(
           packageId,
-          version: 'v1',
-          status,
-          buildType: BUILD_TYPE.BUILD,
-          files: [
+          'v1',
+          [
             { fileId: 'spec1.yaml', publish: true },
             { fileId: 'spec2.yaml', publish: true },
           ],
-        })
+          { status, buildType: BUILD_TYPE.BUILD },
+        )
       }
 
       test('should report the same operationId in two documents against both, as an Error', async () => {
@@ -758,7 +756,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
 
         // both are flagged, and the id goes to the smaller slug as any contested id does
         expect(result.operations.size).toBe(1)
-        expect(result.operations.get(operationKey({ apiType: ASYNCAPI_API_TYPE, operationId: 'operation1-message1' }))!.documentId).toBe('spec1')
+        expect(operationOf(result, 'operation1-message1', ASYNCAPI_API_TYPE).documentId).toBe('spec1')
       })
 
       // one message per document, so the failure takes the summary form and names both

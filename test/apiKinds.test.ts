@@ -28,7 +28,7 @@ import {
   VERSION_STATUS,
 } from '../src'
 import { jest } from '@jest/globals'
-import { buildPackageFromContent, Editor, expectChangesSummary, loadFileAsString, LocalRegistry, serializedComparisonDocumentMatcher } from './helpers'
+import { buildPackageFromContent, documentOf, Editor, expectChangesSummary, loadFileAsString, LocalRegistry, serializedComparisonDocumentMatcher } from './helpers'
 import { DiffType } from '@netcracker/qubership-apihub-api-diff'
 import { takeIfDefined } from '../src/utils'
 import { DEFAULT_PROJECTS_PATH } from './helpers/registry/local'
@@ -55,7 +55,7 @@ describe('API Kinds test', () => {
       }],
     })
 
-    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
+    expect(documentOf(result, 'Petstore.yaml').apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
   })
 
   test('document with uppercase label must have no-bwc api kind', async () => {
@@ -70,7 +70,7 @@ describe('API Kinds test', () => {
       }],
     })
 
-    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
+    expect(documentOf(result, 'Petstore.yaml').apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
   })
 
   test('document with label must have experimental api kind', async () => {
@@ -85,7 +85,7 @@ describe('API Kinds test', () => {
       }],
     })
 
-    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL)
+    expect(documentOf(result, 'Petstore.yaml').apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL)
   })
 
   test('document with incorrect label value must have bwc api kind', async () => {
@@ -100,7 +100,7 @@ describe('API Kinds test', () => {
       }],
     })
 
-    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_BWC)
+    expect(documentOf(result, 'Petstore.yaml').apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_BWC)
   })
 
   test('document metadata must not carry xApiKind', async () => {
@@ -115,9 +115,9 @@ describe('API Kinds test', () => {
       }],
     })
 
-    const document = result.documents.get('Petstore.yaml')
-    expect(document?.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
-    expect(document?.metadata).not.toHaveProperty('xApiKind')
+    const document = documentOf(result, 'Petstore.yaml')
+    expect(document.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
+    expect(document.metadata).not.toHaveProperty('xApiKind')
   })
 
   test('rebuilt document must keep the api kind resolved from xApiKind', async () => {
@@ -134,7 +134,7 @@ describe('API Kinds test', () => {
 
     const result = await editor.update({}, 'Petstore.yaml')
 
-    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
+    expect(documentOf(result, 'Petstore.yaml').apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
   })
 
   test('published document must carry the api kind resolved from xApiKind', async () => {
@@ -157,7 +157,7 @@ describe('API Kinds test', () => {
   test('metadata of a document without an api type must not carry xApiKind either', async () => {
     const result = await buildPackageFromContent('api-kinds-readme', 'readme.md', '# Readme', undefined, undefined, 'no-BWC')
 
-    expect(result.documents.get('readme.md')?.metadata).not.toHaveProperty('xApiKind')
+    expect(documentOf(result, 'readme.md').metadata).not.toHaveProperty('xApiKind')
   })
 
   test('metadata of a binary document must not carry xApiKind either', async () => {
@@ -169,7 +169,7 @@ describe('API Kinds test', () => {
       files: [{ fileId: 'Test.png', xApiKind: 'no-BWC' }],
     })
 
-    expect(result.documents.get('Test.png')?.metadata).not.toHaveProperty('xApiKind')
+    expect(documentOf(result, 'Test.png').metadata).not.toHaveProperty('xApiKind')
   })
 
   test('version with label must have no-bwc api kind', async () => {
@@ -186,7 +186,7 @@ describe('API Kinds test', () => {
       },
     })
 
-    expect(result.documents.get('Petstore.yaml')?.apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
+    expect(documentOf(result, 'Petstore.yaml').apiKind).toEqual(APIHUB_API_COMPATIBILITY_KIND_NO_BWC)
   })
 })
 

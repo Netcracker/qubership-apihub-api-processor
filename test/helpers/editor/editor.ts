@@ -99,6 +99,8 @@ export class Editor {
     this.state.set(fileId, new Blob([modifier(await data.text())], { type: data.type }))
   }
 
+  // `any` in both modifiers: the skipped suites in tests-v2 edit specs through them by path in 138 places, and
+  // ts-jest type-checks those suites too
   async updateJsonFile(fileId: string, modifier: (obj: any) => any): Promise<void> {
     return this.updateTextFile(fileId, (data: string) => {
       const parsedData = JSON.parse(data)

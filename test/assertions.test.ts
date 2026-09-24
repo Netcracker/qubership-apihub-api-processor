@@ -61,7 +61,8 @@ describe('Change count assertions', () => {
 
   // The one behavior these functions changed: the factory wrapped `objectContaining`, which ignores a key
   // it was not asked about. `toEqual` does not. Measured over a full run, every summary the suite produces
-  // carries exactly the six `DiffType` keys — but T16 carries this to 241 call sites, so pin it here.
+  // carries exactly the six `DiffType` keys — but every change-count assertion in the suite now goes through
+  // these functions, so pin it here.
   test('should reject a summary carrying a count outside the six known ones', () => {
     const extra = resultWith([{
       apiType: REST_API_TYPE,

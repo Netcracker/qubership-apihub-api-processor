@@ -171,12 +171,12 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     }
   }
 
-  async createVersionPackage(options?: JSZip.JSZipGeneratorOptions<'nodebuffer'>): Promise<Buffer> {
+  async createVersionPackage(options?: JSZip.JSZipGeneratorOptions): Promise<any> {
     return createVersionPackage(this.buildResult, new JsZipTool(), this.builderContext(this.config), options)
   }
 
   // todo rename
-  async createNodeVersionPackage(): Promise<{ packageVersion: Buffer; exportFileName?: string }> {
+  async createNodeVersionPackage(): Promise<{ packageVersion: any; exportFileName?: string }> {
     return {
       packageVersion: await createVersionPackage(this.buildResult, new AdmZipTool(), this.builderContext(this.config)),
       exportFileName: this.buildResult.exportFileName,

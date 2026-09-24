@@ -15,5 +15,5 @@
  */
 
 export * from './local'
-export { registryFs, loadFileAsStringFromRegistry } from './fs'
 export { VERSIONS_PATH } from './utils'
+export { loadFileAsStringFromRegistry, registryFs } from './fs'

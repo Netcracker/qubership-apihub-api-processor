@@ -90,7 +90,7 @@ function keysOf(map: ReadonlyMap<string, unknown>): string {
  * The operation types of one comparison, selected by api type.
  *
  * Throws on anything but exactly one comparison. A dashboard changelog produces one per reference pair,
- * so that case needs an index rather than a looser guard — see T9 in `tasks/plan.md`.
+ * so that case needs an index rather than a looser guard.
  */
 export function operationTypeOf(result: BuildResult, apiType: OperationsApiType = REST_API_TYPE): OperationType {
   const comparison = soleComparisonOf(result)

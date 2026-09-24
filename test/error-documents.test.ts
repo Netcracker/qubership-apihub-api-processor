@@ -16,11 +16,13 @@
 
 import { afterEach, describe, expect, jest, test } from '@jest/globals'
 import {
+  documentOf,
   loadFileAsStringFromRegistry,
   LocalRegistry,
   notificationMatcher,
   notificationOf,
   notificationsMatcher,
+  publishVersion,
   VERSIONS_PATH,
 } from './helpers'
 import { MESSAGE_CATEGORY, MESSAGE_SEVERITY, VERSION_STATUS } from '../src/consts'
@@ -49,14 +51,13 @@ describe('Error documents survive packaging', () => {
       files: [{ fileId: 'missing_brace.json', publish: true }],
     })
 
-    const document = result.documents.get('missing_brace.json')
-    expect(document).toBeDefined()
+    const document = documentOf(result, 'missing_brace.json')
 
     const documents = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, 'broken/v1', 'documents.json'))!)
     expect(documents.documents.map(({ fileId }: { fileId: string }) => fileId)).toEqual(['missing_brace.json'])
 
     // the archive carries the broken file itself — that is the troubleshooting artifact
-    const raw = await loadFileAsStringFromRegistry(VERSIONS_PATH, 'broken/v1/documents', document!.filename)
+    const raw = await loadFileAsStringFromRegistry(VERSIONS_PATH, 'broken/v1/documents', document.filename)
     expect(raw).toBeTruthy()
     expect(raw).toContain('openapi')
   }, 30000)
@@ -78,14 +79,13 @@ describe('A document whose file could not be fetched', () => {
       files: [{ fileId: 'rest.json' }, { fileId: 'no-such-file.yaml' }],
     })
 
-    const document = result.documents.get('no-such-file.yaml')
-    expect(document).toBeDefined()
-    expect(document!.source).toBeUndefined()
+    const document = documentOf(result, 'no-such-file.yaml')
+    expect(document.source).toBeUndefined()
 
     const documents = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'documents.json'))!)
     expect(documents.documents.map(({ fileId }: { fileId: string }) => fileId)).toContain('no-such-file.yaml')
 
-    const raw = await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1/documents`, document!.filename)
+    const raw = await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1/documents`, document.filename)
     expect(raw).toBe('')
   }, 30000)
 })
@@ -138,12 +138,7 @@ describe('Catch points report instead of aborting', () => {
     })
 
     const packageId = 'reference-bundling/shared-broken-reference'
-    const result = await new LocalRegistry(packageId).publish(packageId, {
-      packageId,
-      version: 'v1',
-      status: VERSION_STATUS.DRAFT,
-      files: [{ fileId: 'shared.yaml' }],
-    })
+    const result = await publishVersion(packageId, 'v1', 'shared.yaml', { status: VERSION_STATUS.DRAFT })
 
     const categories = result.notifications.map(({ category }) => category)
     expect(categories).toContain(MESSAGE_CATEGORY.BuildDocument)

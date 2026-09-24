@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Editor, LocalRegistry, notificationOf } from './helpers'
+import { documentOf, Editor, LocalRegistry, notificationOf } from './helpers'
 import { MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../src/consts'
 import { buildDocument } from '../src/components/document'
 import { DocumentBuildError } from '../src/errors'
@@ -29,15 +29,14 @@ const expectToleratedParseFailure = async (fileId: string): Promise<void> => {
   const editor = await Editor.openProject('broken', brokenPackage)
   const result = await editor.run({ files: [{ fileId, publish: true, labels: [] }] })
 
-  const document = result.documents.get(fileId)
-  expect(document).toBeDefined()
-  expect(document!.source).toBeDefined()
+  const document = documentOf(result, fileId)
+  expect(document.source).toBeDefined()
   expect(result.operations.size).toBe(0)
 
   const parseFailure = notificationOf(result.notifications, MESSAGE_CATEGORY.ParseFile)
   expect(parseFailure.severity).toBe(MESSAGE_SEVERITY.Error)
   expect(parseFailure.message).toContain(`Cannot parse file ${fileId}.`)
-  expect(parseFailure.documentId).toBe(document!.slug)
+  expect(parseFailure.documentId).toBe(document.slug)
 }
 
 // The packaging regression this tolerance would otherwise hit: an error document with no source used to make
@@ -48,7 +47,7 @@ describe('Basic project (one file): validation broken', () => {
       const editor = await Editor.openProject('broken', brokenPackage)
       const result = await editor.run({ files: [{ fileId: 'openapi.yaml', publish: true, labels: [] }] })
 
-      expect(result.documents.get('openapi.yaml')?.type).toBe('openapi-3-0')
+      expect(documentOf(result, 'openapi.yaml').type).toBe('openapi-3-0')
     })
 
     test('missing quote', async () => {

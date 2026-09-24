@@ -82,6 +82,11 @@ export function deprecatedItemDescriptionMatcher(
 
 type Matcher = ObjectContaining<DeprecateItem>
 
+/**
+ * The whole notification list as a set: every notification the build reported matches one of `expected`, and
+ * none is left over. For one notification of a known category use `notificationOf`; to count or filter, use
+ * `errorsOf`, `warningsOf` or `inCategory`.
+ */
 export function notificationsMatcher(
   expected: Array<RecursiveMatcher<NotificationMessage>>,
 ): ApihubNotificationsMatcher {
@@ -91,6 +96,7 @@ export function notificationsMatcher(
   )
 }
 
+/** One element of the list `notificationsMatcher` expects, matched by severity and message. */
 export function notificationMatcher(
   severity: MessageSeverity,
   message: string | RegExp,

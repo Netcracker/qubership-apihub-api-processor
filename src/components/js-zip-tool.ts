@@ -26,7 +26,7 @@ export class JsZipTool implements ZipTool {
     }
   }
 
-  async buildResult(options?: JSZip.JSZipGeneratorOptions<'nodebuffer'>): Promise<Buffer> {
+  async buildResult(options?: JSZip.JSZipGeneratorOptions | undefined): Promise<any> {
     options = { ...defaultZipOptions, ...options }
     return await this.zip.generateAsync(options)
   }

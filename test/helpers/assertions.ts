@@ -40,9 +40,9 @@ export function expectSummariesMatchDiffs(result: BuildResult): void {
 /**
  * The change counts one comparison reports, and the operations those changes touched.
  *
- * Plain functions rather than `expect.extend` matchers: a custom matcher shortens the failure by one
- * more line and costs a type-declaration surface that has to be kept in sync by hand. The evidence is
- * in T9 of `tasks/plan.md`.
+ * Plain functions rather than `expect.extend` matchers. One wrong count printed 162 lines or more through
+ * the old matcher factories and about 15 through these; a custom matcher would save one more line at the
+ * cost of a type-declaration surface kept in sync by hand.
  */
 export function expectChangesSummary(
   result: BuildResult,

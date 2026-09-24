@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Editor, LocalRegistry, notificationOf } from './helpers'
+import { documentOf, Editor, LocalRegistry, notificationOf } from './helpers'
 import { MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../src/consts'
 
 const asyncValidationPackage = LocalRegistry.openPackage('asyncapi-validation')
@@ -26,7 +26,7 @@ describe('AsyncAPI Validation', () => {
       const result = await editor.run({ files: [{ fileId: 'valid-async.yaml', publish: true, labels: [] }] })
 
       // Document should be successfully created
-      expect(result.documents.get('valid-async.yaml')?.type).toBe('asyncapi-3-0')
+      expect(documentOf(result, 'valid-async.yaml').type).toBe('asyncapi-3-0')
 
       // No error notifications for this file
       const errorNotifications = result.notifications.filter(
@@ -65,13 +65,13 @@ describe('AsyncAPI Validation', () => {
       const result = await editor.run({ files: [{ fileId, publish: true, labels: [] }] })
 
       // published, with its bytes, and with nothing extracted from it
-      const document = result.documents.get(fileId)
-      expect(document?.source).toBeDefined()
+      const document = documentOf(result, fileId)
+      expect(document.source).toBeDefined()
       expect(result.operations.size).toBe(0)
 
       const parseFailure = notificationOf(result.notifications, MESSAGE_CATEGORY.ParseFile)
       expect(parseFailure.severity).toBe(MESSAGE_SEVERITY.Error)
-      expect(parseFailure.documentId).toBe(document!.slug)
+      expect(parseFailure.documentId).toBe(document.slug)
       return parseFailure.message
     }
   })

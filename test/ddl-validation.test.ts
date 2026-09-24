@@ -15,7 +15,7 @@
  */
 
 import { describe, expect, test } from '@jest/globals'
-import { Editor, LocalRegistry, notificationOf } from './helpers'
+import { documentOf, Editor, LocalRegistry, notificationOf } from './helpers'
 import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, VERSION_STATUS } from '../src/consts'
 import { BuildConfigFile, BuildResult } from '../src/types'
 
@@ -48,13 +48,13 @@ describe('DDL validation', () => {
   test('invalid SQL is reported, not fatal — the file publishes with its bytes', async () => {
     const result = await build('CREATE TABLE ( ;')
 
-    const document = result.documents.get('shop.sql')
-    expect(document?.source).toBeDefined()
+    const document = documentOf(result, 'shop.sql')
+    expect(document.source).toBeDefined()
     expect(result.ddlEntities.size).toBe(0)
 
     const parseFailure = notificationOf(result.notifications, MESSAGE_CATEGORY.ParseFile)
     expect(parseFailure.severity).toBe(MESSAGE_SEVERITY.Error)
-    expect(parseFailure.documentId).toBe(document!.slug)
+    expect(parseFailure.documentId).toBe(document.slug)
   })
 
   test('a within-file duplicate object is an Error, reported not thrown', async () => {

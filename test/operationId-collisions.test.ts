@@ -21,12 +21,11 @@ import {
   notificationMatcher,
   notificationOf,
   notificationsMatcher,
+  operationOf,
 } from './helpers'
 import { describe, expect, test } from '@jest/globals'
 import { calculateRestOperationId, calculateNormalizedRestOperationId, _calculateRestOperationIdV1 } from '../src/utils/operations.utils'
 import { BuildResult, MESSAGE_CATEGORY, MESSAGE_SEVERITY, VERSION_STATUS } from '../src'
-import { operationKey } from '../src/components/operations'
-import { REST_API_TYPE } from '../src/consts'
 
 
 // An intra-document duplicate no longer costs the version: it is reported against that document, and the
@@ -306,7 +305,7 @@ describe('Operation ID collisions', () => {
       ]))
 
       // the lexicographically smallest documentId wins the index, whatever order the config listed them in
-      expect(result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'res-data-post' }))?.documentId).toBe('spec1')
+      expect(operationOf(result, 'res-data-post').documentId).toBe('spec1')
     })
 
     // Two documents that differ refuse a release now, so both versions here are drafts. A draft still has to

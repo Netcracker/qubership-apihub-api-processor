@@ -15,7 +15,7 @@
  */
 
 import { BUILD_TYPE, VERSION_STATUS } from '../src'
-import { Editor, LocalRegistry } from './helpers'
+import { documentOf, Editor, LocalRegistry } from './helpers'
 
 const basicPackage = LocalRegistry.openPackage('basic')
 const apiAudiencePackage = LocalRegistry.openPackage('api-audience')
@@ -83,12 +83,12 @@ describe('Editor scenarios', () => {
         ],
       })
 
-      const document = result.documents.get('docs/API-HUB_09.03.22.yaml')
-      expect(document?.title).toBeDefined()
-      expect(document?.description).toBeDefined()
-      expect(document?.version).toBeDefined()
-      expect((document?.metadata as any).info).toBeDefined()
-      expect((document?.metadata as any).externalDocs).toBeDefined()
+      const document = documentOf(result, 'docs/API-HUB_09.03.22.yaml')
+      expect(document.title).toBeDefined()
+      expect(document.description).toBeDefined()
+      expect(document.version).toBeDefined()
+      expect((document.metadata as any).info).toBeDefined()
+      expect((document.metadata as any).externalDocs).toBeDefined()
     })
   })
 

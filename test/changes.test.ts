@@ -25,6 +25,7 @@ import {
   LocalRegistry,
   operationChangesMatcher,
   operationTypeOf,
+  publishVersion,
 } from './helpers'
 import {
   ANNOTATION_CHANGE_TYPE,
@@ -307,17 +308,9 @@ paths:
   test('Should fail changelog build if on of the versions was built using outdated api-processor version', async () => {
     const pckgId = 'changelog/add-operation'
 
-    await LocalRegistry.openPackage(pckgId).publish(pckgId, {
-      version: 'v1',
-      packageId: pckgId,
-      files: [{ fileId: 'before.yaml' }],
-    })
+    await publishVersion(pckgId, 'v1', 'before.yaml')
 
-    await LocalRegistry.openPackage(pckgId).publish(pckgId, {
-      version: 'v2',
-      packageId: pckgId,
-      files: [{ fileId: 'after.yaml' }],
-    })
+    await publishVersion(pckgId, 'v2', 'after.yaml')
 
     const editor = changelogEditor(pckgId)
 

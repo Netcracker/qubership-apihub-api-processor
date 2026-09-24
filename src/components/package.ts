@@ -66,15 +66,15 @@ export interface ZipTool {
   // todo method should only accept Blob content, transformation is not a responsibility of this method
   file: (name: string, content: object | string | Blob) => Promise<void>
   folder: (name: string) => ZipTool
-  buildResult: (options?: JSZip.JSZipGeneratorOptions<'nodebuffer'>) => Promise<Buffer>
+  buildResult: (options?: JSZip.JSZipGeneratorOptions) => Promise<any>
 }
 
 export const createVersionPackage = async (
   buildResult: BuildResult,
   zip: ZipTool,
   ctx: BuilderContext,
-  options?: JSZip.JSZipGeneratorOptions<'nodebuffer'>,
-): Promise<Buffer> => {
+  options?: JSZip.JSZipGeneratorOptions,
+): Promise<any> => {
   // a serialization failure belongs to the comparison being serialized, so the closure is per comparison
   const logErrorFor = (notifications: NotificationMessage[]) => (message: string): void => {
     notifications.push({
