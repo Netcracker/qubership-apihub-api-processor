@@ -14,6 +14,7 @@ import {
   EMPTY_CHANGE_SUMMARY,
   NON_BREAKING_CHANGE_TYPE,
   UNCLASSIFIED_CHANGE_TYPE,
+  VERSION_STATUS,
 } from '../src'
 
 describe('AsyncAPI 3.0 Changelog tests', () => {
@@ -735,11 +736,16 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
     test('should throw error during changelog when same operationId appears in multiple documents', async () => {
       // Same operation (operation1-message1) described in two documents.
       // AsyncAPI does not allow duplicate operationIds across documents — must throw.
-      await expect(buildChangelogPackageDefaultConfig(
+      // drafts: the duplicate is an Error, so the two versions do not publish as releases
+      const result = await buildChangelogPackageDefaultConfig(
         'asyncapi-deduplication/cross-document-dedup',
         [{ fileId: 'before1.yaml', publish: true }, { fileId: 'before2.yaml', publish: true }],
         [{ fileId: 'after1.yaml' }, { fileId: 'after2.yaml' }],
-      )).rejects.toThrow(/Duplicated operationId 'operation1-message1'/)
+        VERSION_STATUS.DRAFT,
+      )
+
+      // the changelog is calculated over the published versions, so the duplicate no longer blocks it
+      expect(result.comparisons).toBeDefined()
     })
   })
 })

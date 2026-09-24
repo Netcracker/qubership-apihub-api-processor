@@ -15,10 +15,12 @@
  */
 
 import { API_AUDIENCE_INTERNAL, APIHUB_API_COMPATIBILITY_KIND_BWC, APIHUB_API_COMPATIBILITY_KIND_NO_BWC } from '../src'
+import { MESSAGE_SEVERITY, REST_API_TYPE } from '../src/consts'
 import { Editor, LocalRegistry } from './helpers'
 
 import { describe, expect, test } from '@jest/globals'
 import { calculateRestOperationTitle } from '../src/utils'
+import { operationKey } from '../src/components/operations'
 
 const bugsPackage = LocalRegistry.openPackage('bugs')
 const swaggerPackage = LocalRegistry.openPackage('basic_swagger')
@@ -41,7 +43,7 @@ describe('Operation Bugs', () => {
       ],
     })
 
-    expect([...result.operations.keys()].every(id => id.startsWith('v1'))).toBeTruthy()
+    expect([...result.operations.values()].every(({ operationId }) => operationId.startsWith('v1'))).toBeTruthy()
   })
 
   test('relative server url: paths should start with v1', async () => {
@@ -52,7 +54,7 @@ describe('Operation Bugs', () => {
       ],
     })
 
-    expect([...result.operations.keys()].every(id => id.startsWith('v1'))).toBeTruthy()
+    expect([...result.operations.values()].every(({ operationId }) => operationId.startsWith('v1'))).toBeTruthy()
   })
 
   test('x-api-kind \'no-BWC\' should be handled correctly in operations', async () => {
@@ -75,7 +77,7 @@ describe('Operation Bugs', () => {
       ],
     })
 
-    const operationV1 = result.operations.get('v1-pet-findByStatus-get')
+    const operationV1 = result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'v1-pet-findByStatus-get' }))
     expect(operationV1?.title).toMatch(/(\s*)TEST(\s*)/g)
   })
 
@@ -83,7 +85,8 @@ describe('Operation Bugs', () => {
     const editor = await Editor.openProject('basic_swagger', swaggerPackage)
     const result = await editor.run()
 
-    expect(result.notifications.filter(({ severity }) => severity === 0).length).toEqual(1)
+    // AJV metaschema complaints are Warnings now: the document parses and its operations build
+    expect(result.notifications.filter(({ severity }) => severity === MESSAGE_SEVERITY.Warning).length).toEqual(1)
   })
 
   test('type error must not appear during build', async () => {
@@ -135,7 +138,7 @@ describe('Operation Bugs', () => {
         publish: true,
       }],
     })
-    const operation = result.operations.get('path1-get')
+    const operation = result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'path1-get' }))
     expect(operation?.search).toEqual({ useOperationDataAsSearchText: true })
   })
 
@@ -144,7 +147,7 @@ describe('Operation Bugs', () => {
     const result = await editor.run({
       files: [{ fileId: 'delete-unused-components.yaml', publish: true }],
     })
-    const data = result.operations.get('path1-get')?.data
+    const data = result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'path1-get' }))?.data
 
     expect(data?.components).toEqual({
       parameters: {
@@ -190,7 +193,7 @@ describe('Operation Bugs', () => {
     const result = await editor.run({
       files: [{ fileId: 'delete-unused-components.yaml', publish: true }],
     })
-    const models = result.operations.get('path1-get')?.models
+    const models = result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'path1-get' }))?.models
     expect(models).toHaveProperty('usedSchema')
     expect(models).not.toHaveProperty('unusedSchema')
     expect(models).not.toHaveProperty('usedResponse')
@@ -210,7 +213,7 @@ describe('Operation Bugs', () => {
     const result = await editor.run({
       files: [{ fileId: 'schemas-with-the-same-name.yaml', publish: true }],
     })
-    const data = result.operations.get('path1-get')?.data
+    const data = result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'path1-get' }))?.data
 
     expect(data?.components).toEqual({
       requestBodies: {
@@ -241,7 +244,7 @@ describe('Operation Bugs', () => {
     const result = await editor.run({
       files: [{ fileId: 'ref-to-nested-schema.yaml', publish: true }],
     })
-    const data = result.operations.get('path1-get')?.data
+    const data = result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'path1-get' }))?.data
 
     expect(data).toHaveProperty(['components', 'schemas', 'firstSchema'])
   })
@@ -251,7 +254,7 @@ describe('Operation Bugs', () => {
     const result = await editor.run({
       files: [{ fileId: 'ref-in-invalid-spec.yaml', publish: true }],
     })
-    const data = result.operations.get('path1-get')?.data
+    const data = result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'path1-get' }))?.data
 
     expect(data).toHaveProperty(['components', 'schemas', 'nestedSchema'])
   })
@@ -267,7 +270,7 @@ describe('Operation Bugs', () => {
         publish: true,
       }],
     })
-    expect(result.operations.get('path1-get')?.apiAudience).toEqual(API_AUDIENCE_INTERNAL)
+    expect(result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'path1-get' }))?.apiAudience).toEqual(API_AUDIENCE_INTERNAL)
   }, 100000)
 
   test('hidden files without extension should have required fields', async () => {
@@ -354,7 +357,7 @@ describe('Operation Bugs', () => {
       ],
     })
 
-    const operationKeys = Array.from(result.operations.keys())
+    const operationKeys = Array.from(result.operations.values(), ({ operationId }) => operationId)
     expect(operationKeys[0]).toEqual('paths1-get')
   })
 
@@ -363,7 +366,7 @@ describe('Operation Bugs', () => {
     const result = await editor.run({
       files: [{fileId: 'date-time-field-parsing-error.yaml', publish: true}],
     })
-    const data = result.operations.get('test-post')?.data
+    const data = result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'test-post' }))?.data
     expect(data).toHaveProperty(['paths', '/test', 'post', 'responses', '200', 'content', 'application/json', 'schema', 'properties', 'testConnectionDate', 'example'], '2022-03-10T16:15:50Z')
   })
 
@@ -386,7 +389,7 @@ describe('Operation Bugs', () => {
     const result = await editor.run({
       files: [{ fileId: 'title-rest-operation-id-format.yaml', publish: true }],
     })
-    const restOperationTitle = result.operations.get('api-v1-items-_item_-get')?.title
+    const restOperationTitle = result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'api-v1-items-_item_-get' }))?.title
     expect(restOperationTitle).toEqual('Api V1 Items Item Get')
   })
 })

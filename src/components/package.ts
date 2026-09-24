@@ -23,17 +23,24 @@ import {
   BuildResult,
   BuildResultDto,
   ComparisonInternalDocument,
+  DdlComparison,
+  DdlComparisonDto,
   ExportDocument,
+  NotificationMessage,
   PackageConfig,
   PackageNotifications,
   PackageOperation,
   VersionDocument,
+  VersionsComparison,
+  VersionsComparisonDto,
   ZippableDocument,
 } from '../types'
 import { unknownApiBuilder } from '../apitypes'
-import { BUILD_TYPE, MESSAGE_SEVERITY, PACKAGE } from '../consts'
-import { EXPORT_FORMAT_TO_FILE_FORMAT } from '../utils'
+import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, PACKAGE } from '../consts'
+import { ComparisonErrorSource, comparisonHasErrors, EXPORT_FORMAT_TO_FILE_FORMAT, getSplittedVersionKey } from '../utils'
 import { toDdlComparisonDto, toVersionsComparisonDto } from '../utils/transformToDto'
+import { assertReleaseIsPublishable, comparisonPhaseNotifications } from './release-gate'
+import { erroredDocumentSlugs } from './errored-documents'
 import { McpEntityIndex } from '../types/package/mcp'
 import { DdlEntityIndex } from '../types/package/ddl'
 import {
@@ -44,6 +51,8 @@ import {
   buildDdlComparisonsIndex,
   buildDdlFile,
   buildMcpFile,
+  buildComparisonNotifications,
+  DeclaredPair,
   buildNotifications,
   buildPackageDocuments,
   buildPackageOperations,
@@ -65,18 +74,20 @@ export const createVersionPackage = async (
   ctx: BuilderContext,
   options?: JSZip.JSZipGeneratorOptions,
 ): Promise<any> => {
-  const logError = (message: string): void => {
-    ctx.notifications.push({
+  // a serialization failure belongs to the comparison being serialized, so the closure is per comparison
+  const logErrorFor = (notifications: NotificationMessage[]) => (message: string): void => {
+    notifications.push({
+      category: MESSAGE_CATEGORY.ComparisonSerialization,
       severity: MESSAGE_SEVERITY.Error,
       message: message,
     })
   }
   const buildResultDto: BuildResultDto = {
     ...buildResult,
-    comparisons: buildResult.comparisons.map(comparison => toVersionsComparisonDto(comparison, ctx.normalizedSpecFragmentsHashCache, logError)),
+    comparisons: buildResult.comparisons.map(comparison =>
+      withComparisonErrors(toVersionsComparisonDto(comparison, ctx.normalizedSpecFragmentsHashCache, logErrorFor(comparison.notifications)), comparison)),
   }
-  // comparison-internal documents are shared between operation and DDL comparisons (the merged REST docs
-  // and merged Realms land in the same index/dir)
+  // merged REST documents and merged Realms share one index and one directory, so both kinds are collected
   const comparisonInternalDocuments: ComparisonInternalDocument[] = [
     ...buildResult.comparisons.flatMap(comparison => comparison.comparisonInternalDocuments),
     ...buildResult.ddlComparisons.flatMap(comparison => comparison.comparisonInternalDocuments),
@@ -97,20 +108,29 @@ export const createVersionPackage = async (
       return await zip.buildResult(options)
   }
 
-  createDocumentsFile(zip, documents)
-  createVersionInternalDocumentsFile(zip, documents)
+  // A changelog recalculates the changes of a version that is already published: it produces no documents of
+  // its own and its `info.json` describes a comparison. It therefore carries neither the `hasErrors` flags nor
+  // the version's own content — an empty `documents.json` or `operations.json` would describe the published
+  // version as having none. Every other build type here publishes documents.
+  const buildType = ctx.config.buildType ?? BUILD_TYPE.BUILD
+  const publishesDocuments = buildType !== BUILD_TYPE.CHANGELOG && buildType !== BUILD_TYPE.PREFIX_GROUPS_CHANGELOG
 
-  await createDocumentDataFiles(zip, documents, ctx)
-  await createVersionInternalDocumentDataFiles(zip, documents)
+  await createInfoFile(zip, buildResultDto.config, publishesDocuments && hasBuildError(buildResultDto.notifications))
 
-  await createInfoFile(zip, buildResultDto.config)
+  if (publishesDocuments) {
+    createDocumentsFile(zip, documents, erroredDocumentSlugs(buildResultDto.notifications))
+    createVersionInternalDocumentsFile(zip, documents)
 
-  createOperationsFile(zip, buildResultDto.operations)
-  createSearchTextFiles(zip, buildResultDto.operations)
-  const operationsDir = zip.folder(PACKAGE.OPERATIONS_DIR_NAME)!
-  for (const { data, operationId } of buildResultDto.operations.values()) {
-    if (!data) { continue }
-    createOperationDataFile(operationsDir, operationId, data)
+    await createDocumentDataFiles(zip, documents, ctx)
+    await createVersionInternalDocumentDataFiles(zip, documents)
+
+    createOperationsFile(zip, buildResultDto.operations)
+    createSearchTextFiles(zip, buildResultDto.operations)
+    const operationsDir = zip.folder(PACKAGE.OPERATIONS_DIR_NAME)!
+    for (const { data, operationId } of buildResultDto.operations.values()) {
+      if (!data) { continue }
+      createOperationDataFile(operationsDir, operationId, data)
+    }
   }
 
   if (buildResultDto.mcpEntities.size) {
@@ -131,9 +151,9 @@ export const createVersionPackage = async (
     }
   }
 
-  // DDL comparisons go to their own sibling files (ddl-comparisons.json + ddl-comparisons/<id>),
-  // leaving the operation comparisons untouched (AD2). The per-pair wrapper key is `entities` (C2).
-  const ddlComparisonsDto = buildResult.ddlComparisons.map(comparison => toDdlComparisonDto(comparison, ctx.normalizedSpecFragmentsHashCache, logError))
+  // DDL comparisons ship as siblings, leaving the operation comparisons untouched
+  const ddlComparisonsDto = buildResult.ddlComparisons.map(comparison =>
+    withComparisonErrors(toDdlComparisonDto(comparison, ctx.normalizedSpecFragmentsHashCache, logErrorFor(comparison.notifications)), comparison))
   if (ddlComparisonsDto.length) {
     zip.file(PACKAGE.DDL_COMPARISONS_FILE_NAME, buildDdlComparisonsIndex(ddlComparisonsDto))
     const ddlComparisonsDir = zip.folder(PACKAGE.DDL_COMPARISONS_DIR_NAME)
@@ -143,27 +163,77 @@ export const createVersionPackage = async (
     }
   }
 
-  // shared comparison-internal documents (operation merged docs + DDL merged Realms)
   if (comparisonInternalDocuments.length) {
     createComparisonInternalDocumentsFile(zip, comparisonInternalDocuments)
     await createComparisonInternalDocumentDataFiles(zip, comparisonInternalDocuments)
   }
 
-  createNotificationsFile(zip, { notifications: buildResultDto.notifications })
+  // build stream only where documents are published — see `publishesDocuments`
+  if (publishesDocuments) { createNotificationsFile(zip, { notifications: buildResultDto.notifications }) }
+  // built from the pair arrays themselves, not from the DTOs — the DTOs deliberately drop `notifications`
+  createComparisonNotificationsFile(zip, [...buildResult.comparisons, ...buildResult.ddlComparisons], buildResult)
+
+  // `comparison-serialization` is raised while the DTOs above are built, after `BuildStrategy` has gated.
+  // Without this call the release ships with `hasErrors` on the comparison.
+  if (buildType === BUILD_TYPE.BUILD) {
+    assertReleaseIsPublishable(ctx.config.status, [], comparisonPhaseNotifications(buildResult))
+  }
 
   return await zip.buildResult(options)
 }
 
-const createInfoFile = async (zip: ZipTool, config: PackageConfig): Promise<void> => {
-  zip.file(PACKAGE.INFO_FILE_NAME, { ...config, builderVersion: version })
+const createInfoFile = async (zip: ZipTool, config: PackageConfig, hasErrors: boolean): Promise<void> => {
+  // info.json echoes the config, so anything derived has to be added by hand
+  zip.file(PACKAGE.INFO_FILE_NAME, { ...config, builderVersion: version, ...hasErrors ? { hasErrors } : {} })
 }
+
+// any build-phase Error makes the version errored, attributed to a document or not
+const hasBuildError = (notifications: NotificationMessage[]): boolean =>
+  notifications.some(({ severity }) => severity === MESSAGE_SEVERITY.Error)
 
 const createNotificationsFile = (zip: ZipTool, notifications: PackageNotifications): void => {
   zip.file(PACKAGE.NOTIFICATIONS_FILE_NAME, buildNotifications(notifications.notifications))
 }
 
-const createDocumentsFile = (zip: ZipTool, documents: VersionDocument[]): void => {
-  zip.file(PACKAGE.DOCUMENTS_FILE_NAME, buildPackageDocuments(documents))
+/** Stamp `hasErrors` on the DTO; `comparisonHasErrors` owns the cached-vs-calculated rule. */
+const withComparisonErrors = <T extends { fromCache: boolean; hasErrors?: boolean }>(
+  dto: T,
+  source: ComparisonErrorSource,
+): T => (comparisonHasErrors(source) ? { ...dto, hasErrors: true } : dto)
+
+/**
+ * Write `comparison-notifications.json`, or nothing when the build neither calculated a comparison nor
+ * raised a comparison-phase message.
+ */
+const createComparisonNotificationsFile = (
+  zip: ZipTool,
+  comparisons: Array<VersionsComparison | DdlComparison>,
+  buildResult: BuildResult,
+): void => {
+  // a comparison the host answered for is omitted by `buildComparisonNotifications`, so counting the input
+  // would ship `{"comparisons": []}` — the empty list a consumer would replace this version's rows with
+  const calculated = comparisons.filter(({ fromCache }) => !fromCache)
+  if (!calculated.length && !buildResult.comparisonNotifications.length) { return }
+
+  const { packageId, version, previousVersionPackageId, previousVersion } = buildResult.config
+  // `version` can carry a revision (`v2@3`), and a calculated comparison keeps the two apart. The declared
+  // pair splits them the same way, or its row names a pair no comparison matches.
+  const [versionKey, revision] = getSplittedVersionKey(version)
+  const [previousVersionKey, previousVersionRevision] = getSplittedVersionKey(previousVersion)
+  const declaredPair: DeclaredPair = {
+    packageId,
+    version: versionKey,
+    revision,
+    previousVersionPackageId: previousVersionPackageId || packageId,
+    previousVersion: previousVersionKey,
+    previousVersionRevision,
+    notifications: buildResult.comparisonNotifications,
+  }
+  zip.file(PACKAGE.COMPARISON_NOTIFICATIONS_FILE_NAME, buildComparisonNotifications(comparisons, declaredPair))
+}
+
+const createDocumentsFile = (zip: ZipTool, documents: VersionDocument[], erroredSlugs: ReadonlySet<string>): void => {
+  zip.file(PACKAGE.DOCUMENTS_FILE_NAME, buildPackageDocuments(documents, erroredSlugs))
 }
 
 const createVersionInternalDocumentDataFiles = async (zip: ZipTool, documents: VersionDocument[]): Promise<void> => {

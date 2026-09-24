@@ -162,6 +162,9 @@ export function toVersionsComparisonDto({
   data,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   comparisonInternalDocuments,
+  // the pair's messages ship in comparison-notifications.json, not inside the comparison row
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  notifications,
   ...rest
 }: VersionsComparison, normalizedSpecFragmentsHashCache: ObjectHashCache, logError: (message: string) => void): VersionsComparisonDto {
   return {
@@ -209,6 +212,8 @@ export function toDdlComparisonDto({
   data,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   comparisonInternalDocuments,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  notifications,
   ...rest
 }: DdlComparison, normalizedSpecFragmentsHashCache: ObjectHashCache, logError: (message: string) => void): DdlComparisonDto {
   return {
