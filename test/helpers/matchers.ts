@@ -73,12 +73,12 @@ export function operationChangesMatcher(
 }
 
 /**
- * One entry of the list `operationChangesMatcher` expects: an operation compared with its previous version, under the
- * same id unless it was renamed.
+ * One entry of the list `operationChangesMatcher` expects: an operation compared with its previous version. Both
+ * ids are always spelled out, the same one twice when the operation was not renamed.
  */
 export function changedOperationMatcher(
   operationId: string,
-  previousOperationId: string = operationId,
+  previousOperationId: string,
 ): ApihubOperationChangesMatcher {
   return expect.objectContaining({ operationId, previousOperationId })
 }

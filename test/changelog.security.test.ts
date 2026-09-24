@@ -237,7 +237,7 @@ describe('Security Diff Collection', () => {
         },
       })
       expect(result).toEqual(operationChangesMatcher([
-        changedOperationMatcher('test2-get'),
+        changedOperationMatcher('test2-get', 'test2-get'),
       ]))
     })
 
@@ -255,7 +255,7 @@ describe('Security Diff Collection', () => {
         },
       })
       expect(result).toEqual(operationChangesMatcher([
-        changedOperationMatcher('test1-get'),
+        changedOperationMatcher('test1-get', 'test1-get'),
       ]))
     })
 
@@ -272,7 +272,7 @@ describe('Security Diff Collection', () => {
         },
       })
       expect(result).toEqual(operationChangesMatcher([
-        changedOperationMatcher('test2-get'),
+        changedOperationMatcher('test2-get', 'test2-get'),
       ]))
     })
   })

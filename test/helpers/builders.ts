@@ -83,18 +83,32 @@ export const changelogEditor = (packageId: string, registry?: IRegistry): Editor
 
 export async function buildChangelogPackage(
   packageId: string,
+  filesBefore?: BuildConfigFile[],
+  filesAfter?: BuildConfigFile[],
+  status?: VersionStatus,
+): Promise<BuildResult> {
+  const editor = await prepareChangelogPackage(packageId, filesBefore, filesAfter, status)
+  return editor.run()
+}
+
+/**
+ * Publish the package's `v1` and `v2` and return the editor for their changelog without running it, for a test
+ * that has to reach into the builder first.
+ */
+export async function prepareChangelogPackage(
+  packageId: string,
   filesBefore: BuildConfigFile[] = [{ fileId: 'before.yaml' }],
   filesAfter: BuildConfigFile[] = [{ fileId: 'after.yaml' }],
   // the pair's own status: a fixture that carries an Error publishes as a draft, and the changelog over it
   // is what the test is about
   status: VersionStatus = VERSION_STATUS.RELEASE,
-): Promise<BuildResult> {
+): Promise<Editor> {
   const pkg = LocalRegistry.openPackage(packageId)
 
   await pkg.publish(packageId, { packageId, version: BEFORE_VERSION_ID, files: filesBefore, status })
   await pkg.publish(packageId, { packageId, version: AFTER_VERSION_ID, files: filesAfter, status })
 
-  return changelogEditor(packageId).run()
+  return changelogEditor(packageId)
 }
 
 export async function buildPrefixGroupChangelogPackage(options: {

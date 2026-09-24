@@ -19,13 +19,12 @@ import {
   BEFORE_VERSION_ID,
   buildChangelogFromContent,
   buildChangelogPackage,
-  changelogEditor,
   Editor,
   expectChangeCounts,
   LocalRegistry,
   operationChangesMatcher,
   operationTypeOf,
-  publishVersion,
+  prepareChangelogPackage,
 } from './helpers'
 import {
   ANNOTATION_CHANGE_TYPE,
@@ -366,11 +365,7 @@ paths:
   test('Should fail changelog build if on of the versions was built using outdated api-processor version', async () => {
     const pckgId = 'changelog/add-operation'
 
-    await publishVersion(pckgId, 'v1', 'before.yaml')
-
-    await publishVersion(pckgId, 'v2', 'after.yaml')
-
-    const editor = changelogEditor(pckgId)
+    const editor = await prepareChangelogPackage(pckgId)
 
     // Simulate that current version was built with an outdated api-processor
     // Mock the builder's versionResolver method (not the registry's)
