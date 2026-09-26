@@ -23,6 +23,7 @@ import {
   expectChangeCounts,
   LocalRegistry,
   operationChangesMatcher,
+  operationChangesOf,
   operationTypeOf,
   prepareChangelogPackage,
 } from './helpers'
@@ -35,6 +36,7 @@ import {
   UNCLASSIFIED_CHANGE_TYPE,
 } from '../src/processor'
 import { jest } from '@jest/globals'
+import { DiffAction } from '@netcracker/qubership-apihub-api-diff'
 
 let beforePackage: LocalRegistry
 let afterPackage: LocalRegistry
@@ -129,7 +131,7 @@ paths:
       responses:
         '200': { description: OK }
 `
-      const result = await buildChangelogFromContent('changelog/path-respelled-to-slug-twin', specAt('/res/data'), specAt('/res-data'))
+      const result = await buildChangelogFromContent('changelog/path-respelled-to-slug-twin', { before: specAt('/res/data'), after: specAt('/res-data') })
 
       expectChangeCounts(result, {
         changes: {
@@ -242,6 +244,8 @@ paths:
         changes: { [ANNOTATION_CHANGE_TYPE]: 1 },
         impacted: { [ANNOTATION_CHANGE_TYPE]: 1 },
       })
+      // the counts are the same for a removal, so the direction is what tells the two tests apart
+      expect(operationChangesOf(result, 'path1-get').diffs?.map(({ action }) => action)).toEqual([DiffAction.add])
     })
 
     test('Remove root servers', async () => {
@@ -251,6 +255,7 @@ paths:
         changes: { [ANNOTATION_CHANGE_TYPE]: 1 },
         impacted: { [ANNOTATION_CHANGE_TYPE]: 1 },
       })
+      expect(operationChangesOf(result, 'path1-get').diffs?.map(({ action }) => action)).toEqual([DiffAction.remove])
     })
 
     test('Remove server', async () => {

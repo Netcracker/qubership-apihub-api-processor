@@ -14,27 +14,41 @@
  * limitations under the License.
  */
 
+import { jest } from '@jest/globals'
 import { BUILD_TYPE, VERSION_STATUS } from '../src'
-import { documentOf, Editor, LocalRegistry } from './helpers'
+import { ANY_REST_CHANGE, contentEditor, documentOf, Editor, LocalRegistry, publishChangeFromContent } from './helpers'
 
-const basicPackage = LocalRegistry.openPackage('basic')
 const apiAudiencePackage = LocalRegistry.openPackage('api-audience')
 
 describe('Editor scenarios', () => {
   describe('Update version', () => {
     test('clean cache and change version', async () => {
-      const editor = await Editor.openProject('basic', basicPackage)
+      const packageId = 'update-version/clean-cache'
+      const registry = await publishChangeFromContent(packageId, ANY_REST_CHANGE)
+      // the editor takes the registry's resolvers when it is created, so the spy has to be there first
+      const resolveVersion = jest.spyOn(registry, 'versionResolver')
+      const editor = contentEditor(
+        { packageId, version: 'v3', previousVersion: 'v1', buildType: BUILD_TYPE.BUILD },
+        { 'after.yaml': ANY_REST_CHANGE.after },
+        registry,
+      )
       const result = await editor.run({ version: 'v3' })
+      resolveVersion.mockClear()
+
+      // a changed file makes the update compare again; the previous version comes from the version cache unless
+      // the update cleans it
       const resultUpdate = await editor.update(
         { version: 'v4' },
-        [],
+        ['after.yaml'],
         { cleanCache: true },
       )
 
+      expect(resolveVersion).toHaveBeenCalledWith(packageId, 'v1', true)
       const expectConfig = {
         ...result.config,
         version: 'v4',
       }
+      // checks only the keys the updated config keeps
       expect(expectConfig).toMatchObject(resultUpdate.config)
     })
   })

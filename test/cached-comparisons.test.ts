@@ -16,7 +16,7 @@
 
 import JSZip from 'jszip'
 import { describe, expect, it, jest } from '@jest/globals'
-import { changelogEditor, Editor, LocalRegistry, publishDashboardWithTwoRefs, readJsonFromZip } from './helpers'
+import { changelogEditor, contentEditor, Editor, LocalRegistry, publishDashboardWithTwoRefs, readJsonFromZip } from './helpers'
 import {
   BUILD_TYPE,
   ChangeSummary,
@@ -115,13 +115,10 @@ const buildDdlOnlyChangelog = async (): Promise<JSZip> => {
 
 /** A plain build has no previous version, so it compares nothing at all. */
 const buildWithoutPreviousVersion = async (): Promise<JSZip> => {
-  const editor = new Editor('ddl-build', {
-    packageId: 'cached-comparisons/plain',
-    version: 'v1',
-    buildType: BUILD_TYPE.BUILD,
-    status: VERSION_STATUS.RELEASE,
-    files: [{ fileId: 'shop.sql' }],
-  })
+  const editor = contentEditor(
+    { packageId: 'cached-comparisons/plain', version: 'v1', buildType: BUILD_TYPE.BUILD, status: VERSION_STATUS.RELEASE },
+    { 'shop.sql': TABLE_V1 },
+  )
   return await archiveOf(editor)
 }
 

@@ -17,6 +17,7 @@
 import {
   BUILD_TYPE,
   BuildConfig,
+  BuildConfigAggregator,
   BuildConfigFile,
   BuildResult,
   BuildType,
@@ -30,6 +31,7 @@ import {
 } from '../../src/processor'
 import { LocalRegistry, VersionOverrideRegistry } from './registry'
 import { Editor } from './editor'
+import { ANY_REST_SPEC, DocumentChange } from './fixtures'
 import { IRegistry } from './registry/types'
 import { isString, takeIfDefined } from '../../src/utils'
 
@@ -285,39 +287,95 @@ export async function buildPackageFromContent(
   )
 }
 
-export async function buildChangelogFromContent(
+/**
+ * Publish `before` as `v1` and `after` as `v2` of the package, as the files `before.<extension>` and
+ * `after.<extension>`, and return the registry they went into.
+ */
+export async function publishChangeFromContent(
   packageId: string,
-  beforeContent: string,
-  afterContent: string,
-  fileLabels?: Labels,
-): Promise<BuildResult> {
-  const portal = new LocalRegistry(packageId)
-
-  await portal.publishFromContent(
-    { 'before.yaml': beforeContent },
-    {
-      packageId: packageId,
-      version: BEFORE_VERSION_ID,
-      files: [{ fileId: 'before.yaml', publish: true, ...takeIfDefined({ labels: fileLabels }) }],
-    },
-  )
-  await portal.publishFromContent(
-    { 'after.yaml': afterContent },
-    {
-      packageId: packageId,
-      version: AFTER_VERSION_ID,
-      files: [{ fileId: 'after.yaml', ...takeIfDefined({ labels: fileLabels }) }],
-    },
-  )
-
-  return changelogEditor(packageId).run()
+  { before, after }: DocumentChange,
+  { extension = 'yaml' }: { extension?: string } = {},
+): Promise<LocalRegistry> {
+  const registry = new LocalRegistry(packageId)
+  await registry.publishFromContent({ [`before.${extension}`]: before }, {
+    packageId,
+    version: BEFORE_VERSION_ID,
+    files: [{ fileId: `before.${extension}` }],
+  })
+  await registry.publishFromContent({ [`after.${extension}`]: after }, {
+    packageId,
+    version: AFTER_VERSION_ID,
+    files: [{ fileId: `after.${extension}` }],
+  })
+  return registry
 }
 
-const DEFAULT_SPEC = JSON.stringify({
-  openapi: '3.0.0',
-  info: { title: 'Test', version: '1.0' },
-  paths: { '/test': { get: { operationId: 'getTest', responses: { '200': { description: 'OK' } } } } },
-})
+/**
+ * Publish the pair as `v1` and `v2` and return the editor for their changelog without running it, for a test that
+ * has to reach into the builder or change the run first.
+ */
+export async function prepareChangelogFromContent(
+  packageId: string,
+  change: DocumentChange,
+  options: { extension?: string } = {},
+): Promise<Editor> {
+  return changelogEditor(packageId, await publishChangeFromContent(packageId, change, options))
+}
+
+/** Publish the pair as `v1` and `v2` and build their changelog. */
+export async function buildChangelogFromContent(
+  packageId: string,
+  change: DocumentChange,
+  options: { extension?: string } = {},
+): Promise<BuildResult> {
+  return (await prepareChangelogFromContent(packageId, change, options)).run()
+}
+
+// an editor over the contents it was given and nothing else: an edit made through `update*File` wins over the
+// original, a listed or edited file id outside the contents throws, and any other lookup, such as a `$ref` to a
+// file it was not given, resolves to nothing so the build reports it as it would a missing file
+class ContentEditor extends Editor {
+  constructor(config: BuildConfig, private readonly contents: Record<string, string>, registry?: IRegistry) {
+    super(config.packageId, config, {}, registry)
+  }
+
+  override async run(config: Partial<BuildConfigAggregator> = {}): Promise<BuildResult> {
+    const files = ('files' in config ? config.files : undefined) ?? this.config.files ?? []
+    for (const { fileId } of files) { this.contentOf(fileId) }
+    return super.run(config)
+  }
+
+  // `force` is how `update*File` asks: a file it cannot find is a mistake in the test, not a missing reference
+  override async fileResolver(fileId: string, force = false): Promise<Blob | null> {
+    const edited = this.state.get(fileId)
+    if (edited) { return edited }
+    if (!force && !(fileId in this.contents)) { return null }
+    return new File([this.contentOf(fileId)], fileId, { type: 'application/yaml' })
+  }
+
+  private contentOf(fileId: string): string {
+    if (!(fileId in this.contents)) {
+      const given = Object.keys(this.contents)
+      throw new Error(`The content editor has no file '${fileId}'; it has ${given.length ? given.join(', ') : 'none'}`)
+    }
+    return this.contents[fileId]
+  }
+}
+
+/**
+ * Create an editor that builds `contents` instead of a fixture folder. Its `files` are the keys of `contents`; a
+ * file id outside them, listed for a run or edited through `update*File`, throws instead of being read from disk.
+ * `status` and `buildType` may be left out and given to `run`, as the fixture-folder editors do.
+ */
+export const contentEditor = (
+  config: Omit<Partial<BuildConfig>, 'files'> & Pick<BuildConfig, 'packageId' | 'version'>,
+  contents: Record<string, string>,
+  registry?: IRegistry,
+): Editor => new ContentEditor(
+  { ...config, files: Object.keys(contents).map(fileId => ({ fileId })) } as BuildConfig,
+  contents,
+  registry,
+)
 
 export async function buildWithVersionOverrides(
   packageId: string,
@@ -338,11 +396,11 @@ export async function buildWithVersionOverrides(
   }
 
   await registry.publishFromContent(
-    { 'spec.json': DEFAULT_SPEC },
+    { 'spec.json': ANY_REST_SPEC },
     { packageId, version: 'v1', files: [{ fileId: 'spec.json', publish: true }] },
   )
   await registry.publishFromContent(
-    { 'spec.json': DEFAULT_SPEC },
+    { 'spec.json': ANY_REST_SPEC },
     { packageId, version: 'v2', files: [{ fileId: 'spec.json' }] },
   )
 
@@ -361,7 +419,7 @@ export async function buildWithVersionOverrides(
     resolvers: {
       // a changelog reads no source files; a build reads the same spec the version was published from
       fileResolver: (fileId) => Promise.resolve(
-        fileId === 'spec.json' ? new File([DEFAULT_SPEC], fileId, { type: 'application/json' }) : null,
+        fileId === 'spec.json' ? new File([ANY_REST_SPEC], fileId, { type: 'application/json' }) : null,
       ),
       ...registry.versionResolvers,
     },

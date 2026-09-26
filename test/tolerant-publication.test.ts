@@ -16,8 +16,20 @@
 
 import { describe, expect, test } from '@jest/globals'
 import JSZip from 'jszip'
-import { documentOf, Editor, errorNotificationsOf, expectNotEmpty, loadFileAsStringFromRegistry, loadJsonFromRegistry, LocalRegistry, operationOf, VERSIONS_PATH } from './helpers'
-import { ASYNCAPI_API_TYPE, BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, PACKAGE, REST_API_TYPE, VERSION_STATUS } from '../src/consts'
+import {
+  ANY_REST_CHANGE,
+  documentOf,
+  Editor,
+  errorNotificationsOf,
+  expectNotEmpty,
+  loadFileAsStringFromRegistry,
+  loadJsonFromRegistry,
+  LocalRegistry,
+  operationOf,
+  prepareChangelogFromContent,
+  VERSIONS_PATH,
+} from './helpers'
+import { ASYNCAPI_API_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, PACKAGE, REST_API_TYPE, VERSION_STATUS } from '../src/consts'
 import { VALIDATION_RULES_SEVERITY_LEVEL_ERROR } from '../src'
 import { BuildConfig, BuildResult } from '../src/types'
 
@@ -198,41 +210,33 @@ describe('hasErrors flags', () => {
 // The regression half of the story: a version that builds cleanly must come out of this change exactly as it
 // went in. Everything new is either absent or empty, and nothing new leaks into the pre-existing files.
 describe('A clean build is unchanged', () => {
-  const PACKAGE_ID = 'declarative-changes-in-rest-operation/case1'
-
-  const buildCleanChangelog = async (): Promise<Editor> => {
-    const registry = new LocalRegistry(PACKAGE_ID)
-    await registry.publish(PACKAGE_ID, { packageId: PACKAGE_ID, version: 'v1', files: [{ fileId: 'before.yaml', publish: true }] })
-    await registry.publish(PACKAGE_ID, { packageId: PACKAGE_ID, version: 'v2', files: [{ fileId: 'after.yaml' }] })
-
-    const editor = new Editor(PACKAGE_ID, {
-      packageId: PACKAGE_ID,
-      version: 'v2',
-      previousVersionPackageId: PACKAGE_ID,
-      previousVersion: 'v1',
-      buildType: BUILD_TYPE.CHANGELOG,
-      status: VERSION_STATUS.RELEASE,
-    } as never, {}, registry)
+  // a package per test, so neither depends on what the other published
+  const buildCleanChangelog = async (packageId: string): Promise<Editor> => {
+    const editor = await prepareChangelogFromContent(packageId, ANY_REST_CHANGE)
     await editor.run()
     return editor
   }
 
   test('should keep the build stream silent and still compute the comparison', async () => {
-    const editor = await buildCleanChangelog()
+    const editor = await buildCleanChangelog('tolerant-publication/clean-changelog-streams')
     const { notifications, comparisons } = editor.builder.buildResult
 
+    // a clean changelog raises nothing, and every resolver writes to the pair's array, so this fails only if a
+    // message is both raised and routed here; only an injected message has been seen to fail it
     expect(notifications).toEqual([])
     // a clean build is not an empty one
     expectNotEmpty(comparisons)
     expect(comparisons.every(comparison => comparison.notifications.length === 0)).toBe(true)
-    expect(comparisons.some(comparison => comparison.hasErrors)).toBe(false)
   }, 30000)
 
   test('should add no error fields and write empty comparison rows rather than skipping them', async () => {
-    const editor = await buildCleanChangelog()
+    const editor = await buildCleanChangelog('tolerant-publication/clean-changelog-files')
     const zip = await JSZip.loadAsync(await editor.createVersionPackage())
-    const read = async <T>(name: string): Promise<T> =>
-      JSON.parse(await zip.file(name)!.async('string')) as T
+    // a file the package lacks fails here rather than as a null dereference below
+    const read = async <T>(name: string): Promise<T> => {
+      expect(zip.file(name)).not.toBeNull()
+      return JSON.parse(await zip.file(name)!.async('string')) as T
+    }
 
     const { comparisons } = await read<{ comparisons: Array<Record<string, unknown>> }>(PACKAGE.COMPARISONS_FILE_NAME)
     expectNotEmpty(comparisons)

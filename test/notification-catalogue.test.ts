@@ -15,7 +15,7 @@
  */
 
 import { describe, expect, test } from '@jest/globals'
-import { expectNotEmpty, LocalRegistry } from './helpers'
+import { ANY_ASYNCAPI_SPEC, ANY_REST_SPEC, expectNotEmpty, LocalRegistry } from './helpers'
 import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, VERSION_STATUS } from '../src/consts'
 import { BuildConfig, BuildResult, MessageCategory, MessageSeverity, NotificationMessage } from '../src/types'
 
@@ -29,7 +29,7 @@ import { BuildConfig, BuildResult, MessageCategory, MessageSeverity, Notificatio
 
 type Stream = 'build' | 'comparison'
 
-interface Case {
+interface CaseFields {
   /** what the publisher did, as the test titles read it */
   name: string
   category: MessageCategory
@@ -39,13 +39,27 @@ interface Case {
   /** a release carrying it does not publish */
   blocksRelease: boolean
   stream?: Stream
-  project: string
   config: Partial<BuildConfig>
-  /** published from memory instead of the project's files */
-  content?: Record<string, string>
   /** published as v1 first, for a diagnostic that only appears when there is something to compare against */
   baseline?: { content: Record<string, string>; config: Partial<BuildConfig> }
 }
+
+/**
+ * Where a row's files come from: a fixture folder read from disk, or files published from memory. A row has
+ * exactly one of the two.
+ */
+type Case = CaseFields & (
+  | {
+    /** the fixture folder the files are read from */
+    project: string
+    content?: undefined
+  }
+  | {
+    project?: undefined
+    /** published from memory, keyed by file id */
+    content: Record<string, string>
+  }
+)
 
 const MCP = { metadata: { mcpEndpoint: '/mcp' } }
 const file = (fileId: string): { fileId: string } => ({ fileId })
@@ -95,11 +109,6 @@ operations:
       - payload: {}
 `
 
-// the same document with the message referenced instead of written inline: it builds, so it can stand as a
-// baseline for a version that drops AsyncAPI entirely
-const ASYNC_REFERENCED_MESSAGE = ASYNC_INLINE_MESSAGE
-  .replace('      - payload: {}', '      - $ref: \'#/channels/c1/messages/M1\'')
-
 // a deprecated channel: the tolerant hash is stamped on schema and parameter nodes, never on a channel
 const ASYNC_DEPRECATED_CHANNEL = `asyncapi: 3.0.0
 info: { title: t, version: 1.0.0 }
@@ -116,15 +125,6 @@ operations:
     channel: { $ref: '#/channels/userSignedUp' }
     messages:
       - $ref: '#/channels/userSignedUp/messages/UserSignedUp'
-`
-
-const REST_MINIMAL = `openapi: 3.0.1
-info: { title: t, version: 1.0.0 }
-paths:
-  /pets:
-    get:
-      responses:
-        '200': { description: ok }
 `
 
 const CASES: Case[] = [
@@ -146,14 +146,13 @@ const CASES: Case[] = [
     name: 'a configured file the resolver cannot produce',
     category: MESSAGE_CATEGORY.FileNotParsed,
     severity: MESSAGE_SEVERITY.Error, attributed: true, blocksRelease: true,
-    project: 'tolerant-publication',
+    content: { 'rest.json': ANY_REST_SPEC },
     config: { files: [file('rest.json'), file('no-such-file.yaml')] },
   },
   {
     name: 'a Swagger 2.0 document that fails conversion',
     category: MESSAGE_CATEGORY.SwaggerConversion,
     severity: MESSAGE_SEVERITY.Error, attributed: true, blocksRelease: true,
-    project: 'broken',
     // a Swagger 2.0 document whose conversion fails: the `$ref` target does not exist
     content: { 'swagger.yaml': BROKEN_SWAGGER },
     config: { files: [file('swagger.yaml')] },
@@ -169,7 +168,6 @@ const CASES: Case[] = [
     name: 'a $ref in a position the schema does not allow',
     category: MESSAGE_CATEGORY.RefNotAllowed,
     severity: MESSAGE_SEVERITY.Warning, attributed: true, blocksRelease: false,
-    project: 'reference-bundling/case2',
     content: { 'spec.yaml': REF_IN_OPERATION_POSITION },
     config: { files: [file('spec.yaml')], validationRulesSeverity: { brokenRefs: 'error' } },
   },
@@ -177,7 +175,6 @@ const CASES: Case[] = [
     name: 'a GraphQL introspection the builder cannot read',
     category: MESSAGE_CATEGORY.BuildDocument,
     severity: MESSAGE_SEVERITY.Error, attributed: true, blocksRelease: true,
-    project: 'reference-bundling/case2',
     content: { 'schema.json': '{"__schema": {"types": "not-an-array"}}' },
     config: { files: [file('schema.json')] },
   },
@@ -234,7 +231,6 @@ const CASES: Case[] = [
     name: 'DDL with an unresolved reference',
     category: MESSAGE_CATEGORY.DdlParseIssue,
     severity: MESSAGE_SEVERITY.Error, attributed: true, blocksRelease: true,
-    project: 'ddl-validation',
     content: { 'shop.sql': 'CREATE TABLE orders (id bigint PRIMARY KEY, uid bigint REFERENCES missing(id));' },
     config: { files: [file('shop.sql')] },
   },
@@ -242,7 +238,6 @@ const CASES: Case[] = [
     name: 'the same table declared twice in one file',
     category: MESSAGE_CATEGORY.DdlDuplicateObject,
     severity: MESSAGE_SEVERITY.Error, attributed: true, blocksRelease: true,
-    project: 'ddl-validation',
     content: { 'shop.sql': 'CREATE TABLE users (id bigint PRIMARY KEY);\nCREATE TABLE users (id bigint PRIMARY KEY);' },
     config: { files: [file('shop.sql')] },
   },
@@ -250,7 +245,6 @@ const CASES: Case[] = [
     name: 'the same table declared in two files',
     category: MESSAGE_CATEGORY.DdlDuplicateEntity,
     severity: MESSAGE_SEVERITY.Error, attributed: true, blocksRelease: true,
-    project: 'ddl-validation',
     content: {
       'a.sql': 'CREATE TABLE users (id bigint PRIMARY KEY);',
       'b.sql': 'CREATE TABLE users (id bigint PRIMARY KEY, email text);',
@@ -309,7 +303,6 @@ const CASES: Case[] = [
     name: 'an AsyncAPI operation whose message is inline',
     category: MESSAGE_CATEGORY.BuildOperations,
     severity: MESSAGE_SEVERITY.Error, attributed: true, blocksRelease: true,
-    project: 'reference-bundling/case2',
     content: { 'async.yaml': ASYNC_INLINE_MESSAGE },
     config: { files: [file('async.yaml')] },
   },
@@ -324,16 +317,15 @@ const CASES: Case[] = [
     name: 'a version that added an api type its baseline does not have',
     category: MESSAGE_CATEGORY.VersionDocumentsMissing,
     severity: MESSAGE_SEVERITY.Warning, attributed: false, blocksRelease: false, stream: 'comparison',
-    project: 'reference-bundling/case2',
-    baseline: { content: { 'async.yaml': ASYNC_REFERENCED_MESSAGE }, config: { files: [file('async.yaml')] } },
-    content: { 'api.yaml': REST_MINIMAL },
-    config: { files: [file('api.yaml')], previousVersion: 'v1' },
+    baseline: { content: { 'async.yaml': ANY_ASYNCAPI_SPEC }, config: { files: [file('async.yaml')] } },
+    content: { 'rest.json': ANY_REST_SPEC },
+    config: { files: [file('rest.json')], previousVersion: 'v1' },
   },
   {
     name: 'a previous version that does not resolve',
     category: MESSAGE_CATEGORY.VersionNotResolved,
     severity: MESSAGE_SEVERITY.Error, attributed: false, blocksRelease: true, stream: 'comparison',
-    project: 'tolerant-publication',
+    content: { 'rest.json': ANY_REST_SPEC },
     config: { files: [file('rest.json')], previousVersion: 'no-such-version' },
   },
 ]
@@ -369,7 +361,7 @@ const CASES: Case[] = [
 
 const publish = async (testCase: Case, status: string): Promise<BuildResult> => {
   const packageId = `catalogue/${testCase.category}`
-  const registry = LocalRegistry.openPackage(testCase.project)
+  const registry = new LocalRegistry(packageId)
 
   if (testCase.baseline) {
     await registry.publishFromContent(testCase.baseline.content, {
@@ -410,9 +402,10 @@ const UNREACHABLE_FROM_A_DOCUMENT: MessageCategory[] = [
 // ever report a missing one. The schema-derived deprecated items of the same document still ask for theirs.
 describe('A deprecated AsyncAPI channel', () => {
   test('should publish without reporting a missing tolerant hash', async () => {
-    const registry = LocalRegistry.openPackage('reference-bundling/case2')
+    const packageId = 'tolerant-hash/deprecated-channel'
+    const registry = new LocalRegistry(packageId)
     const result = await registry.publishFromContent({ 'async.yaml': ASYNC_DEPRECATED_CHANNEL }, {
-      packageId: 'tolerant-hash/deprecated-channel',
+      packageId,
       version: 'v1',
       status: VERSION_STATUS.DRAFT,
       files: [file('async.yaml')],

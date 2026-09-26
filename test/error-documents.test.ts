@@ -16,6 +16,7 @@
 
 import { afterEach, describe, expect, jest, test } from '@jest/globals'
 import {
+  ANY_REST_SPEC,
   documentOf,
   expectNotEmpty,
   loadFileAsStringFromRegistry,
@@ -71,10 +72,9 @@ describe('Error documents survive packaging', () => {
 describe('A document whose file could not be fetched', () => {
   // a version of two files, one of which the resolver cannot produce
   test('should publish an empty entry rather than skip the document or fail packaging', async () => {
-    const project = 'tolerant-publication'
-    // its own package id: the version directory is shared state, and other suites publish this project too
-    const packageId = 'tolerant-publication/unfetchable-file'
-    const result = await LocalRegistry.openPackage(project).publish(project, {
+    // its own package id: every publish in the run writes under the same versions root
+    const packageId = 'error-documents/unfetchable-file'
+    const result = await new LocalRegistry(packageId).publishFromContent({ 'rest.json': ANY_REST_SPEC }, {
       packageId,
       version: 'v1',
       status: VERSION_STATUS.DRAFT,
@@ -97,8 +97,10 @@ describe('Catch points report instead of aborting', () => {
 
   // one healthy file and one the resolver has nothing for
   test('should report a file the resolver cannot produce and keep building the rest', async () => {
-    const pkg = LocalRegistry.openPackage('tolerant-publication')
-    const result = await pkg.publish(pkg.packageId, {
+    const packageId = 'error-documents/unresolvable-file'
+    const result = await new LocalRegistry(packageId).publishFromContent({ 'rest.json': ANY_REST_SPEC }, {
+      packageId,
+      version: 'v1',
       status: VERSION_STATUS.DRAFT,
       files: [{ fileId: 'rest.json' }, { fileId: 'no-such-file.yaml' }],
     })
@@ -154,8 +156,13 @@ describe('Catch points report instead of aborting', () => {
       throw new Error('operations exploded')
     })
 
-    const pkg = LocalRegistry.openPackage('tolerant-publication')
-    const result = await pkg.publish(pkg.packageId, { status: VERSION_STATUS.DRAFT })
+    const packageId = 'error-documents/operations-fail'
+    const result = await new LocalRegistry(packageId).publishFromContent({ 'rest.json': ANY_REST_SPEC }, {
+      packageId,
+      version: 'v1',
+      status: VERSION_STATUS.DRAFT,
+      files: [{ fileId: 'rest.json' }],
+    })
 
     const failure = notificationOf(result.notifications, MESSAGE_CATEGORY.BuildOperations)
     expect(failure).toMatchObject({
@@ -164,7 +171,7 @@ describe('Catch points report instead of aborting', () => {
       documentId: 'rest',
     })
     // the throw cost the document its operations, not the version its documents
-    expectNotEmpty(result.documents)
+    expect(result.documents.has('rest.json')).toBe(true)
   }, 30000)
 })
 
@@ -227,9 +234,10 @@ describe('An item that fails costs the document only that item', () => {
 // and there the message names the document that pulled the file in.
 describe('A file that will not be published', () => {
   test('should drop its failure rather than report it against the version', async () => {
-    const pkg = LocalRegistry.openPackage('tolerant-publication')
-    const result = await pkg.publish(pkg.packageId, {
-      packageId: 'error-documents/unpublished',
+    const packageId = 'error-documents/unpublished'
+    const result = await new LocalRegistry(packageId).publishFromContent({ 'rest.json': ANY_REST_SPEC }, {
+      packageId,
+      version: 'v1',
       status: VERSION_STATUS.DRAFT,
       files: [{ fileId: 'rest.json' }, { fileId: 'no-such-file.yaml', publish: false }],
     })
@@ -243,10 +251,11 @@ describe('A file that will not be published', () => {
 
   // and the same file as a release, where a version-level Error would have refused the publication
   test('should let a release publish over it', async () => {
-    const pkg = LocalRegistry.openPackage('tolerant-publication')
+    const packageId = 'error-documents/unpublished-release'
 
-    await expect(pkg.publish(pkg.packageId, {
-      packageId: 'error-documents/unpublished-release',
+    await expect(new LocalRegistry(packageId).publishFromContent({ 'rest.json': ANY_REST_SPEC }, {
+      packageId,
+      version: 'v1',
       status: VERSION_STATUS.RELEASE,
       files: [{ fileId: 'rest.json' }, { fileId: 'no-such-file.yaml', publish: false }],
     })).resolves.toBeDefined()

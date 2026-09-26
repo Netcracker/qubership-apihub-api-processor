@@ -48,7 +48,7 @@ describe('Change count assertions', () => {
 
   test('should fail loudly when the summary is missing altogether', () => {
     // `ChangeSummary` is not optional on `OperationType`, so this is a shape the types say cannot
-    // happen; the old matcher treated it as a match, which is the one way it differed from the factory
+    // happen; if it does, the helper must fail loudly rather than compare `undefined` to zeros
     // `.*`, not ` *`: with colors on, as in an IDE, escape codes sit between the label and the value
     expect(() => expectChangesSummary(resultWith([{ apiType: REST_API_TYPE }]), {}))
       .toThrow(/Received:.*undefined/)
