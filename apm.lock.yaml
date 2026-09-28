@@ -1,5 +1,5 @@
 lockfile_version: '1'
-generated_at: '2026-09-27T20:02:12.787746+00:00'
+generated_at: '2026-09-28T09:10:57.370449+00:00'
 apm_version: 0.24.0
 dependencies:
 - repo_url: Netcracker/qubership-apihub-ddlapi
@@ -86,9 +86,9 @@ dependencies:
   - .claude/skills/api-processor-testing/SKILL.md
   - .cursor/rules/api-processor-testing.mdc
   deployed_file_hashes:
-    .agents/skills/api-processor-testing/SKILL.md: sha256:9f42b9f0802ecdc9a78a33e19e3aeb45d5a31344073730897c693db642248f16
+    .agents/skills/api-processor-testing/SKILL.md: sha256:b08ebff970ae32a786779cee4ea09e61087a2e1a615d5d7176a816a4f697e0ed
     .claude/rules/api-processor-testing.md: sha256:82990f2500671fdc808602d2fd9e9fa10713e961ab3c9ea951e66149776a85d7
-    .claude/skills/api-processor-testing/SKILL.md: sha256:9f42b9f0802ecdc9a78a33e19e3aeb45d5a31344073730897c693db642248f16
+    .claude/skills/api-processor-testing/SKILL.md: sha256:b08ebff970ae32a786779cee4ea09e61087a2e1a615d5d7176a816a4f697e0ed
     .cursor/rules/api-processor-testing.mdc: sha256:394004ee697165c85728c3e14003732c57d8b69f6e367e4e6f1d2e648da8d21d
   source: local
   local_path: ./agent-packages/api-processor-testing

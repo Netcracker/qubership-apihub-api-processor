@@ -16,6 +16,7 @@
 
 
 import { existsSync } from 'fs'
+import { join } from 'path'
 import { ANY_REST_SPEC, contentEditor, expectNotEmpty, notificationsInCategory, publishVersion } from './helpers'
 import { BUILD_TYPE, MESSAGE_CATEGORY, VERSION_STATUS } from '../src/consts'
 
@@ -37,6 +38,12 @@ describe('publishVersion', () => {
     expect(Array.from(bare.documents.keys())).toEqual(['alpha.yaml'])
     expect(Array.from(entry.operations.keys())).toEqual(Array.from(bare.operations.keys()))
     expectNotEmpty(bare.operations)
+  })
+
+  // the build itself would only report the file as not parsed, and a test built on it would stay green
+  test('should refuse a listed file the folder does not hold', async () => {
+    await expect(publishVersion(PACKAGE_ID, 'publish-version-missing', ['alpha.yaml', 'no-such-file.yaml']))
+      .rejects.toThrow(`The fixture folder '${join('test/projects', PACKAGE_ID)}' has no file 'no-such-file.yaml'`)
   })
 })
 
@@ -60,12 +67,17 @@ describe('contentEditor', () => {
 
   // the package id names a fixture folder that holds `alpha.yaml`, so a lookup on disk would succeed, not fail
   describe('a file it was not given', () => {
-    test('should be on disk, or the two tests below would pass with a lookup on disk too', () => {
+    test('should be on disk, or the three tests below would pass with a lookup on disk too', () => {
       expect(existsSync(`test/projects/${PACKAGE_ID}/alpha.yaml`)).toBe(true)
     })
 
     test('should be refused when a run lists it', async () => {
       await expect(build().run({ files: [{ fileId: 'alpha.yaml' }] }))
+        .rejects.toThrow(/The content editor has no file 'alpha.yaml'/)
+    })
+
+    test('should be refused when an update lists it', async () => {
+      await expect(build().update({ files: [{ fileId: 'alpha.yaml' }] }, 'alpha.yaml'))
         .rejects.toThrow(/The content editor has no file 'alpha.yaml'/)
     })
 

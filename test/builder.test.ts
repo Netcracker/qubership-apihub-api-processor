@@ -16,7 +16,17 @@
 
 import { jest } from '@jest/globals'
 import { BUILD_TYPE, VERSION_STATUS } from '../src'
-import { ANY_REST_CHANGE, contentEditor, documentOf, Editor, LocalRegistry, publishChangeFromContent } from './helpers'
+import {
+  ANY_REST_CHANGE,
+  cloneDocument,
+  contentEditor,
+  documentOf,
+  Editor,
+  errorNotificationsOf,
+  LocalRegistry,
+  operationOf,
+  publishChangeFromContent,
+} from './helpers'
 
 const apiAudiencePackage = LocalRegistry.openPackage('api-audience')
 
@@ -53,70 +63,80 @@ describe('Editor scenarios', () => {
     })
   })
 
-  describe('APIHUB: path with parameters', () => {
-    test('build result should include only rest operations with inlined parameters', async () => {
-      const editor = await Editor.openProject('apihub')
-      const result = await editor.run({ version: 'v1' })
+  // the unifier lifts path item fields into each operation before the operations are built, so `parameters`
+  // and extensions on the path item must not become operations, and a method without a summary takes the path's
+  describe('Path item fields', () => {
+    test.each(['3.0.3', '3.1.0'])('should build only the methods of a path item in OpenAPI %s', async (openapi) => {
+      // a draft, so a build error is reported rather than thrown
+      const result = await contentEditor({ packageId: `builder/path-item-fields/${openapi}`, version: 'v1' }, {
+        'openapi.yaml': `openapi: ${openapi}
+info:
+  title: Path item fields
+  version: '1.0'
+paths:
+  /pets/{id}:
+    summary: Path summary
+    description: Path description
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    x-path-extension: kept
+    get:
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Own summary
+      responses:
+        '200':
+          description: OK
+`,
+      }).run({ status: VERSION_STATUS.DRAFT, buildType: BUILD_TYPE.BUILD })
 
-      const operations = [...result.operations.values()]
-
-      expect(operations.some(({ operationId }) => operationId.endsWith('-parameters'))).toEqual(false)
-      expect(operations.every(({ title }) => title)).toEqual(true)
-      expect(operations.every(({ search }) => search && search.useOperationDataAsSearchText !== undefined)).toEqual(true)
-    })
-
-    test('document has info and externalDocs', async () => {
-      const editor = await Editor.openProject('apihub')
-      const result = await editor.run({
-        version: 'v1',
-        files: [
-          {
-            fileId: 'docs/API-HUB_09.03.22.yaml',
-            publish: true,
-            labels: [
-              '123',
-            ],
-            commitId: 'k123jkqlwe1',
-          },
-          {
-            fileId: 'OpenApi 3.1.yaml',
-            publish: true,
-            labels: [
-              '444',
-            ],
-            commitId: 'k123jkqlwe2',
-          },
-          {
-            fileId: 'Swagger 2.0.yaml',
-            publish: true,
-            labels: [
-              '4444',
-            ],
-            commitId: 'k123jkqlwe25',
-          },
-        ],
-      })
-
-      const document = documentOf(result, 'docs/API-HUB_09.03.22.yaml')
-      expect(document.title).toBeDefined()
-      expect(document.description).toBeDefined()
-      expect(document.version).toBeDefined()
-      expect((document.metadata as any).info).toBeDefined()
-      expect((document.metadata as any).externalDocs).toBeDefined()
+      // a key the build mistook for a method fails to build and is reported, rather than adding an operation
+      expect(errorNotificationsOf(result.notifications)).toEqual([])
+      expect([...result.operations.values()].map(({ operationId, title }) => [operationId, title])).toEqual([
+        ['pets-_id_-get', 'Path summary'],
+        ['pets-_id_-post', 'Own summary'],
+      ])
+      const { data } = operationOf(result, 'pets-_id_-get')
+      expect(data?.paths?.['/pets/{id}']?.parameters?.map(({ name }: { name: string }) => name)).toEqual(['id'])
     })
   })
 
-  describe('AGENT test cases', () => {
-    test('build result should include only rest operations with inlined parameters', async () => {
-      const editor = await Editor.openProject('agent')
-      const result = await editor.run({ version: 'v1' })
+  describe('Document metadata', () => {
+    test('document has info and externalDocs', async () => {
+      // `license` keeps `metadata.info` alive: the title, description and version move out of it to the document
+      const result = await contentEditor({ packageId: 'builder/document-info', version: 'v1' }, {
+        'openapi.yaml': `openapi: 3.0.0
+info:
+  title: Document info
+  description: A document with info and externalDocs
+  version: 2.1.0
+  license:
+    name: MIT
+externalDocs:
+  url: https://example.com/docs
+  description: More
+paths:
+  /pets:
+    get:
+      responses:
+        '200':
+          description: OK
+`,
+      }).run()
 
-      const documents = [...result.documents.values()]
-      const operations = [...result.operations.values()]
-
-      expect(documents.every(({ slug }) => slug)).toEqual(true)
-      expect(operations.every(({ title }) => title)).toEqual(true)
-      expect(operations.every(({ search }) => search && search.useOperationDataAsSearchText !== undefined)).toEqual(true)
+      const document = documentOf(result, 'openapi.yaml')
+      expect(document.title).toBe('Document info')
+      expect(document.description).toBe('A document with info and externalDocs')
+      expect(document.version).toBe('2.1.0')
+      const { info, externalDocs } = cloneDocument(document.metadata) as { info?: unknown; externalDocs?: unknown }
+      expect(info).toEqual({ license: { name: 'MIT' } })
+      expect(externalDocs).toEqual({ url: 'https://example.com/docs', description: 'More' })
     })
   })
 

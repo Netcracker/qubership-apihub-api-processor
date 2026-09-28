@@ -26,7 +26,8 @@ const brokenPackage = LocalRegistry.openPackage('broken')
 
 // A file the parser cannot read no longer costs the version: it is published as-is, without operations, and
 // the reason is reported. Replaces the old expectation that the build throws.
-const expectToleratedParseFailure = async (fileId: string): Promise<void> => {
+// `reason` is the parser's own words, for a fixture whose breakage is its subject
+const expectToleratedParseFailure = async (fileId: string, reason?: string): Promise<void> => {
   const editor = await Editor.openProject('broken', brokenPackage)
   const result = await editor.run({ files: [{ fileId, publish: true, labels: [] }] })
 
@@ -37,6 +38,9 @@ const expectToleratedParseFailure = async (fileId: string): Promise<void> => {
   const parseFailure = notificationOf(result.notifications, MESSAGE_CATEGORY.ParseFile)
   expect(parseFailure.severity).toBe(MESSAGE_SEVERITY.Error)
   expect(parseFailure.message).toContain(`Cannot parse file ${fileId}.`)
+  if (reason) {
+    expect(parseFailure.message).toContain(reason)
+  }
   expect(parseFailure.documentId).toBe(document.slug)
 }
 
@@ -77,16 +81,14 @@ describe('Basic project (one file): validation broken', () => {
       await expectToleratedParseFailure('missing_dash.yaml')
     })
 
+    // `.yml`, not `.yaml`: the only fixture in the suite with that extension
     test('duplicate keys', async () => {
-      await expectToleratedParseFailure('apihub-api-5 (1).yml')
+      await expectToleratedParseFailure('duplicate_keys.yml', 'Map keys must be unique')
     })
 
-    test('a key of node is missing', async () => {
-      await expectToleratedParseFailure('OpenApi 3.0.yaml')
-    })
-
-    test('openapi-2', async () => {
-      await expectToleratedParseFailure('OpenApi 3.0-2.yaml')
+    // no `openapi` header, so no API parser claims the file and the fallback parser is the one that fails
+    test('a quoted key broken across lines', async () => {
+      await expectToleratedParseFailure('unclosed_quote_key.yaml', 'Missing closing \'quote')
     })
   })
 })

@@ -21,7 +21,6 @@ import { PackageVersionBuilder } from '../src/processor'
 import { changelogEditor, prepareChangelogDashboard, publishDashboardWithTwoRefs, publishVersion } from './helpers'
 
 describe('Dashboard build', () => {
-  test.todo('dashboard should have changes')
   test('Resolvers should not be called for empty versions when building changelog for dashboard that has added removed packages', async () => {
     const pckg1Id = 'dashboards/pckg1'
     const pckg2Id = 'dashboards/pckg2'

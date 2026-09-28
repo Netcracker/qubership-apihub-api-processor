@@ -53,8 +53,11 @@ or another, publishes: a path naming the subject and the case (`annotation/summa
   ```
 
   Without `files`, `publish` takes the file list from the folder's `config.json`, and a folder without one fails
-  the build with `Incorrect config: No files and refs`. `publish` defaults to a release, so a folder whose build or
-  comparison reports an `Error` needs `status: VERSION_STATUS.DRAFT`.
+  the build with `Incorrect config: No files and refs`. A listed file the folder lacks throws before the build, here
+  and in the editor's `run` and `update`, and `contentEditor` refuses one outside its contents. To test how a build
+  reports a missing file, list it in the `files` of a `publishFromContent` call without giving its content. `publish`
+  defaults to a release, so a folder whose build or comparison reports an `Error` needs
+  `status: VERSION_STATUS.DRAFT`.
 
 ## Reach for the helper category first
 

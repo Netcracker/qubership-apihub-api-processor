@@ -18,74 +18,13 @@ import {
   buildPackageFromContent,
   buildPrefixGroupChangelogPackage,
   changedOperationMatcher,
-  Editor,
   expectChangeCounts,
-  LocalRegistry,
   operationChangesMatcher,
   operationOf,
 } from './helpers'
-import { ANNOTATION_CHANGE_TYPE, BREAKING_CHANGE_TYPE, BUILD_TYPE, NON_BREAKING_CHANGE_TYPE } from '../src'
-
-const pkg = LocalRegistry.openPackage('apihub')
+import { ANNOTATION_CHANGE_TYPE, BREAKING_CHANGE_TYPE, NON_BREAKING_CHANGE_TYPE } from '../src'
 
 describe('Prefix Groups test', () => {
-
-  // this test uses too large sample (runs too long) and checks only number of operations, mostly useless
-  // todo: remove this test
-  test.skip('should compare prefix groups groups=v2,v3', async () => {
-    // generate missing versions/apihub folder contents
-    await pkg.publish(pkg.packageId, {
-      version: 'v1',
-      packageId: pkg.packageId,
-      files: [
-        { fileId: 'docs/API-HUB_09.03.22.yaml' },
-        { fileId: 'APIHUB API.yaml' },
-        { fileId: 'OpenApi 3.1.yaml' },
-        { fileId: 'Public Registry API.yaml' },
-        { fileId: 'Swagger 2.0.yaml' },
-      ],
-    })
-    await pkg.publish(pkg.packageId, {
-      version: 'v2',
-      previousVersion: 'v1',
-      packageId: pkg.packageId,
-      files: [
-        { fileId: 'docs/API-HUB_09.03.22.yaml' },
-        { fileId: 'APIHUB API.yaml' },
-        { fileId: 'OpenApi 3.1.yaml' },
-        { fileId: 'Public Registry API.yaml' },
-        { fileId: 'Swagger 2.0.yaml' },
-      ],
-    })
-    await pkg.publish(pkg.packageId, {
-      version: 'prefix1',
-      packageId: pkg.packageId,
-      files: [
-        { fileId: 'APIHUB API.yaml' },
-        { fileId: 'Public Registry API.yaml' },
-      ],
-    })
-    await pkg.publish(pkg.packageId, {
-      version: 'prefix2',
-      previousVersion: 'v1',
-      packageId: pkg.packageId,
-      files: [
-        { fileId: 'APIHUB API.yaml' },
-        { fileId: 'Public Registry API.yaml' },
-      ],
-    })
-
-    const editor = await Editor.openProject(pkg.packageId, pkg)
-    const result = await editor.run({
-      version: 'prefix2',
-      currentGroup: '/api/v3/',
-      previousGroup: '/api/v2/',
-      buildType: BUILD_TYPE.PREFIX_GROUPS_CHANGELOG,
-    })
-
-    expect(result.comparisons?.[0].data?.length).toBe(95)
-  })
-
   test('should compare prefix groups mixed cases', async () => {
     const result = await buildPrefixGroupChangelogPackage({ packageId: 'prefix-groups/mixed-cases' })
 
@@ -165,7 +104,9 @@ describe('Prefix Groups test', () => {
     ]))
   })
 
-  // todo: case that we don't support due to shifting to the new changelog calculation approach which involves comparison of the entire docs instead of the operation vs operation comparison
+  // skipped: with the prefix overridden in the method, the changelog comes out empty (0 breaking, 0 non-breaking,
+  // 0 annotation), while the same case with the prefix overridden in the path passes; likely a defect, not the
+  // whole-document comparison limit
   test.skip('should compare prefix groups when prefix is overridden in method', async () => {
     const result = await buildPrefixGroupChangelogPackage({
       packageId: 'prefix-groups/mixed-cases-with-method-prefix-override',

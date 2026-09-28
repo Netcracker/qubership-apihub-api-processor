@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { loadConfig, loadFile } from '../files'
+import { assertFixtureFilesExist, loadConfig, loadFile } from '../files'
 import { registryFs, loadFileFromRegistry, loadFileAsStringFromRegistry, loadConfigFromRegistry, registryPath } from './fs'
 import {
   ApiOperation,
@@ -467,6 +467,7 @@ export class LocalRegistry implements IRegistry {
       status: VERSION_STATUS.RELEASE,
       ...publishParams,
     }
+    await assertFixtureFilesExist(this.projectsDir, projectId, (versionConfig.files ?? []).map(({ fileId }) => fileId))
     const builder = new PackageVersionBuilder(versionConfig, {
       resolvers: {
         fileResolver: (fileId) => loadFile(this.projectsDir, projectId, fileId),
