@@ -15,12 +15,14 @@
  */
 
 import {
+  buildPackageFromContent,
   buildPrefixGroupChangelogPackage,
   changedOperationMatcher,
   Editor,
   expectChangeCounts,
   LocalRegistry,
   operationChangesMatcher,
+  operationOf,
 } from './helpers'
 import { ANNOTATION_CHANGE_TYPE, BREAKING_CHANGE_TYPE, BUILD_TYPE, NON_BREAKING_CHANGE_TYPE } from '../src'
 
@@ -332,4 +334,34 @@ describe('Prefix Groups test', () => {
   })
 
   // todo add case when api/v1 in servers and api/v2 in some paths?
+})
+
+// the prefix of an operation comes from the nearest `servers`, which is what the prefix groups above compare; the
+// comparison cannot follow a method-level override (the skipped case above), but a single build can
+describe('Prefix of one operation', () => {
+  test('should take the prefix from servers declared on the method over the root ones', async () => {
+    const result = await buildPackageFromContent('prefix-groups/method-servers', 'openapi.yaml', `openapi: 3.0.0
+info:
+  title: Servers
+  version: '1.0'
+servers:
+  - url: https://petstore.example/api/v3
+paths:
+  /pet:
+    get:
+      responses:
+        '200':
+          description: OK
+    put:
+      servers:
+        - url: https://petstore.example/api/v4
+      responses:
+        '200':
+          description: OK
+`)
+
+    expect([...result.operations.values()].map(({ operationId }) => operationId).sort())
+      .toEqual(['api-v3-pet-get', 'api-v4-pet-put'])
+    expect(operationOf(result, 'api-v4-pet-put').metadata.path).toBe('/api/v4/pet')
+  })
 })

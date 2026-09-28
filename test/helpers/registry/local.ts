@@ -81,7 +81,7 @@ import { version as apiProcessorVersion } from '../../../package.json'
 
 export const DEFAULT_PROJECTS_PATH = 'test/projects'
 
-export interface PackageVersionCache {
+interface PackageVersionCache {
   config: BuildConfig
   documents: Map<string, VersionDocument>
   operations: Map<string, ApiOperation>

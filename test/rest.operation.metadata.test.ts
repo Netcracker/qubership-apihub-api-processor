@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Editor, expectNotEmpty, operationOf } from './helpers'
+import { buildPackageFromContent, Editor, expectNotEmpty, operationOf } from './helpers'
 
 describe('Operation metadata test', () => {
   test('custom tag should exist in operation if provided in operationData', async () => {
@@ -46,5 +46,24 @@ describe('Operation metadata test', () => {
     expect(operation.metadata.operationIdV1).toBeDefined()
     expect(typeof operation.metadata.operationIdV1).toBe('string')
     expectNotEmpty(operation.metadata.operationIdV1)
+  })
+
+  // the proof mutation hands the document root to `getCustomTags`: it adds a wrong call rather than breaking an
+  // existing one, so it shows this can fail, not that it catches a likely regression
+  test('custom tag at the document root should not reach the operation', async () => {
+    const result = await buildPackageFromContent('custom-tags/document-root', 'openapi.yaml', `openapi: 3.0.0
+info:
+  title: Root tag
+  version: '1.0'
+x-custom-tag: root
+paths:
+  /pet:
+    get:
+      responses:
+        '200':
+          description: OK
+`)
+
+    expect(operationOf(result, 'pet-get').metadata.customTags).toEqual({})
   })
 })

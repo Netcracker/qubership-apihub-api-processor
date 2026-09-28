@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-import { documentOf, Editor, LocalRegistry, notificationOf } from './helpers'
+import { buildPackageFromContent, documentOf, Editor, LocalRegistry, notificationOf } from './helpers'
+import { REST_DOCUMENT_TYPE } from '../src/apitypes/rest/rest.consts'
 import { MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../src/consts'
 import { buildDocument } from '../src/components/document'
 import { DocumentBuildError } from '../src/errors'
@@ -111,5 +112,33 @@ describe('Document build failures', () => {
     await expect(build).rejects.toMatchObject({ category: MESSAGE_CATEGORY.SwaggerConversion })
     // the wrapper names the document, matching the `documentId` the notification will carry
     await expect(build).rejects.toThrow('Cannot process the "x" document')
+  })
+})
+
+describe('OpenAPI 3.1 in JSON', () => {
+  // `type: [string, null]` is valid in 3.1 only, so validating against the 3.0 schema would report it
+  const OPENAPI_31 = JSON.stringify({
+    openapi: '3.1.0',
+    info: { title: 'Nullable', version: '1.0' },
+    paths: {
+      '/pet': {
+        get: {
+          responses: {
+            '200': {
+              description: 'OK',
+              content: { 'application/json': { schema: { type: ['string', 'null'] } } },
+            },
+          },
+        },
+      },
+    },
+  }, undefined, 2)
+
+  test('should publish as an OpenAPI 3.1 document without notifications', async () => {
+    const result = await buildPackageFromContent('parser/openapi-31-json', 'openapi.json', OPENAPI_31)
+
+    expect(result.operations.size).toBe(1)
+    expect(documentOf(result, 'openapi.json').type).toBe(REST_DOCUMENT_TYPE.OAS31)
+    expect(result.notifications).toEqual([])
   })
 })
