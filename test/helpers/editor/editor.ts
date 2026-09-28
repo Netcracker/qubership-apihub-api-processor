@@ -32,10 +32,10 @@ import path from 'path'
 import { loadYaml } from '@netcracker/qubership-apihub-api-unifier'
 
 export class Editor {
-  state: Map<string, Blob | null> = new Map()
+  protected state: Map<string, Blob | null> = new Map()
   builder: PackageVersionBuilder
-  registry: IRegistry
-  projectsDir: string
+  private registry: IRegistry
+  private projectsDir: string
 
   // A fixture folder need not carry a config.json, and most do not. The caller passes what the missing
   // file would have named to `publish` or `run` — `files` above all.
@@ -47,7 +47,7 @@ export class Editor {
   }
 
   constructor(
-    public projectId: string,
+    private projectId: string,
     public config: BuildConfig,
     configuration?: BuilderConfiguration,
     registry?: IRegistry,
@@ -67,7 +67,7 @@ export class Editor {
     })
   }
 
-  async fileResolver(fileId: string, force = false): Promise<Blob | null> {
+  protected async fileResolver(fileId: string, force = false): Promise<Blob | null> {
     let data = this.state.get(fileId)
     if (!data) {
       const fileExistInConfig = force || this.config.files?.find(file => file.fileId === fileId)
@@ -82,7 +82,7 @@ export class Editor {
     return data || null
   }
 
-  async templateResolver(templatePath: string): Promise<Blob | null> {
+  private async templateResolver(templatePath: string): Promise<Blob | null> {
     const template = await fs.readFile(path.join(__dirname, '..', '..', 'templates', templatePath))
     if (!template) {
       throw new Error(`Error during reading file ${templatePath} from templates`)
@@ -91,7 +91,7 @@ export class Editor {
     return new Blob([template])
   }
 
-  async updateTextFile(fileId: string, modifier: (data: string) => string): Promise<void> {
+  private async updateTextFile(fileId: string, modifier: (data: string) => string): Promise<void> {
     const data = await this.fileResolver(fileId, true)
     if (!data) {
       throw new Error(`Cannot resolve file with fileId = ${fileId}`)

@@ -346,7 +346,7 @@ class ContentEditor extends Editor {
   }
 
   // `force` is how `update*File` asks: a file it cannot find is a mistake in the test, not a missing reference
-  override async fileResolver(fileId: string, force = false): Promise<Blob | null> {
+  protected override async fileResolver(fileId: string, force = false): Promise<Blob | null> {
     const edited = this.state.get(fileId)
     if (edited) { return edited }
     if (!force && !(fileId in this.contents)) { return null }

@@ -285,7 +285,7 @@ describe('Operation Bugs', () => {
 
   test.skip('graphql introspection should have operations', async () => {
     const editor = await Editor.openProject('bugs', bugsPackage)
-    const result = await editor.run({
+    await editor.run({
       version: 'gql-bug',
       files: [
         // todo find proper test data
@@ -298,7 +298,7 @@ describe('Operation Bugs', () => {
 
   test.skip('graphql introspection with .gql extension should have operations', async () => {
     const editor = await Editor.openProject('bugs', bugsPackage)
-    const result = await editor.run({
+    await editor.run({
       version: 'gql-bug',
       files: [
         // todo find proper test data
@@ -311,7 +311,7 @@ describe('Operation Bugs', () => {
 
   test.skip('graphql introspection with __schema on the root level should have operations', async () => {
     const editor = await Editor.openProject('bugs', bugsPackage)
-    const result = await editor.run({
+    await editor.run({
       version: 'gql-bug',
       files: [
         // todo find proper test data
@@ -324,25 +324,27 @@ describe('Operation Bugs', () => {
 
   test('apiKind of operations should be BWC (wrong position of x-api-kind)', async () => {
     const editor = await Editor.openProject('bugs', bugsPackage)
-    const result = await editor.run({
+    await editor.run({
       version: 'apiKind-bug',
       files: [
         { fileId: 'openapi_sample_3-0.json', publish: true },
       ],
     })
 
+    expect(editor.builder.operationList.length).toBeGreaterThan(0)
     expect(editor.builder.operationList.every(operation => operation.apiKind === APIHUB_API_COMPATIBILITY_KIND_BWC)).toBeTruthy()
   })
 
   test('apiKind of operations should be no-BWC (defined in info)', async () => {
     const editor = await Editor.openProject('bugs', bugsPackage)
-    const result = await editor.run({
+    await editor.run({
       version: 'apiKind-bug',
       files: [
         { fileId: 'openapi_sample_3-0-no-bwc.json', publish: true },
       ],
     })
 
+    expect(editor.builder.operationList.length).toBeGreaterThan(0)
     expect(editor.builder.operationList.every(operation => operation.apiKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC)).toBeTruthy()
   })
 
