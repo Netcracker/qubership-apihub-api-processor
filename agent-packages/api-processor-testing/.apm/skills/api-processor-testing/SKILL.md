@@ -56,6 +56,12 @@ or another, publishes: a path naming the subject and the case (`annotation/summa
   the build with `Incorrect config: No files and refs`. `publish` defaults to a release, so a folder whose build or
   comparison reports an `Error` needs `status: VERSION_STATUS.DRAFT`.
 
+**Reach published output through the registry helpers.** Under `npm test`, CI included, a build's output never
+touches the disk; only `npm run test:disk` writes it under `test/versions/worker-<id>`. Read and write it with
+`loadJsonFromRegistry`, `loadFileAsStringFromRegistry`, `registryFs`, and `VERSIONS_PATH`, never with `fs` or a
+literal `test/versions` path: that works in one mode and fails in the other. Fixtures under `test/projects` are
+always read from disk.
+
 ## Reach for the helper category first
 
 A lookup, count check, or matcher written inline drifts from the shared one, and the next fix lands in only one of
