@@ -22,7 +22,7 @@ describe('Config validation', () => {
       const tags = ['tag1', 'tag2']
       const title = 'Title for /pets and method get'
 
-      const editor = await Editor.openProject('basic')
+      const editor = await Editor.openProject('config')
       await editor.run({version: 'v1'})
 
       await editor.updateJsonFile('openapi.json', (data) => {

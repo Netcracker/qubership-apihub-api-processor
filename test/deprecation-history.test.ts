@@ -92,30 +92,30 @@ describe('Deprecated history test', () => {
 
   test('should build deprecation history for step deprecation', async () => {
     const packageId = 'new-deprecated-step'
-    await portal.publish('new-deprecated', {
+    await portal.publish('new-deprecated/properties-inline-same-schema-step-deprecation', {
       packageId: packageId,
       version: 'v1',
       files: [
-        { fileId: 'properties-inline-same-schema-step-deprecation.yaml' },
+        { fileId: 'before.yaml' },
       ],
     })
-    await portal.publish('new-deprecated', {
+    await portal.publish('new-deprecated/properties-inline-same-schema-step-deprecation', {
       packageId: packageId,
       version: 'v2',
       previousVersion: 'v1',
       files: [
-        { fileId: 'properties-inline-same-schema-step-deprecation2.yaml' },
+        { fileId: 'after.yaml' },
       ],
     })
 
-    const editor = new Editor('new-deprecated', {
+    const editor = new Editor('new-deprecated/properties-inline-same-schema-step-deprecation', {
       packageId: packageId,
       version: 'v2',
       previousVersion: 'v1',
       status: VERSION_STATUS.RELEASE,
       buildType: BUILD_TYPE.BUILD,
       files: [
-        { fileId: 'properties-inline-same-schema-step-deprecation2.yaml' },
+        { fileId: 'after.yaml' },
       ],
     }, {}, portal)
 
@@ -130,30 +130,30 @@ describe('Deprecated history test', () => {
 
   test('should build deprecation history for refactoring (extract schema to components)', async () => {
     const packageId = 'new-deprecated-extract-to-components'
-    await portal.publish('new-deprecated', {
+    await portal.publish('new-deprecated/refactor-extract-deprecated-schema-to-components', {
       packageId: packageId,
       version: 'v1',
       files: [
-        { fileId: 'refactor-extract-deprecated-schema-to-components.yaml' },
+        { fileId: 'before.yaml' },
       ],
     })
-    await portal.publish('new-deprecated', {
+    await portal.publish('new-deprecated/refactor-extract-deprecated-schema-to-components', {
       packageId: packageId,
       version: 'v2',
       previousVersion: 'v1',
       files: [
-        { fileId: 'refactor-extract-deprecated-schema-to-components2.yaml' },
+        { fileId: 'after.yaml' },
       ],
     })
 
-    const editor = new Editor('new-deprecated', {
+    const editor = new Editor('new-deprecated/refactor-extract-deprecated-schema-to-components', {
       packageId: packageId,
       version: 'v2',
       previousVersion: 'v1',
       status: VERSION_STATUS.RELEASE,
       buildType: BUILD_TYPE.BUILD,
       files: [
-        { fileId: 'refactor-extract-deprecated-schema-to-components2.yaml' },
+        { fileId: 'after.yaml' },
       ],
     }, {}, portal)
 
@@ -167,30 +167,30 @@ describe('Deprecated history test', () => {
 
   test('should build deprecation history for refactoring (inline schema from components)', async () => {
     const packageId = 'new-deprecated-extract-from-components'
-    await portal.publish('new-deprecated', {
+    await portal.publish('new-deprecated/refactor-inline-deprecated-schema-from-components', {
       packageId: packageId,
       version: 'v1',
       files: [
-        { fileId: 'refactor-inline-deprecated-schema-from-components.yaml' },
+        { fileId: 'before.yaml' },
       ],
     })
-    await portal.publish('new-deprecated', {
+    await portal.publish('new-deprecated/refactor-inline-deprecated-schema-from-components', {
       packageId: packageId,
       version: 'v2',
       previousVersion: 'v1',
       files: [
-        { fileId: 'refactor-inline-deprecated-schema-from-components2.yaml' },
+        { fileId: 'after.yaml' },
       ],
     })
 
-    const editor = new Editor('new-deprecated', {
+    const editor = new Editor('new-deprecated/refactor-inline-deprecated-schema-from-components', {
       packageId: packageId,
       version: 'v2',
       previousVersion: 'v1',
       status: VERSION_STATUS.RELEASE,
       buildType: BUILD_TYPE.BUILD,
       files: [
-        { fileId: 'refactor-inline-deprecated-schema-from-components2.yaml' },
+        { fileId: 'after.yaml' },
       ],
     }, {}, portal)
 
@@ -204,30 +204,30 @@ describe('Deprecated history test', () => {
 
   test('should build deprecation history for refactoring (inline schema from components and add new schema)', async () => {
     const packageId = 'new-deprecated-inline-from-components-add-new'
-    await portal.publish('new-deprecated', {
+    await portal.publish('new-deprecated/refactor-inline-deprecated-schema-add-new-schema-to-components', {
       packageId: packageId,
       version: 'v1',
       files: [
-        { fileId: 'refactor-inline-deprecated-schema-add-new-schema-to-components.yaml' },
+        { fileId: 'before.yaml' },
       ],
     })
-    await portal.publish('new-deprecated', {
+    await portal.publish('new-deprecated/refactor-inline-deprecated-schema-add-new-schema-to-components', {
       packageId: packageId,
       version: 'v2',
       previousVersion: 'v1',
       files: [
-        { fileId: 'refactor-inline-deprecated-schema-add-new-schema-to-components2.yaml' },
+        { fileId: 'after.yaml' },
       ],
     })
 
-    const editor = new Editor('new-deprecated', {
+    const editor = new Editor('new-deprecated/refactor-inline-deprecated-schema-add-new-schema-to-components', {
       packageId: packageId,
       version: 'v2',
       previousVersion: 'v1',
       status: VERSION_STATUS.RELEASE,
       buildType: BUILD_TYPE.BUILD,
       files: [
-        { fileId: 'refactor-inline-deprecated-schema-add-new-schema-to-components2.yaml' },
+        { fileId: 'after.yaml' },
       ],
     }, {}, portal)
 

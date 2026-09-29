@@ -52,9 +52,9 @@ describe('Notification attribution invariants', () => {
     // a document whose references do not resolve — the `ref-*` family comes from this one site
     ['broken references', () => LocalRegistry.openPackage('reference-bundling/case2').publish('reference-bundling/case2'), false],
     // a path that fails validation — `double-slash-path`
-    ['invalid paths', () => publish('operationId-collisions/double-slash-in-path', ['spec.json']), false],
+    ['invalid paths', () => publish('operation-id-collisions/double-slash-in-path', ['spec.json']), false],
     // the same operationId in two documents — `duplicate-operation-id`, the one cross-document case today
-    ['duplicate operation ids', () => publish('operationId-collisions/same-path-different-documents', ['spec1.json', 'spec2.json']), true],
+    ['duplicate operation ids', () => publish('operation-id-collisions/same-path-different-documents', ['spec1.json', 'spec2.json']), true],
   ]
 
   const KNOWN_CATEGORIES = new Set<string>(Object.values(MESSAGE_CATEGORY))
@@ -98,7 +98,7 @@ describe('Notification attribution invariants', () => {
 // routed correctly and still never be serialised — so assert them again on the published files.
 describe('Notification invariants hold in the published archive', () => {
   test('should categorise every notification in notifications.json and name a real document', async () => {
-    const packageId = 'operationId-collisions/same-path-different-documents'
+    const packageId = 'operation-id-collisions/same-path-different-documents'
     await publishVersion(packageId, 'v1', ['spec1.json', 'spec2.json'], { status: VERSION_STATUS.DRAFT })
 
     const versionPath = `${packageId}/v1`

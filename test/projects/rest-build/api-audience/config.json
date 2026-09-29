@@ -1,0 +1,6 @@
+{
+  "packageId": "rest-build/api-audience",
+  "files": [
+    { "fileId": "before1.yaml", "publish": true, "labels": ["123"] }
+  ]
+}

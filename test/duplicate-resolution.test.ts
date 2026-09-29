@@ -33,7 +33,7 @@ import { NotificationMessage } from '../src/types/package/notifications'
  *
  * A REST contest is judged by content as well: two documents that describe the id identically are not a
  * collision. The engine behind that is covered by `contested-operations.test.ts` and `rest-duplicates.test.ts`,
- * the build-level case by `operationId-collisions.test.ts`.
+ * the build-level case by `operation-id-collisions.test.ts`.
  *
  * What an `Error` then costs the document is `tolerant-publication.test.ts`; the category, severity and
  * release verdict of each duplicate diagnostic are rows in `notification-catalogue.test.ts`.
@@ -41,9 +41,9 @@ import { NotificationMessage } from '../src/types/package/notifications'
 
 /**
  * The two REST documents that both derive `res-data-post`, differing in a response description so the content
- * check keeps the collision. The identical pair of the same shape is `duplicated-operation`.
+ * check keeps the collision. The identical pair of the same shape is `duplicate-resolution`.
  */
-const CONTESTED_PAIR = 'operationId-collisions/same-path-different-documents'
+const CONTESTED_PAIR = 'operation-id-collisions/same-path-different-documents'
 
 const publishContestedPair = (): Promise<BuildResult> =>
   // a draft: the pair differs, so a release of it is refused, and these cases are about the index
@@ -127,7 +127,7 @@ describe('What each document announces', () => {
 describe('Duplicate resolution tells the two cases apart', () => {
   test('should not report an intra-document collision as a cross-document duplicate', async () => {
     const result = await publishVersion(
-      'operationId-collisions/same-operationId-same-document', 'v1', 'spec.json', { status: VERSION_STATUS.DRAFT })
+      'operation-id-collisions/same-operation-id-same-document', 'v1', 'spec.json', { status: VERSION_STATUS.DRAFT })
 
     expect(result.notifications.map(({ category }) => category))
       .toContain(MESSAGE_CATEGORY.RestDuplicateOperation)
@@ -325,7 +325,7 @@ describe('A collision three documents share', () => {
 describe('The index and the documents agree', () => {
   const FIXTURES: Array<[string, string[]]> = [
     [CONTESTED_PAIR, ['spec1.json', 'spec2.json']],
-    ['operationId-collisions/same-operationId-same-document', ['spec.json']],
+    ['operation-id-collisions/same-operation-id-same-document', ['spec.json']],
     ['tolerant-publication', ['healthy.yaml', 'colliding.yaml']],
     ['tolerant-publication', ['api.yaml', 'async-a.yaml', 'async-b.yaml']],
   ]
@@ -420,12 +420,12 @@ describe('The editor preview compares the documents behind a REST collision', ()
 
   // an identical pair raises nothing and publishes as a release, because nothing is left for the gate to refuse
   test.each([
-    ['identical documents', 'duplicated-operation', files, undefined],
+    ['identical documents', 'duplicate-resolution', files, undefined],
     ['different content', CONTESTED_PAIR, files,
       collisionMessage('describe the operation differently')],
     // a label never reaches the operation subtree, so only the operation metadata tells the documents apart
-    ['different api kinds', 'duplicated-operation', filesWithNoBwcLabel, collisionMessage('disagree on apiKind')],
-    ['different api audiences', 'operationId-collisions/same-path-different-api-audience', files,
+    ['different api kinds', 'duplicate-resolution', filesWithNoBwcLabel, collisionMessage('disagree on apiKind')],
+    ['different api audiences', 'operation-id-collisions/same-path-different-api-audience', files,
       collisionMessage('disagree on apiAudience')],
   ] as Array<[string, string, BuildConfig['files'], string | undefined]>)(
     'should report what a publication reports for %s',

@@ -33,8 +33,8 @@ const SPEC = `type Query {
   vegetables: String
 }`
 
-// Difference from `apiKinds.test.ts`:
-//   - `apiKinds.test.ts` covers REST and asserts only the DOCUMENT apiKind, exhaustively
+// Difference from `api-kinds.test.ts`:
+//   - `api-kinds.test.ts` covers REST and asserts only the DOCUMENT apiKind, exhaustively
 //     exercising the shared `calculateFileApiKind` resolution (uppercase / experimental / invalid /
 //     priority between the sources).
 //   - This file covers the GraphQL-specific bit that resolution does NOT: every OPERATION of the

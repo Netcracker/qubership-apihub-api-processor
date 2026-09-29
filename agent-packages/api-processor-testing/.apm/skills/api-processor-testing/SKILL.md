@@ -34,7 +34,7 @@ alone.
 
 A fixture broken on purpose says so in its name or folder, so a reader who sees its build report an error knows the
 error is the point: `broken-ref.yaml`, `invalid-critical-async.yaml`, `test/projects/broken/`, or the scenario it
-breaks (`operationId-collisions/`).
+breaks (`operation-id-collisions/`).
 
 ## Publish under a package id of its own
 

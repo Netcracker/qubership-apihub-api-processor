@@ -22,7 +22,7 @@ import { BUILD_TYPE, MESSAGE_CATEGORY, VERSION_STATUS } from '../src/consts'
 
 // Two small documents no other suite publishes under these versions. Each test takes its own version, so
 // nothing here reads what another test wrote.
-const PACKAGE_ID = 'list-ordering'
+const PACKAGE_ID = 'build-result-ordering/rest'
 
 describe('publishVersion', () => {
   test('should publish every file of a list', async () => {

@@ -40,8 +40,8 @@ import { DiffAction } from '@netcracker/qubership-apihub-api-diff'
 
 let beforePackage: LocalRegistry
 let afterPackage: LocalRegistry
-const BEFORE_PACKAGE_ID = 'changes_test_before'
-const AFTER_PACKAGE_ID = 'changes_test_after'
+const BEFORE_PACKAGE_ID = 'changes/cross-package/previous-package'
+const AFTER_PACKAGE_ID = 'changes/cross-package/current-package'
 
 describe('Changelog build type', () => {
   beforeAll(async () => {
@@ -255,7 +255,7 @@ paths:
     })
 
     test('Add securityScheme', async () => {
-      const result = await buildChangelogPackage('changelog/add-securityScheme')
+      const result = await buildChangelogPackage('changelog/add-security-scheme')
 
       expectChangeCounts(result, {
         changes: {
@@ -270,7 +270,7 @@ paths:
     })
 
     test('Change securityScheme content', async () => {
-      const result = await buildChangelogPackage('changelog/change-inside-securityScheme')
+      const result = await buildChangelogPackage('changelog/change-inside-security-scheme')
 
       expectChangeCounts(result, {
         changes: {
