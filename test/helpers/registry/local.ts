@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { loadConfig, loadFile } from '../files'
+import { assertFixtureFilesExist, loadConfig, loadFile } from '../files'
 import { registryFs, loadFileFromRegistry, loadFileAsStringFromRegistry, loadConfigFromRegistry, registryPath } from './fs'
 import {
   ApiOperation,
@@ -81,7 +81,7 @@ import { version as apiProcessorVersion } from '../../../package.json'
 
 export const DEFAULT_PROJECTS_PATH = 'test/projects'
 
-export interface PackageVersionCache {
+interface PackageVersionCache {
   config: BuildConfig
   documents: Map<string, VersionDocument>
   operations: Map<string, ApiOperation>
@@ -467,6 +467,7 @@ export class LocalRegistry implements IRegistry {
       status: VERSION_STATUS.RELEASE,
       ...publishParams,
     }
+    await assertFixtureFilesExist(this.projectsDir, projectId, (versionConfig.files ?? []).map(({ fileId }) => fileId))
     const builder = new PackageVersionBuilder(versionConfig, {
       resolvers: {
         fileResolver: (fileId) => loadFile(this.projectsDir, projectId, fileId),

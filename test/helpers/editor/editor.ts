@@ -19,12 +19,13 @@ import { stringifyYaml } from '../../../src/processor'
 import {
   BuildConfig,
   BuildConfigAggregator,
+  BuildConfigFile,
   BuilderConfiguration,
   BuilderRunOptions,
   BuildResult,
   PackageVersionBuilder,
 } from '../../../src/processor'
-import { loadConfig, loadFile } from '../files'
+import { assertFixtureFilesExist, loadConfig, loadFile } from '../files'
 import { LocalRegistry } from '../registry'
 import { IRegistry } from '../registry/types'
 import fs from 'fs/promises'
@@ -116,8 +117,10 @@ export class Editor {
   }
 
   async run(config: Partial<BuildConfigAggregator> = {}): Promise<BuildResult> {
-    this.builder.config = { ...this.builder.config, ...config }
-    this.config = this.builder.config
+    const merged = { ...this.builder.config, ...config }
+    await this.assertListedFilesExist(merged.files ?? [])
+    this.builder.config = merged
+    this.config = merged
     return await this.builder.run()
   }
 
@@ -130,6 +133,14 @@ export class Editor {
   }
 
   async update(update: Partial<BuildConfig>, changedFiles: string | string[], options?: BuilderRunOptions | undefined): Promise<BuildResult> {
-    return this.builder.update({ ...this.builder.config, ...update }, Array.isArray(changedFiles) ? changedFiles : [changedFiles], options)
+    const config = { ...this.builder.config, ...update }
+    await this.assertListedFilesExist(config.files ?? [])
+    // `fileResolver` reads only what `this.config` lists, so a file the update adds must be listed there too
+    this.config = config
+    return this.builder.update(config, Array.isArray(changedFiles) ? changedFiles : [changedFiles], options)
+  }
+
+  protected async assertListedFilesExist(files: BuildConfigFile[]): Promise<void> {
+    await assertFixtureFilesExist(this.projectsDir, this.projectId, files.map(({ fileId }) => fileId))
   }
 }

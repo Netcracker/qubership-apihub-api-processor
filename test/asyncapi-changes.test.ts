@@ -178,13 +178,6 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
         changedOperationMatcher('operation1-message1', 'operation1-message1'),
       ]))
     })
-
-    // Only AsyncAPI 3.0.x is currently supported, so changing the asyncapi version
-    // between documents is not a realistic scenario — keeping the test skipped
-    // until another supported version exists to diff against.
-    test.skip('should report changed asyncapi document version', async () => {
-      // No fixture yet — unskip when additional AsyncAPI versions become supported.
-    })
   })
 
   describe('Channels tests', () => {

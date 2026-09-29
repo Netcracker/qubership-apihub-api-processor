@@ -14,24 +14,44 @@
  * limitations under the License.
  */
 
-import { Editor, expectNotEmpty, operationOf } from './helpers'
+import { buildPackageFromContent, cloneDocument, Editor, expectNotEmpty, operationOf } from './helpers'
 
 describe('Operation metadata test', () => {
   test('custom tag should exist in operation if provided in operationData', async () => {
-    const editor = await Editor.openProject('apihub')
-    const result = await editor.run({
-      version: 'v1',
-      packageId: 'custom-tags',
-    })
+    const result = await buildPackageFromContent('custom-tags/operation-shapes', 'openapi.yaml', `openapi: 3.0.0
+info:
+  title: Operation tags
+  version: '1.0'
+paths:
+  /string:
+    get:
+      x-operation-meta: Custom tag exists
+      responses:
+        '200':
+          description: OK
+  /object:
+    get:
+      x-operation-meta:
+        message: Custom tag can contain objects too
+      responses:
+        '200':
+          description: OK
+  /array:
+    get:
+      x-operation-meta:
+        - There can be arrays passed too
+      responses:
+        '200':
+          description: OK
+`)
 
-    const firstOperationWithCustomTag = operationOf(result, 'api-v1-integrations-gitlab-apikey-get')
-    expect(firstOperationWithCustomTag.metadata.customTags['x-operation-meta']).toEqual('Custom tag exists')
-    const secondOperationWithCustomTag = operationOf(result, 'api-v1-integrations-gitlab-apikey-put')
-    expect(JSON.stringify(secondOperationWithCustomTag.metadata.customTags['x-operation-meta']))
-      .toBe(JSON.stringify({ 'message': 'Custom tag can contain objects too' }))
-    const thirdOperationWithCustomTag = operationOf(result, 'api-v1-integrations-_integrationType_-repositories-get')
-    expect(JSON.stringify(thirdOperationWithCustomTag.metadata.customTags['x-operation-meta']))
-      .toBe(JSON.stringify(['There can be arrays passed too']))
+    // cloned: a value parsed from the document carries a symbol-keyed record of where it came from
+    const customTagsOf = (operationId: string): unknown =>
+      cloneDocument(operationOf(result, operationId).metadata.customTags)
+    expect(customTagsOf('string-get')).toEqual({ 'x-operation-meta': 'Custom tag exists' })
+    expect(customTagsOf('object-get'))
+      .toEqual({ 'x-operation-meta': { message: 'Custom tag can contain objects too' } })
+    expect(customTagsOf('array-get')).toEqual({ 'x-operation-meta': ['There can be arrays passed too'] })
   })
 
   test('operationIdV1 should exist in operation metadata', async () => {
@@ -46,5 +66,24 @@ describe('Operation metadata test', () => {
     expect(operation.metadata.operationIdV1).toBeDefined()
     expect(typeof operation.metadata.operationIdV1).toBe('string')
     expectNotEmpty(operation.metadata.operationIdV1)
+  })
+
+  // the proof mutation hands the document root to `getCustomTags`: it adds a wrong call rather than breaking an
+  // existing one, so it shows this can fail, not that it catches a likely regression
+  test('custom tag at the document root should not reach the operation', async () => {
+    const result = await buildPackageFromContent('custom-tags/document-root', 'openapi.yaml', `openapi: 3.0.0
+info:
+  title: Root tag
+  version: '1.0'
+x-custom-tag: root
+paths:
+  /pet:
+    get:
+      responses:
+        '200':
+          description: OK
+`)
+
+    expect(operationOf(result, 'pet-get').metadata.customTags).toEqual({})
   })
 })

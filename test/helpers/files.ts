@@ -52,6 +52,24 @@ export const loadFile = async (filePath: string, folder: string, fileName: strin
   }
 }
 
+/**
+ * Throw unless every listed file exists in the fixture folder.
+ * A build reports a missing file only as a `File was not parsed` notification, so a mistyped or renamed fixture path
+ * would otherwise leave a test green with nothing built from it.
+ */
+export const assertFixtureFilesExist = async (filePath: string, folder: string, fileIds: string[]): Promise<void> => {
+  const missing: string[] = []
+  for (const fileId of fileIds) {
+    // a directory would pass a plain existence check, and `loadFile` would then read it as nothing
+    const isFile = await fs.stat(path.join(process.cwd(), filePath, folder, fileId))
+      .then(stat => stat.isFile(), () => false)
+    if (!isFile) { missing.push(`'${fileId}'`) }
+  }
+  if (missing.length) {
+    throw new Error(`The fixture folder '${path.join(filePath, folder)}' has no file ${missing.join(', ')}`)
+  }
+}
+
 export interface PackageInfo {
   packageName: string
 }
