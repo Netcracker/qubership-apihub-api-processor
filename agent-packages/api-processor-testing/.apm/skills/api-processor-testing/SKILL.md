@@ -1,6 +1,6 @@
 ---
 name: api-processor-testing
-description: Use when adding or changing api-processor tests or test helpers — choosing a fixture, picking a package id, placing a spy, adding a helper, or proving a test can fail.
+description: Use when adding or changing api-processor tests or test helpers — choosing or naming a fixture, picking a package id, placing a spy, adding a helper, or proving a test can fail.
 ---
 
 # Writing api-processor tests
@@ -35,6 +35,30 @@ alone.
 A fixture broken on purpose says so in its name or folder, so a reader who sees its build report an error knows the
 error is the point: `broken-ref.yaml`, `invalid-critical-async.yaml`, `test/projects/broken/`, or the scenario it
 breaks (`operation-id-collisions/`).
+
+## Name a fixture by its role
+
+A folder under `test/projects` is one case: kebab-case with the spec terms spelled out (`path-item`, `operation-id`),
+no dots except the extension. A scenario of two packages keeps them in `<case>/previous-package` and
+`<case>/current-package`. Name the files inside by their role:
+
+- Two versions of one document: `before` and `after`; three or more: `v1`, `v2`, and so on.
+- Several documents of one version: `spec1`, `spec2`, and so on; a single document: a name that says what it is, or
+  `spec`.
+
+The file name becomes the document slug, and a comparison pairs the documents of two versions by slug. A version
+that republishes a document reuses its file; two different documents never share a name. For the same reason each
+version series gets a package of its own: two series in one package would share `v1` or `before`.
+
+Choose the folder with the project id and keep the file id a bare name:
+
+```typescript
+await registry.publish('new-deprecated/one-schema-usage', { packageId, version: 'v1', files: [{ fileId: 'before.yaml' }] })
+```
+
+A folder inside the file id (`one-schema-usage/before.yaml`) makes the slug depend on the build type. Only a
+`BUILD_TYPE.BUILD` config drops the shared folder, while `publish` sets no build type, so the published version and
+the editor's build of the next one get different slugs and stop pairing.
 
 ## Publish under a package id of its own
 
