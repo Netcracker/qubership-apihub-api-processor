@@ -15,7 +15,7 @@
  */
 
 import { describe, expect, test } from '@jest/globals'
-import { buildPackageWithDefaultConfig, deprecatedItemDescriptionMatcher, deprecatedItemsOf, expectNotEmpty } from './helpers'
+import { buildPackageFromSpecYaml, deprecatedItemDescriptionMatcher, deprecatedItemsOf, expectNotEmpty } from './helpers'
 import { DeprecateItem } from '../src'
 import { isOperationDeprecated } from '../src/utils'
 
@@ -24,7 +24,7 @@ describe('AsyncAPI 3.0 Deprecated tests', () => {
   describe('Channel tests', () => {
     let deprecatedItems: DeprecateItem[]
     beforeAll(async () => {
-      const result = await buildPackageWithDefaultConfig('asyncapi/deprecated/channel')
+      const result = await buildPackageFromSpecYaml('asyncapi/deprecated/channel')
       deprecatedItems = deprecatedItemsOf(result)
     })
 
@@ -47,7 +47,7 @@ describe('AsyncAPI 3.0 Deprecated tests', () => {
   describe('Messages tests', () => {
     let deprecatedItems: DeprecateItem[]
     beforeAll(async () => {
-      const result = await buildPackageWithDefaultConfig('asyncapi/deprecated/messages')
+      const result = await buildPackageFromSpecYaml('asyncapi/deprecated/messages')
       deprecatedItems = deprecatedItemsOf(result)
     })
 
@@ -73,7 +73,7 @@ describe('AsyncAPI 3.0 Deprecated tests', () => {
   })
 
   test('should mark apihub operation as deprecated if message was deprecated', async () => {
-    const result = await buildPackageWithDefaultConfig('asyncapi/deprecated/messages')
+    const result = await buildPackageFromSpecYaml('asyncapi/deprecated/messages')
     const operations = Array.from(result.operations.values())
 
     const [operation] = operations
@@ -82,7 +82,7 @@ describe('AsyncAPI 3.0 Deprecated tests', () => {
 
   describe('Shared channel with different deprecation per message', () => {
     test('should only report deprecated items for the operation that uses the deprecated message', async () => {
-      const result = await buildPackageWithDefaultConfig('asyncapi/deprecated/shared-channel-different-deprecation')
+      const result = await buildPackageFromSpecYaml('asyncapi/deprecated/shared-channel-different-deprecation')
       const operations = Array.from(result.operations.entries())
 
       // operation1 uses UserSignedUp (deprecated: false on email) — should have NO deprecated items
@@ -101,7 +101,7 @@ describe('AsyncAPI 3.0 Deprecated tests', () => {
   })
 
   test('should report deprecated schemas (flag "deprecated" in payload schema)', async () => {
-    const result = await buildPackageWithDefaultConfig('asyncapi/deprecated/schemas')
+    const result = await buildPackageFromSpecYaml('asyncapi/deprecated/schemas')
     const deprecatedItems = deprecatedItemsOf(result)
     expectNotEmpty(deprecatedItems)
 

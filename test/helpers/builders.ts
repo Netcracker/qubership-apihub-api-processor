@@ -105,17 +105,17 @@ export async function prepareChangelogPackage(
   // is what the test is about
   status: VersionStatus = VERSION_STATUS.RELEASE,
 ): Promise<Editor> {
-  const pkg = LocalRegistry.openPackage(packageId)
+  const registry = LocalRegistry.openPackage(packageId)
 
-  await pkg.publish(packageId, { packageId, version: BEFORE_VERSION_ID, files: filesBefore, status })
-  await pkg.publish(packageId, { packageId, version: AFTER_VERSION_ID, files: filesAfter, status })
+  await registry.publish(packageId, { packageId, version: BEFORE_VERSION_ID, files: filesBefore, status })
+  await registry.publish(packageId, { packageId, version: AFTER_VERSION_ID, files: filesAfter, status })
 
   return changelogEditor(packageId)
 }
 
 export async function buildPrefixGroupChangelogPackage(options: {
   packageId: string
-  config?: Partial<BuildConfig>
+  config?: Partial<Pick<BuildConfig, 'files' | 'currentGroup' | 'previousGroup'>>
 }): Promise<BuildResult> {
   const {
     packageId,
@@ -126,9 +126,9 @@ export async function buildPrefixGroupChangelogPackage(options: {
     } = {},
   } = options
 
-  const pkg = LocalRegistry.openPackage(packageId)
+  const registry = LocalRegistry.openPackage(packageId)
 
-  await pkg.publish(packageId, {
+  await registry.publish(packageId, {
     packageId,
     version: BEFORE_VERSION_ID,
     files,
@@ -151,7 +151,7 @@ export async function buildGqlChangelogPackage(
   return buildChangelogPackage(packageId, [{ fileId: 'before.gql' }], [{ fileId: 'after.gql' }])
 }
 
-export async function buildPackage(
+export async function buildPackageFromConfigJson(
   packageId: string,
 ): Promise<BuildResult> {
   const registry = LocalRegistry.openPackage(packageId)
@@ -230,34 +230,34 @@ export async function prepareChangelogDashboard(
   return new Editor(DEFAULT_DASHBOARD_ID, changelogConfig(DEFAULT_DASHBOARD_ID))
 }
 
-export async function buildPackageWithDefaultConfig(
+export async function buildPackageFromSpecYaml(
   packageId: string,
   fileLabels?: Labels,
   versionLabels?: Labels,
   xApiKind?: string,
 ): Promise<BuildResult> {
-  const portal = new LocalRegistry(packageId)
+  const registry = new LocalRegistry(packageId)
   const file = {
     fileId: 'spec.yaml',
     ...takeIfDefined({ labels: fileLabels }),
     ...takeIfDefined({ xApiKind: xApiKind }),
   }
 
-  await portal.publish(packageId, {
+  await registry.publish(packageId, {
     packageId: packageId,
-    version: 'v1',
+    version: BEFORE_VERSION_ID,
     metadata: { ...takeIfDefined({ versionLabels: versionLabels }) },
     files: [{ ...file, publish: true }],
   })
 
   const editor = new Editor(packageId, {
     packageId: packageId,
-    version: 'v1',
+    version: BEFORE_VERSION_ID,
     status: VERSION_STATUS.RELEASE,
     buildType: BUILD_TYPE.BUILD,
     metadata: { ...takeIfDefined({ versionLabels: versionLabels }) },
     files: [file],
-  }, {}, portal)
+  }, {}, registry)
 
   return editor.run()
 }
@@ -270,12 +270,12 @@ export async function buildPackageFromContent(
   versionLabels?: Labels,
   xApiKind?: string,
 ): Promise<BuildResult> {
-  const portal = new LocalRegistry(packageId)
-  return portal.publishFromContent(
+  const registry = new LocalRegistry(packageId)
+  return registry.publishFromContent(
     { [fileId]: content },
     {
       packageId,
-      version: 'v1',
+      version: BEFORE_VERSION_ID,
       metadata: { ...takeIfDefined({ versionLabels: versionLabels }) },
       files: [{
         fileId,
@@ -377,7 +377,7 @@ export const contentEditor = (
   registry,
 )
 
-export async function buildWithVersionOverrides(
+export async function buildWithApiProcessorVersionOverrides(
   packageId: string,
   overrides: Record<string, string>,
   {
@@ -397,18 +397,18 @@ export async function buildWithVersionOverrides(
 
   await registry.publishFromContent(
     { 'spec.json': ANY_REST_SPEC },
-    { packageId, version: 'v1', files: [{ fileId: 'spec.json', publish: true }] },
+    { packageId, version: BEFORE_VERSION_ID, files: [{ fileId: 'spec.json', publish: true }] },
   )
   await registry.publishFromContent(
     { 'spec.json': ANY_REST_SPEC },
-    { packageId, version: 'v2', files: [{ fileId: 'spec.json' }] },
+    { packageId, version: AFTER_VERSION_ID, files: [{ fileId: 'spec.json' }] },
   )
 
   const config: BuildConfig = {
-    version: 'v2',
+    version: AFTER_VERSION_ID,
     packageId,
     previousVersionPackageId: packageId,
-    previousVersion: 'v1',
+    previousVersion: BEFORE_VERSION_ID,
     buildType,
     status,
     // a changelog config carries no files, a build config lists what it publishes

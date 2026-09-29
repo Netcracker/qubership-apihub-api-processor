@@ -21,7 +21,7 @@ import {
   ANY_GRAPHQL_CHANGE,
   ANY_REST_CHANGE,
   ANY_REST_SPEC,
-  buildWithVersionOverrides,
+  buildWithApiProcessorVersionOverrides,
   contentEditor,
   DocumentChange,
   Editor,
@@ -235,7 +235,7 @@ describe('An api-processor version mismatch aborts the build whatever it is buil
   ]
 
   test.each(cases)('should stay fatal for a %s', async (name, buildType, status) => {
-    await expect(buildWithVersionOverrides(`fatal-failures/mismatch-${name}`, { v1: '99.0.0' }, { buildType, status }))
+    await expect(buildWithApiProcessorVersionOverrides(`fatal-failures/mismatch-${name}`, { v1: '99.0.0' }, { buildType, status }))
       .rejects.toThrow(/previous version was built using an outdated api-processor/)
   }, 30000)
 })
