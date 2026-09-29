@@ -15,12 +15,10 @@
  */
 
 import { API_AUDIENCE_INTERNAL, APIHUB_API_COMPATIBILITY_KIND_BWC, APIHUB_API_COMPATIBILITY_KIND_NO_BWC } from '../src'
-import { MESSAGE_SEVERITY, REST_API_TYPE } from '../src/consts'
-import { Editor, LocalRegistry } from './helpers'
+import { Editor, errorNotificationsOf, expectNotEmpty, LocalRegistry, operationOf, warningNotificationsOf } from './helpers'
 
 import { describe, expect, test } from '@jest/globals'
 import { calculateRestOperationTitle } from '../src/utils'
-import { operationKey } from '../src/components/operations'
 
 const bugsPackage = LocalRegistry.openPackage('bugs')
 const swaggerPackage = LocalRegistry.openPackage('basic_swagger')
@@ -32,7 +30,7 @@ describe('Operation Bugs', () => {
     const editor = await Editor.openProject('bugs', bugsPackage)
     const result = await editor.run()
 
-    expect(result.notifications.filter(({ severity }) => severity === 0).length).toEqual(9)
+    expect(errorNotificationsOf(result.notifications)).toHaveLength(9)
   })
 
   test('absolute server url: paths should start with v1', async () => {
@@ -77,8 +75,8 @@ describe('Operation Bugs', () => {
       ],
     })
 
-    const operationV1 = result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'v1-pet-findByStatus-get' }))
-    expect(operationV1?.title).toMatch(/(\s*)TEST(\s*)/g)
+    const operationV1 = operationOf(result, 'v1-pet-findByStatus-get')
+    expect(operationV1.title).toMatch(/(\s*)TEST(\s*)/g)
   })
 
   test('invalid swagger file should be handled', async () => {
@@ -86,7 +84,7 @@ describe('Operation Bugs', () => {
     const result = await editor.run()
 
     // AJV metaschema complaints are Warnings now: the document parses and its operations build
-    expect(result.notifications.filter(({ severity }) => severity === MESSAGE_SEVERITY.Warning).length).toEqual(1)
+    expect(warningNotificationsOf(result.notifications)).toHaveLength(1)
   })
 
   test('type error must not appear during build', async () => {
@@ -138,8 +136,8 @@ describe('Operation Bugs', () => {
         publish: true,
       }],
     })
-    const operation = result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'path1-get' }))
-    expect(operation?.search).toEqual({ useOperationDataAsSearchText: true })
+    const operation = operationOf(result, 'path1-get')
+    expect(operation.search).toEqual({ useOperationDataAsSearchText: true })
   })
 
   test('the final document should not have unused components', async () => {
@@ -147,7 +145,7 @@ describe('Operation Bugs', () => {
     const result = await editor.run({
       files: [{ fileId: 'delete-unused-components.yaml', publish: true }],
     })
-    const data = result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'path1-get' }))?.data
+    const { data } = operationOf(result, 'path1-get')
 
     expect(data?.components).toEqual({
       parameters: {
@@ -193,7 +191,7 @@ describe('Operation Bugs', () => {
     const result = await editor.run({
       files: [{ fileId: 'delete-unused-components.yaml', publish: true }],
     })
-    const models = result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'path1-get' }))?.models
+    const { models } = operationOf(result, 'path1-get')
     expect(models).toHaveProperty('usedSchema')
     expect(models).not.toHaveProperty('unusedSchema')
     expect(models).not.toHaveProperty('usedResponse')
@@ -213,7 +211,7 @@ describe('Operation Bugs', () => {
     const result = await editor.run({
       files: [{ fileId: 'schemas-with-the-same-name.yaml', publish: true }],
     })
-    const data = result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'path1-get' }))?.data
+    const { data } = operationOf(result, 'path1-get')
 
     expect(data?.components).toEqual({
       requestBodies: {
@@ -244,7 +242,7 @@ describe('Operation Bugs', () => {
     const result = await editor.run({
       files: [{ fileId: 'ref-to-nested-schema.yaml', publish: true }],
     })
-    const data = result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'path1-get' }))?.data
+    const { data } = operationOf(result, 'path1-get')
 
     expect(data).toHaveProperty(['components', 'schemas', 'firstSchema'])
   })
@@ -254,7 +252,7 @@ describe('Operation Bugs', () => {
     const result = await editor.run({
       files: [{ fileId: 'ref-in-invalid-spec.yaml', publish: true }],
     })
-    const data = result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'path1-get' }))?.data
+    const { data } = operationOf(result, 'path1-get')
 
     expect(data).toHaveProperty(['components', 'schemas', 'nestedSchema'])
   })
@@ -270,13 +268,14 @@ describe('Operation Bugs', () => {
         publish: true,
       }],
     })
-    expect(result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'path1-get' }))?.apiAudience).toEqual(API_AUDIENCE_INTERNAL)
+    expect(operationOf(result, 'path1-get').apiAudience).toEqual(API_AUDIENCE_INTERNAL)
   }, 100000)
 
   test('hidden files without extension should have required fields', async () => {
     const editor = await Editor.openProject('migration_bug', migrationBug)
     const result = await editor.run()
 
+    expectNotEmpty(result.documents)
     for (const [, document] of result.documents) {
       expect(!!document.type).toBeTruthy()
       expect(!!document.title).toBeTruthy()
@@ -286,7 +285,7 @@ describe('Operation Bugs', () => {
 
   test.skip('graphql introspection should have operations', async () => {
     const editor = await Editor.openProject('bugs', bugsPackage)
-    const result = await editor.run({
+    await editor.run({
       version: 'gql-bug',
       files: [
         // todo find proper test data
@@ -299,7 +298,7 @@ describe('Operation Bugs', () => {
 
   test.skip('graphql introspection with .gql extension should have operations', async () => {
     const editor = await Editor.openProject('bugs', bugsPackage)
-    const result = await editor.run({
+    await editor.run({
       version: 'gql-bug',
       files: [
         // todo find proper test data
@@ -312,7 +311,7 @@ describe('Operation Bugs', () => {
 
   test.skip('graphql introspection with __schema on the root level should have operations', async () => {
     const editor = await Editor.openProject('bugs', bugsPackage)
-    const result = await editor.run({
+    await editor.run({
       version: 'gql-bug',
       files: [
         // todo find proper test data
@@ -325,25 +324,27 @@ describe('Operation Bugs', () => {
 
   test('apiKind of operations should be BWC (wrong position of x-api-kind)', async () => {
     const editor = await Editor.openProject('bugs', bugsPackage)
-    const result = await editor.run({
+    await editor.run({
       version: 'apiKind-bug',
       files: [
         { fileId: 'openapi_sample_3-0.json', publish: true },
       ],
     })
 
+    expect(editor.builder.operationList.length).toBeGreaterThan(0)
     expect(editor.builder.operationList.every(operation => operation.apiKind === APIHUB_API_COMPATIBILITY_KIND_BWC)).toBeTruthy()
   })
 
   test('apiKind of operations should be no-BWC (defined in info)', async () => {
     const editor = await Editor.openProject('bugs', bugsPackage)
-    const result = await editor.run({
+    await editor.run({
       version: 'apiKind-bug',
       files: [
         { fileId: 'openapi_sample_3-0-no-bwc.json', publish: true },
       ],
     })
 
+    expect(editor.builder.operationList.length).toBeGreaterThan(0)
     expect(editor.builder.operationList.every(operation => operation.apiKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC)).toBeTruthy()
   })
 
@@ -366,7 +367,7 @@ describe('Operation Bugs', () => {
     const result = await editor.run({
       files: [{fileId: 'date-time-field-parsing-error.yaml', publish: true}],
     })
-    const data = result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'test-post' }))?.data
+    const { data } = operationOf(result, 'test-post')
     expect(data).toHaveProperty(['paths', '/test', 'post', 'responses', '200', 'content', 'application/json', 'schema', 'properties', 'testConnectionDate', 'example'], '2022-03-10T16:15:50Z')
   })
 
@@ -389,7 +390,7 @@ describe('Operation Bugs', () => {
     const result = await editor.run({
       files: [{ fileId: 'title-rest-operation-id-format.yaml', publish: true }],
     })
-    const restOperationTitle = result.operations.get(operationKey({ apiType: REST_API_TYPE, operationId: 'api-v1-items-_item_-get' }))?.title
+    const restOperationTitle = operationOf(result, 'api-v1-items-_item_-get').title
     expect(restOperationTitle).toEqual('Api V1 Items Item Get')
   })
 })

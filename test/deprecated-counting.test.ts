@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Editor, LocalRegistry } from './helpers'
+import { deprecatedItemsOf, Editor, LocalRegistry } from './helpers'
 import { BUILD_TYPE, VERSION_STATUS } from '../src'
 
 const portal = new LocalRegistry('new-deprecated')
@@ -50,9 +50,9 @@ describe('Deprecated counting test', () => {
 
     const result = await editor.run()
 
-    const deprecatedItems = Array.from(result.operations.values()).flatMap(operation => operation.deprecatedItems)
+    const deprecatedItems = deprecatedItemsOf(result)
 
-    expect(deprecatedItems.length === 2).toBeTruthy()
+    expect(deprecatedItems).toHaveLength(2)
   })
 
   test('should build deprecated for components schema', async () => {
@@ -66,9 +66,9 @@ describe('Deprecated counting test', () => {
 
     const result = await editor.run()
 
-    const deprecatedItems = Array.from(result.operations.values()).flatMap(operation => operation.deprecatedItems)
+    const deprecatedItems = deprecatedItemsOf(result)
 
-    expect(deprecatedItems.length === 1).toBeTruthy()
+    expect(deprecatedItems).toHaveLength(1)
   })
 
   test('should build deprecated for prop with allof', async () => {
@@ -82,9 +82,9 @@ describe('Deprecated counting test', () => {
 
     const result = await editor.run()
 
-    const deprecatedItems = Array.from(result.operations.values()).flatMap(operation => operation.deprecatedItems)
+    const deprecatedItems = deprecatedItemsOf(result)
 
-    expect(deprecatedItems.length === 1).toBeTruthy()
-    expect(deprecatedItems[0]?.declarationJsonPaths.length === 2).toBeTruthy()
+    expect(deprecatedItems).toHaveLength(1)
+    expect(deprecatedItems[0]?.declarationJsonPaths).toHaveLength(2)
   })
 })

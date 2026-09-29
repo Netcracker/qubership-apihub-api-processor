@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Editor, LocalRegistry } from './helpers'
+import { deprecatedItemsOf, Editor, LocalRegistry } from './helpers'
 import { BUILD_TYPE, VERSION_STATUS } from '../src'
 
 const portal = LocalRegistry.openPackage('new-deprecated')
@@ -32,8 +32,8 @@ describe('GraphQL Deprecated Items test', () => {
 
     const result = await editor.run()
 
-    const deprecatedItems = Array.from(result.operations.values()).flatMap(operation => operation.deprecatedItems)
+    const deprecatedItems = deprecatedItemsOf(result)
 
-    expect(deprecatedItems.length === 1).toBeTruthy()
+    expect(deprecatedItems).toHaveLength(1)
   })
 })

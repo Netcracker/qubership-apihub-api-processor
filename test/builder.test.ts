@@ -14,27 +14,41 @@
  * limitations under the License.
  */
 
+import { jest } from '@jest/globals'
 import { BUILD_TYPE, VERSION_STATUS } from '../src'
-import { Editor, LocalRegistry } from './helpers'
+import { ANY_REST_CHANGE, contentEditor, documentOf, Editor, LocalRegistry, publishChangeFromContent } from './helpers'
 
-const basicPackage = LocalRegistry.openPackage('basic')
 const apiAudiencePackage = LocalRegistry.openPackage('api-audience')
 
 describe('Editor scenarios', () => {
   describe('Update version', () => {
     test('clean cache and change version', async () => {
-      const editor = await Editor.openProject('basic', basicPackage)
+      const packageId = 'update-version/clean-cache'
+      const registry = await publishChangeFromContent(packageId, ANY_REST_CHANGE)
+      // the editor takes the registry's resolvers when it is created, so the spy has to be there first
+      const resolveVersion = jest.spyOn(registry, 'versionResolver')
+      const editor = contentEditor(
+        { packageId, version: 'v3', previousVersion: 'v1', buildType: BUILD_TYPE.BUILD },
+        { 'after.yaml': ANY_REST_CHANGE.after },
+        registry,
+      )
       const result = await editor.run({ version: 'v3' })
+      resolveVersion.mockClear()
+
+      // a changed file makes the update compare again; the previous version comes from the version cache unless
+      // the update cleans it
       const resultUpdate = await editor.update(
         { version: 'v4' },
-        [],
+        ['after.yaml'],
         { cleanCache: true },
       )
 
+      expect(resolveVersion).toHaveBeenCalledWith(packageId, 'v1', true)
       const expectConfig = {
         ...result.config,
         version: 'v4',
       }
+      // checks only the keys the updated config keeps
       expect(expectConfig).toMatchObject(resultUpdate.config)
     })
   })
@@ -83,12 +97,12 @@ describe('Editor scenarios', () => {
         ],
       })
 
-      const document = result.documents.get('docs/API-HUB_09.03.22.yaml')
-      expect(document?.title).toBeDefined()
-      expect(document?.description).toBeDefined()
-      expect(document?.version).toBeDefined()
-      expect((document?.metadata as any).info).toBeDefined()
-      expect((document?.metadata as any).externalDocs).toBeDefined()
+      const document = documentOf(result, 'docs/API-HUB_09.03.22.yaml')
+      expect(document.title).toBeDefined()
+      expect(document.description).toBeDefined()
+      expect(document.version).toBeDefined()
+      expect((document.metadata as any).info).toBeDefined()
+      expect((document.metadata as any).externalDocs).toBeDefined()
     })
   })
 
@@ -149,14 +163,17 @@ describe('Editor scenarios', () => {
   describe('PathItems build', () => {
     const COMPONENTS_ITEM_1_PATH = ['components', 'pathItems', 'componentsPathItem1']
     test('should have separate operations with pathitems', async () => {
+      // This fixture carries no config.json, so the build config lives here.
+      const files = [{ fileId: '1.yaml' }]
       const pkg = LocalRegistry.openPackage('builder/define-pathitems-via-reference-object-chain')
       const editor = await Editor.openProject(pkg.packageId, pkg)
 
-      await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+      await pkg.publish(pkg.packageId, { packageId: pkg.packageId, version: 'v1', files })
       const result = await editor.run({
         version: 'v1',
         status: VERSION_STATUS.RELEASE,
         buildType: BUILD_TYPE.BUILD,
+        files,
       })
 
       const resultOperations = Array.from(result.operations.values())

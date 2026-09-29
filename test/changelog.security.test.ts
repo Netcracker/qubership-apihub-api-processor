@@ -15,7 +15,7 @@
  */
 
 import { describe, test, expect } from '@jest/globals'
-import { buildChangelogPackage, changesSummaryMatcher, noChangesMatcher, numberOfImpactedOperationsMatcher, operationChangesMatcher } from './helpers'
+import { buildChangelogPackage, changedOperationMatcher, expectChangeCounts, expectChangesSummary, NO_CHANGES, operationChangesMatcher } from './helpers'
 import { BREAKING_CHANGE_TYPE, NON_BREAKING_CHANGE_TYPE, UNCLASSIFIED_CHANGE_TYPE } from '../src/types/external/comparison'
 
 describe('Security Diff Collection', () => {
@@ -23,16 +23,16 @@ describe('Security Diff Collection', () => {
     test('Operation with explicit security ignores global security changes', async () => {
       const result = await buildChangelogPackage('changelog/security/operation-security-precedence/global-changes-ignored')
 
-      expect(result).toEqual(noChangesMatcher())
+      expectChangeCounts(result, NO_CHANGES)
     })
 
     test('Operation security changes are reported for operation with explicit security', async () => {
       const result = await buildChangelogPackage('changelog/security/operation-security-precedence/operation-security-changes')
 
-      expect(result).toEqual(changesSummaryMatcher({
+      expectChangesSummary(result, {
         [BREAKING_CHANGE_TYPE]: 1,
         [NON_BREAKING_CHANGE_TYPE]: 1,
-      }))
+      })
     })
 
     test('Operation security changes reported, global changes ignored', async () => {
@@ -40,10 +40,10 @@ describe('Security Diff Collection', () => {
 
       // Both global and operation security change
       // Expected: Only operation security diffs reported
-      expect(result).toEqual(changesSummaryMatcher({
+      expectChangesSummary(result, {
         [BREAKING_CHANGE_TYPE]: 1,
         [NON_BREAKING_CHANGE_TYPE]: 1,
-      }))
+      })
     })
 
     test('Add explicit operation security', async () => {
@@ -51,9 +51,9 @@ describe('Security Diff Collection', () => {
 
       // Operation adds explicit security
       // Expected: Diffs for adding operation security
-      expect(result).toEqual(changesSummaryMatcher({
+      expectChangesSummary(result, {
         [BREAKING_CHANGE_TYPE]: 1,
-      }))
+      })
     })
   })
 
@@ -64,9 +64,9 @@ describe('Security Diff Collection', () => {
       // Global security changes, operation has no explicit security
       // Expected: Diffs from global security change
       // todo: fix the ER once api-diff classification is changed
-      expect(result).toEqual(changesSummaryMatcher({
+      expectChangesSummary(result, {
         [UNCLASSIFIED_CHANGE_TYPE]: 2,
-      }))
+      })
     })
 
     test('Adding global security affects operations without explicit security', async () => {
@@ -74,9 +74,9 @@ describe('Security Diff Collection', () => {
 
       // Global security added
       // Expected: Diffs for adding global security
-      expect(result).toEqual(changesSummaryMatcher({
+      expectChangesSummary(result, {
         [BREAKING_CHANGE_TYPE]: 1,
-      }))
+      })
     })
 
     test('Removing global security affects operations without explicit security', async () => {
@@ -84,9 +84,9 @@ describe('Security Diff Collection', () => {
 
       // Global security removed
       // Expected: Diffs for removing global security
-      expect(result).toEqual(changesSummaryMatcher({
+      expectChangesSummary(result, {
         [NON_BREAKING_CHANGE_TYPE]: 1,
-      }))
+      })
     })
 
     test('Removing operation security shows change', async () => {
@@ -94,9 +94,9 @@ describe('Security Diff Collection', () => {
 
       // Operation removes explicit security, global exists
       // Expected: Diffs for removing operation security
-      expect(result).toEqual(changesSummaryMatcher({
+      expectChangesSummary(result, {
         [BREAKING_CHANGE_TYPE]: 1,
-      }))
+      })
     })
   })
 
@@ -104,7 +104,7 @@ describe('Security Diff Collection', () => {
     test('Operation with explicit empty array as security ignores global changes', async () => {
       const result = await buildChangelogPackage('changelog/security/empty-security-array/empty-array-global-changes')
 
-      expect(result).toEqual(noChangesMatcher())
+      expectChangeCounts(result, NO_CHANGES)
     })
 
     test('Adding empty security array to operation', async () => {
@@ -112,9 +112,9 @@ describe('Security Diff Collection', () => {
 
       // Operation adds security: []
       // Expected: Diffs for adding empty security
-      expect(result).toEqual(changesSummaryMatcher({
+      expectChangesSummary(result, {
         [NON_BREAKING_CHANGE_TYPE]: 1,
-      }))
+      })
     })
 
     test('Removing empty security array from operation causes global security to be applied', async () => {
@@ -122,9 +122,9 @@ describe('Security Diff Collection', () => {
 
       // Operation removes security: []
       // Expected: Diffs for removing empty security
-      expect(result).toEqual(changesSummaryMatcher({
+      expectChangesSummary(result, {
         [BREAKING_CHANGE_TYPE]: 1,
-      }))
+      })
     })
 
     test('Changing from real security to empty array', async () => {
@@ -132,9 +132,9 @@ describe('Security Diff Collection', () => {
 
       // Operation security changes to []
       // Expected: Diffs for changing operation security
-      expect(result).toEqual(changesSummaryMatcher({
+      expectChangesSummary(result, {
         [NON_BREAKING_CHANGE_TYPE]: 1,
-      }))
+      })
     })
   })
 
@@ -144,33 +144,33 @@ describe('Security Diff Collection', () => {
 
       // Operation uses ApiKeyAuth, ApiKeyAuth scheme changes
       // Expected: Diffs for security scheme change
-      expect(result).toEqual(changesSummaryMatcher({
+      expectChangesSummary(result, {
         [BREAKING_CHANGE_TYPE]: 1,
-      }))
+      })
     })
 
     test('Unused scheme removed from components', async () => {
       const result = await buildChangelogPackage('changelog/security/scheme-relevance/unused-scheme-removed')
 
-      expect(result).toEqual(noChangesMatcher())
+      expectChangeCounts(result, NO_CHANGES)
     })
 
     test('Unused scheme added to components', async () => {
       const result = await buildChangelogPackage('changelog/security/scheme-relevance/unused-scheme-added')
 
-      expect(result).toEqual(noChangesMatcher())
+      expectChangeCounts(result, NO_CHANGES)
     })
 
     test('Unused security scheme changes are not reported', async () => {
       const result = await buildChangelogPackage('changelog/security/scheme-relevance/unused-scheme-changes')
 
-      expect(result).toEqual(noChangesMatcher())
+      expectChangeCounts(result, NO_CHANGES)
     })
 
     test('Security scheme used in global security is not reported if operation has explicit security', async () => {
       const result = await buildChangelogPackage('changelog/security/scheme-relevance/global-scheme-changes-ignored')
 
-      expect(result).toEqual(noChangesMatcher())
+      expectChangeCounts(result, NO_CHANGES)
     })
 
     test('Operation uses multiple schemes, several schemes changes', async () => {
@@ -178,18 +178,18 @@ describe('Security Diff Collection', () => {
 
       // Operation uses ApiKeyAuth and OAuth2, ApiKeyAuth and OAuth2 changes
       // Expected: Diffs for ApiKeyAuth scheme change only
-      expect(result).toEqual(changesSummaryMatcher({
+      expectChangesSummary(result, {
         [BREAKING_CHANGE_TYPE]: 1,
         [UNCLASSIFIED_CHANGE_TYPE]: 1, // todo: fix the ER once api-diff classification is changed
-      }))
+      })
     })
 
     test('Security scheme used in global security changes are reported if operation has no explicit security', async () => {
       const result = await buildChangelogPackage('changelog/security/scheme-relevance/used-global-scheme-changes')
 
-      expect(result).toEqual(changesSummaryMatcher({
+      expectChangesSummary(result, {
         [BREAKING_CHANGE_TYPE]: 1,
-      }))
+      })
     })
 
     test('Scheme added to components and used by operation', async () => {
@@ -198,9 +198,9 @@ describe('Security Diff Collection', () => {
       // ApiKeyAuth scheme added, operation adds security using it
       // Expected: Operation has diffs for adding operation security and scheme
       // todo: fix the ER once api-diff classification is changed, adding schema in components should not be breaking
-      expect(result).toEqual(changesSummaryMatcher({
+      expectChangesSummary(result, {
         [BREAKING_CHANGE_TYPE]: 2,
-      }))
+      })
     })
 
     test('Scheme removed from components, still referenced', async () => {
@@ -211,9 +211,9 @@ describe('Security Diff Collection', () => {
       // todo: fix the ER once api-diff classification is changed
       // removing schema from components should be annotation
       // security scheme for which there is not definition should be removed by api-unifier during validation?
-      expect(result).toEqual(changesSummaryMatcher({
+      expectChangesSummary(result, {
         [NON_BREAKING_CHANGE_TYPE]: 1,
-      }))
+      })
     })
   })
 
@@ -223,23 +223,21 @@ describe('Security Diff Collection', () => {
 
       //todo: fix the ER once api-diff classification is changed
       // both changes to root security and security scheme definitions in components are reported
-      expect(result).toEqual(changesSummaryMatcher({
-        [BREAKING_CHANGE_TYPE]: 1,
-        [NON_BREAKING_CHANGE_TYPE]: 1,
-        [UNCLASSIFIED_CHANGE_TYPE]: 2,
-      }))
-
-      // only operation without explicit security is impacted
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({
-        [BREAKING_CHANGE_TYPE]: 1,
-        [NON_BREAKING_CHANGE_TYPE]: 1,
-        [UNCLASSIFIED_CHANGE_TYPE]: 1,
-      }))
+      expectChangeCounts(result, {
+        changes: {
+          [BREAKING_CHANGE_TYPE]: 1,
+          [NON_BREAKING_CHANGE_TYPE]: 1,
+          [UNCLASSIFIED_CHANGE_TYPE]: 2,
+        },
+        // only operation without explicit security is impacted
+        impacted: {
+          [BREAKING_CHANGE_TYPE]: 1,
+          [NON_BREAKING_CHANGE_TYPE]: 1,
+          [UNCLASSIFIED_CHANGE_TYPE]: 1,
+        },
+      })
       expect(result).toEqual(operationChangesMatcher([
-        expect.objectContaining({
-          operationId: 'test2-get',
-          previousOperationId: 'test2-get',
-        }),
+        changedOperationMatcher('test2-get', 'test2-get'),
       ]))
     })
 
@@ -247,38 +245,34 @@ describe('Security Diff Collection', () => {
       const result = await buildChangelogPackage('changelog/security/multiple-operations/explicit-security-schema-used-by-one-operation-changes')
 
       //todo: fix the ER once api-diff classification is changed
-      expect(result).toEqual(changesSummaryMatcher({
-        [UNCLASSIFIED_CHANGE_TYPE]: 1,
-      }))
-
-      // only operation which uses changed security scheme is reported
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({
-        [UNCLASSIFIED_CHANGE_TYPE]: 1,
-      }))
+      expectChangeCounts(result, {
+        changes: {
+          [UNCLASSIFIED_CHANGE_TYPE]: 1,
+        },
+        // only operation which uses changed security scheme is reported
+        impacted: {
+          [UNCLASSIFIED_CHANGE_TYPE]: 1,
+        },
+      })
       expect(result).toEqual(operationChangesMatcher([
-        expect.objectContaining({
-          operationId: 'test1-get',
-          previousOperationId: 'test1-get',
-        }),
+        changedOperationMatcher('test1-get', 'test1-get'),
       ]))
     })
 
     test('Security scheme used by global, affects only operations without explicit security', async () => {
       const result = await buildChangelogPackage('changelog/security/multiple-operations/scheme-global-affects-subset')
 
-      expect(result).toEqual(changesSummaryMatcher({
-        [BREAKING_CHANGE_TYPE]: 1,
-      }))
-
-      // only operation which does not have explicit security is affected by security scheme change used in global security
-      expect(result).toEqual(numberOfImpactedOperationsMatcher({
-        [BREAKING_CHANGE_TYPE]: 1,
-      }))
+      expectChangeCounts(result, {
+        changes: {
+          [BREAKING_CHANGE_TYPE]: 1,
+        },
+        // only operation which does not have explicit security is affected by security scheme change used in global security
+        impacted: {
+          [BREAKING_CHANGE_TYPE]: 1,
+        },
+      })
       expect(result).toEqual(operationChangesMatcher([
-        expect.objectContaining({
-          operationId: 'test2-get',
-          previousOperationId: 'test2-get',
-        }),
+        changedOperationMatcher('test2-get', 'test2-get'),
       ]))
     })
   })

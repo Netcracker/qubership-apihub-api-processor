@@ -15,11 +15,22 @@
  */
 
 import { afterEach, describe, expect, jest, test } from '@jest/globals'
-import { Editor, LocalRegistry } from './helpers'
-import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, VERSION_STATUS } from '../src/consts'
+import JSZip from 'jszip'
+import {
+  ANY_REST_CHANGE,
+  changelogEditor,
+  contentEditor,
+  Editor,
+  expectNotEmpty,
+  LocalRegistry,
+  notificationsInCategory,
+  publishChangeFromContent,
+} from './helpers'
+import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, PACKAGE, VERSION_STATUS } from '../src/consts'
 import * as transformToDto from '../src/utils/transformToDto'
 import { toVersionsComparisonDto } from '../src/utils/transformToDto'
 import { NotificationMessage } from '../src/types/package/notifications'
+import { VersionStatus } from '../src/types'
 import { assertReleaseIsPublishable, comparisonPhaseNotifications } from '../src/components/release-gate'
 
 const error = (message: string, documentId?: string): NotificationMessage => ({
@@ -152,7 +163,7 @@ describe('Release gate and migration builds', () => {
     const result = await pkg.publish(pkg.packageId, migrationConfig(VERSION_STATUS.RELEASE) as never)
 
     const refProblems = result.notifications.filter(({ category }) => category.startsWith('ref-'))
-    expect(refProblems.length).toBeGreaterThan(0)
+    expectNotEmpty(refProblems)
     expect(refProblems.every(({ severity }) => severity === MESSAGE_SEVERITY.Warning)).toBe(true)
     // the build completed and nothing is flagged, so the historical version stays rebuildable
     expect(result.notifications.some(({ severity }) => severity === MESSAGE_SEVERITY.Error)).toBe(false)
@@ -165,20 +176,28 @@ describe('Release gate and migration builds', () => {
 describe('Release gate and a comparison that cannot be serialized', () => {
   afterEach(() => { jest.restoreAllMocks() })
 
-  const buildAgainstPrevious = async (status: string, buildType: string = BUILD_TYPE.BUILD): Promise<Editor> => {
-    const packageId = 'declarative-changes-in-rest-operation/case1'
-    const registry = new LocalRegistry(packageId)
-    await registry.publish(packageId, { packageId, version: 'v1', files: [{ fileId: 'before.yaml' }] })
+  // a build compares the `after.yaml` it builds with the published `v1`; a standalone changelog reads both
+  // versions from the registry, so both are published either way
+  const buildAgainstPrevious = async (
+    status: VersionStatus,
+    buildType: typeof BUILD_TYPE.BUILD | typeof BUILD_TYPE.CHANGELOG = BUILD_TYPE.BUILD,
+  ): Promise<Editor> => {
+    const packageId = `release-gate/serialization/${buildType}-${status}`
+    const registry = await publishChangeFromContent(packageId, ANY_REST_CHANGE)
+    const editor = buildType === BUILD_TYPE.CHANGELOG
+      ? changelogEditor(packageId, registry)
+      : contentEditor(
+        { packageId, version: 'v2', previousVersion: 'v1', status, buildType },
+        { 'after.yaml': ANY_REST_CHANGE.after },
+        registry,
+      )
+    // a changelog editor is a release by default; the status given here decides for both paths
+    const result = await editor.run({ status })
 
-    const editor = new Editor(packageId, {
-      packageId,
-      version: 'v2',
-      previousVersion: 'v1',
-      status,
-      buildType,
-      files: [{ fileId: 'after.yaml' }],
-    } as never, {}, registry)
-    await editor.run()
+    // one calculated comparison with nothing on any stream the gate reads, so what the packager reports is the
+    // spy's error alone and the release message names it verbatim
+    expect(result.comparisons.map(({ fromCache }) => fromCache)).toEqual([false])
+    expect(comparisonPhaseNotifications(result)).toEqual([])
     return editor
   }
 
@@ -203,7 +222,10 @@ describe('Release gate and a comparison that cannot be serialized', () => {
     const editor = await buildAgainstPrevious(VERSION_STATUS.DRAFT)
     failSerialization()
 
-    await expect(editor.createNodeVersionPackage()).resolves.toBeDefined()
+    const { packageVersion } = await editor.createNodeVersionPackage()
+    const zip = await JSZip.loadAsync(packageVersion)
+    const { comparisons } = JSON.parse(await zip.file(PACKAGE.COMPARISONS_FILE_NAME)!.async('string'))
+    expect(comparisons.map(({ hasErrors }: { hasErrors?: boolean }) => hasErrors)).toEqual([true])
   }, 30000)
 
   // A standalone changelog recalculates the changes of a version that is already published, so its `status`
@@ -214,6 +236,9 @@ describe('Release gate and a comparison that cannot be serialized', () => {
     failSerialization()
 
     await expect(editor.createNodeVersionPackage()).resolves.toBeDefined()
+    // the serialization error was raised and reached the comparison, so it is the gate that let it through
+    const { notifications } = editor.builder.buildResult.comparisons[0]
+    expect(notificationsInCategory(notifications, MESSAGE_CATEGORY.ComparisonSerialization)).toHaveLength(1)
   }, 30000)
 })
 

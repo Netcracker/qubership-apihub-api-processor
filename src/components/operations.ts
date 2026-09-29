@@ -30,7 +30,7 @@ import {
   ContestedOperationsCompare,
   describeConflict,
   DocumentClaim,
-  findContestedOperationConflicts, OperationConflict,
+  findContestedOperationConflicts,
 } from './contested-operations'
 
 /**

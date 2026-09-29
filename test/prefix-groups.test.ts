@@ -16,10 +16,10 @@
 
 import {
   buildPrefixGroupChangelogPackage,
-  changesSummaryMatcher,
+  changedOperationMatcher,
   Editor,
+  expectChangeCounts,
   LocalRegistry,
-  numberOfImpactedOperationsMatcher,
   operationChangesMatcher,
 } from './helpers'
 import { ANNOTATION_CHANGE_TYPE, BREAKING_CHANGE_TYPE, BUILD_TYPE, NON_BREAKING_CHANGE_TYPE } from '../src'
@@ -87,16 +87,18 @@ describe('Prefix Groups test', () => {
   test('should compare prefix groups mixed cases', async () => {
     const result = await buildPrefixGroupChangelogPackage({ packageId: 'prefix-groups/mixed-cases' })
 
-    expect(result).toEqual(changesSummaryMatcher({
-      [BREAKING_CHANGE_TYPE]: 1,
-      [NON_BREAKING_CHANGE_TYPE]: 1,
-      [ANNOTATION_CHANGE_TYPE]: 2,
-    }))
-    expect(result).toEqual(numberOfImpactedOperationsMatcher({
-      [BREAKING_CHANGE_TYPE]: 1,
-      [NON_BREAKING_CHANGE_TYPE]: 1,
-      [ANNOTATION_CHANGE_TYPE]: 2,
-    }))
+    expectChangeCounts(result, {
+      changes: {
+        [BREAKING_CHANGE_TYPE]: 1,
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+        [ANNOTATION_CHANGE_TYPE]: 2,
+      },
+      impacted: {
+        [BREAKING_CHANGE_TYPE]: 1,
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+        [ANNOTATION_CHANGE_TYPE]: 2,
+      },
+    })
   })
 
   test('should compare prefix groups when prefix specified in server', async () => {
@@ -105,16 +107,18 @@ describe('Prefix Groups test', () => {
       config: { files: [{ fileId: 'spec1.yaml' }, { fileId: 'spec2.yaml' }] },
     })
 
-    expect(result).toEqual(changesSummaryMatcher({
-      [BREAKING_CHANGE_TYPE]: 1,
-      [NON_BREAKING_CHANGE_TYPE]: 1,
-      [ANNOTATION_CHANGE_TYPE]: 1,
-    }))
-    expect(result).toEqual(numberOfImpactedOperationsMatcher({
-      [BREAKING_CHANGE_TYPE]: 1,
-      [NON_BREAKING_CHANGE_TYPE]: 1,
-      [ANNOTATION_CHANGE_TYPE]: 1,
-    }))
+    expectChangeCounts(result, {
+      changes: {
+        [BREAKING_CHANGE_TYPE]: 1,
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+        [ANNOTATION_CHANGE_TYPE]: 1,
+      },
+      impacted: {
+        [BREAKING_CHANGE_TYPE]: 1,
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+        [ANNOTATION_CHANGE_TYPE]: 1,
+      },
+    })
 
     //check operation ids
     expect(result).toEqual(operationChangesMatcher([
@@ -124,10 +128,7 @@ describe('Prefix Groups test', () => {
       expect.objectContaining({
         operationId: 'api-v2-added-get',
       }),
-      expect.objectContaining({
-        operationId: 'api-v2-changed1-get',
-        previousOperationId: 'api-v1-changed1-get',
-      }),
+      changedOperationMatcher('api-v2-changed1-get', 'api-v1-changed1-get'),
     ]))
   })
 
@@ -137,26 +138,25 @@ describe('Prefix Groups test', () => {
       config: { files: [{ fileId: 'spec1.yaml' }, { fileId: 'spec2.yaml' }] },
     })
 
-    expect(result).toEqual(changesSummaryMatcher({
-      [BREAKING_CHANGE_TYPE]: 1,
-      [NON_BREAKING_CHANGE_TYPE]: 1,
-      [ANNOTATION_CHANGE_TYPE]: 1,
-    }))
-    expect(result).toEqual(numberOfImpactedOperationsMatcher({
-      [BREAKING_CHANGE_TYPE]: 1,
-      [NON_BREAKING_CHANGE_TYPE]: 1,
-      [ANNOTATION_CHANGE_TYPE]: 1,
-    }))
+    expectChangeCounts(result, {
+      changes: {
+        [BREAKING_CHANGE_TYPE]: 1,
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+        [ANNOTATION_CHANGE_TYPE]: 1,
+      },
+      impacted: {
+        [BREAKING_CHANGE_TYPE]: 1,
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+        [ANNOTATION_CHANGE_TYPE]: 1,
+      },
+    })
 
     //check operation ids
     expect(result).toEqual(operationChangesMatcher([
       expect.objectContaining({
         previousOperationId: 'api-v1-removed-get',
       }),
-      expect.objectContaining({
-        operationId: 'api-v2-changed1-get',
-        previousOperationId: 'api-v1-changed1-get',
-      }),
+      changedOperationMatcher('api-v2-changed1-get', 'api-v1-changed1-get'),
       expect.objectContaining({
         operationId: 'api-v2-added-get',
       }),
@@ -170,16 +170,18 @@ describe('Prefix Groups test', () => {
       config: { files: [{ fileId: 'spec1.yaml' }, { fileId: 'spec2.yaml' }] },
     })
 
-    expect(result).toEqual(changesSummaryMatcher({
-      [BREAKING_CHANGE_TYPE]: 1,
-      [NON_BREAKING_CHANGE_TYPE]: 1,
-      [ANNOTATION_CHANGE_TYPE]: 1,// todo
-    }))
-    expect(result).toEqual(numberOfImpactedOperationsMatcher({
-      [BREAKING_CHANGE_TYPE]: 1,
-      [NON_BREAKING_CHANGE_TYPE]: 1,
-      [ANNOTATION_CHANGE_TYPE]: 1,// todo
-    }))
+    expectChangeCounts(result, {
+      changes: {
+        [BREAKING_CHANGE_TYPE]: 1,
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+        [ANNOTATION_CHANGE_TYPE]: 1,// todo
+      },
+      impacted: {
+        [BREAKING_CHANGE_TYPE]: 1,
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+        [ANNOTATION_CHANGE_TYPE]: 1,// todo
+      },
+    })
   })
 
   test('should compare prefix groups when prefix is overridden in path', async () => {
@@ -188,26 +190,25 @@ describe('Prefix Groups test', () => {
       config: { files: [{ fileId: 'spec1.yaml' }, { fileId: 'spec2.yaml' }] },
     })
 
-    expect(result).toEqual(changesSummaryMatcher({
-      [BREAKING_CHANGE_TYPE]: 1,
-      [NON_BREAKING_CHANGE_TYPE]: 1,
-      [ANNOTATION_CHANGE_TYPE]: 1,
-    }))
-    expect(result).toEqual(numberOfImpactedOperationsMatcher({
-      [BREAKING_CHANGE_TYPE]: 1,
-      [NON_BREAKING_CHANGE_TYPE]: 1,
-      [ANNOTATION_CHANGE_TYPE]: 1,
-    }))
+    expectChangeCounts(result, {
+      changes: {
+        [BREAKING_CHANGE_TYPE]: 1,
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+        [ANNOTATION_CHANGE_TYPE]: 1,
+      },
+      impacted: {
+        [BREAKING_CHANGE_TYPE]: 1,
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+        [ANNOTATION_CHANGE_TYPE]: 1,
+      },
+    })
 
     //check operation ids
     expect(result).toEqual(operationChangesMatcher([
       expect.objectContaining({
         previousOperationId: 'api-v1-removed-get',
       }),
-      expect.objectContaining({
-        operationId: 'api-v2-changed1-get',
-        previousOperationId: 'api-v1-changed1-get',
-      }),
+      changedOperationMatcher('api-v2-changed1-get', 'api-v1-changed1-get'),
       expect.objectContaining({
         operationId: 'api-v2-added-get',
       }),
@@ -217,8 +218,10 @@ describe('Prefix Groups test', () => {
   test('Add method in a new version', async () => {
     const result = await buildPrefixGroupChangelogPackage({ packageId: 'prefix-groups/add-method' })
 
-    expect(result).toEqual(changesSummaryMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }))
-    expect(result).toEqual(numberOfImpactedOperationsMatcher({ [NON_BREAKING_CHANGE_TYPE]: 1 }))
+    expectChangeCounts(result, {
+      changes: { [NON_BREAKING_CHANGE_TYPE]: 1 },
+      impacted: { [NON_BREAKING_CHANGE_TYPE]: 1 },
+    })
 
     //check operation ids
     expect(result).toEqual(operationChangesMatcher([
@@ -231,8 +234,7 @@ describe('Prefix Groups test', () => {
   test('Remove method in a new version', async () => {
     const result = await buildPrefixGroupChangelogPackage({ packageId: 'prefix-groups/remove-method' })
 
-    expect(result).toEqual(changesSummaryMatcher({ [BREAKING_CHANGE_TYPE]: 1 }))
-    expect(result).toEqual(numberOfImpactedOperationsMatcher({ [BREAKING_CHANGE_TYPE]: 1 }))
+    expectChangeCounts(result, { changes: { [BREAKING_CHANGE_TYPE]: 1 }, impacted: { [BREAKING_CHANGE_TYPE]: 1 } })
 
     //check operation ids
     expect(result).toEqual(operationChangesMatcher([
@@ -245,40 +247,38 @@ describe('Prefix Groups test', () => {
   test('Change method content in a new version', async () => {
     const result = await buildPrefixGroupChangelogPackage({ packageId: 'prefix-groups/change-method' })
 
-    expect(result).toEqual(changesSummaryMatcher({
-      [BREAKING_CHANGE_TYPE]: 1,
-      [NON_BREAKING_CHANGE_TYPE]: 1,
-    }))
-    expect(result).toEqual(numberOfImpactedOperationsMatcher({
-      [BREAKING_CHANGE_TYPE]: 1,
-      [NON_BREAKING_CHANGE_TYPE]: 1,
-    }))
+    expectChangeCounts(result, {
+      changes: {
+        [BREAKING_CHANGE_TYPE]: 1,
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+      },
+      impacted: {
+        [BREAKING_CHANGE_TYPE]: 1,
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+      },
+    })
 
     //check operation ids
     expect(result).toEqual(operationChangesMatcher([
-      expect.objectContaining({
-        operationId: 'api-v2-path1-get',
-        previousOperationId: 'api-v1-path1-get',
-      }),
+      changedOperationMatcher('api-v2-path1-get', 'api-v1-path1-get'),
     ]))
   })
 
   test('Change path parameter name in a new version', async () => {
     const result = await buildPrefixGroupChangelogPackage({ packageId: 'prefix-groups/change-path-param-name' })
 
-    expect(result).toEqual(changesSummaryMatcher({
-      [ANNOTATION_CHANGE_TYPE]: 2,
-    }))
-    expect(result).toEqual(numberOfImpactedOperationsMatcher({
-      [ANNOTATION_CHANGE_TYPE]: 1,
-    }))
+    expectChangeCounts(result, {
+      changes: {
+        [ANNOTATION_CHANGE_TYPE]: 2,
+      },
+      impacted: {
+        [ANNOTATION_CHANGE_TYPE]: 1,
+      },
+    })
 
     //check operation ids
     expect(result).toEqual(operationChangesMatcher([
-      expect.objectContaining({
-        operationId: 'api-v2-users-_id_-posts-get',
-        previousOperationId: 'api-v1-users-_userId_-posts-get',
-      }),
+      changedOperationMatcher('api-v2-users-_id_-posts-get', 'api-v1-users-_userId_-posts-get'),
     ]))
   })
 
@@ -291,15 +291,11 @@ describe('Prefix Groups test', () => {
       },
     })
 
-    expect(result).toEqual(changesSummaryMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }))
-    expect(result).toEqual(numberOfImpactedOperationsMatcher({ [ANNOTATION_CHANGE_TYPE]: 1 }))
+    expectChangeCounts(result, { changes: { [ANNOTATION_CHANGE_TYPE]: 1 }, impacted: { [ANNOTATION_CHANGE_TYPE]: 1 } })
 
     //check operation ids
     expect(result).toEqual(operationChangesMatcher([
-      expect.objectContaining({
-        operationId: 'api-v1000-packages-get',
-        previousOperationId: 'api-v10-packages-get',
-      }),
+      changedOperationMatcher('api-v1000-packages-get', 'api-v10-packages-get'),
     ]))
   })
 

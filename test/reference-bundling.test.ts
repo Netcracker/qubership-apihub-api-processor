@@ -3,7 +3,7 @@ import { afterEach, jest } from '@jest/globals'
 import { restApiBuilder } from '../src/apitypes'
 import { REST_DOCUMENT_TYPE } from '../src/apitypes/rest/rest.consts'
 import { FILE_FORMAT_YAML, FILE_KIND } from '../src'
-import { LocalRegistry, notificationMatcher, notificationsMatcher } from './helpers'
+import { documentOf, LocalRegistry, notificationMatcher, notificationOf, notificationsMatcher, publishVersion } from './helpers'
 import {
   MESSAGE_CATEGORY,
   MESSAGE_SEVERITY,
@@ -25,7 +25,7 @@ describe('Reference bundling test', () => {
     const pkg = LocalRegistry.openPackage('reference-bundling/case1')
     const result = await pkg.publish(pkg.packageId)
 
-    expect(result.documents.get('openapi.yaml')?.dependencies).toEqual(['reference.yaml'])
+    expect(documentOf(result, 'openapi.yaml').dependencies).toEqual(['reference.yaml'])
   })
 
   test('should collect missing external reference notifications if severity level is not configured', async () => {
@@ -38,7 +38,7 @@ describe('Reference bundling test', () => {
       notificationMatcher(MESSAGE_SEVERITY.Warning,'does not exist'),
     ]))
     expect(result.operations.size).toBe(1)
-    expect(result.documents.get('openapi.yaml')?.dependencies.length).toBe(0)
+    expect(documentOf(result, 'openapi.yaml').dependencies.length).toBe(0)
 
     // reference problems are attributed to the document slug and each carries its own category
     expect(result.notifications.every(({ documentId }) => documentId === 'openapi')).toBe(true)
@@ -49,7 +49,7 @@ describe('Reference bundling test', () => {
     const pkg = LocalRegistry.openPackage('reference-bundling/case3')
     const result = await pkg.publish(pkg.packageId)
 
-    expect(result.documents.get('openapi.yaml')?.dependencies).toEqual([
+    expect(documentOf(result, 'openapi.yaml').dependencies).toEqual([
       'reference.yaml',
       'transitive-reference.yaml',
     ])
@@ -64,7 +64,7 @@ describe('Reference bundling test', () => {
       notificationMatcher(MESSAGE_SEVERITY.Warning,'does not exist'),
     ]))
     expect(result.operations.size).toBe(1)
-    expect(result.documents.get('openapi.yaml')?.dependencies).toEqual(['reference.yaml'])
+    expect(documentOf(result, 'openapi.yaml').dependencies).toEqual(['reference.yaml'])
   })
 
   // this one throws from `buildRestOperations`, so it is the per-document loop that catches it
@@ -212,11 +212,7 @@ describe('A broken file behind a $ref', () => {
   test('should report a broken $ref-ed file to every document that pulled it in, naming the file', async () => {
     const packageId = 'reference-bundling/shared-broken-reference'
     // both roots pull in the same broken file, which is the whole point of the fixture
-    const result = await new LocalRegistry(packageId).publish(packageId, {
-      packageId,
-      version: 'v1',
-      files: [{ fileId: 'first.yaml' }, { fileId: 'second.yaml' }],
-    })
+    const result = await publishVersion(packageId, 'v1', ['first.yaml', 'second.yaml'])
 
     const referenced = result.notifications.filter(({ message }) => message.includes('referenced from this document'))
     // one notification per parse error per root, so both documents are flagged and neither is left out
@@ -260,19 +256,13 @@ describe('A broken file behind a $ref', () => {
   test('should report the parse failure of a $ref-ed file its parser could not read', async () => {
     const packageId = 'reference-bundling/unparsable-reference'
     // draft: the parse failure is an Error, and a release carrying one does not publish
-    const result = await new LocalRegistry(packageId).publish(packageId, {
-      packageId,
-      version: 'v1',
-      status: VERSION_STATUS.DRAFT,
-      files: [{ fileId: 'root.yaml' }],
-    })
+    const result = await publishVersion(packageId, 'v1', 'root.yaml', { status: VERSION_STATUS.DRAFT })
 
-    const parseFailure = result.notifications.find(({ category }) => category === MESSAGE_CATEGORY.ParseFile)
-    expect(parseFailure).toBeDefined()
-    expect(parseFailure!.severity).toBe(MESSAGE_SEVERITY.Error)
-    expect(parseFailure!.documentId).toBe('root')
-    expect(parseFailure!.message).toContain('\'broken.yaml\' referenced from this document')
+    const parseFailure = notificationOf(result.notifications, MESSAGE_CATEGORY.ParseFile)
+    expect(parseFailure.severity).toBe(MESSAGE_SEVERITY.Error)
+    expect(parseFailure.documentId).toBe('root')
+    expect(parseFailure.message).toContain('\'broken.yaml\' referenced from this document')
     // the parser's own words: what to fix is in the file, not in the $ref
-    expect(parseFailure!.message).toContain('Nested mappings are not allowed')
+    expect(parseFailure.message).toContain('Nested mappings are not allowed')
   })
 })

@@ -14,9 +14,26 @@
  * limitations under the License.
  */
 
-import { Editor, LocalRegistry, getVersionChanges } from '../helpers'
+import { Editor, LocalRegistry } from '../helpers'
 import { CATEGORY_SCHEMA, PET_ENDPOINT, PET_SCHEMA, PETID_GET_METHOD } from './changelog.consts'
-import { NON_BREAKING_CHANGE_TYPE } from '../../src'
+import { BuildResult, ChangeSummary, EMPTY_CHANGE_SUMMARY, NON_BREAKING_CHANGE_TYPE } from '../../src'
+
+// Lived in `test/helpers/accessors.ts` until it turned out this suite was its only consumer — and the
+// suite has carried `describe.skip` since the initial code drop, so it had no running caller at all.
+const getVersionChanges = (result: BuildResult): Record<string, ChangeSummary> => {
+  const summary: Record<string, ChangeSummary> = {}
+  for (const comparison of result.comparisons) {
+    for (const { apiType, changesSummary } of comparison.operationTypes) {
+      // a copy per api type: accumulating onto the shared EMPTY_CHANGE_SUMMARY corrupts it for every other reader
+      const totals = summary[apiType] ?? (summary[apiType] = { ...EMPTY_CHANGE_SUMMARY })
+
+      for (const [key, value] of Object.entries(changesSummary ?? {})) {
+        totals[key as keyof ChangeSummary] += value
+      }
+    }
+  }
+  return summary
+}
 
 describe.skip('Change Log', () => {
   const packageId = 'changelog'

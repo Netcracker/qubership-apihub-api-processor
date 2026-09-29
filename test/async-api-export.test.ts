@@ -17,7 +17,7 @@
 import { describe, expect, test } from '@jest/globals'
 import { FILE_FORMAT_GRAPHQL, FILE_FORMAT_HTML, FILE_FORMAT_JSON, FILE_FORMAT_YAML } from '../src/consts'
 import { ExportAsyncApiOperationsGroupBuildConfig, OperationsApiType } from '../src/types'
-import { Editor, LocalRegistry } from './helpers'
+import { Editor, expectNotEmpty, LocalRegistry } from './helpers'
 import { BUILD_TYPE, TRANSFORMATION_KIND_MERGED, TRANSFORMATION_KIND_REDUCED } from '../src'
 
 /**
@@ -101,7 +101,7 @@ describe('Export AsyncAPI Operations Group integration tests', () => {
         expect(exportDocument.filename).toMatch(/\.json$/)
 
         const text = await exportDocument.data.text()
-        expect(text.length).toBeGreaterThan(0)
+        expectNotEmpty(text)
 
         const parsed = JSON.parse(text)
         expect(parsed.asyncapi).toBeDefined()
@@ -122,7 +122,7 @@ describe('Export AsyncAPI Operations Group integration tests', () => {
         expect(exportDocument.filename).toMatch(/\.yaml$/)
 
         const text = await exportDocument.data.text()
-        expect(text.length).toBeGreaterThan(0)
+        expectNotEmpty(text)
         // YAML export should contain AsyncAPI structural keys as plain text
         expect(text).toContain('asyncapi:')
         expect(text).toContain('operations:')

@@ -1,5 +1,5 @@
 import * as hashes from '../src/utils/hashes'
-import { calculateHash, ObjectHashCache } from '../src/utils/hashes'
+import { ObjectHashCache } from '../src/utils/hashes'
 import { LocalRegistry } from './helpers'
 
 describe('Hash cache tests', () => {
