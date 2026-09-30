@@ -55,8 +55,8 @@ describe('Number of declarative changes in graphql package version test', () => 
   test('Two operations in the package version with different types but the same type names', async () => {
     const result = await buildChangelogPackage(
       'declarative-changes-in-graphql-package-version/case4',
-      [{ fileId: 'before/spec1.gql' }, { fileId: 'before/spec2.gql' }],
-      [{ fileId: 'after/spec1.gql' }, { fileId: 'after/spec2.gql' }],
+      [{ fileId: 'before1.gql' }, { fileId: 'before2.gql' }],
+      [{ fileId: 'after1.gql' }, { fileId: 'after2.gql' }],
     )
     expectChangeCounts(result, {
       changes: { [BREAKING_CHANGE_TYPE]: 1,[NON_BREAKING_CHANGE_TYPE]: 1 },

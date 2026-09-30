@@ -26,8 +26,8 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
   test('should report no changes for identical documents', async () => {
     const result = await buildChangelogPackage(
       'asyncapi-changes/no-changes',
-      [{ fileId: 'before.yaml', publish: true }],
-      [{ fileId: 'before.yaml', publish: true }],
+      [{ fileId: 'spec.yaml', publish: true }],
+      [{ fileId: 'spec.yaml', publish: true }],
     )
 
     expectNoChanges(result)
@@ -54,10 +54,10 @@ describe('AsyncAPI 3.0 Changelog tests', () => {
     test('should report added operations from a new AsyncAPI document', async () => {
       const result = await buildChangelogPackage(
         'asyncapi-changes/operation/add-async-new-document',
-        [{ fileId: 'before/rest.yaml' }],
+        [{ fileId: 'before1.yaml' }],
         [
-          { fileId: 'after/rest.yaml' },
-          { fileId: 'after/async.yaml' },
+          { fileId: 'after1.yaml' },
+          { fileId: 'after2.yaml' },
         ],
       )
 

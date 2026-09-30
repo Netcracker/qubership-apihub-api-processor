@@ -111,8 +111,8 @@ describe('Changelog build type', () => {
     test('Should match moved operations', async () => {
       const result = await buildChangelogPackage(
         'changelog/documents-matching',
-        [{ fileId: 'before/spec1.yaml' }, { fileId: 'before/spec2.yaml' }],
-        [{ fileId: 'after/spec1.yaml' }, { fileId: 'after/spec2.yaml' }, { fileId: 'after/evicted.yaml' }],
+        [{ fileId: 'before1.yaml' }, { fileId: 'before2.yaml' }],
+        [{ fileId: 'after1.yaml' }, { fileId: 'after2.yaml' }, { fileId: 'evicted.yaml' }],
       )
       expectChangeCounts(result, {
         changes: { [ANNOTATION_CHANGE_TYPE]: 3 },

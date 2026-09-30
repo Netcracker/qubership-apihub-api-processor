@@ -288,7 +288,7 @@ describe('Comparison Internal Documents tests', () => {
       const expectedComparisonFile = await loadFileAsString(
         DEFAULT_PROJECTS_PATH,
         packageId,
-        'comparison.json',
+        'result.json',
       )
 
       expectNotEmpty(comparisons)

@@ -46,12 +46,12 @@ describe('Editor', () => {
 
   test('should build a file an update adds to the list', async () => {
     const editor = await Editor.openProject(FOLDER)
-    await editor.run({ version: 'v1', files: [{ fileId: 'first.yaml' }] })
+    await editor.run({ version: 'v1', files: [{ fileId: 'spec1.yaml' }] })
 
-    const result = await editor.update({ version: 'v1', files: [{ fileId: 'first.yaml' }, { fileId: 'second.yaml' }] }, 'second.yaml')
+    const result = await editor.update({ version: 'v1', files: [{ fileId: 'spec1.yaml' }, { fileId: 'spec2.yaml' }] }, 'spec2.yaml')
 
     // a file the build could not read would still get a document, an empty one, with an error
     expect(errorNotificationsOf(result.notifications)).toEqual([])
-    expectNotEmpty(documentOf(result, 'second.yaml').operationIds)
+    expectNotEmpty(documentOf(result, 'spec2.yaml').operationIds)
   })
 })
