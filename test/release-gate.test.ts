@@ -244,7 +244,13 @@ describe('An error raised while the archive is written', () => {
     const { editor } = await buildAgainstPrevious(VERSION_STATUS.RELEASE)
     raiseErrorWhilePackaging()
 
-    await expect(editor.createNodeVersionPackage()).rejects.toThrow(`${PACKAGING_ERROR}. ${HINT}`)
+    const error = await editor.createNodeVersionPackage().catch((thrown: unknown) => thrown)
+
+    expect(error).toBeInstanceOf(NotificationsError)
+    // the gate's text, unchanged by the wrap: it is what the client sends to the backend
+    expect(`${error}`).toBe(`Error: ${PACKAGING_ERROR}. ${HINT}`)
+    expect((error as NotificationsError).comparisonNotifications)
+      .toContainEqual(expect.objectContaining({ message: PACKAGING_ERROR }))
   }, 30000)
 
   test('should let a draft publish', async () => {

@@ -17,6 +17,7 @@
 import { BuildConfig, BuilderStrategy, BuildResult, BuildTypeContexts, NotificationMessage, VersionCache } from '../types'
 import { compareVersions } from '../components/compare'
 import { applyBuilderVersionInfo } from '../validators'
+import { comparisonPhaseNotifications, toNotificationsError } from '../components/release-gate'
 
 /**
  * Recalculate the changelog of a version that is already published — `BUILD_TYPE.CHANGELOG`. A `build` that
@@ -28,6 +29,27 @@ import { applyBuilderVersionInfo } from '../validators'
  */
 export class ChangelogStrategy implements BuilderStrategy {
   async execute(config: BuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
+    // the pair's array, so a baseline that does not resolve reports on the pair, not build-wide
+    const rootNotifications: NotificationMessage[] = []
+
+    try {
+      return await this.compare(config, buildResult, contexts, rootNotifications)
+    } catch (error) {
+      // the root pair's array is on the failure even when the comparison threw before it returned
+      throw toNotificationsError(
+        error,
+        buildResult.notifications,
+        [rootNotifications, comparisonPhaseNotifications(buildResult)],
+      )
+    }
+  }
+
+  private async compare(
+    config: BuildConfig,
+    buildResult: BuildResult,
+    contexts: BuildTypeContexts,
+    rootNotifications: NotificationMessage[],
+  ): Promise<BuildResult> {
     const { previousVersionPackageId, packageId, version, previousVersion } = config
 
     const compareContextObject = contexts.compareContext(config)
@@ -38,8 +60,6 @@ export class ChangelogStrategy implements BuilderStrategy {
       throw new Error('ChangelogStrategy requires previousVersion; validateConfig should have rejected this build')
     }
 
-    // the pair's array, so a baseline that does not resolve reports on the pair, not build-wide
-    const rootNotifications: NotificationMessage[] = []
     const previousVersionCache: VersionCache | null = await compareContextObject
       .forPair(rootNotifications)
       .versionResolver(previousVersion, previousVersionPackageId || packageId)

@@ -21,16 +21,20 @@ import {
   BUILD_TYPE,
   GRAPHQL_API_TYPE,
   MESSAGE_CATEGORY,
+  MESSAGE_SEVERITY,
   REST_API_TYPE,
   VERSION_STATUS,
 } from '../src/consts'
 import { AdmZipTool } from '../src/components/adm-zip-tool'
+import { createVersionPackage, ZipTool } from '../src/components/package'
 import { compareVersionsDdl } from '../src/components/compare/compare.ddl'
 import { compareDocuments as compareRestDocuments } from '../src/apitypes/rest/rest.changes'
 import { compareDocuments as compareGraphqlDocuments } from '../src/apitypes/graphql/graphql.changes'
 import { compareDocuments as compareAsyncDocuments } from '../src/apitypes/async/async.changes'
 import {
+  BuilderContext,
   BuildConfigFile,
+  BuildResult,
   BuildType,
   CompareOperationsPairContext,
   DocumentsCompare,
@@ -245,6 +249,8 @@ describe('An api-processor version mismatch aborts the build whatever it is buil
 // A failed build writes no archive, so the error is the only way the messages collected before the failure
 // reach the client
 describe('A fatal failure carries what the build reported before it', () => {
+  afterEach(() => { jest.restoreAllMocks() })
+
   const STORAGE_FAILURE = 'file storage is unreachable'
 
   // `missing.yaml` resolves to nothing, which the build reports and survives. `unreachable.yaml` rejects a
@@ -291,6 +297,36 @@ describe('A fatal failure carries what the build reported before it', () => {
     ])
   })
 
+  // `compareVersions` throws before it returns the root pair, so the changelog's own array is the only holder
+  // of the baseline's messages
+  test('should carry the messages of the baseline when a changelog fails inside the comparison', async () => {
+    const packageId = 'fatal-failures/changelog-comparison-failure'
+    const registry = LocalRegistry.openPackage(REST_PAIR)
+    await registry.publish(REST_PAIR, { packageId, version: BEFORE, files: [{ fileId: 'before.yaml' }] })
+    await registry.publish(REST_PAIR, { packageId, version: AFTER, files: [{ fileId: 'after.yaml' }] })
+    // spied before the editor binds the resolvers: the host lists no references, then goes down
+    jest.spyOn(registry, 'versionReferencesResolver').mockResolvedValue(null as never)
+    jest.spyOn(registry, 'versionOperationsResolver').mockRejectedValue(new Error(STORAGE_FAILURE))
+    const editor = new Editor(REST_PAIR, {
+      packageId,
+      version: AFTER,
+      previousVersion: BEFORE,
+      status: VERSION_STATUS.DRAFT,
+      buildType: BUILD_TYPE.CHANGELOG,
+    } as never, {}, registry)
+
+    const error = await editor.run().catch((thrown: unknown) => thrown)
+
+    expect(error).toBeInstanceOf(NotificationsError)
+    expect(`${error}`).toBe(`Error: ${STORAGE_FAILURE}`)
+    expect((error as NotificationsError).notifications).toEqual([])
+    // one message per side of the pair: neither version has a reference list
+    expect((error as NotificationsError).comparisonNotifications).toEqual([
+      expect.objectContaining({ category: MESSAGE_CATEGORY.VersionRefsNotResolved }),
+      expect.objectContaining({ category: MESSAGE_CATEGORY.VersionRefsNotResolved }),
+    ])
+  }, 30000)
+
   // the next `run()` empties the builder's arrays in place and fills them again
   test('should keep the lists of the first failure when the builder runs again', async () => {
     const flags = { storageIsUp: false }
@@ -303,5 +339,66 @@ describe('A fatal failure carries what the build reported before it', () => {
     // the second build reports both files, so a list that aliases the builder's array holds two messages
     expect(builder.notifications).toHaveLength(2)
     expect(error.notifications).toEqual([missingFileReport])
+  })
+})
+
+describe('A packaging failure carries what the build reported', () => {
+  afterEach(() => { jest.restoreAllMocks() })
+
+  const DISK_FULL = 'disk is full'
+
+  test('should carry both streams of a build', async () => {
+    const project = 'tolerant-publication'
+    // a draft with a broken document and a baseline that does not resolve: one message in each stream
+    const editor = new Editor(project, {
+      packageId: 'fatal-failures/packaging-failure',
+      version: AFTER,
+      previousVersion: 'no-such-version',
+      status: VERSION_STATUS.DRAFT,
+      buildType: BUILD_TYPE.BUILD,
+      files: [{ fileId: 'rest.json' }, { fileId: 'broken-async.yaml' }],
+    }, {}, LocalRegistry.openPackage(project))
+    await editor.run()
+    jest.spyOn(AdmZipTool.prototype, 'file').mockImplementation(() => {
+      throw new Error(DISK_FULL)
+    })
+
+    const error = await editor.createNodeVersionPackage().catch((thrown: unknown) => thrown)
+
+    expect(error).toBeInstanceOf(NotificationsError)
+    expect(`${error}`).toBe(`Error: ${DISK_FULL}`)
+    expect((error as NotificationsError).notifications)
+      .toContainEqual(expect.objectContaining({ severity: MESSAGE_SEVERITY.Error }))
+    expect((error as NotificationsError).comparisonNotifications).toEqual([
+      expect.objectContaining({ category: MESSAGE_CATEGORY.VersionNotResolved }),
+    ])
+  }, 30000)
+
+  // two export documents, so the archive is written rather than the single document returned as it is
+  test('should throw the plain error of an export', async () => {
+    const buildType = BUILD_TYPE.EXPORT_VERSION
+    const buildResult = {
+      config: { buildType },
+      comparisons: [],
+      ddlComparisons: [],
+      documents: new Map(),
+      exportDocuments: [
+        { filename: '1.yaml', data: new Blob(['a']) },
+        { filename: '2.yaml', data: new Blob(['b']) },
+      ],
+      notifications: [],
+      comparisonNotifications: [],
+    } as unknown as BuildResult
+    const zip: ZipTool = {
+      file: () => Promise.reject(new Error(DISK_FULL)),
+      folder: () => zip,
+      buildResult: () => Promise.resolve(null),
+    }
+    const ctx = { config: { buildType } } as unknown as BuilderContext
+
+    const error = await createVersionPackage(buildResult, zip, ctx).catch((thrown: unknown) => thrown)
+
+    expect(error).toEqual(new Error(DISK_FULL))
+    expect(error).not.toBeInstanceOf(NotificationsError)
   })
 })
