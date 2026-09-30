@@ -23,6 +23,8 @@ import { toVersionsComparisonDto } from '../src/utils/transformToDto'
 import { BuildConfig, BuildResult, BuildType, VersionStatus } from '../src/types'
 import { NotificationMessage } from '../src/types/package/notifications'
 import { assertReleaseIsPublishable, comparisonPhaseNotifications } from '../src/components/release-gate'
+import { buildNotifications } from '../src/components/build-result-index'
+import { NotificationsError } from '../src/errors'
 
 const error = (message: string, documentId?: string): NotificationMessage => ({
   category: MESSAGE_CATEGORY.BuildDocument,
@@ -343,3 +345,83 @@ describe('Comparison-phase notifications are collected once per array', () => {
   })
 })
 
+
+// A refused release writes no archive, so the error is the only way its messages reach the client. The gate
+// runs twice, and each run sees a different part of the comparison stream.
+describe('A release refused by the gate carries its notifications', () => {
+  afterEach(() => { jest.restoreAllMocks() })
+
+  const PAIR = 'declarative-changes-in-rest-operation/case1'
+
+  const refuse = async (editor: Editor): Promise<NotificationsError> => {
+    const error = await editor.run().catch((thrown: unknown) => thrown)
+    expect(error).toBeInstanceOf(NotificationsError)
+    return error as NotificationsError
+  }
+
+  test('should carry every build-stream message when its documents refuse it', async () => {
+    const project = 'tolerant-publication'
+    // its own package id: other suites publish this project too
+    const editor = new Editor(project, {
+      packageId: 'release-gate/refused-by-documents',
+      version: 'v1',
+      status: VERSION_STATUS.RELEASE,
+      buildType: BUILD_TYPE.BUILD,
+      files: [{ fileId: 'rest.json' }, { fileId: 'broken-async.yaml' }],
+    }, {}, LocalRegistry.openPackage(project))
+
+    const error = await refuse(editor)
+
+    // the fixture is broken on purpose, so the equality below cannot pass on two empty lists
+    expect(error.notifications).toContainEqual(expect.objectContaining({ severity: MESSAGE_SEVERITY.Error }))
+    expect(error.notifications).toEqual(buildNotifications(editor.builder.notifications).notifications)
+  }, 30000)
+
+  // with no comparison, the build copies the root pair's array into `comparisonNotifications`
+  test('should carry a baseline that does not resolve once when no comparison ran', async () => {
+    const editor = new Editor(PAIR, {
+      packageId: 'release-gate/unresolved-baseline',
+      version: 'v2',
+      previousVersion: 'no-such-version',
+      status: VERSION_STATUS.RELEASE,
+      buildType: BUILD_TYPE.BUILD,
+      files: [{ fileId: 'after.yaml' }],
+    }, {}, LocalRegistry.openPackage(PAIR))
+
+    const error = await refuse(editor)
+
+    expect(`${error}`).toMatch(/^Error: No such version: .*You can publish version in draft status for troubleshooting$/)
+    expect(error.notifications).toEqual([])
+    expect(error.comparisonNotifications).toEqual([
+      expect.objectContaining({ category: MESSAGE_CATEGORY.VersionNotResolved }),
+    ])
+  }, 30000)
+
+  // the root comparison reports into the same array the build passed in
+  test('should carry the messages of the root comparison once when it ran', async () => {
+    const packageId = 'release-gate/unresolved-references'
+    const registry = LocalRegistry.openPackage(PAIR)
+    await registry.publish(PAIR, { packageId, version: 'v1', files: [{ fileId: 'before.yaml' }] })
+    // the host has no reference list for the baseline; spied before the editor binds the resolvers
+    jest.spyOn(registry, 'versionReferencesResolver').mockResolvedValue(null as never)
+    // the comparison phase is the only caller of this resolver
+    const comparisonWork = jest.spyOn(registry, 'versionOperationsResolver')
+    const editor = new Editor(PAIR, {
+      packageId,
+      version: 'v2',
+      previousVersion: 'v1',
+      status: VERSION_STATUS.RELEASE,
+      buildType: BUILD_TYPE.BUILD,
+      files: [{ fileId: 'after.yaml' }],
+    }, {}, registry)
+
+    const error = await refuse(editor)
+
+    // structural: without a comparison, this case repeats the one above
+    expect(comparisonWork).toHaveBeenCalled()
+    expect(`${error}`).toMatch(/^Error: No version references for: version: v1/)
+    expect(error.comparisonNotifications).toEqual([
+      expect.objectContaining({ category: MESSAGE_CATEGORY.VersionRefsNotResolved }),
+    ])
+  }, 30000)
+})

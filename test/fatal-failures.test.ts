@@ -37,7 +37,7 @@ import {
   OperationsApiType,
   VersionStatus,
 } from '../src/types'
-import { PackageVersionBuilder } from '../src/processor'
+import { NotificationsError, PackageVersionBuilder } from '../src/processor'
 
 // The other half of tolerant publication: the problems that still abort the build. Every case here used to
 // throw and must keep throwing — a notification instead would either publish nothing useful or bury a
@@ -240,4 +240,68 @@ describe('An api-processor version mismatch aborts the build whatever it is buil
     await expect(buildWithVersionOverrides(`fatal-failures/mismatch-${name}`, { v1: '99.0.0' }, { buildType, status }))
       .rejects.toThrow(/previous version was built using an outdated api-processor/)
   }, 30000)
+})
+
+// A failed build writes no archive, so the error is the only way the messages collected before the failure
+// reach the client
+describe('A fatal failure carries what the build reported before it', () => {
+  const STORAGE_FAILURE = 'file storage is unreachable'
+
+  // `missing.yaml` resolves to nothing, which the build reports and survives. `unreachable.yaml` rejects a
+  // macrotask later, so that report is already on the list when the build aborts. Once `storageIsUp` is set,
+  // both files resolve to nothing and the build completes with two reports.
+  const storageFailureBuilder = (flags: { storageIsUp: boolean }, previousVersion?: string): PackageVersionBuilder =>
+    new PackageVersionBuilder({
+      packageId: 'fatal-failures/storage-failure',
+      version: AFTER,
+      previousVersion,
+      status: VERSION_STATUS.DRAFT,
+      buildType: BUILD_TYPE.BUILD,
+      files: [{ fileId: 'missing.yaml' }, { fileId: 'unreachable.yaml' }],
+    }, {
+      resolvers: {
+        versionResolver: () => Promise.resolve(null),
+        fileResolver: (fileId: string) => (fileId === 'missing.yaml' || flags.storageIsUp
+          ? Promise.resolve(null)
+          : new Promise((_, reject) => setTimeout(() => reject(new Error(STORAGE_FAILURE)), 0))),
+      },
+    })
+
+  const missingFileReport = expect.objectContaining({ category: MESSAGE_CATEGORY.FileNotParsed, documentId: 'missing' })
+
+  test('should carry the messages raised before a fatal in the document loop', async () => {
+    const error = await storageFailureBuilder({ storageIsUp: false }).run().catch((thrown: unknown) => thrown)
+
+    expect(error).toBeInstanceOf(NotificationsError)
+    // the text every client sends to the backend
+    expect(`${error}`).toBe(`Error: ${STORAGE_FAILURE}`)
+    expect((error as NotificationsError).notifications).toEqual([missingFileReport])
+    expect((error as NotificationsError).comparisonNotifications).toEqual([])
+  })
+
+  // the build copies the root pair's array into `comparisonNotifications` only after the document loop, so a
+  // fatal inside the loop leaves the message in that array alone
+  test('should carry a baseline that does not resolve when the document loop fails', async () => {
+    const error = await storageFailureBuilder({ storageIsUp: false }, 'no-such-version').run()
+      .catch((thrown: unknown) => thrown)
+
+    expect(error).toBeInstanceOf(NotificationsError)
+    expect((error as NotificationsError).comparisonNotifications).toEqual([
+      expect.objectContaining({ category: MESSAGE_CATEGORY.VersionNotResolved }),
+    ])
+  })
+
+  // the next `run()` empties the builder's arrays in place and fills them again
+  test('should keep the lists of the first failure when the builder runs again', async () => {
+    const flags = { storageIsUp: false }
+    const builder = storageFailureBuilder(flags)
+    const error = await builder.run().catch((thrown: unknown) => thrown) as NotificationsError
+
+    flags.storageIsUp = true
+    await builder.run()
+
+    // the second build reports both files, so a list that aliases the builder's array holds two messages
+    expect(builder.notifications).toHaveLength(2)
+    expect(error.notifications).toEqual([missingFileReport])
+  })
 })
