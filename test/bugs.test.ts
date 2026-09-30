@@ -34,8 +34,8 @@ import { describe, expect, test } from '@jest/globals'
 import { calculateRestOperationTitle } from '../src/utils'
 
 const bugsPackage = LocalRegistry.openPackage('bugs')
-const swaggerPackage = LocalRegistry.openPackage('basic_swagger')
-const migrationBug = LocalRegistry.openPackage('migration_bug')
+const swaggerPackage = LocalRegistry.openPackage('bugs/swagger-schema-warning')
+const migrationBug = LocalRegistry.openPackage('bugs/hidden-files-without-extension')
 
 describe('Operation Bugs', () => {
   // the same two operations behind a relative and an absolute server url; the first also states no-BWC in `info`
@@ -117,7 +117,7 @@ paths:
   })
 
   test('invalid swagger file should be handled', async () => {
-    const editor = await Editor.openProject('basic_swagger', swaggerPackage)
+    const editor = await Editor.openProject('bugs/swagger-schema-warning', swaggerPackage)
     const result = await editor.run()
 
     // AJV metaschema complaints are Warnings now: the document parses and its operations build
@@ -125,14 +125,14 @@ paths:
   })
 
   test('type error must not appear during build', async () => {
-    const editor = await Editor.openProject('bugs', bugsPackage)
+    const editor = await Editor.openProject('bugs/type-error-during-build', bugsPackage)
 
-    await bugsPackage.publish('bugs', {
+    await bugsPackage.publish('bugs/type-error-during-build', {
       packageId: 'config_bug',
       version: '1.0',
       refs: [],
       files: [{
-        fileId: 'petstore(publish_1).yaml',
+        fileId: 'before.yaml',
         publish: true,
       }],
     })
@@ -143,7 +143,7 @@ paths:
       previousVersion: '1.0',
       refs: [],
       files: [{
-        fileId: 'petstore(publish_2).yaml',
+        fileId: 'after.yaml',
         publish: true,
       }],
     })
@@ -152,14 +152,14 @@ paths:
   })
 
   test('should have search text for REST operations', async () => {
-    const editor = await Editor.openProject('bugs', bugsPackage)
+    const editor = await Editor.openProject('bugs/search-scope', bugsPackage)
 
-    await bugsPackage.publish('bugs', {
+    await bugsPackage.publish('bugs/search-scope', {
       packageId: 'search_scope',
       version: '1.0',
       refs: [],
       files: [{
-        fileId: 'search-scope-v1.yaml',
+        fileId: 'before.yaml',
         publish: true,
       }],
     })
@@ -169,7 +169,7 @@ paths:
       version: '2.0',
       previousVersion: '1.0',
       files: [{
-        fileId: 'search-scope-v2.yaml',
+        fileId: 'after.yaml',
         publish: true,
       }],
     })
@@ -295,13 +295,13 @@ paths:
   })
 
   test('document and the operation must have an internal type ', async () => {
-    const editor = await Editor.openProject('bugs', bugsPackage)
+    const editor = await Editor.openProject('bugs/search-scope', bugsPackage)
 
     const result = await editor.run({
       packageId: 'api_audience',
       version: '1.0',
       files: [{
-        fileId: 'search-scope-v1.yaml',
+        fileId: 'before.yaml',
         publish: true,
       }],
     })
@@ -309,7 +309,7 @@ paths:
   }, 100000)
 
   test('hidden files without extension should have required fields', async () => {
-    const editor = await Editor.openProject('migration_bug', migrationBug)
+    const editor = await Editor.openProject('bugs/hidden-files-without-extension', migrationBug)
     const result = await editor.run()
 
     expectNotEmpty(result.documents)

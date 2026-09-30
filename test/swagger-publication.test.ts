@@ -37,7 +37,7 @@ describe('Swagger 2.0 publication', () => {
   })
 
   // the security and custom-tag rules are format-independent and tested for OpenAPI in `rest.operation.test.ts` and
-  // `rest.operation.metadata.test.ts`; what these cases add is the conversion, so they also guard an upgrade of the
+  // `rest-operation-metadata.test.ts`; what these cases add is the conversion, so they also guard an upgrade of the
   // conversion library
   describe('security and custom tags', () => {
     const SWAGGER = `swagger: '2.0'

@@ -93,7 +93,7 @@ const groupToOneServerPrefixPathOperationIdsMap = {
 const EXPECTED_RESULT_FILE = 'result.yaml'
 
 const BASE_OPERATION_PATH = 'path-operations'
-const PATH_ITEMS_OPERATION_PATH = 'pathitems-operations'
+const PATH_ITEMS_OPERATION_PATH = 'path-items-operations'
 type DOCUMENT_GROUP_PATHS = typeof BASE_OPERATION_PATH | typeof PATH_ITEMS_OPERATION_PATH
 
 async function runReducedFromContent(packageId: string, spec: string, operationIds: string[]): Promise<BuildResult> {
@@ -248,11 +248,11 @@ describe('Document Group test', () => {
       runCommonTests(PATH_ITEMS_OPERATION_PATH)
 
       test('should have properly merged documents', async () => {
-        await runMergeOperationsCase('basic-documents-pathitems-for-merge')
+        await runMergeOperationsCase('basic-documents-path-items-for-merge')
       })
 
       test('should have properly merged documents mixed formats (operation + pathItems operation)', async () => {
-        await runMergeOperationsCase('documents-pathitems-with-mixed-formats')
+        await runMergeOperationsCase('documents-path-items-with-mixed-formats')
       })
 
       test('should exclude tags whose operation lives behind a $ref path item', async () => {
@@ -278,7 +278,7 @@ describe('Document Group test', () => {
 
       test('should have save pathItems in components', async () => {
         const { result } = await publishAndBuildGroup(
-          `document-group/${PATH_ITEMS_OPERATION_PATH}/multiple-pathitems-operations`,
+          `document-group/${PATH_ITEMS_OPERATION_PATH}/multiple-path-items-operations`,
           groupToOperationIdsMap,
         )
 
@@ -305,7 +305,7 @@ describe('Document Group test', () => {
 
         test('should have documents with keep pathItems in components', async () => {
           const { result } = await publishAndBuildGroup(
-            `document-group/${PATH_ITEMS_OPERATION_PATH}/define-pathitems-via-reference-object-chain`,
+            `document-group/${PATH_ITEMS_OPERATION_PATH}/define-path-items-via-reference-object-chain`,
             groupToOnePathOperationIdsMap,
           )
 
@@ -317,7 +317,7 @@ describe('Document Group test', () => {
 
         test('should have documents stripped of operations other than from provided group', async () => {
           const { result } = await publishAndBuildGroup(
-            `document-group/${PATH_ITEMS_OPERATION_PATH}/define-pathitems-via-reference-object-chain`,
+            `document-group/${PATH_ITEMS_OPERATION_PATH}/define-path-items-via-reference-object-chain`,
             groupWithOneOperationIdsMap,
           )
 
@@ -399,7 +399,7 @@ describe('Document Group test', () => {
 
       test('should not hang up when processing cycled chain for response', async () => {
         const pkg = LocalRegistry.openPackage(`document-group/${folder}/not-hang-up-when-processing-cycled-chain-for-response`, groupToOnePathOperationIdsMap)
-        await pkg.publish(pkg.packageId, { packageId: pkg.packageId, version: VERSION_ID, files: [{ fileId: '1.yaml' }] })
+        await pkg.publish(pkg.packageId, { packageId: pkg.packageId, version: VERSION_ID, files: [{ fileId: 'spec.yaml' }] })
 
         const notificationFile = await loadFileAsStringFromRegistry(
           VERSIONS_PATH,
@@ -424,10 +424,10 @@ describe('Document Group test', () => {
 
     async function runMergeOperationsCase(caseName: string): Promise<void> {
       const { pkg, result } = await publishAndBuildGroup(
-        `merge-operations/${caseName}`,
+        `document-group/merge/${caseName}`,
         groupToOperationIdsMap,
         { buildType: BUILD_TYPE.MERGED_SPECIFICATION, apiType: REST_API_TYPE },
-        [{ fileId: '1.yaml' }, { fileId: '2.yaml' }],
+        [{ fileId: 'spec1.yaml' }, { fileId: 'spec2.yaml' }],
       )
 
       const expectedResult = loadYaml(
@@ -512,13 +512,13 @@ describe('Document Group test', () => {
 
   // The fixtures these tests open carry no config.json, so the version and the file list are named here.
   // Only `publish` needs the list; a group build resolves its documents from the published version.
-  // The three `merge-operations` fixtures also hold a `result.yaml`, which the list keeps out of the build
+  // The three `document-group/merge` fixtures also hold a `result.yaml`, which the list keeps out of the build
   // the way the config's partial list did.
   async function publishAndBuildGroup(
     packageId: string,
     groupOperationIds: Record<string, string[]>,
     options: Partial<BuildConfigAggregator> = { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS },
-    files: BuildConfigFile[] = [{ fileId: '1.yaml' }],
+    files: BuildConfigFile[] = [{ fileId: 'spec.yaml' }],
   ): Promise<{ pkg: LocalRegistry; result: BuildResult }> {
     const pkg = LocalRegistry.openPackage(packageId, groupOperationIds)
     const editor = await Editor.openProject(pkg.packageId, pkg)

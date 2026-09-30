@@ -56,39 +56,39 @@ describe('Basic project (one file): validation broken', () => {
     })
 
     test('missing quote', async () => {
-      await expectToleratedParseFailure('missing_quote.json')
+      await expectToleratedParseFailure('missing-quote.json')
     })
 
     test('missing comma', async () => {
-      await expectToleratedParseFailure('missing_comma.json')
+      await expectToleratedParseFailure('missing-comma.json')
     })
 
     test('missing brace', async () => {
-      await expectToleratedParseFailure('missing_brace.json')
+      await expectToleratedParseFailure('missing-brace.json')
     })
 
     test('missing bracket', async () => {
-      await expectToleratedParseFailure('missing_bracket.json')
+      await expectToleratedParseFailure('missing-bracket.json')
     })
   })
 
   describe('YAML format', () => {
     test('missing quote', async () => {
-      await expectToleratedParseFailure('missing_quote.yaml')
+      await expectToleratedParseFailure('missing-quote.yaml')
     })
 
     test('missing dash', async () => {
-      await expectToleratedParseFailure('missing_dash.yaml')
+      await expectToleratedParseFailure('missing-dash.yaml')
     })
 
     // `.yml`, not `.yaml`: the only fixture in the suite with that extension
     test('duplicate keys', async () => {
-      await expectToleratedParseFailure('duplicate_keys.yml', 'Map keys must be unique')
+      await expectToleratedParseFailure('duplicate-keys.yml', 'Map keys must be unique')
     })
 
     // no `openapi` header, so no API parser claims the file and the fallback parser is the one that fails
     test('a quoted key broken across lines', async () => {
-      await expectToleratedParseFailure('unclosed_quote_key.yaml', 'Missing closing \'quote')
+      await expectToleratedParseFailure('unclosed-quote-key.yaml', 'Missing closing \'quote')
     })
   })
 })

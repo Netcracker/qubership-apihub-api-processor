@@ -26,7 +26,7 @@ describe('GraphQL Deprecated Items test', () => {
       packageId: packageId,
       version: 'v2',
       status: VERSION_STATUS.RELEASE,
-      files: [{ fileId: 'simple-graphQL-2.gql' }],
+      files: [{ fileId: 'simple-graphql.gql' }],
       buildType: BUILD_TYPE.BUILD,
     }, {}, portal)
 

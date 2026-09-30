@@ -13,10 +13,10 @@ describe('Hash cache tests', () => {
       const calculateObjectHashSpy = jest.spyOn(hashes, '_calculateMd5Hash')
       const portal = new LocalRegistry('deprecated')
 
-      await portal.publish('deprecated', {
-        packageId: 'deprecated',
+      await portal.publish('deprecated/public-registry', {
+        packageId: 'deprecated/public-registry',
         version: 'v1',
-        files: [{ fileId: 'PublicRegistry API(4).yaml' }],
+        files: [{ fileId: 'v1.yaml' }],
       })
 
       expect(getHashWithCacheSpy).toHaveBeenCalledTimes(12)

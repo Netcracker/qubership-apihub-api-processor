@@ -129,7 +129,7 @@ describe('Version Internal Documents tests', () => {
       const documents: VersionDocument[] = Array.from(result.documents.values())
       const versionSpecs = await Promise.all(
         files.map(item =>
-          loadFileAsString(DEFAULT_PROJECTS_PATH, packageId, `version-${item}.json`),
+          loadFileAsString(DEFAULT_PROJECTS_PATH, packageId, `${item}-result.json`),
         ),
       )
       expect(documents).toHaveLength(files.length)

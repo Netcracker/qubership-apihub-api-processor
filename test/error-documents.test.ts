@@ -51,13 +51,13 @@ describe('Error documents survive packaging', () => {
       packageId: 'broken',
       version: 'v1',
       status: VERSION_STATUS.DRAFT,
-      files: [{ fileId: 'missing_brace.json', publish: true }],
+      files: [{ fileId: 'missing-brace.json', publish: true }],
     })
 
-    const document = documentOf(result, 'missing_brace.json')
+    const document = documentOf(result, 'missing-brace.json')
 
     const documents = await loadJsonFromRegistry(VERSIONS_PATH, 'broken/v1', 'documents.json')
-    expect(documents.documents.map(({ fileId }: { fileId: string }) => fileId)).toEqual(['missing_brace.json'])
+    expect(documents.documents.map(({ fileId }: { fileId: string }) => fileId)).toEqual(['missing-brace.json'])
 
     // the archive carries the broken file itself — that is the troubleshooting artifact
     const raw = await loadFileAsStringFromRegistry(VERSIONS_PATH, 'broken/v1/documents', document.filename)
@@ -192,7 +192,7 @@ describe('An item that fails costs the document only that item', () => {
   test('should keep the operations of a document one of whose operations failed', async () => {
     throwFor(path => path === '/api/v1/resource')
 
-    const pkg = LocalRegistry.openPackage('operationId-collisions/same-operationId-same-document')
+    const pkg = LocalRegistry.openPackage('operation-id-collisions/same-operation-id-same-document')
     const result = await pkg.publish(pkg.packageId, {
       packageId: 'per-item/rest',
       version: 'v1',
@@ -215,7 +215,7 @@ describe('An item that fails costs the document only that item', () => {
   test('should not count an operation that failed towards a duplicate operationId', async () => {
     throwFor(path => path === '/api/v1/resource')
 
-    const pkg = LocalRegistry.openPackage('operationId-collisions/same-operationId-same-document')
+    const pkg = LocalRegistry.openPackage('operation-id-collisions/same-operation-id-same-document')
     const result = await pkg.publish(pkg.packageId, {
       packageId: 'per-item/rest-duplicate',
       version: 'v1',
