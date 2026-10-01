@@ -15,6 +15,7 @@
  */
 
 import {
+  buildChangelogFromContent,
   buildChangelogPackage,
   changesSummaryMatcher,
   Editor,
@@ -109,6 +110,35 @@ describe('Changelog build type', () => {
       )
       expect(result).toEqual(changesSummaryMatcher({ [ANNOTATION_CHANGE_TYPE]: 3 }))
       expect(result).toEqual(numberOfImpactedOperationsMatcher({ [ANNOTATION_CHANGE_TYPE]: 3 }))
+    })
+
+    // `/res/data` and `/res-data` derive one operationId, so the changelog matches the operation to itself, while
+    // the move is recorded above the operation rather than inside it
+    test('Should report a path respelled to its slug twin', async () => {
+      const specAt = (path: string): string => `openapi: 3.0.3
+info: { title: test, version: 0.1.0 }
+paths:
+  ${path}:
+    get:
+      responses:
+        '200': { description: OK }
+`
+      const result = await buildChangelogFromContent('changelog/path-respelled-to-slug-twin', specAt('/res/data'), specAt('/res-data'))
+
+      expect(result).toEqual(changesSummaryMatcher({
+        [BREAKING_CHANGE_TYPE]: 1,
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+      }))
+      expect(result).toEqual(numberOfImpactedOperationsMatcher({
+        [BREAKING_CHANGE_TYPE]: 1,
+        [NON_BREAKING_CHANGE_TYPE]: 1,
+      }))
+      // one record carrying both diffs, not one record per spelling
+      expect(result.comparisons[0].data?.map(({ operationId, previousOperationId, diffs }) => ({
+        operationId,
+        previousOperationId,
+        actions: diffs?.map(({ action }) => action),
+      }))).toEqual([{ operationId: 'res-data-get', previousOperationId: 'res-data-get', actions: ['remove', 'add'] }])
     })
 
     test('Compare parametrized operations', async () => {

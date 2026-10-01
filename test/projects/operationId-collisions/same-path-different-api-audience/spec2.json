@@ -3,7 +3,8 @@
   "info": {
     "title": "API",
     "description": "",
-    "version": "3.0"
+    "version": "3.0",
+    "x-api-audience": "internal"
   },
   "paths": {
     "/res/data": {
@@ -22,7 +23,7 @@
         },
         "responses": {
           "201": {
-            "description": "Another description",
+            "description": "Description",
             "content": {
               "application/json;charset=UTF-8": {
                 "schema": {

@@ -18,24 +18,14 @@ import { RestOperationData } from './rest.types'
 import {
   calculateNormalizedRestOperationId,
   isEmpty,
-  isValidHttpMethod,
   removeFirstSlash,
   trimSlashes,
 } from '../../utils'
 import {
-  aggregateDiffsWithRollup,
-  apiDiff,
   Diff,
   DIFF_META_KEY,
-  DIFFS_AGGREGATED_META_KEY,
   extractOperationBasePath,
 } from '@netcracker/qubership-apihub-api-diff'
-import {
-  AFTER_VALUE_NORMALIZED_PROPERTY,
-  BEFORE_VALUE_NORMALIZED_PROPERTY,
-  NORMALIZE_OPTIONS,
-  ORIGINS_SYMBOL,
-} from '../../consts'
 import {
   CompareOperationsPairContext,
   ComparisonDocument,
@@ -43,30 +33,23 @@ import {
   DocumentsCompareData,
   OperationChanges,
   ResolvedVersionDocument,
-  WithAggregatedDiffs,
   WithDiffMetaRecord,
 } from '../../types'
 import { OpenAPIV3 } from 'openapi-types'
 import {
-  extractOpenapiVersionDiff,
-  extractOperationSecurityDiffs,
-  extractPathParamRenameDiff,
-  extractRootSecurityDiffs,
-  extractRootServersDiffs,
-  extractSecuritySchemesDiffs,
-  extractSecuritySchemesNames,
-  resolveOperationBasePath,
+  changelogOperationDiffs,
+  diffRestDocuments,
   validateGroupPrefix,
 } from './rest.utils'
 import {
+  belongsToPair,
   createComparisonDocument,
   createComparisonInternalDocumentId,
   createOperationChange,
   getOperationTags,
+  OperationPair,
   OperationsMap,
 } from '../../components'
-import { createRestApiKindValueAt } from '../../components/compare/rest.api-kind'
-import { apiKindReclassificationRule, CUSTOM_SCOPE_ELEMENT_API_KIND } from '../../components/compare/custom-scope'
 import { createDeprecatedRemovalRules } from './rest.deprecated.classification'
 
 export const compareDocuments: DocumentsCompare = async (
@@ -113,96 +96,62 @@ export const compareDocuments: DocumentsCompare = async (
 
   const deprecatedRemovalRules = await createDeprecatedRemovalRules(operationsMap, prevDoc, prevDocData, ctx)
 
-  const { merged, diffs } = apiDiff(
+  // an identical pair yields no operations to walk, and so no changes
+  const { merged, operations } = diffRestDocuments(
     prevDocData,
     currDocData,
-    {
-      ...NORMALIZE_OPTIONS,
-      metaKey: DIFF_META_KEY,
-      originsFlag: ORIGINS_SYMBOL,
-      // expected performance degradation, we need not normalized doc for comparisonDocument
-      normalizedResult: false,
-      afterValueNormalizedProperty: AFTER_VALUE_NORMALIZED_PROPERTY,
-      beforeValueNormalizedProperty: BEFORE_VALUE_NORMALIZED_PROPERTY,
-      customScopeElementProviders: [
-        {
-          name: CUSTOM_SCOPE_ELEMENT_API_KIND,
-          valueAt: createRestApiKindValueAt(prevDocumentApiKind, currDocumentApiKind),
-        },
-        ...deprecatedRemovalRules.customScopeElementProviders,
-      ],
-      reclassificationRules: [apiKindReclassificationRule, ...deprecatedRemovalRules.reclassificationRules],
-      openApiPathItemPerOperationDiffs: true,
-    },
-  ) as { merged: OpenAPIV3.Document; diffs: Diff[] }
+    prevDocumentApiKind,
+    currDocumentApiKind,
+    deprecatedRemovalRules,
+  )
 
-  if (isEmpty(diffs)) {
-    return { operationChanges: [], tags: new Set() }
+  // two spellings of one path (`/res/data` and `/res-data`) are walked apart but derive one operationId, so the
+  // diffs are gathered per operation pair and each pair gets one record
+  const diffsByOperationPair = new Map<OperationPair, Set<Diff>>()
+  for (const { path, method, operation: methodData, previousBasePath, currentBasePath } of operations) {
+    const prevNormalizedOperationId = calculateNormalizedRestOperationId(previousBasePath, path, method)
+    const currNormalizedOperationId = calculateNormalizedRestOperationId(currentBasePath, path, method)
+
+    const operationPair = operationsMap[prevNormalizedOperationId] ?? operationsMap[currNormalizedOperationId] ?? {}
+    const { current, previous } = operationPair
+    if (!current && !previous) {
+      const missingOperations = prevNormalizedOperationId === currNormalizedOperationId ? `the ${prevNormalizedOperationId} operation` : `the ${prevNormalizedOperationId} and ${currNormalizedOperationId} operations`
+      throw new Error(`Can't find ${missingOperations} from documents pair ${prevDoc?.fileId} and ${currDoc?.fileId}`)
+    }
+    const operationPotentiallyChanged = Boolean(current && previous)
+    const operationAddedOrRemoved = !operationPotentiallyChanged
+
+    let operationDiffs: Diff[] = []
+    if (operationPotentiallyChanged) {
+      const operationBelongsToPair = belongsToPair(
+        { previous: previous?.documentId, current: current?.documentId },
+        prevDoc?.slug,
+        currDoc?.slug,
+      )
+      operationDiffs = changelogOperationDiffs(merged, path, method, methodData as OpenAPIV3.OperationObject, operationBelongsToPair)
+    }
+    if (operationAddedOrRemoved) {
+      // the nearer record only: `paths` can also hold a rename of the path, which belongs to the methods it keeps
+      const operationAddedOrRemovedDiffFromSpecificPath = (merged.paths[path] as WithDiffMetaRecord<OpenAPIV3.PathsObject>)[DIFF_META_KEY]?.[method]
+      const operationAddedOrRemovedDiffFromPaths = (merged.paths as WithDiffMetaRecord<OpenAPIV3.PathsObject>)[DIFF_META_KEY]?.[path]
+      const operationAddedOrRemovedDiff = operationAddedOrRemovedDiffFromSpecificPath ?? operationAddedOrRemovedDiffFromPaths
+      operationDiffs = operationAddedOrRemovedDiff ? [operationAddedOrRemovedDiff] : []
+    }
+
+    if (isEmpty(operationDiffs)) {
+      continue
+    }
+
+    const pairDiffs = diffsByOperationPair.get(operationPair) ?? new Set<Diff>()
+    operationDiffs.forEach(diff => pairDiffs.add(diff))
+    diffsByOperationPair.set(operationPair, pairDiffs)
   }
-
-  aggregateDiffsWithRollup(merged, DIFF_META_KEY, DIFFS_AGGREGATED_META_KEY)
 
   const tags = new Set<string>()
   const operationChanges: OperationChanges[] = []
-  for (const path of Object.keys(merged.paths)) {
-    const pathData = merged.paths[path]
-    if (typeof pathData !== 'object' || !pathData) { continue }
-
-    for (const key of Object.keys(pathData)) {
-      const inferredMethod = key as OpenAPIV3.HttpMethods
-
-      if (!isValidHttpMethod(inferredMethod)) {
-        continue
-      }
-
-      const methodData = pathData[inferredMethod]
-      // todo if there were actually servers here, we wouldn't have handle it, add a test
-      const previousBasePath = resolveOperationBasePath(methodData, pathData, prevDocData)
-      const currentBasePath = resolveOperationBasePath(methodData, pathData, currDocData)
-      const prevNormalizedOperationId = calculateNormalizedRestOperationId(previousBasePath, path, inferredMethod)
-      const currNormalizedOperationId = calculateNormalizedRestOperationId(currentBasePath, path, inferredMethod)
-
-      const {
-        current,
-        previous,
-      } = operationsMap[prevNormalizedOperationId] ?? operationsMap[currNormalizedOperationId] ?? {}
-      if (!current && !previous) {
-        const missingOperations = prevNormalizedOperationId === currNormalizedOperationId ? `the ${prevNormalizedOperationId} operation` : `the ${prevNormalizedOperationId} and ${currNormalizedOperationId} operations`
-        throw new Error(`Can't find ${missingOperations} from documents pair ${prevDoc?.fileId} and ${currDoc?.fileId}`)
-      }
-      const operationPotentiallyChanged = Boolean(current && previous)
-      const operationAddedOrRemoved = !operationPotentiallyChanged
-
-      let operationDiffs: Diff[] = []
-      if (operationPotentiallyChanged) {
-        const operationSecurityDiffs = extractOperationSecurityDiffs(methodData as OpenAPIV3.OperationObject)
-        const shouldTakeRootSecurityDiffs = operationSecurityDiffs.length === 0 && !methodData?.security
-        const relevantSecuritySchemesNames = shouldTakeRootSecurityDiffs ? extractSecuritySchemesNames(merged.security ?? []) : extractSecuritySchemesNames(methodData?.security ?? [])
-        operationDiffs = [
-          ...(methodData as WithAggregatedDiffs<OpenAPIV3.OperationObject>)[DIFFS_AGGREGATED_META_KEY] ?? [],
-          ...extractOpenapiVersionDiff(merged),
-          ...extractRootServersDiffs(merged),
-          ...shouldTakeRootSecurityDiffs ? extractRootSecurityDiffs(merged) : [],
-          ...extractSecuritySchemesDiffs(merged.components, relevantSecuritySchemesNames),
-          ...extractPathParamRenameDiff(merged, path),
-          // parameters, servers, summary, description and extensionKeys are moved from path to method in pathItemsUnification during normalization in apiDiff, so no need to aggregate them here
-          // note that operation security diffs are not aggregated here, because they are in aggregated diffs for operation object
-        ]
-      }
-      if (operationAddedOrRemoved) {
-        const operationAddedOrRemovedDiffFromSpecificPath = (merged.paths[path] as WithDiffMetaRecord<OpenAPIV3.PathsObject>)[DIFF_META_KEY]?.[inferredMethod]
-        const operationAddedOrRemovedDiffFromPaths = (merged.paths as WithDiffMetaRecord<OpenAPIV3.PathsObject>)[DIFF_META_KEY]?.[path]
-        const operationAddedOrRemovedDiff = operationAddedOrRemovedDiffFromSpecificPath ?? operationAddedOrRemovedDiffFromPaths
-        operationDiffs = operationAddedOrRemovedDiff ? [operationAddedOrRemovedDiff] : []
-      }
-
-      if (isEmpty(operationDiffs)) {
-        continue
-      }
-
-      operationChanges.push(createOperationChange(apiType, operationDiffs, comparisonInternalDocumentId, previous, current, currentGroup, previousGroup))
-      getOperationTags(current ?? previous).forEach(tag => tags.add(tag))
-    }
+  for (const [{ previous, current }, diffs] of diffsByOperationPair) {
+    operationChanges.push(createOperationChange(apiType, [...diffs], comparisonInternalDocumentId, previous, current, currentGroup, previousGroup))
+    getOperationTags(current ?? previous).forEach(tag => tags.add(tag))
   }
 
   let comparisonDocument: ComparisonDocument | undefined

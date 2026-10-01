@@ -15,6 +15,7 @@
  */
 
 export * from './editor'
+export * from './factories'
 export * from './matchers'
 export * from './registry'
 export * from './utils'
