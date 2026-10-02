@@ -147,6 +147,25 @@ Fatal failures are covered by `test/fatal-failures.test.ts`, except the dashboar
 other dashboard cases in `test/dashboards.test.ts`. Adding one means adding a case in the matching file — a
 throw with no test is indistinguishable from a throw someone forgot to convert.
 
+## A fatal failure still carries what was reported
+
+A failed build writes no archive, so the messages it collected before the throw would never reach the client.
+In a `build` or `changelog` build, a fatal leaves as a `NotificationsError` (`src/errors.ts`) that carries copies
+of both streams. Three sites wrap it, all through `toNotificationsError` (`src/components/release-gate.ts`):
+`BuildStrategy.execute`, `ChangelogStrategy.execute`, and `createVersionPackage` for those two build types.
+
+- **Throw a plain `Error` at the fatal site.** The wrap sits above it, so a new fatal inside these paths needs
+  nothing more. Never construct a `NotificationsError` yourself.
+- **A new site that can fail after messages exist passes every array in scope.** A pair array that no
+  comparison holds yet matters most: until `compareVersions` returns, a strategy's `rootNotifications` is the
+  only place a baseline that did not resolve is reported. `toNotificationsError` copies, deduplicates by
+  identity, and sorts, so passing an array twice is harmless.
+- **The error reads as the original.** It copies `name` and `message`, and the original is its `cause`. Every
+  client sends `${error}` to the backend, so a wrap must not change that text.
+
+`test/fatal-failures.test.ts` asserts the lists at each site, and `test/release-gate.test.ts` asserts them for a
+refused release.
+
 ## Adding a diagnostic, in order
 
 1. Add the `MESSAGE_CATEGORY` value.

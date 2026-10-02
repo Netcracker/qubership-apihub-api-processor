@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+export * from './assertions'
 export * from './editor'
 export * from './matchers'
 export * from './registry'

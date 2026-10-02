@@ -161,7 +161,12 @@ export const buildFiles = async (files: BuildConfigFile[], ctx: BuilderContext):
     )
   }
 
-  const result = await Promise.all(tasks)
+  // every file settles before a failure is rethrown: a file still building would otherwise report into the
+  // list after the failure had been taken, so what the failure carries would depend on timing
+  const settled = await Promise.allSettled(tasks)
+  const failure = settled.find((outcome): outcome is PromiseRejectedResult => outcome.status === 'rejected')
+  if (failure) { throw failure.reason }
+  const result = settled.map(outcome => (outcome as PromiseFulfilledResult<BuildFileResult>).value)
 
   // A file reached only through a `$ref` is not a document of its own: it publishes when the config asks for
   // it, or when its parser threw, because that is the file the publisher opens and its bytes go with it.
