@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { describe, expect, jest, test } from '@jest/globals'
-import { buildWithVersionOverrides, Editor, LocalRegistry } from './helpers'
+import { afterEach, describe, expect, jest, test } from '@jest/globals'
+import { buildWithVersionOverrides, Editor, LocalRegistry, notificationsErrorOf, rejectionOf } from './helpers'
 import {
   ASYNCAPI_API_TYPE,
   BUILD_TYPE,
@@ -41,11 +41,13 @@ import {
   OperationsApiType,
   VersionStatus,
 } from '../src/types'
-import { NotificationsError, PackageVersionBuilder } from '../src/processor'
+import { PackageVersionBuilder } from '../src/processor'
+import { NotificationsError } from '../src/errors'
 
 // The other half of tolerant publication: the problems that still abort the build. Every case here used to
 // throw and must keep throwing — a notification instead would either publish nothing useful or bury a
-// deployment defect that is untraceable afterwards.
+// deployment defect that is untraceable afterwards. A `build` or `changelog` that fails after it has started
+// carries what it had reported on the error.
 
 const BEFORE = 'v1'
 const AFTER = 'v2'
@@ -190,6 +192,23 @@ describe('An invalid build config aborts the build', () => {
 
     await expect(editor.run()).resolves.toBeDefined()
   }, 30000)
+
+  // with no build type `validateConfig` lets the config through and the build strategy rejects it; that is still
+  // before the build starts, so the error carries no notifications
+  test('should throw the plain error for a build with neither files nor refs and no build type', async () => {
+    const builder = new PackageVersionBuilder({
+      packageId: 'fatal-failures/no-files-no-type',
+      version: AFTER,
+      status: VERSION_STATUS.DRAFT,
+      files: [],
+      refs: [],
+    } as never, { resolvers: {} })
+
+    const error = await rejectionOf(builder.run())
+
+    expect(error).toEqual(new Error('Incorrect config: No files and refs'))
+    expect(error).not.toBeInstanceOf(NotificationsError)
+  })
 })
 
 // A host that wires no resolver has a deployment defect, not a content one: it breaks identically for every
@@ -209,25 +228,98 @@ describe('A missing host resolver aborts the build', () => {
   })
 })
 
+// v1 and v2 of the REST pair under a package of the test's own, for a changelog of v2 against v1
+const publishRestPair = async (packageId: string): Promise<LocalRegistry> => {
+  const registry = LocalRegistry.openPackage(REST_PAIR)
+  await registry.publish(REST_PAIR, { packageId, version: BEFORE, files: [{ fileId: 'before.yaml' }] })
+  await registry.publish(REST_PAIR, { packageId, version: AFTER, files: [{ fileId: 'after.yaml' }] })
+  return registry
+}
+
+// spy on the registry before calling this: the editor binds the registry's resolvers when it is created
+const restPairChangelogEditor = (packageId: string, registry: LocalRegistry): Editor => new Editor(REST_PAIR, {
+  packageId,
+  version: AFTER,
+  previousVersion: BEFORE,
+  status: VERSION_STATUS.DRAFT,
+  buildType: BUILD_TYPE.CHANGELOG,
+} as never, {}, registry)
+
 describe('A packaging failure aborts the build', () => {
   afterEach(() => { jest.restoreAllMocks() })
 
-  test('should stay fatal when the archive cannot be written', async () => {
-    const editor = new Editor(REST_PAIR, {
-      packageId: REST_PAIR,
-      version: BEFORE,
-      status: VERSION_STATUS.DRAFT,
-      files: [{ fileId: 'before.yaml' }],
-    } as never)
-    await editor.run()
+  const DISK_FULL = 'disk is full'
 
+  const failArchiveWrites = (): void => {
     jest.spyOn(AdmZipTool.prototype, 'file').mockImplementation(() => {
-      throw new Error('disk is full')
+      throw new Error(DISK_FULL)
     })
+  }
 
-    // no notification, no partial archive: the artifact does not exist, so there is nothing to publish
-    await expect(editor.createNodeVersionPackage()).rejects.toThrow(/disk is full/)
+  // no partial archive: the error replaces it. No `buildType`, so the packager treats it as a `build`; the draft
+  // has a broken document and a baseline that does not resolve, so each stream holds a message
+  test('should carry both streams of a build when the archive cannot be written', async () => {
+    const project = 'tolerant-publication'
+    const editor = new Editor(project, {
+      packageId: 'fatal-failures/packaging-failure',
+      version: AFTER,
+      previousVersion: 'no-such-version',
+      status: VERSION_STATUS.DRAFT,
+      files: [{ fileId: 'rest.json' }, { fileId: 'broken-async.yaml' }],
+    } as never, {}, LocalRegistry.openPackage(project))
+    await editor.run()
+    failArchiveWrites()
+
+    const error = await notificationsErrorOf(editor.createNodeVersionPackage())
+
+    expect(error.notifications).toContainEqual(expect.objectContaining({ severity: MESSAGE_SEVERITY.Error }))
+    expect(error.comparisonNotifications).toEqual([
+      expect.objectContaining({ category: MESSAGE_CATEGORY.VersionNotResolved }),
+    ])
   }, 30000)
+
+  test('should carry the comparison stream of a changelog', async () => {
+    const packageId = 'fatal-failures/changelog-packaging-failure'
+    const registry = await publishRestPair(packageId)
+    // the host lists no references, so the root pair carries a message
+    jest.spyOn(registry, 'versionReferencesResolver').mockResolvedValue(null as never)
+    const editor = restPairChangelogEditor(packageId, registry)
+    await editor.run()
+    failArchiveWrites()
+
+    const error = await notificationsErrorOf(editor.createNodeVersionPackage())
+
+    expect(error.comparisonNotifications)
+      .toContainEqual(expect.objectContaining({ category: MESSAGE_CATEGORY.VersionRefsNotResolved }))
+  }, 30000)
+
+  // two export documents, so the archive is written rather than the single document returned as it is
+  test('should throw the plain error of an export', async () => {
+    const buildType = BUILD_TYPE.EXPORT_VERSION
+    const buildResult = {
+      config: { buildType },
+      comparisons: [],
+      ddlComparisons: [],
+      documents: new Map(),
+      exportDocuments: [
+        { filename: '1.yaml', data: new Blob(['a']) },
+        { filename: '2.yaml', data: new Blob(['b']) },
+      ],
+      notifications: [],
+      comparisonNotifications: [],
+    } as unknown as BuildResult
+    const zip: ZipTool = {
+      file: () => Promise.reject(new Error(DISK_FULL)),
+      folder: () => zip,
+      buildResult: () => Promise.resolve(null),
+    }
+    const ctx = { config: { buildType } } as unknown as BuilderContext
+
+    const error = await rejectionOf(createVersionPackage(buildResult, zip, ctx))
+
+    expect(error).toEqual(new Error(DISK_FULL))
+    expect(error).not.toBeInstanceOf(NotificationsError)
+  })
 })
 
 // The stored api-processor version is what the host holds for a published version. A mismatch means the
@@ -253,47 +345,33 @@ describe('A fatal failure carries what the build reported before it', () => {
 
   const STORAGE_FAILURE = 'file storage is unreachable'
 
-  // `missing.yaml` resolves to nothing, which the build reports and survives. `unreachable.yaml` rejects a
-  // macrotask later, so that report is already on the list when the build aborts. Once `storageIsUp` is set,
-  // both files resolve to nothing and the build completes with two reports.
-  const storageFailureBuilder = (flags: { storageIsUp: boolean }, previousVersion?: string): PackageVersionBuilder =>
-    new PackageVersionBuilder({
+  // the build copies the root pair's array into `comparisonNotifications` only after the document loop, so a
+  // fatal inside the loop leaves the baseline's message in that array alone
+  test('should carry both streams when the document loop fails', async () => {
+    // `missing.yaml` resolves to nothing, which the build reports and survives; `unreachable.yaml` rejects, which
+    // aborts the build once every file has settled
+    const builder = new PackageVersionBuilder({
       packageId: 'fatal-failures/storage-failure',
       version: AFTER,
-      previousVersion,
+      previousVersion: 'no-such-version',
       status: VERSION_STATUS.DRAFT,
       buildType: BUILD_TYPE.BUILD,
       files: [{ fileId: 'missing.yaml' }, { fileId: 'unreachable.yaml' }],
     }, {
       resolvers: {
         versionResolver: () => Promise.resolve(null),
-        fileResolver: (fileId: string) => (fileId === 'missing.yaml' || flags.storageIsUp
+        fileResolver: (fileId: string) => (fileId === 'missing.yaml'
           ? Promise.resolve(null)
-          : new Promise((_, reject) => setTimeout(() => reject(new Error(STORAGE_FAILURE)), 0))),
+          : Promise.reject(new Error(STORAGE_FAILURE))),
       },
     })
 
-  const missingFileReport = expect.objectContaining({ category: MESSAGE_CATEGORY.FileNotParsed, documentId: 'missing' })
+    const error = await notificationsErrorOf(builder.run())
 
-  test('should carry the messages raised before a fatal in the document loop', async () => {
-    const error = await storageFailureBuilder({ storageIsUp: false }).run().catch((thrown: unknown) => thrown)
-
-    expect(error).toBeInstanceOf(NotificationsError)
-    // the text every client sends to the backend
-    expect(`${error}`).toBe(`Error: ${STORAGE_FAILURE}`)
-    expect((error as NotificationsError).cause).toEqual(new Error(STORAGE_FAILURE))
-    expect((error as NotificationsError).notifications).toEqual([missingFileReport])
-    expect((error as NotificationsError).comparisonNotifications).toEqual([])
-  })
-
-  // the build copies the root pair's array into `comparisonNotifications` only after the document loop, so a
-  // fatal inside the loop leaves the message in that array alone
-  test('should carry a baseline that does not resolve when the document loop fails', async () => {
-    const error = await storageFailureBuilder({ storageIsUp: false }, 'no-such-version').run()
-      .catch((thrown: unknown) => thrown)
-
-    expect(error).toBeInstanceOf(NotificationsError)
-    expect((error as NotificationsError).comparisonNotifications).toEqual([
+    expect(error.notifications).toEqual([
+      expect.objectContaining({ category: MESSAGE_CATEGORY.FileNotParsed, documentId: 'missing' }),
+    ])
+    expect(error.comparisonNotifications).toEqual([
       expect.objectContaining({ category: MESSAGE_CATEGORY.VersionNotResolved }),
     ])
   })
@@ -302,27 +380,15 @@ describe('A fatal failure carries what the build reported before it', () => {
   // of the baseline's messages
   test('should carry the messages of the baseline when a changelog fails inside the comparison', async () => {
     const packageId = 'fatal-failures/changelog-comparison-failure'
-    const registry = LocalRegistry.openPackage(REST_PAIR)
-    await registry.publish(REST_PAIR, { packageId, version: BEFORE, files: [{ fileId: 'before.yaml' }] })
-    await registry.publish(REST_PAIR, { packageId, version: AFTER, files: [{ fileId: 'after.yaml' }] })
-    // spied before the editor binds the resolvers: the host lists no references, then goes down
+    const registry = await publishRestPair(packageId)
+    // the host lists no references, then goes down
     jest.spyOn(registry, 'versionReferencesResolver').mockResolvedValue(null as never)
     jest.spyOn(registry, 'versionOperationsResolver').mockRejectedValue(new Error(STORAGE_FAILURE))
-    const editor = new Editor(REST_PAIR, {
-      packageId,
-      version: AFTER,
-      previousVersion: BEFORE,
-      status: VERSION_STATUS.DRAFT,
-      buildType: BUILD_TYPE.CHANGELOG,
-    } as never, {}, registry)
 
-    const error = await editor.run().catch((thrown: unknown) => thrown)
+    const error = await notificationsErrorOf(restPairChangelogEditor(packageId, registry).run())
 
-    expect(error).toBeInstanceOf(NotificationsError)
-    expect(`${error}`).toBe(`Error: ${STORAGE_FAILURE}`)
-    expect((error as NotificationsError).notifications).toEqual([])
     // one message per side of the pair: neither version has a reference list
-    expect((error as NotificationsError).comparisonNotifications).toEqual([
+    expect(error.comparisonNotifications).toEqual([
       expect.objectContaining({ category: MESSAGE_CATEGORY.VersionRefsNotResolved }),
       expect.objectContaining({ category: MESSAGE_CATEGORY.VersionRefsNotResolved }),
     ])
@@ -345,167 +411,10 @@ describe('A fatal failure carries what the build reported before it', () => {
       },
     })
 
-    const error = await builder.run().catch((thrown: unknown) => thrown)
+    const error = await notificationsErrorOf(builder.run())
 
-    expect(error).toBeInstanceOf(NotificationsError)
-    expect((error as NotificationsError).notifications).toEqual([
+    expect(error.notifications).toEqual([
       expect.objectContaining({ category: MESSAGE_CATEGORY.FileNotParsed, documentId: 'late' }),
     ])
-  })
-
-  // no `buildType` falls back to the build strategy, which wraps its failures like an explicit `build`
-  test('should carry the messages of a build with no build type', async () => {
-    const builder = storageFailureBuilder({ storageIsUp: false })
-    builder.config = { ...builder.config, buildType: undefined } as never
-
-    const error = await builder.run().catch((thrown: unknown) => thrown)
-
-    expect(error).toBeInstanceOf(NotificationsError)
-    expect((error as NotificationsError).notifications).toEqual([missingFileReport])
-  })
-
-  // the next `run()` empties the builder's arrays in place and fills them again
-  test('should keep the lists of the first failure when the builder runs again', async () => {
-    const flags = { storageIsUp: false }
-    const builder = storageFailureBuilder(flags)
-    const error = await builder.run().catch((thrown: unknown) => thrown) as NotificationsError
-
-    flags.storageIsUp = true
-    await builder.run()
-
-    // the second build reports both files, so a list that aliases the builder's array holds two messages
-    expect(builder.notifications).toHaveLength(2)
-    expect(error.notifications).toEqual([missingFileReport])
-  })
-})
-
-describe('A packaging failure carries what the build reported', () => {
-  afterEach(() => { jest.restoreAllMocks() })
-
-  const DISK_FULL = 'disk is full'
-
-  test('should carry both streams of a build', async () => {
-    const project = 'tolerant-publication'
-    // a draft with a broken document and a baseline that does not resolve: one message in each stream
-    const editor = new Editor(project, {
-      packageId: 'fatal-failures/packaging-failure',
-      version: AFTER,
-      previousVersion: 'no-such-version',
-      status: VERSION_STATUS.DRAFT,
-      buildType: BUILD_TYPE.BUILD,
-      files: [{ fileId: 'rest.json' }, { fileId: 'broken-async.yaml' }],
-    }, {}, LocalRegistry.openPackage(project))
-    await editor.run()
-    jest.spyOn(AdmZipTool.prototype, 'file').mockImplementation(() => {
-      throw new Error(DISK_FULL)
-    })
-
-    const error = await editor.createNodeVersionPackage().catch((thrown: unknown) => thrown)
-
-    expect(error).toBeInstanceOf(NotificationsError)
-    expect(`${error}`).toBe(`Error: ${DISK_FULL}`)
-    expect((error as NotificationsError).cause).toEqual(new Error(DISK_FULL))
-    expect((error as NotificationsError).notifications)
-      .toContainEqual(expect.objectContaining({ severity: MESSAGE_SEVERITY.Error }))
-    expect((error as NotificationsError).comparisonNotifications).toEqual([
-      expect.objectContaining({ category: MESSAGE_CATEGORY.VersionNotResolved }),
-    ])
-  }, 30000)
-
-  test('should carry the comparison stream of a changelog, with an empty build stream', async () => {
-    const packageId = 'fatal-failures/changelog-packaging-failure'
-    const registry = LocalRegistry.openPackage(REST_PAIR)
-    await registry.publish(REST_PAIR, { packageId, version: BEFORE, files: [{ fileId: 'before.yaml' }] })
-    await registry.publish(REST_PAIR, { packageId, version: AFTER, files: [{ fileId: 'after.yaml' }] })
-    // the host lists no references, so the root pair carries a message
-    jest.spyOn(registry, 'versionReferencesResolver').mockResolvedValue(null as never)
-    const editor = new Editor(REST_PAIR, {
-      packageId,
-      version: AFTER,
-      previousVersion: BEFORE,
-      status: VERSION_STATUS.DRAFT,
-      buildType: BUILD_TYPE.CHANGELOG,
-    } as never, {}, registry)
-    await editor.run()
-    jest.spyOn(AdmZipTool.prototype, 'file').mockImplementation(() => {
-      throw new Error(DISK_FULL)
-    })
-
-    const error = await editor.createNodeVersionPackage().catch((thrown: unknown) => thrown)
-
-    expect(error).toBeInstanceOf(NotificationsError)
-    expect((error as NotificationsError).notifications).toEqual([])
-    expect((error as NotificationsError).comparisonNotifications)
-      .toContainEqual(expect.objectContaining({ category: MESSAGE_CATEGORY.VersionRefsNotResolved }))
-  }, 30000)
-
-  // with no `buildType` the packager treats the build as a `build`
-  test('should carry the streams of a build with no build type', async () => {
-    const project = 'tolerant-publication'
-    const editor = new Editor(project, {
-      packageId: 'fatal-failures/packaging-failure-no-type',
-      version: AFTER,
-      status: VERSION_STATUS.DRAFT,
-      files: [{ fileId: 'rest.json' }, { fileId: 'broken-async.yaml' }],
-    } as never, {}, LocalRegistry.openPackage(project))
-    await editor.run()
-    jest.spyOn(AdmZipTool.prototype, 'file').mockImplementation(() => {
-      throw new Error(DISK_FULL)
-    })
-
-    const error = await editor.createNodeVersionPackage().catch((thrown: unknown) => thrown)
-
-    expect(error).toBeInstanceOf(NotificationsError)
-    expect((error as NotificationsError).notifications)
-      .toContainEqual(expect.objectContaining({ severity: MESSAGE_SEVERITY.Error }))
-  }, 30000)
-
-  // two export documents, so the archive is written rather than the single document returned as it is
-  test('should throw the plain error of an export', async () => {
-    const buildType = BUILD_TYPE.EXPORT_VERSION
-    const buildResult = {
-      config: { buildType },
-      comparisons: [],
-      ddlComparisons: [],
-      documents: new Map(),
-      exportDocuments: [
-        { filename: '1.yaml', data: new Blob(['a']) },
-        { filename: '2.yaml', data: new Blob(['b']) },
-      ],
-      notifications: [],
-      comparisonNotifications: [],
-    } as unknown as BuildResult
-    const zip: ZipTool = {
-      file: () => Promise.reject(new Error(DISK_FULL)),
-      folder: () => zip,
-      buildResult: () => Promise.resolve(null),
-    }
-    const ctx = { config: { buildType } } as unknown as BuilderContext
-
-    const error = await createVersionPackage(buildResult, zip, ctx).catch((thrown: unknown) => thrown)
-
-    expect(error).toEqual(new Error(DISK_FULL))
-    expect(error).not.toBeInstanceOf(NotificationsError)
-  })
-})
-
-// A config the build cannot start from is rejected before any message exists, so it is the plain error: the
-// status request then carries no notifications part
-describe('An invalid config is rejected before the build starts', () => {
-  test('should throw the plain error for a build with neither files nor refs and no build type', async () => {
-    const builder = new PackageVersionBuilder({
-      packageId: 'fatal-failures/no-files-no-type',
-      version: AFTER,
-      // a baseline the host does not have: resolving it first would raise a message the error could carry
-      previousVersion: 'no-such-version',
-      status: VERSION_STATUS.DRAFT,
-      files: [],
-      refs: [],
-    } as never, { resolvers: { versionResolver: () => Promise.resolve(null) } })
-
-    const error = await builder.run().catch((thrown: unknown) => thrown)
-
-    expect(error).toEqual(new Error('Incorrect config: No files and refs'))
-    expect(error).not.toBeInstanceOf(NotificationsError)
   })
 })

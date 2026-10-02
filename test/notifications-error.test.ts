@@ -21,7 +21,6 @@ import { NotificationsError } from '../src/errors'
 import { toNotificationsError } from '../src/components/release-gate'
 import { buildNotifications } from '../src/components/build-result-index'
 import * as root from '../src'
-import * as processor from '../src/processor'
 
 const message = (text: string, severity: MessageSeverity = MESSAGE_SEVERITY.Error): NotificationMessage => ({
   category: MESSAGE_CATEGORY.BuildDocument,
@@ -29,15 +28,15 @@ const message = (text: string, severity: MessageSeverity = MESSAGE_SEVERITY.Erro
   message: text,
 })
 
-describe('A failed build carries its notifications', () => {
-  test('should be importable from both entries', () => {
+describe('NotificationsError', () => {
+  // `../src/processor` re-exports the root, so the root is the one to check
+  test('should be importable from the root entry', () => {
     expect(root.NotificationsError).toBe(NotificationsError)
-    expect(processor.NotificationsError).toBe(NotificationsError)
   })
 
   // a client may serialize the error as the request part as it is
   test('should serialize to the two lists and nothing else', () => {
-    const error = toNotificationsError(new TypeError('fatal'), [message('build')], [])
+    const error = new NotificationsError(new TypeError('fatal'), [message('build')], [])
 
     expect(JSON.parse(JSON.stringify(error))).toEqual({
       notifications: [message('build')],
@@ -48,7 +47,7 @@ describe('A failed build carries its notifications', () => {
   test('should read as the original error', () => {
     const original = new TypeError('Cannot read properties of undefined')
 
-    const error = toNotificationsError(original, [], [])
+    const error = new NotificationsError(original, [], [])
 
     expect(`${error}`).toBe(`${original}`)
     expect(error.message).toBe(original.message)
@@ -56,11 +55,13 @@ describe('A failed build carries its notifications', () => {
   })
 
   test('should read as the original value when something other than an Error was thrown', () => {
-    const error = toNotificationsError('registry unreachable', [], [])
+    const error = new NotificationsError('registry unreachable', [], [])
 
     expect(`${error}`).toBe('registry unreachable')
   })
+})
 
+describe('toNotificationsError', () => {
   test('should keep the lists when the builder empties its arrays for the next run', () => {
     const notifications = [message('build')]
     const comparisonNotifications = [message('comparison')]
@@ -73,6 +74,7 @@ describe('A failed build carries its notifications', () => {
     expect(error.comparisonNotifications).toHaveLength(1)
   })
 
+  // the direct pin: the integration case in release-gate.test.ts depends on its fixture sharing an array
   test('should keep a message that sits in two comparison arrays once', () => {
     const baseline = message('Cannot resolve previous version')
     const rootNotifications = [baseline]
@@ -93,11 +95,5 @@ describe('A failed build carries its notifications', () => {
     expect(expected).not.toEqual(unsorted)
     expect(error.notifications).toEqual(expected)
     expect(error.comparisonNotifications).toEqual(expected)
-  })
-
-  test('should pass an error that already carries notifications through unchanged', () => {
-    const first = toNotificationsError(new Error('fatal'), [message('build')], [])
-
-    expect(toNotificationsError(first, [], [])).toBe(first)
   })
 })

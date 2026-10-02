@@ -17,7 +17,7 @@
 import { BuildConfig, BuilderStrategy, BuildResult, BuildTypeContexts, NotificationMessage, VersionCache } from '../types'
 import { compareVersions } from '../components/compare'
 import { applyBuilderVersionInfo } from '../validators'
-import { comparisonPhaseNotifications, toNotificationsError } from '../components/release-gate'
+import { toNotificationsError } from '../components/release-gate'
 
 /**
  * Recalculate the changelog of a version that is already published — `BUILD_TYPE.CHANGELOG`. A `build` that
@@ -42,9 +42,10 @@ export class ChangelogStrategy implements BuilderStrategy {
     try {
       return await this.compare(config, previousVersion, buildResult, contexts, rootNotifications)
     } catch (error) {
-      // a changelog builds no documents, so its build stream is empty by definition, not by luck; the root
-      // pair's array is on the failure even when the comparison threw before it returned
-      throw toNotificationsError(error, [], [rootNotifications, comparisonPhaseNotifications(buildResult)])
+      // a changelog builds no documents, so its build stream is empty. `comparisonPhaseNotifications` would add
+      // nothing: comparisons are set only after `compareVersions` returns, nothing after it can throw, and a
+      // changelog never writes `comparisonNotifications`. Reference pairs' arrays are lost with the throw
+      throw toNotificationsError(error, buildResult.notifications, [rootNotifications])
     }
   }
 

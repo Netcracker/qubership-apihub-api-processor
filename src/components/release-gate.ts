@@ -66,19 +66,18 @@ export function assertReleaseIsPublishable(
 }
 
 /**
- * Rethrow a fatal failure of a `build` or `changelog` build with the messages both streams had collected.
+ * Wrap a fatal failure of a `build` or `changelog` build in a `NotificationsError` with the messages both streams
+ * had collected.
  *
  * The lists are new arrays, because the next `run()` empties the builder's arrays in place. One message can sit
  * in two of the arrays passed in: with no comparison, `BuildStrategy` copies its root array into
- * `comparisonNotifications`. Each message is kept once, by identity. An error that is already a
- * `NotificationsError` passes through unchanged.
+ * `comparisonNotifications`. Each message is kept once, by identity.
  */
 export function toNotificationsError(
   error: unknown,
   notifications: NotificationMessage[],
   comparisonArrays: NotificationMessage[][],
 ): NotificationsError {
-  if (error instanceof NotificationsError) { return error }
   return new NotificationsError(
     error,
     buildNotifications(notifications).notifications,
