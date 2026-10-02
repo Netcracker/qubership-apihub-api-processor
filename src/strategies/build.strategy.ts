@@ -27,6 +27,11 @@ import { NotificationMessage } from '../types/package/notifications'
 
 export class BuildStrategy implements BuilderStrategy {
   async execute(config: BuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
+    // an invalid config is rejected before the build starts, so it carries no notifications
+    if (!config.files?.length && !config.refs?.length) {
+      throw new Error('Incorrect config: No files and refs')
+    }
+
     // the pair's array: a baseline that does not resolve builds no comparison to own the failure
     const rootNotifications: NotificationMessage[] = []
 
@@ -54,7 +59,6 @@ export class BuildStrategy implements BuilderStrategy {
       version,
       previousVersion,
       files,
-      refs,
     } = config
 
     const { builderContext, compareContext } = contexts
@@ -66,10 +70,6 @@ export class BuildStrategy implements BuilderStrategy {
       previousVersionCache = await compareContextObject
         .forPair(rootNotifications)
         .versionResolver(previousVersion, previousVersionPackageId || packageId)
-    }
-
-    if (!files?.length && !refs?.length) {
-      throw new Error('Incorrect config: No files and refs')
     }
 
     if (files?.length) {

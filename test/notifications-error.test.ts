@@ -35,6 +35,16 @@ describe('A failed build carries its notifications', () => {
     expect(processor.NotificationsError).toBe(NotificationsError)
   })
 
+  // a client may serialize the error as the request part as it is
+  test('should serialize to the two lists and nothing else', () => {
+    const error = toNotificationsError(new TypeError('fatal'), [message('build')], [])
+
+    expect(JSON.parse(JSON.stringify(error))).toEqual({
+      notifications: [message('build')],
+      comparisonNotifications: [],
+    })
+  })
+
   test('should read as the original error', () => {
     const original = new TypeError('Cannot read properties of undefined')
 

@@ -42,7 +42,12 @@ export class NotificationsError extends Error {
     readonly comparisonNotifications: NotificationMessage[],
   ) {
     super(cause instanceof Error ? cause.message : String(cause), { cause })
-    // an empty name makes `${this}` the bare message, which is what `${cause}` gives for a non-Error throw
-    this.name = cause instanceof Error ? cause.name : ''
+    // an empty name makes `${this}` the bare message, which is what `${cause}` gives for a non-Error throw;
+    // not enumerable, so `JSON.stringify(error)` gives the two lists and nothing else
+    Object.defineProperty(this, 'name', {
+      value: cause instanceof Error ? cause.name : '',
+      writable: true,
+      configurable: true,
+    })
   }
 }

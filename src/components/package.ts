@@ -81,7 +81,9 @@ export const createVersionPackage = async (
     // only a `build` or `changelog` failure carries its notifications; other build types throw the plain error
     const buildType = ctx.config.buildType ?? BUILD_TYPE.BUILD
     if (buildType !== BUILD_TYPE.BUILD && buildType !== BUILD_TYPE.CHANGELOG) { throw error }
-    throw toNotificationsError(error, buildResult.notifications, [comparisonPhaseNotifications(buildResult)])
+    // a changelog builds no documents, so its build stream is empty
+    const notifications = buildType === BUILD_TYPE.CHANGELOG ? [] : buildResult.notifications
+    throw toNotificationsError(error, notifications, [comparisonPhaseNotifications(buildResult)])
   }
 }
 

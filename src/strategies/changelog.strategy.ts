@@ -29,36 +29,35 @@ import { comparisonPhaseNotifications, toNotificationsError } from '../component
  */
 export class ChangelogStrategy implements BuilderStrategy {
   async execute(config: BuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
+    const { previousVersion } = config
+    if (!previousVersion) {
+      // `validateConfig` rejects this first; a guard rather than a fallback, so a missing baseline cannot
+      // quietly produce an empty changelog. Rejected before the build starts, so it carries no notifications.
+      throw new Error('ChangelogStrategy requires previousVersion; validateConfig should have rejected this build')
+    }
+
     // the pair's array, so a baseline that does not resolve reports on the pair, not build-wide
     const rootNotifications: NotificationMessage[] = []
 
     try {
-      return await this.compare(config, buildResult, contexts, rootNotifications)
+      return await this.compare(config, previousVersion, buildResult, contexts, rootNotifications)
     } catch (error) {
-      // the root pair's array is on the failure even when the comparison threw before it returned
-      throw toNotificationsError(
-        error,
-        buildResult.notifications,
-        [rootNotifications, comparisonPhaseNotifications(buildResult)],
-      )
+      // a changelog builds no documents, so its build stream is empty by definition, not by luck; the root
+      // pair's array is on the failure even when the comparison threw before it returned
+      throw toNotificationsError(error, [], [rootNotifications, comparisonPhaseNotifications(buildResult)])
     }
   }
 
   private async compare(
     config: BuildConfig,
+    previousVersion: string,
     buildResult: BuildResult,
     contexts: BuildTypeContexts,
     rootNotifications: NotificationMessage[],
   ): Promise<BuildResult> {
-    const { previousVersionPackageId, packageId, version, previousVersion } = config
+    const { previousVersionPackageId, packageId, version } = config
 
     const compareContextObject = contexts.compareContext(config)
-
-    if (!previousVersion) {
-      // `validateConfig` rejects this first; a guard rather than a fallback, so a missing baseline cannot
-      // quietly produce an empty changelog.
-      throw new Error('ChangelogStrategy requires previousVersion; validateConfig should have rejected this build')
-    }
 
     const previousVersionCache: VersionCache | null = await compareContextObject
       .forPair(rootNotifications)
