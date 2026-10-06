@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { MessageCategory, NotificationMessage } from './types/package/notifications'
+import { FailedBuildNotifications, MessageCategory, NotificationMessage } from './types/package/notifications'
 
 /**
  * A build failure that knows which diagnostic it is. Thrown deep in an api-type builder and re-thrown by
@@ -35,7 +35,7 @@ export class DocumentBuildError extends Error {
  * It reads as the original error: every client reports a failure as `${error}`, so the name and message are the
  * original's and the original is the `cause`.
  */
-export class NotificationsError extends Error {
+export class NotificationsError extends Error implements FailedBuildNotifications {
   constructor(
     cause: unknown,
     readonly notifications: NotificationMessage[],

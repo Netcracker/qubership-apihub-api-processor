@@ -40,6 +40,15 @@ export interface PackageComparisonNotificationsEntry {
 }
 
 /**
+ * The messages a failed `build` or `changelog` build had collected: what a `NotificationsError` carries and what
+ * the `notifications` part of the `status=error` request sends.
+ */
+export interface FailedBuildNotifications {
+  notifications: NotificationMessage[]
+  comparisonNotifications: NotificationMessage[]
+}
+
+/**
  * One problem the build found, in the shape both notification files carry.
  *
  * `category` is the stable code a consumer filters on; `message` is written for a human and its wording is
