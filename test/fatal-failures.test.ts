@@ -417,4 +417,29 @@ describe('A fatal failure carries what the build reported before it', () => {
       expect.objectContaining({ category: MESSAGE_CATEGORY.FileNotParsed, documentId: 'late' }),
     ])
   })
+
+  // a parse problem is reported only after every file has built, once the version knows which documents it
+  // publishes; a failing file must not drop the problems of the files that did build
+  test('should carry the parse problems of the files that built when another file failed', async () => {
+    const builder = new PackageVersionBuilder({
+      packageId: 'fatal-failures/storage-failure-parse',
+      version: AFTER,
+      status: VERSION_STATUS.DRAFT,
+      buildType: BUILD_TYPE.BUILD,
+      files: [{ fileId: 'broken.json' }, { fileId: 'unreachable.yaml' }],
+    }, {
+      resolvers: {
+        fileResolver: (fileId: string) => (fileId === 'broken.json'
+          ? Promise.resolve(new File(['{ "openapi": "3.0.0", "info": '], 'broken.json', { type: 'application/json' }))
+          : Promise.reject(new Error(STORAGE_FAILURE))),
+      },
+    })
+
+    const error = await notificationsErrorOf(builder.run())
+
+    expect(error.message).toBe(STORAGE_FAILURE)
+    expect(error.notifications).toEqual([
+      expect.objectContaining({ category: MESSAGE_CATEGORY.ParseFile, documentId: 'broken' }),
+    ])
+  })
 })

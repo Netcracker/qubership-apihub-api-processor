@@ -165,9 +165,21 @@ export const buildFiles = async (files: BuildConfigFile[], ctx: BuilderContext):
   // list after the failure had been taken, so what the failure carries would depend on timing
   const settled = await Promise.allSettled(tasks)
   const failure = settled.find((outcome): outcome is PromiseRejectedResult => outcome.status === 'rejected')
-  if (failure) { throw failure.reason }
-  const result = settled.map(outcome => (outcome as PromiseFulfilledResult<BuildFileResult>).value)
+  const result = settled
+    .filter((outcome): outcome is PromiseFulfilledResult<BuildFileResult> => outcome.status === 'fulfilled')
+    .map(({ value }) => value)
 
+  // the files that built report their parse problems even when another file failed, so the failure carries them
+  await reportParseProblems(result, ctx)
+  if (failure) { throw failure.reason }
+
+  return result
+}
+
+/**
+ * Settle which documents the version publishes and report the parse problems of the published ones.
+ */
+async function reportParseProblems(result: BuildFileResult[], ctx: BuilderContext): Promise<void> {
   // A file reached only through a `$ref` is not a document of its own: it publishes when the config asks for
   // it, or when its parser threw, because that is the file the publisher opens and its bytes go with it.
   const dependencies = new Set(result.flatMap(({ document }) => document.dependencies))
@@ -194,6 +206,4 @@ export const buildFiles = async (files: BuildConfigFile[], ctx: BuilderContext):
     await reportDependencyParseErrors(document, ctx)
     if (parsedFile) { reportOwnParseErrors(document, parsedFile, ctx) }
   }
-
-  return result
 }
