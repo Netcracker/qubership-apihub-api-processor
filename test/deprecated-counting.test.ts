@@ -35,7 +35,7 @@ describe('Deprecated counting test', () => {
     await portal.publish('new-deprecated', {
       packageId: 'new-deprecated-counting',
       version: 'v3',
-      files: [{ fileId: 'deprecated-in-allof-1.yaml' }],
+      files: [{ fileId: 'deprecated-in-allof.yaml' }],
     })
   })
 
@@ -76,7 +76,7 @@ describe('Deprecated counting test', () => {
       packageId: 'new-deprecated-counting',
       version: 'v3',
       status: VERSION_STATUS.RELEASE,
-      files: [{ fileId: 'deprecated-in-allof-1.yaml' }],
+      files: [{ fileId: 'deprecated-in-allof.yaml' }],
       buildType: BUILD_TYPE.BUILD,
     }, {}, portal)
 

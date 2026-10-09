@@ -176,7 +176,7 @@ describe('hasErrors flags', () => {
 
   test('should flag nothing when a document only carries a Warning', async () => {
     const packageId = 'tolerant-publication/warning-only'
-    const pkg = LocalRegistry.openPackage('operationId-collisions/double-slash-in-path')
+    const pkg = LocalRegistry.openPackage('operation-id-collisions/double-slash-in-path')
     const result = await pkg.publish(pkg.packageId, {
       packageId,
       version: 'v1',

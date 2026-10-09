@@ -22,7 +22,7 @@ describe('Operations of one path item', () => {
     // neither fixture carries a config.json; the version and the file list live here instead
     async function expectOneOperationPerMethod(packagePath: string): Promise<void> {
       const pkg = LocalRegistry.openPackage(packagePath)
-      await pkg.publish(pkg.packageId, { packageId: pkg.packageId, version: 'v1', files: [{ fileId: '1.yaml' }] })
+      await pkg.publish(pkg.packageId, { packageId: pkg.packageId, version: 'v1', files: [{ fileId: 'spec.yaml' }] })
 
       const operationFile = await loadFileAsStringFromRegistry(
         VERSIONS_PATH,
@@ -41,11 +41,11 @@ describe('Operations of one path item', () => {
     }
 
     test('should become an operation of its own', async () => {
-      await expectOneOperationPerMethod('hash/different-hashes-for-each-operation')
+      await expectOneOperationPerMethod('path-item-operations/different-hashes-for-each-operation')
     })
 
     test('should become an operation of its own when the path item is a $ref to components', async () => {
-      await expectOneOperationPerMethod('hash/different-hashes-for-each-pathitems-operation')
+      await expectOneOperationPerMethod('path-item-operations/different-hashes-for-each-path-items-operation')
     })
   })
 })

@@ -66,7 +66,7 @@ describe('Build result list ordering', () => {
   // before: assembly order — zebra-get, mango-get, apple-get / zeta.yaml, alpha.yaml
   // after:  apple-get, mango-get, zebra-get / alpha.yaml, zeta.yaml
   it('should serialize operations sorted by operationId and documents sorted by fileId', async () => {
-    const editor = buildEditor('list-ordering')
+    const editor = buildEditor('build-result-ordering/rest')
     await editor.run({ files: [{ fileId: 'zeta.yaml', publish: true }, { fileId: 'alpha.yaml', publish: true }] })
     const zip = await JSZip.loadAsync(await editor.createVersionPackage())
 
@@ -96,7 +96,7 @@ describe('Build result list ordering', () => {
   // before: tables.sql declaration order — zebra, mango, apple
   // after:  apple, mango, zebra
   it('should serialize ddl tables sorted by ddlEntityId', async () => {
-    const editor = buildEditor('list-ordering-ddl')
+    const editor = buildEditor('build-result-ordering/ddl')
     await editor.run({ files: [{ fileId: 'tables.sql' }] })
     const zip = await JSZip.loadAsync(await editor.createVersionPackage())
 
@@ -117,13 +117,13 @@ describe('Build result list ordering', () => {
         { status: VERSION_STATUS.RELEASE },
       )
     }
-    await publish('list-ordering-before', 'v1')
-    await publish('list-ordering-after', 'v2')
+    await publish('build-result-ordering/cross-package/previous-package', 'v1')
+    await publish('build-result-ordering/cross-package/current-package', 'v2')
 
-    const editor = buildEditor('list-ordering-after', { version: 'v2', buildType: BUILD_TYPE.CHANGELOG })
+    const editor = buildEditor('build-result-ordering/cross-package/current-package', { version: 'v2', buildType: BUILD_TYPE.CHANGELOG })
     await editor.run({
       files: [{ fileId: 'spec.yaml', publish: true }],
-      previousVersionPackageId: 'list-ordering-before',
+      previousVersionPackageId: 'build-result-ordering/cross-package/previous-package',
       previousVersion: 'v1',
     })
     const zip = await JSZip.loadAsync(await editor.createVersionPackage())

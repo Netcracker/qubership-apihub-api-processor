@@ -40,8 +40,8 @@ import { DiffAction } from '@netcracker/qubership-apihub-api-diff'
 
 let beforePackage: LocalRegistry
 let afterPackage: LocalRegistry
-const BEFORE_PACKAGE_ID = 'changes_test_before'
-const AFTER_PACKAGE_ID = 'changes_test_after'
+const BEFORE_PACKAGE_ID = 'changes/cross-package/previous-package'
+const AFTER_PACKAGE_ID = 'changes/cross-package/current-package'
 
 describe('Changelog build type', () => {
   beforeAll(async () => {
@@ -111,8 +111,8 @@ describe('Changelog build type', () => {
     test('Should match moved operations', async () => {
       const result = await buildChangelogPackage(
         'changelog/documents-matching',
-        [{ fileId: 'before/spec1.yaml' }, { fileId: 'before/spec2.yaml' }],
-        [{ fileId: 'after/spec1.yaml' }, { fileId: 'after/spec2.yaml' }, { fileId: 'after/evicted.yaml' }],
+        [{ fileId: 'before1.yaml' }, { fileId: 'before2.yaml' }],
+        [{ fileId: 'after1.yaml' }, { fileId: 'after2.yaml' }, { fileId: 'evicted.yaml' }],
       )
       expectChangeCounts(result, {
         changes: { [ANNOTATION_CHANGE_TYPE]: 3 },
@@ -255,7 +255,7 @@ paths:
     })
 
     test('Add securityScheme', async () => {
-      const result = await buildChangelogPackage('changelog/add-securityScheme')
+      const result = await buildChangelogPackage('changelog/add-security-scheme')
 
       expectChangeCounts(result, {
         changes: {
@@ -270,7 +270,7 @@ paths:
     })
 
     test('Change securityScheme content', async () => {
-      const result = await buildChangelogPackage('changelog/change-inside-securityScheme')
+      const result = await buildChangelogPackage('changelog/change-inside-security-scheme')
 
       expectChangeCounts(result, {
         changes: {

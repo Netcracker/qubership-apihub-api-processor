@@ -222,13 +222,13 @@ describe('A broken file behind a $ref', () => {
   test('should report a broken $ref-ed file to every document that pulled it in, naming the file', async () => {
     const packageId = 'reference-bundling/shared-broken-reference'
     // both roots pull in the same broken file, which is the whole point of the fixture
-    const result = await publishVersion(packageId, 'v1', ['first.yaml', 'second.yaml'])
+    const result = await publishVersion(packageId, 'v1', ['spec1.yaml', 'spec2.yaml'])
 
     const referenced = result.notifications.filter(({ message }) => message.includes('referenced from this document'))
     // one notification per parse error per root, so both documents are flagged and neither is left out
-    expect([...new Set(referenced.map(({ documentId }) => documentId))].sort()).toEqual(['first', 'second'])
-    expect(referenced.filter(({ documentId }) => documentId === 'first').length)
-      .toBe(referenced.filter(({ documentId }) => documentId === 'second').length)
+    expect([...new Set(referenced.map(({ documentId }) => documentId))].sort()).toEqual(['spec1', 'spec2'])
+    expect(referenced.filter(({ documentId }) => documentId === 'spec1').length)
+      .toBe(referenced.filter(({ documentId }) => documentId === 'spec2').length)
     for (const notification of referenced) {
       // the offending path belongs in the text — never in documentId, which names the document that bundles it
       expect(notification.message).toContain('shared.yaml')
@@ -249,13 +249,13 @@ describe('A broken file behind a $ref', () => {
         files,
       })
 
-    const unpublished = await publish([{ fileId: 'first.yaml' }, { fileId: 'shared.yaml', publish: false }])
-    expect([...new Set(unpublished.notifications.map(({ documentId }) => documentId))]).toEqual(['first'])
+    const unpublished = await publish([{ fileId: 'spec1.yaml' }, { fileId: 'shared.yaml', publish: false }])
+    expect([...new Set(unpublished.notifications.map(({ documentId }) => documentId))]).toEqual(['spec1'])
     expect(unpublished.notifications.every(({ message }) => message.includes('\'shared.yaml\' referenced'))).toBe(true)
 
     // published, it is a document of the version and reports its own file as well — one form each
-    const published = await publish([{ fileId: 'first.yaml' }, { fileId: 'shared.yaml' }])
-    expect([...new Set(published.notifications.map(({ documentId }) => documentId))].sort()).toEqual(['first', 'shared'])
+    const published = await publish([{ fileId: 'spec1.yaml' }, { fileId: 'shared.yaml' }])
+    expect([...new Set(published.notifications.map(({ documentId }) => documentId))].sort()).toEqual(['shared', 'spec1'])
     expect(published.notifications.filter(({ documentId }) => documentId === 'shared')
       .every(({ message }) => !message.includes('referenced from'))).toBe(true)
   }, 30000)
