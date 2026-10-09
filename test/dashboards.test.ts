@@ -15,9 +15,10 @@
  */
 import { afterEach, describe, expect, jest, test } from '@jest/globals'
 import { LocalRegistry } from './helpers/registry'
-import { BUILD_TYPE, VERSION_STATUS } from '../src/consts'
+import { BUILD_TYPE, MESSAGE_SEVERITY, VERSION_STATUS } from '../src/consts'
 import { Editor } from './helpers/editor'
 import { PackageVersionBuilder } from '../src/processor'
+import { BuildResult } from '../src/types'
 import { prepareChangelogDashboard, publishDashboardWithTwoRefs } from './helpers'
 
 describe('Dashboard build', () => {
@@ -490,4 +491,85 @@ paths:
         .rejects.toThrow(/Cannot build a dashboard changelog/)
     }, 60000)
   })
+})
+
+// A reference version with a broken document publishes as a draft with `hasErrors`. The processor never reads
+// that flag on a resolved version: it gates a dashboard changelog on the soundness of each reference
+// comparison, not of the versions compared. Refusing an errored version as a dashboard's previous version is
+// the backend's rule, and these tests pin that the processor neither adds nor needs it.
+describe('Dashboard referencing a version with errors', () => {
+  const ERRORED_REF = 'dashboards/errored-ref'
+  const DASHBOARD = 'dashboards/errored-ref-dashboard'
+
+  const hasBuildErrors = (result: BuildResult): boolean =>
+    result.notifications.some(({ severity }) => severity === MESSAGE_SEVERITY.Error)
+
+  // `v1` is clean; `v2` adds a broken AsyncAPI document, so the draft carries `hasErrors`
+  const publishReference = async (): Promise<LocalRegistry> => {
+    const ref = LocalRegistry.openPackage(ERRORED_REF)
+    await ref.publish('tolerant-publication', {
+      packageId: ERRORED_REF,
+      version: 'v1',
+      status: VERSION_STATUS.DRAFT,
+      files: [{ fileId: 'rest.json', publish: true }],
+    })
+    await ref.publish('tolerant-publication', {
+      packageId: ERRORED_REF,
+      version: 'v2',
+      status: VERSION_STATUS.DRAFT,
+      files: [{ fileId: 'rest.json', publish: true }, { fileId: 'broken-async.yaml', publish: true }],
+    })
+    // preconditions: the host sees exactly one of the two versions as errored
+    expect((await ref.versionResolver(ERRORED_REF, 'v1'))?.hasErrors).toBeUndefined()
+    expect((await ref.versionResolver(ERRORED_REF, 'v2'))?.hasErrors).toBe(true)
+    return ref
+  }
+
+  const publishDashboard = (
+    dashboard: LocalRegistry,
+    version: string,
+    refVersion: string,
+    previousVersion?: string,
+  ): Promise<BuildResult> =>
+    dashboard.publish(DASHBOARD, {
+      packageId: DASHBOARD,
+      version,
+      status: VERSION_STATUS.DRAFT,
+      apiType: 'rest',
+      refs: [{ refId: ERRORED_REF, version: refVersion }],
+      ...previousVersion ? { previousVersion, previousVersionPackageId: DASHBOARD } : {},
+    })
+
+  test('should publish a draft dashboard that references a version with errors', async () => {
+    await publishReference()
+    const dashboard = LocalRegistry.openPackage(DASHBOARD)
+
+    const result = await publishDashboard(dashboard, 'v2', 'v2')
+
+    expect(hasBuildErrors(result)).toBe(false)
+    expect((await dashboard.versionResolver(DASHBOARD, 'v2'))?.hasErrors).toBeUndefined()
+  }, 60000)
+
+  test('should build the changelog when only the current reference has errors', async () => {
+    await publishReference()
+    const dashboard = LocalRegistry.openPackage(DASHBOARD)
+    await publishDashboard(dashboard, 'v1', 'v1')
+
+    const result = await publishDashboard(dashboard, 'v2', 'v2', 'v1')
+
+    expect(hasBuildErrors(result)).toBe(false)
+    expect(result.comparisons.map(({ packageId }) => packageId)).toContain(ERRORED_REF)
+  }, 60000)
+
+  test('should not refuse a previous dashboard version that references a version with errors', async () => {
+    await publishReference()
+    const dashboard = LocalRegistry.openPackage(DASHBOARD)
+    await publishDashboard(dashboard, 'v1', 'v2')
+
+    // the backend refuses this baseline; the processor builds the changelog regardless
+    const result = await publishDashboard(dashboard, 'v2', 'v1', 'v1')
+
+    expect(hasBuildErrors(result)).toBe(false)
+    expect(result.comparisons.map(({ packageId }) => packageId)).toContain(ERRORED_REF)
+  }, 60000)
 })
