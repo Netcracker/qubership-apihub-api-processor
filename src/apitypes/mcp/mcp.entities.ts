@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../../consts'
+import { MESSAGE_CATEGORY } from '../../consts'
 import { MCP_COLLECTION_KEY, MCP_KIND, McpEntitiesBuilder, McpKind } from '../../types'
 import { ParsedMcpData } from './mcp.types'
 import { isString, removeFirstSlash, reportItemBuildFailure, SLUG_OPTIONS_OPERATION_ID, slugify } from '../../utils'

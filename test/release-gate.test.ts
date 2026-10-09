@@ -16,11 +16,20 @@
 
 import { afterEach, describe, expect, jest, test } from '@jest/globals'
 import JSZip from 'jszip'
-import { Editor, LocalRegistry } from './helpers'
+import {
+  ANY_REST_CHANGE,
+  ANY_REST_SPEC,
+  changelogEditor,
+  contentEditor,
+  Editor,
+  expectNotEmpty,
+  LocalRegistry,
+  publishChangeFromContent,
+} from './helpers'
 import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, PACKAGE, VERSION_STATUS } from '../src/consts'
 import * as transformToDto from '../src/utils/transformToDto'
 import { toVersionsComparisonDto } from '../src/utils/transformToDto'
-import { BuildConfig, BuildResult, BuildType, VersionStatus } from '../src/types'
+import { BuildConfig, BuildResult, VersionStatus } from '../src/types'
 import { NotificationMessage } from '../src/types/package/notifications'
 import { assertReleaseIsPublishable, comparisonPhaseNotifications } from '../src/components/release-gate'
 
@@ -42,24 +51,24 @@ const gate = (status: string, build: NotificationMessage[], changelog: Notificat
 
 const HINT = 'You can publish version in draft status for troubleshooting'
 
-// v2 of a package whose v1 is published, built against v1 but not yet packaged
+// v2 of a package whose v1 is published, built against v1 but not yet packaged. A build compares the
+// `after.yaml` it builds with the published `v1`; a standalone changelog reads both versions from the registry,
+// so both are published either way
 const buildAgainstPrevious = async (
+  packageId: string,
   status: VersionStatus,
-  buildType: BuildType = BUILD_TYPE.BUILD,
+  buildType: typeof BUILD_TYPE.BUILD | typeof BUILD_TYPE.CHANGELOG = BUILD_TYPE.BUILD,
 ): Promise<{ editor: Editor; buildResult: BuildResult }> => {
-  const packageId = 'declarative-changes-in-rest-operation/case1'
-  const registry = new LocalRegistry(packageId)
-  await registry.publish(packageId, { packageId, version: 'v1', files: [{ fileId: 'before.yaml' }] })
-
-  const editor = new Editor(packageId, {
-    packageId,
-    version: 'v2',
-    previousVersion: 'v1',
-    status,
-    buildType,
-    files: [{ fileId: 'after.yaml' }],
-  }, {}, registry)
-  return { editor, buildResult: await editor.run() }
+  const registry = await publishChangeFromContent(packageId, ANY_REST_CHANGE)
+  const editor = buildType === BUILD_TYPE.CHANGELOG
+    ? changelogEditor(packageId, registry)
+    : contentEditor(
+      { packageId, version: 'v2', previousVersion: 'v1', status, buildType },
+      { 'after.yaml': ANY_REST_CHANGE.after },
+      registry,
+    )
+  // a changelog editor is a release by default; the status given here decides for both paths
+  return { editor, buildResult: await editor.run({ status }) }
 }
 
 describe('Release gate', () => {
@@ -174,7 +183,7 @@ describe('Release gate and migration builds', () => {
     const result = await pkg.publish(pkg.packageId, migrationConfig(VERSION_STATUS.RELEASE))
 
     const refProblems = result.notifications.filter(({ category }) => category.startsWith('ref-'))
-    expect(refProblems.length).toBeGreaterThan(0)
+    expectNotEmpty(refProblems)
     expect(refProblems.every(({ severity }) => severity === MESSAGE_SEVERITY.Warning)).toBe(true)
     // the build completed and nothing is flagged, so the historical version stays rebuildable
     expect(result.notifications.some(({ severity }) => severity === MESSAGE_SEVERITY.Error)).toBe(false)
@@ -191,7 +200,7 @@ describe('A malformed diff in a published comparison', () => {
     ['release', VERSION_STATUS.RELEASE],
     ['draft', VERSION_STATUS.DRAFT],
   ])('should let a %s publish, reporting the malformed diff as a warning', async (_name, status) => {
-    const { editor, buildResult } = await buildAgainstPrevious(status)
+    const { editor, buildResult } = await buildAgainstPrevious(`release-gate/malformed-diff/${status}`, status)
     const serialize = toVersionsComparisonDto
     jest.spyOn(transformToDto, 'toVersionsComparisonDto')
       .mockImplementation((comparison, cache, reportProblem) => {
@@ -211,7 +220,8 @@ describe('A malformed diff in a published comparison', () => {
     const { comparisons } = JSON.parse(await zip.file(PACKAGE.COMPARISONS_FILE_NAME)!.async('string')) as {
       comparisons: Array<Record<string, unknown>>
     }
-    expect(comparisons.length).toBeGreaterThan(0)
+    // without it the `every` below passes on an empty list
+    expectNotEmpty(comparisons)
     expect(comparisons.every(comparison => !('hasErrors' in comparison))).toBe(true)
   }, 30000)
 })
@@ -239,22 +249,26 @@ describe('An error raised while the archive is written', () => {
   }
 
   test('should fail a release', async () => {
-    const { editor } = await buildAgainstPrevious(VERSION_STATUS.RELEASE)
+    const { editor } = await buildAgainstPrevious('release-gate/packaging-error/release', VERSION_STATUS.RELEASE)
     raiseErrorWhilePackaging()
 
     await expect(editor.createNodeVersionPackage()).rejects.toThrow(`${PACKAGING_ERROR}. ${HINT}`)
   }, 30000)
 
   test('should let a draft publish', async () => {
-    const { editor } = await buildAgainstPrevious(VERSION_STATUS.DRAFT)
+    const { editor } = await buildAgainstPrevious('release-gate/packaging-error/draft', VERSION_STATUS.DRAFT)
     raiseErrorWhilePackaging()
 
-    await expect(editor.createNodeVersionPackage()).resolves.toBeDefined()
+    const { packageVersion } = await editor.createNodeVersionPackage()
+    const zip = await JSZip.loadAsync(packageVersion)
+    const { comparisons } = JSON.parse(await zip.file(PACKAGE.COMPARISONS_FILE_NAME)!.async('string'))
+    expect(comparisons.map(({ hasErrors }: { hasErrors?: boolean }) => hasErrors)).toEqual([true])
   }, 30000)
 
   // the standalone changelog's own suite explains why it is never gated; this case pins the packager's side
   test('should not gate a standalone changelog of a release version', async () => {
-    const { editor } = await buildAgainstPrevious(VERSION_STATUS.RELEASE, BUILD_TYPE.CHANGELOG)
+    const { editor } = await buildAgainstPrevious(
+      'release-gate/packaging-error/changelog', VERSION_STATUS.RELEASE, BUILD_TYPE.CHANGELOG)
     raiseErrorWhilePackaging()
 
     await expect(editor.createNodeVersionPackage()).resolves.toBeDefined()
@@ -265,17 +279,14 @@ describe('An error raised while the archive is written', () => {
 // comparison stream at all.
 describe('A release whose comparison phase raises an error', () => {
   test('should fail the build', async () => {
-    const packageId = 'declarative-changes-in-rest-operation/case1'
-    const registry = new LocalRegistry(packageId)
     // a baseline that does not resolve is the cheapest comparison-phase error a document can produce
-    const editor = new Editor(packageId, {
-      packageId,
+    const editor = contentEditor({
+      packageId: 'release-gate/unresolved-baseline/build',
       version: 'v2',
       previousVersion: 'no-such-version',
       status: VERSION_STATUS.RELEASE,
       buildType: BUILD_TYPE.BUILD,
-      files: [{ fileId: 'after.yaml' }],
-    }, {}, registry)
+    }, { 'spec.yaml': ANY_REST_SPEC })
 
     await expect(editor.run()).rejects.toThrow(/^No such version: .*You can publish version in draft status for troubleshooting$/)
   }, 30000)
@@ -286,19 +297,21 @@ describe('A release whose comparison phase raises an error', () => {
 // gating would leave a version with an unreliable changelog impossible to recalculate.
 describe('A standalone changelog of a release version', () => {
   test('should recalculate although its comparison stream carries errors', async () => {
-    const packageId = 'declarative-changes-in-rest-operation/case1'
+    const packageId = 'release-gate/unresolved-baseline/changelog'
     const registry = new LocalRegistry(packageId)
-    await registry.publish(packageId, { packageId, version: 'v1', files: [{ fileId: 'before.yaml' }] })
+    await registry.publishFromContent(
+      { 'spec.yaml': ANY_REST_SPEC },
+      { packageId, version: 'v1', files: [{ fileId: 'spec.yaml' }] },
+    )
 
     // a baseline that does not resolve is the cheapest comparison-phase error a document can produce
-    const editor = new Editor(packageId, {
+    const editor = contentEditor({
       packageId,
       version: 'v2',
       previousVersion: 'no-such-version',
       status: VERSION_STATUS.RELEASE,
       buildType: BUILD_TYPE.CHANGELOG,
-      files: [{ fileId: 'after.yaml' }],
-    }, {}, registry)
+    }, { 'spec.yaml': ANY_REST_SPEC }, registry)
     const buildResult = await editor.run()
 
     expect(buildResult.comparisons.flatMap(({ notifications }) => notifications)).toContainEqual(
