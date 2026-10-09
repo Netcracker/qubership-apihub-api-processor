@@ -21,37 +21,55 @@ import { getOperationsList, replaceInPlace } from '../utils'
 import { buildFiles } from '../components/files'
 import { buildVersionContent } from '../components/build-documents'
 import { calculateHistoryForDeprecatedItems } from '../components/deprecated'
-import { assertReleaseIsPublishable, comparisonPhaseNotifications } from '../components/release-gate'
+import { assertReleaseIsPublishable, comparisonPhaseNotifications, toNotificationsError } from '../components/release-gate'
 import { REST_API_TYPE } from '../consts'
 import { NotificationMessage } from '../types/package/notifications'
 
 export class BuildStrategy implements BuilderStrategy {
   async execute(config: BuildConfig, buildResult: BuildResult, contexts: BuildTypeContexts): Promise<BuildResult> {
+    // an invalid config is rejected before the build starts, so it carries no notifications
+    if (!config.files?.length && !config.refs?.length) {
+      throw new Error('Incorrect config: No files and refs')
+    }
+
+    // the pair's array: a baseline that does not resolve builds no comparison to own the failure
+    const rootNotifications: NotificationMessage[] = []
+
+    try {
+      return await this.build(config, buildResult, contexts, rootNotifications)
+    } catch (error) {
+      // the root pair's array is on the failure even when the comparison threw before it returned
+      throw toNotificationsError(
+        error,
+        buildResult.notifications,
+        [rootNotifications, comparisonPhaseNotifications(buildResult)],
+      )
+    }
+  }
+
+  private async build(
+    config: BuildConfig,
+    buildResult: BuildResult,
+    contexts: BuildTypeContexts,
+    rootNotifications: NotificationMessage[],
+  ): Promise<BuildResult> {
     const {
       previousVersionPackageId,
       packageId,
       version,
       previousVersion,
       files,
-      refs,
     } = config
 
     const { builderContext, compareContext } = contexts
     const builderContextObject = builderContext(config)
     const compareContextObject = compareContext(config)
 
-    // the pair's array: a baseline that does not resolve builds no comparison to own the failure
-    const rootNotifications: NotificationMessage[] = []
-
     let previousVersionCache: VersionCache | null = null
     if (previousVersion) {
       previousVersionCache = await compareContextObject
         .forPair(rootNotifications)
         .versionResolver(previousVersion, previousVersionPackageId || packageId)
-    }
-
-    if (!files?.length && !refs?.length) {
-      throw new Error('Incorrect config: No files and refs')
     }
 
     if (files?.length) {

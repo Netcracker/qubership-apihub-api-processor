@@ -88,6 +88,32 @@ compare hook registered. A dashboard changelog also
 aborts when one of its references compared with errors, because the aggregate has no
 correct part.
 
+## A failed build still hands over its notifications
+
+A failed build writes no archive, so the messages it had collected travel on the error. A `build` or `changelog`
+build that throws, from `run()` or from `createVersionPackage()`, throws a `NotificationsError`. The light root
+exports the class. Its `notifications` and `comparisonNotifications` are the build stream and the comparison
+stream, already sorted, and they form the `notifications` part of the `status=error` request. Their
+shape is exported as `FailedBuildNotifications`, named after the backend schema it matches.
+
+Not every failure is wrapped: an invalid config is rejected before the build starts, and export builds throw the
+plain error. Check with `instanceof`. The error's text is the original's, so keep sending `${error}` as the
+`errors` part.
+
+```typescript
+import { type FailedBuildNotifications, NotificationsError } from '@netcracker/qubership-apihub-api-processor'
+
+try {
+  await builder.run()
+  // ...
+} catch (error) {
+  const notifications: FailedBuildNotifications | undefined = error instanceof NotificationsError
+    ? { notifications: error.notifications, comparisonNotifications: error.comparisonNotifications }
+    : undefined
+  await setPublicationStatus('error', `${error}`, notifications)
+}
+```
+
 ## A flagged document still carries its content
 
 A document any `Error` names appears in `documents.json` flagged `hasErrors`, with
