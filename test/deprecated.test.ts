@@ -21,54 +21,54 @@ const portal = new LocalRegistry('deprecated')
 
 describe('Deprecated Items test', () => {
   beforeAll(async () => {
-    await portal.publish('deprecated', {
-      packageId: 'deprecated',
+    await portal.publish('deprecated/public-registry', {
+      packageId: 'deprecated/public-registry',
       version: 'v1',
-      files: [{ fileId: 'PublicRegistry API(4).yaml' }],
+      files: [{ fileId: 'v1.yaml' }],
     })
 
-    await portal.publish('deprecated', {
-      packageId: 'deprecated',
+    await portal.publish('deprecated/public-registry', {
+      packageId: 'deprecated/public-registry',
       version: 'v2',
       previousVersion: 'v1',
-      files: [{ fileId: 'PublicRegistry API(4)v2.yaml' }],
+      files: [{ fileId: 'v2.yaml' }],
     })
 
-    await portal.publish('deprecated', {
-      packageId: 'deprecated',
+    await portal.publish('deprecated/public-registry', {
+      packageId: 'deprecated/public-registry',
       version: 'v3',
       previousVersion: 'v2',
-      files: [{ fileId: 'PublicRegistry API(4)v3.yaml' }],
+      files: [{ fileId: 'v3.yaml' }],
     })
 
-    await portal.publish('deprecated', {
-      packageId: 'deprecated',
+    await portal.publish('deprecated/template-dictionary', {
+      packageId: 'deprecated/template-dictionary',
       version: 'v11',
-      files: [{ fileId: 'TemplateDictionary(1).yaml' }],
+      files: [{ fileId: 'v1.yaml' }],
     })
 
-    await portal.publish('deprecated', {
-      packageId: 'deprecated',
+    await portal.publish('deprecated/template-dictionary', {
+      packageId: 'deprecated/template-dictionary',
       version: 'v12',
       previousVersion: 'v11',
-      files: [{ fileId: 'TemplateDictionary(2).yaml' }],
+      files: [{ fileId: 'v2.yaml' }],
     })
 
-    await portal.publish('deprecated', {
-      packageId: 'deprecated',
+    await portal.publish('deprecated/template-dictionary', {
+      packageId: 'deprecated/template-dictionary',
       version: 'v13',
       previousVersion: 'v12',
-      files: [{ fileId: 'TemplateDictionary(3).yaml' }],
+      files: [{ fileId: 'v3.yaml' }],
     })
   })
 
   test('should build deprecated items with correct depth', async () => {
-    const editor = new Editor('deprecated', {
-      packageId: 'deprecated',
+    const editor = new Editor('deprecated/public-registry', {
+      packageId: 'deprecated/public-registry',
       version: 'v2',
       status: VERSION_STATUS.RELEASE,
       previousVersion: 'v1',
-      files: [{ fileId: 'PublicRegistry API(4)v2.yaml' }],
+      files: [{ fileId: 'v2.yaml' }],
       buildType: BUILD_TYPE.BUILD,
     }, {}, portal)
 
@@ -86,8 +86,8 @@ describe('Deprecated Items test', () => {
   })
 
   test('should have 1 semi-breaking changes for removed operation and property according to rules', async () => {
-    const editor = new Editor('deprecated', {
-      packageId: 'deprecated',
+    const editor = new Editor('deprecated/public-registry', {
+      packageId: 'deprecated/public-registry',
       version: 'v3',
       status: VERSION_STATUS.RELEASE,
       previousVersion: 'v2',
@@ -103,8 +103,8 @@ describe('Deprecated Items test', () => {
   })
 
   test('should have 4 semi-breaking changes for removed operations', async () => {
-    const editor = new Editor('deprecated', {
-      packageId: 'deprecated',
+    const editor = new Editor('deprecated/template-dictionary', {
+      packageId: 'deprecated/template-dictionary',
       version: 'v13',
       status: VERSION_STATUS.RELEASE,
       previousVersion: 'v12',

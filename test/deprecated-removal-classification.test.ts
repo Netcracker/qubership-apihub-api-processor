@@ -326,20 +326,21 @@ describe('An api kind mark that changes between publications', () => {
   })
 })
 
-/** Publishes `<fixture>-v1` to `-v3` in order, each against the one before, and returns the last build. */
+/** Publishes `<fixture>/v1` to `v3` in order, each against the one before, and returns the last build. */
 async function publishSeries(fixture: string, versionLabels?: SeriesLabels, versionPrefix = ''): Promise<BuildResult> {
   let result: BuildResult | undefined
   let previousVersion: string | undefined
+  // a package per series: the versions of two series would otherwise share the slugs `v1` to `v3`
+  const packageId = `${PACKAGE_ID}/${fixture}`
 
   for (const step of [1, 2, 3]) {
-    const source = `${fixture}-v${step}`
-    const version = `${versionPrefix}${source}`
-    result = await registry.publish(PACKAGE_ID, {
-      packageId: PACKAGE_ID,
+    const version = `${versionPrefix}${fixture}-v${step}`
+    result = await registry.publish(packageId, {
+      packageId,
       version,
       ...previousVersion ? { previousVersion } : {},
       ...takeVersionLabels(versionLabels, step),
-      files: [{ fileId: `${source}.yaml`, publish: true }],
+      files: [{ fileId: `v${step}.yaml`, publish: true }],
     })
     previousVersion = version
   }

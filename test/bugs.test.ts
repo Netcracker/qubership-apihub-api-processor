@@ -14,73 +14,110 @@
  * limitations under the License.
  */
 
-import { API_AUDIENCE_INTERNAL, APIHUB_API_COMPATIBILITY_KIND_BWC, APIHUB_API_COMPATIBILITY_KIND_NO_BWC } from '../src'
-import { Editor, errorNotificationsOf, expectNotEmpty, LocalRegistry, operationOf, warningNotificationsOf } from './helpers'
+import {
+  API_AUDIENCE_INTERNAL,
+  APIHUB_API_COMPATIBILITY_KIND_BWC,
+  APIHUB_API_COMPATIBILITY_KIND_NO_BWC,
+  BuildConfigFile,
+  BuildResult,
+} from '../src'
+import {
+  contentEditor,
+  Editor,
+  expectNotEmpty,
+  LocalRegistry,
+  operationOf,
+  warningNotificationsOf,
+} from './helpers'
 
 import { describe, expect, test } from '@jest/globals'
 import { calculateRestOperationTitle } from '../src/utils'
 
 const bugsPackage = LocalRegistry.openPackage('bugs')
-const swaggerPackage = LocalRegistry.openPackage('basic_swagger')
-const migrationBug = LocalRegistry.openPackage('migration_bug')
+const swaggerPackage = LocalRegistry.openPackage('bugs/swagger-schema-warning')
+const migrationBug = LocalRegistry.openPackage('bugs/hidden-files-without-extension')
 
 describe('Operation Bugs', () => {
-  test.skip('parsing issues should be displayed in notifications', async () => {
-    // todo find proper test data
-    const editor = await Editor.openProject('bugs', bugsPackage)
-    const result = await editor.run()
+  // the same two operations behind a relative and an absolute server url; the first also states no-BWC in `info`
+  const petstore = (server: string, summary: string, extra: string): string => `
+openapi: 3.0.3
+info:
+  title: Petstore
+  version: 1.0.0${extra}
+servers:
+  - url: ${server}
+paths:
+  /pet/findByStatus:
+    get:
+      summary: ${summary}
+      responses:
+        '200':
+          description: ok
+  /pet/{petId}:
+    delete:
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ok
+`
+  const RELATIVE_SERVER_PETSTORE = petstore('v1', 'Finds Pets by status TEST', '\n  x-api-kind: no-BWC')
+  const ABSOLUTE_SERVER_PETSTORE = petstore('https://petstore3.swagger.io/v1', 'Finds Pets by status', '')
+  const PETSTORE_OPERATION_IDS = ['v1-pet-_petId_-delete', 'v1-pet-findByStatus-get']
 
-    expect(errorNotificationsOf(result.notifications)).toHaveLength(9)
-  })
+  const buildPetstore = (
+    packageId: string,
+    files: BuildConfigFile[],
+    contents: Record<string, string>,
+  ): Promise<BuildResult> =>
+    contentEditor({ packageId, version: 'v1' }, contents).run({ files })
 
   test('absolute server url: paths should start with v1', async () => {
-    const editor = await Editor.openProject('bugs', bugsPackage)
-    const result = await editor.run({
-      files: [
-        { fileId: 'PetStore-v2 (2023.2).yaml', publish: true },
-      ],
+    const result = await buildPetstore('bugs/absolute-server-url', [{ fileId: 'petstore.yaml' }], {
+      'petstore.yaml': ABSOLUTE_SERVER_PETSTORE,
     })
 
-    expect([...result.operations.values()].every(({ operationId }) => operationId.startsWith('v1'))).toBeTruthy()
+    expect([...result.operations.values()].map(({ operationId }) => operationId).sort())
+      .toEqual(PETSTORE_OPERATION_IDS)
   })
 
   test('relative server url: paths should start with v1', async () => {
-    const editor = await Editor.openProject('bugs', bugsPackage)
-    const result = await editor.run({
-      files: [
-        { fileId: 'PetStore-v2 (2023.1).yaml', publish: true },
-      ],
+    const result = await buildPetstore('bugs/relative-server-url', [{ fileId: 'petstore.yaml' }], {
+      'petstore.yaml': RELATIVE_SERVER_PETSTORE,
     })
 
-    expect([...result.operations.values()].every(({ operationId }) => operationId.startsWith('v1'))).toBeTruthy()
+    expect([...result.operations.values()].map(({ operationId }) => operationId).sort())
+      .toEqual(PETSTORE_OPERATION_IDS)
   })
 
   test('x-api-kind \'no-BWC\' should be handled correctly in operations', async () => {
-    const editor = await Editor.openProject('bugs', bugsPackage)
-    const result = await editor.run({
-      files: [
-        { fileId: 'PetStore-v2 (2023.1).yaml', publish: true },
-      ],
+    const result = await buildPetstore('bugs/api-kind-no-bwc', [{ fileId: 'petstore.yaml' }], {
+      'petstore.yaml': RELATIVE_SERVER_PETSTORE,
     })
 
-    expect([...result.operations.values()].every(operation => operation.apiKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC)).toBeTruthy()
+    expect([...result.operations.values()].map(({ apiKind }) => apiKind))
+      .toEqual([APIHUB_API_COMPATIBILITY_KIND_NO_BWC, APIHUB_API_COMPATIBILITY_KIND_NO_BWC])
   })
 
-  test('duplicated operations in document and component should publish only document operations', async () => {
-    const editor = await Editor.openProject('bugs', bugsPackage)
-    const result = await editor.run({
-      files: [
-        { fileId: 'PetStore-v2 (2023.1).yaml', publish: true },
-        { fileId: 'PetStore-v2 (2023.2).yaml', publish: false },
-      ],
-    })
+  // the unpublished file sorts first, so it would win the shared operation ids if it were built at all
+  test('an unpublished file should add no operations, even when its slug sorts first', async () => {
+    const result = await buildPetstore(
+      'bugs/unpublished-file',
+      [{ fileId: 'published.yaml', publish: true }, { fileId: 'decoy.yaml', publish: false }],
+      { 'published.yaml': RELATIVE_SERVER_PETSTORE, 'decoy.yaml': ABSOLUTE_SERVER_PETSTORE },
+    )
 
-    const operationV1 = operationOf(result, 'v1-pet-findByStatus-get')
-    expect(operationV1.title).toMatch(/(\s*)TEST(\s*)/g)
+    expect([...result.operations.values()].map(({ operationId }) => operationId).sort())
+      .toEqual(PETSTORE_OPERATION_IDS)
+    expect(operationOf(result, 'v1-pet-findByStatus-get').title).toBe('Finds Pets by status TEST')
   })
 
   test('invalid swagger file should be handled', async () => {
-    const editor = await Editor.openProject('basic_swagger', swaggerPackage)
+    const editor = await Editor.openProject('bugs/swagger-schema-warning', swaggerPackage)
     const result = await editor.run()
 
     // AJV metaschema complaints are Warnings now: the document parses and its operations build
@@ -88,14 +125,14 @@ describe('Operation Bugs', () => {
   })
 
   test('type error must not appear during build', async () => {
-    const editor = await Editor.openProject('bugs', bugsPackage)
+    const editor = await Editor.openProject('bugs/type-error-during-build', bugsPackage)
 
-    await bugsPackage.publish('bugs', {
+    await bugsPackage.publish('bugs/type-error-during-build', {
       packageId: 'config_bug',
       version: '1.0',
       refs: [],
       files: [{
-        fileId: 'petstore(publish_1).yaml',
+        fileId: 'before.yaml',
         publish: true,
       }],
     })
@@ -106,7 +143,7 @@ describe('Operation Bugs', () => {
       previousVersion: '1.0',
       refs: [],
       files: [{
-        fileId: 'petstore(publish_2).yaml',
+        fileId: 'after.yaml',
         publish: true,
       }],
     })
@@ -115,14 +152,14 @@ describe('Operation Bugs', () => {
   })
 
   test('should have search text for REST operations', async () => {
-    const editor = await Editor.openProject('bugs', bugsPackage)
+    const editor = await Editor.openProject('bugs/search-scope', bugsPackage)
 
-    await bugsPackage.publish('bugs', {
+    await bugsPackage.publish('bugs/search-scope', {
       packageId: 'search_scope',
       version: '1.0',
       refs: [],
       files: [{
-        fileId: 'search-scope-v1.yaml',
+        fileId: 'before.yaml',
         publish: true,
       }],
     })
@@ -132,7 +169,7 @@ describe('Operation Bugs', () => {
       version: '2.0',
       previousVersion: '1.0',
       files: [{
-        fileId: 'search-scope-v2.yaml',
+        fileId: 'after.yaml',
         publish: true,
       }],
     })
@@ -258,13 +295,13 @@ describe('Operation Bugs', () => {
   })
 
   test('document and the operation must have an internal type ', async () => {
-    const editor = await Editor.openProject('bugs', bugsPackage)
+    const editor = await Editor.openProject('bugs/search-scope', bugsPackage)
 
     const result = await editor.run({
       packageId: 'api_audience',
       version: '1.0',
       files: [{
-        fileId: 'search-scope-v1.yaml',
+        fileId: 'before.yaml',
         publish: true,
       }],
     })
@@ -272,7 +309,7 @@ describe('Operation Bugs', () => {
   }, 100000)
 
   test('hidden files without extension should have required fields', async () => {
-    const editor = await Editor.openProject('migration_bug', migrationBug)
+    const editor = await Editor.openProject('bugs/hidden-files-without-extension', migrationBug)
     const result = await editor.run()
 
     expectNotEmpty(result.documents)
@@ -283,69 +320,31 @@ describe('Operation Bugs', () => {
     }
   })
 
-  test.skip('graphql introspection should have operations', async () => {
-    const editor = await Editor.openProject('bugs', bugsPackage)
-    await editor.run({
-      version: 'gql-bug',
-      files: [
-        // todo find proper test data
-        { fileId: 'Graphql specification.json', publish: true },
-      ],
-    })
-
-    expect(editor.builder.operationList.length).toBeTruthy()
-  })
-
-  test.skip('graphql introspection with .gql extension should have operations', async () => {
-    const editor = await Editor.openProject('bugs', bugsPackage)
-    await editor.run({
-      version: 'gql-bug',
-      files: [
-        // todo find proper test data
-        { fileId: 'GQL_introspection (gql).gql', publish: true },
-      ],
-    })
-
-    expect(editor.builder.operationList.length).toBeTruthy()
-  })
-
-  test.skip('graphql introspection with __schema on the root level should have operations', async () => {
-    const editor = await Editor.openProject('bugs', bugsPackage)
-    await editor.run({
-      version: 'gql-bug',
-      files: [
-        // todo find proper test data
-        { fileId: 'GQL intro.gql', publish: true },
-      ],
-    })
-
-    expect(editor.builder.operationList.length).toBeTruthy()
+  // `x-api-kind` counts in `info` only: at the document root it is ignored
+  const apiKindSample = (rootExtra: object, infoExtra: object): string => JSON.stringify({
+    openapi: '3.0.3',
+    info: { title: 'Sample', version: '1.0.0', ...infoExtra },
+    paths: { '/pets': { get: { responses: { '200': { description: 'ok' } } } } },
+    ...rootExtra,
   })
 
   test('apiKind of operations should be BWC (wrong position of x-api-kind)', async () => {
-    const editor = await Editor.openProject('bugs', bugsPackage)
-    await editor.run({
-      version: 'apiKind-bug',
-      files: [
-        { fileId: 'openapi_sample_3-0.json', publish: true },
-      ],
-    })
+    const result = await contentEditor(
+      { packageId: 'bugs/api-kind-at-root', version: 'v1' },
+      { 'openapi.json': apiKindSample({ 'x-api-kind': 'no-BWC' }, {}) },
+    ).run()
 
-    expect(editor.builder.operationList.length).toBeGreaterThan(0)
-    expect(editor.builder.operationList.every(operation => operation.apiKind === APIHUB_API_COMPATIBILITY_KIND_BWC)).toBeTruthy()
+    expect([...result.operations.values()].map(({ apiKind }) => apiKind)).toEqual([APIHUB_API_COMPATIBILITY_KIND_BWC])
   })
 
   test('apiKind of operations should be no-BWC (defined in info)', async () => {
-    const editor = await Editor.openProject('bugs', bugsPackage)
-    await editor.run({
-      version: 'apiKind-bug',
-      files: [
-        { fileId: 'openapi_sample_3-0-no-bwc.json', publish: true },
-      ],
-    })
+    const result = await contentEditor(
+      { packageId: 'bugs/api-kind-in-info', version: 'v1' },
+      { 'openapi.json': apiKindSample({}, { 'x-api-kind': 'no-BWC' }) },
+    ).run()
 
-    expect(editor.builder.operationList.length).toBeGreaterThan(0)
-    expect(editor.builder.operationList.every(operation => operation.apiKind === APIHUB_API_COMPATIBILITY_KIND_NO_BWC)).toBeTruthy()
+    expect([...result.operations.values()].map(({ apiKind }) => apiKind))
+      .toEqual([APIHUB_API_COMPATIBILITY_KIND_NO_BWC])
   })
 
   test('should correctly calculate operationId for servers with incorrect URL', async () => {

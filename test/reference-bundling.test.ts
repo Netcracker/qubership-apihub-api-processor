@@ -3,7 +3,15 @@ import { afterEach, jest } from '@jest/globals'
 import { restApiBuilder } from '../src/apitypes'
 import { REST_DOCUMENT_TYPE } from '../src/apitypes/rest/rest.consts'
 import { FILE_FORMAT_YAML, FILE_KIND } from '../src'
-import { documentOf, LocalRegistry, notificationMatcher, notificationOf, notificationsMatcher, publishVersion } from './helpers'
+import {
+  documentOf,
+  LocalRegistry,
+  notificationMatcher,
+  notificationOf,
+  notificationsMatcher,
+  operationOf,
+  publishVersion,
+} from './helpers'
 import {
   MESSAGE_CATEGORY,
   MESSAGE_SEVERITY,
@@ -15,6 +23,8 @@ import {
 import { createBundlingErrorHandler } from '../src/utils/document'
 import { BuildConfigFile, BuilderContext, BuildResult } from '../src/types'
 import { NotificationMessage } from '../src/types/package/notifications'
+import { RestOperationData } from '../src/apitypes/rest/rest.types'
+import { OpenAPIV3 } from 'openapi-types'
 
 // What each reference error does to a publication — its severity, the document it names, whether a release
 // still goes out — is one row per `errorType` in `notification-catalogue.test.ts`. What is left here is what
@@ -212,13 +222,13 @@ describe('A broken file behind a $ref', () => {
   test('should report a broken $ref-ed file to every document that pulled it in, naming the file', async () => {
     const packageId = 'reference-bundling/shared-broken-reference'
     // both roots pull in the same broken file, which is the whole point of the fixture
-    const result = await publishVersion(packageId, 'v1', ['first.yaml', 'second.yaml'])
+    const result = await publishVersion(packageId, 'v1', ['spec1.yaml', 'spec2.yaml'])
 
     const referenced = result.notifications.filter(({ message }) => message.includes('referenced from this document'))
     // one notification per parse error per root, so both documents are flagged and neither is left out
-    expect([...new Set(referenced.map(({ documentId }) => documentId))].sort()).toEqual(['first', 'second'])
-    expect(referenced.filter(({ documentId }) => documentId === 'first').length)
-      .toBe(referenced.filter(({ documentId }) => documentId === 'second').length)
+    expect([...new Set(referenced.map(({ documentId }) => documentId))].sort()).toEqual(['spec1', 'spec2'])
+    expect(referenced.filter(({ documentId }) => documentId === 'spec1').length)
+      .toBe(referenced.filter(({ documentId }) => documentId === 'spec2').length)
     for (const notification of referenced) {
       // the offending path belongs in the text — never in documentId, which names the document that bundles it
       expect(notification.message).toContain('shared.yaml')
@@ -239,13 +249,13 @@ describe('A broken file behind a $ref', () => {
         files,
       })
 
-    const unpublished = await publish([{ fileId: 'first.yaml' }, { fileId: 'shared.yaml', publish: false }])
-    expect([...new Set(unpublished.notifications.map(({ documentId }) => documentId))]).toEqual(['first'])
+    const unpublished = await publish([{ fileId: 'spec1.yaml' }, { fileId: 'shared.yaml', publish: false }])
+    expect([...new Set(unpublished.notifications.map(({ documentId }) => documentId))]).toEqual(['spec1'])
     expect(unpublished.notifications.every(({ message }) => message.includes('\'shared.yaml\' referenced'))).toBe(true)
 
     // published, it is a document of the version and reports its own file as well — one form each
-    const published = await publish([{ fileId: 'first.yaml' }, { fileId: 'shared.yaml' }])
-    expect([...new Set(published.notifications.map(({ documentId }) => documentId))].sort()).toEqual(['first', 'shared'])
+    const published = await publish([{ fileId: 'spec1.yaml' }, { fileId: 'shared.yaml' }])
+    expect([...new Set(published.notifications.map(({ documentId }) => documentId))].sort()).toEqual(['shared', 'spec1'])
     expect(published.notifications.filter(({ documentId }) => documentId === 'shared')
       .every(({ message }) => !message.includes('referenced from'))).toBe(true)
   }, 30000)
@@ -264,5 +274,124 @@ describe('A broken file behind a $ref', () => {
     expect(parseFailure.message).toContain('\'broken.yaml\' referenced from this document')
     // the parser's own words: what to fix is in the file, not in the $ref
     expect(parseFailure.message).toContain('Nested mappings are not allowed')
+  })
+})
+
+// the referenced files are published from memory and left out of `files`, as a referenced file usually is
+describe('External references by shape', () => {
+  const TAG = `type: object
+properties:
+  id:
+    type: integer
+  name:
+    type: string
+`
+  const TAG_CATEGORY = `Tag:
+  type: object
+  properties:
+    name:
+      type: string
+Category:
+  type: object
+  properties:
+    category:
+      type: string
+`
+
+  const publishMain = (packageId: string, main: string, referenced: Record<string, string>): Promise<BuildResult> =>
+    new LocalRegistry(packageId).publishFromContent(
+      { 'main.yaml': main, ...referenced },
+      { packageId, version: 'v1', files: [{ fileId: 'main.yaml' }] },
+    )
+
+  // the path is joined inside the bundler library, so every `src` change that fails this case also fails the
+  // sibling-file cases above; what it guards on its own is an upgrade of that library
+  test('should bundle an OpenAPI reference into a subfolder', async () => {
+    const main = `openapi: 3.0.0
+info:
+  title: Subfolder
+  version: '1.0'
+paths:
+  /tag:
+    get:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: 'schemas/Tag.yaml'
+`
+    const result = await publishMain('reference-bundling/subfolder', main, { 'schemas/Tag.yaml': TAG })
+
+    expect(documentOf(result, 'main.yaml').dependencies).toEqual(['schemas/Tag.yaml'])
+    expect(result.notifications).toEqual([])
+    // the bundler moves the target into the components under a name taken from the file
+    const data = operationOf(result, 'tag-get').data as RestOperationData
+    expect(data.components?.schemas?.Tag).toEqual(loadYaml(TAG))
+  })
+
+  // bundling runs before the conversion to OpenAPI 3.0, so each shape is resolved in Swagger 2.0 terms first;
+  // after the conversion the target sits in the operation's response schema
+  describe('in a Swagger 2.0 document', () => {
+    const swagger = (ref: string): string => `swagger: '2.0'
+info:
+  title: Refs
+  version: '1.0'
+paths:
+  /tag:
+    get:
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: OK
+          schema:
+            $ref: '${ref}'
+`
+
+    const responseSchemaOf = (result: BuildResult): unknown => {
+      const data = operationOf(result, 'tag-get').data as RestOperationData
+      const response = data.paths['/tag']?.get?.responses?.['200'] as OpenAPIV3.ResponseObject
+      return response.content?.['application/json']?.schema
+    }
+
+    test('should bundle a reference to a whole file', async () => {
+      const result = await publishMain(
+        'reference-bundling/swagger-whole-file',
+        swagger('Tag.yaml'),
+        { 'Tag.yaml': TAG },
+      )
+
+      expect(documentOf(result, 'main.yaml').dependencies).toEqual(['Tag.yaml'])
+      expect(result.notifications).toEqual([])
+      expect(responseSchemaOf(result)).toEqual(loadYaml(TAG))
+    })
+
+    test('should bundle a reference to a fragment of a file', async () => {
+      const result = await publishMain(
+        'reference-bundling/swagger-fragment',
+        swagger('TagCategory.yaml#/Category'),
+        { 'TagCategory.yaml': TAG_CATEGORY },
+      )
+
+      expect(documentOf(result, 'main.yaml').dependencies).toEqual(['TagCategory.yaml'])
+      expect(result.notifications).toEqual([])
+      // a lost target is reported as unresolved and fails the line above first; this one pins which fragment the
+      // bundler library took
+      expect(responseSchemaOf(result)).toEqual((loadYaml(TAG_CATEGORY) as Record<string, unknown>).Category)
+    })
+
+    test('should bundle a reference through an intermediate file', async () => {
+      const result = await publishMain(
+        'reference-bundling/swagger-intermediate',
+        swagger('Intermediate.yaml'),
+        { 'Intermediate.yaml': '$ref: \'Tag.yaml\'\n', 'Tag.yaml': TAG },
+      )
+
+      expect(documentOf(result, 'main.yaml').dependencies).toEqual(['Intermediate.yaml', 'Tag.yaml'])
+      expect(result.notifications).toEqual([])
+      expect(responseSchemaOf(result)).toEqual(loadYaml(TAG))
+    })
   })
 })

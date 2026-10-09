@@ -40,8 +40,8 @@ import { DiffAction } from '@netcracker/qubership-apihub-api-diff'
 
 let beforePackage: LocalRegistry
 let afterPackage: LocalRegistry
-const BEFORE_PACKAGE_ID = 'changes_test_before'
-const AFTER_PACKAGE_ID = 'changes_test_after'
+const BEFORE_PACKAGE_ID = 'changes/cross-package/previous-package'
+const AFTER_PACKAGE_ID = 'changes/cross-package/current-package'
 
 describe('Changelog build type', () => {
   beforeAll(async () => {
@@ -111,8 +111,8 @@ describe('Changelog build type', () => {
     test('Should match moved operations', async () => {
       const result = await buildChangelogPackage(
         'changelog/documents-matching',
-        [{ fileId: 'before/spec1.yaml' }, { fileId: 'before/spec2.yaml' }],
-        [{ fileId: 'after/spec1.yaml' }, { fileId: 'after/spec2.yaml' }, { fileId: 'after/evicted.yaml' }],
+        [{ fileId: 'before1.yaml' }, { fileId: 'before2.yaml' }],
+        [{ fileId: 'after1.yaml' }, { fileId: 'after2.yaml' }, { fileId: 'evicted.yaml' }],
       )
       expectChangeCounts(result, {
         changes: { [ANNOTATION_CHANGE_TYPE]: 3 },
@@ -197,43 +197,6 @@ paths:
         impacted: { [ANNOTATION_CHANGE_TYPE]: 1 },
       })
     })
-
-    // todo: case that we don't support due to shifting to the new changelog calculation approach which involves comparison of the entire docs instead of the operation vs operation comparison
-    test.skip('Should match operations with granular servers override in method', async () => {
-      const result = await buildChangelogPackage('changelog/mixed-cases-with-method-prefix-override')
-      expectChangeCounts(
-        result,
-        {
-          changes: {
-            [BREAKING_CHANGE_TYPE]: 1,
-            [NON_BREAKING_CHANGE_TYPE]: 1,
-            [ANNOTATION_CHANGE_TYPE]: 2, // todo: do we really need to count change in root servers[0].url in mapped operations with overridden servers?
-          },
-          impacted: {
-            [BREAKING_CHANGE_TYPE]: 1,
-            [NON_BREAKING_CHANGE_TYPE]: 1,
-            [ANNOTATION_CHANGE_TYPE]: 2, // todo: do we really need to count change in root servers[0].url in mapped operations with overridden servers?
-          },
-        },
-      )
-    })
-
-    // todo: case that we don't support due to shifting to the new changelog calculation approach which involves comparison of the entire docs instead of the operation vs operation comparison
-    test.skip('Should match operations with granular servers override in path', async () => {
-      const result = await buildChangelogPackage('changelog/mixed-cases-with-path-prefix-override')
-      expectChangeCounts(result, {
-        changes: {
-          [BREAKING_CHANGE_TYPE]: 1,
-          [NON_BREAKING_CHANGE_TYPE]: 1,
-          [ANNOTATION_CHANGE_TYPE]: 2, // todo
-        },
-        impacted: {
-          [BREAKING_CHANGE_TYPE]: 1,
-          [NON_BREAKING_CHANGE_TYPE]: 1,
-          [ANNOTATION_CHANGE_TYPE]: 2, // todo
-        },
-      })
-    })
   })
 
   describe('Diffs collecting in the root-level properties', () => {
@@ -292,7 +255,7 @@ paths:
     })
 
     test('Add securityScheme', async () => {
-      const result = await buildChangelogPackage('changelog/add-securityScheme')
+      const result = await buildChangelogPackage('changelog/add-security-scheme')
 
       expectChangeCounts(result, {
         changes: {
@@ -307,7 +270,7 @@ paths:
     })
 
     test('Change securityScheme content', async () => {
-      const result = await buildChangelogPackage('changelog/change-inside-securityScheme')
+      const result = await buildChangelogPackage('changelog/change-inside-security-scheme')
 
       expectChangeCounts(result, {
         changes: {

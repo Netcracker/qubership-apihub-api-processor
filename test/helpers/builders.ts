@@ -17,7 +17,6 @@
 import {
   BUILD_TYPE,
   BuildConfig,
-  BuildConfigAggregator,
   BuildConfigFile,
   BuildResult,
   BuildType,
@@ -339,10 +338,8 @@ class ContentEditor extends Editor {
     super(config.packageId, config, {}, registry)
   }
 
-  override async run(config: Partial<BuildConfigAggregator> = {}): Promise<BuildResult> {
-    const files = ('files' in config ? config.files : undefined) ?? this.config.files ?? []
+  protected override async assertListedFilesExist(files: BuildConfigFile[]): Promise<void> {
     for (const { fileId } of files) { this.contentOf(fileId) }
-    return super.run(config)
   }
 
   // `force` is how `update*File` asks: a file it cannot find is a mistake in the test, not a missing reference
@@ -364,7 +361,8 @@ class ContentEditor extends Editor {
 
 /**
  * Create an editor that builds `contents` instead of a fixture folder. Its `files` are the keys of `contents`; a
- * file id outside them, listed for a run or edited through `update*File`, throws instead of being read from disk.
+ * file id outside them, listed for a run or an update or edited through `update*File`, throws instead of being read
+ * from disk.
  * `status` and `buildType` may be left out and given to `run`, as the fixture-folder editors do.
  */
 export const contentEditor = (
