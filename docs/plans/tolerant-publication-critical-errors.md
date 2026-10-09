@@ -1173,6 +1173,28 @@ One small type change: `unknownParsedFile` returns a `BinaryFile`, which has no 
 optional `errors` to it or introduce a sibling helper (`unparsableFile(fileId, source, error)`) that returns
 the same shape plus the error. The `errors` array is what the emission loop reads, so it has to be there.
 
+**The fallback keeps the type its parser recognized.** A parser that throws after it has recognized the file,
+such as `buildSchema` rejecting a GraphQL schema or a YAML error in an AsyncAPI file, raises a
+`RecognizedFileParseError` that carries the type and format it settled on, and `unparsableFile` puts them on
+the fallback. The document is then published under its own API type: the backend flags that type in
+`operationTypes`, and a client can list the document in its own group. Only a file that no parser recognized
+stays `unknown`. A typed fallback has no model, so it is dumped as its `source`, not by the typed dumper.
+
+REST and DDL parsers do not raise this error and still fall back to `unknown`. Version export parses every
+REST document it is handed, and the DDL comparison parses every document of type `ddl`, so each of them needs
+its own guard before its fallback can keep the type.
+
+**A `.graphql` file that does not build is a schema only when it defines one.** Whatever `buildSchema`
+accepts is a GraphQL document, as before, a file of queries included: it builds into a schema that defines
+nothing. When `buildSchema` throws, the file keeps the GraphQL type only if its text matches the start of a
+type system definition, anywhere in it: `type`, `input`, `interface`, `enum`, `union`, or `scalar` followed by
+a name on the same line, `schema` followed by `{` or `@`, or `directive` followed by `@`. GraphQL has no
+version key, and this match is as approximate as the `openapi` key match of a REST document: prose that reads
+`type of` passes it and is published as a GraphQL document that failed to parse. A file that does not build
+and has no match, such as plain text, YAML, or an empty file, is not claimed: it is published as `unknown`
+with no error, the way a JSON file without an `openapi` key is. Such a file no longer blocks a `release`,
+because nothing reports it.
+
 **`dumpUnknownDocument` must stop throwing.** The last row above is unavoidable, so the dumper becomes:
 
 ```ts

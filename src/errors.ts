@@ -15,6 +15,7 @@
  */
 
 import { MessageCategory } from './types/package/notifications'
+import type { FileFormat } from './types/internal/documents'
 
 /**
  * A build failure that knows which diagnostic it is. Thrown deep in an api-type builder and re-thrown by
@@ -25,5 +26,26 @@ export class DocumentBuildError extends Error {
   constructor(message: string, readonly category: MessageCategory) {
     super(message)
     this.name = 'DocumentBuildError'
+  }
+}
+
+/**
+ * A parse failure of a file its parser had already recognized. It carries the type and format the parser
+ * settled on before it threw, and `parseFile` puts them on the fallback file — without them a broken
+ * GraphQL schema would be published as an `unknown` document, outside its own API type.
+ */
+export class RecognizedFileParseError extends Error {
+  constructor(cause: unknown, readonly type: string, readonly format: FileFormat) {
+    super(cause instanceof Error ? cause.message : 'Unknown error', { cause })
+    this.name = 'RecognizedFileParseError'
+  }
+}
+
+/** Run the step of a parser that reads a file already recognized as `type`, and keep that type if it throws. */
+export const parseRecognized = <T>(type: string, format: FileFormat, parse: () => T): T => {
+  try {
+    return parse()
+  } catch (error) {
+    throw new RecognizedFileParseError(error, type, format)
   }
 }
