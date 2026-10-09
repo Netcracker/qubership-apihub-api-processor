@@ -17,12 +17,20 @@
 import { afterEach, describe, expect, jest, test } from '@jest/globals'
 import JSZip from 'jszip'
 import {
-  buildChangelogPackage,
+  ANY_REST_CHANGE,
+  ANY_REST_SPEC,
+  buildChangelogFromContent,
+  contentEditor,
   Editor,
-  loadFileAsStringFromRegistry,
+  errorNotificationsOf,
+  notificationsInCategory,
+  loadJsonFromRegistry,
   LocalRegistry,
+  publishChangeFromContent,
   publishDashboardWithTwoRefs,
+  publishVersion,
   VERSIONS_PATH,
+  expectNotEmpty,
 } from './helpers'
 import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, PACKAGE, VERSION_STATUS } from '../src/consts'
 import { BuildConfig, BuildResult } from '../src/types'
@@ -33,22 +41,18 @@ import { PackageVersionBuilder } from '../src/builder'
 // Whole-result invariants over the notification contract. They hold for every build, so any raising site
 // that forgets a category or ships a fileId where a slug belongs fails here rather than in production.
 describe('Notification attribution invariants', () => {
-  const publish = (projectId: string, files: string[]): Promise<BuildResult> => {
-    const pkg = LocalRegistry.openPackage(projectId)
-    return pkg.publish(pkg.packageId, {
-      packageId: pkg.packageId,
-      version: 'v1',
-      files: files.map(fileId => ({ fileId })),
-    })
-  }
+  const publish = (projectId: string, files: string[]): Promise<BuildResult> =>
+    publishVersion(projectId, 'v1', files)
 
-  const CASES: Array<[string, () => Promise<BuildResult>]> = [
+  // The flag says whether the case raises a build-phase `Error`; none of the three does today, and the
+  // attribution test below asserts nothing on a case that raises none, so it pins which is which.
+  const CASES: Array<[string, () => Promise<BuildResult>, boolean]> = [
     // a document whose references do not resolve — the `ref-*` family comes from this one site
-    ['broken references', () => LocalRegistry.openPackage('reference-bundling/case2').publish('reference-bundling/case2')],
+    ['broken references', () => LocalRegistry.openPackage('reference-bundling/case2').publish('reference-bundling/case2'), false],
     // a path that fails validation — `double-slash-path`
-    ['invalid paths', () => publish('operationId-collisions/double-slash-in-path', ['spec.json'])],
+    ['invalid paths', () => publish('operation-id-collisions/double-slash-in-path', ['spec.json']), false],
     // the same operationId in two documents — `duplicate-operation-id`, the one cross-document case today
-    ['duplicate operation ids', () => publish('operationId-collisions/same-path-different-documents', ['spec1.json', 'spec2.json'])],
+    ['duplicate operation ids', () => publish('operation-id-collisions/same-path-different-documents', ['spec1.json', 'spec2.json']), false],
   ]
 
   const KNOWN_CATEGORIES = new Set<string>(Object.values(MESSAGE_CATEGORY))
@@ -56,7 +60,7 @@ describe('Notification attribution invariants', () => {
   test.each(CASES)('should carry a known category on every notification — %s', async (_name, build) => {
     const result = await build()
 
-    expect(result.notifications.length).toBeGreaterThan(0)
+    expectNotEmpty(result.notifications)
     for (const { category } of result.notifications) {
       expect(KNOWN_CATEGORIES.has(category)).toBe(true)
     }
@@ -66,20 +70,25 @@ describe('Notification attribution invariants', () => {
     const result = await build()
     const slugs = new Set([...result.documents.values()].map(({ slug }) => slug))
 
-    for (const { documentId } of result.notifications) {
-      if (documentId === undefined) { continue }
+    // Skipping the unattributed ones inside the loop hid the case this test cares about least but
+    // relies on most: with nothing attributed at all, there is no documentId to check against a slug.
+    const attributed = result.notifications
+      .map(({ documentId }) => documentId)
+      .filter((documentId): documentId is string => documentId !== undefined)
+    expectNotEmpty(attributed)
+
+    for (const documentId of attributed) {
       expect(slugs.has(documentId)).toBe(true)
     }
   })
 
   // the release-failure message relies on this: an attributed error always has a document to name
-  test.each(CASES)('should attribute every build-phase Error to a document — %s', async (_name, build) => {
+  test.each(CASES)('should attribute every build-phase Error to a document — %s', async (_name, build, raisesError) => {
     const result = await build()
 
-    const unattributed = result.notifications.filter(
-      ({ severity, documentId }) => severity === MESSAGE_SEVERITY.Error && documentId === undefined,
-    )
-    expect(unattributed).toEqual([])
+    const errors = errorNotificationsOf(result.notifications)
+    expect(errors.length > 0).toBe(raisesError)
+    expect(errors.filter(({ documentId }) => documentId === undefined)).toEqual([])
   })
 })
 
@@ -87,25 +96,17 @@ describe('Notification attribution invariants', () => {
 // routed correctly and still never be serialised — so assert them again on the published files.
 describe('Notification invariants hold in the published archive', () => {
   test('should categorise every notification in notifications.json and name a real document', async () => {
-    const pkg = LocalRegistry.openPackage('operationId-collisions/same-path-different-documents')
-    await pkg.publish(pkg.packageId, {
-      packageId: pkg.packageId,
-      version: 'v1',
-      files: [{ fileId: 'spec1.json' }, { fileId: 'spec2.json' }],
-    })
+    const packageId = 'operation-id-collisions/same-path-different-documents'
+    await publishVersion(packageId, 'v1', ['spec1.json', 'spec2.json'])
 
-    const versionPath = `${pkg.packageId}/v1`
-    const notifications = JSON.parse(
-      (await loadFileAsStringFromRegistry(VERSIONS_PATH, versionPath, 'notifications.json'))!,
-    ).notifications as Array<{ category: string; severity: number; documentId?: string }>
-    const documents = JSON.parse(
-      (await loadFileAsStringFromRegistry(VERSIONS_PATH, versionPath, 'documents.json'))!,
-    ).documents as Array<{ slug: string }>
+    const versionPath = `${packageId}/v1`
+    const notifications = (await loadJsonFromRegistry(VERSIONS_PATH, versionPath, 'notifications.json')).notifications as Array<{ category: string; severity: number; documentId?: string }>
+    const documents = (await loadJsonFromRegistry(VERSIONS_PATH, versionPath, 'documents.json')).documents as Array<{ slug: string }>
 
     const slugs = new Set(documents.map(({ slug }) => slug))
     const known = new Set<string>(Object.values(MESSAGE_CATEGORY))
 
-    expect(notifications.length).toBeGreaterThan(0)
+    expectNotEmpty(notifications)
     for (const notification of notifications) {
       expect(known.has(notification.category)).toBe(true)
       expect(notification).not.toHaveProperty('fileId')
@@ -119,8 +120,8 @@ describe('Notification invariants hold in the published archive', () => {
   }, 30000)
 
   test('should keep notifications out of comparisons.json — they live in their own file', async () => {
-    const result = await buildChangelogPackage('changelog/security/operation-security-precedence/both-change')
-    expect(result.comparisons.length).toBeGreaterThan(0)
+    const result = await buildChangelogFromContent('attribution/dto-without-notifications', ANY_REST_CHANGE)
+    expectNotEmpty(result.comparisons)
 
     // the DTO deliberately drops the field; a leak would duplicate the dedicated file, unsorted
     const dto = toVersionsComparisonDto(result.comparisons[0], new WeakMap(), () => undefined)
@@ -131,31 +132,41 @@ describe('Notification invariants hold in the published archive', () => {
 // The two streams are separated by which context produced the message, not by a decision at the call site.
 describe('Notification stream routing', () => {
   test('should mark the comparison, not the version, when the previous version is missing', async () => {
-    const pkg = LocalRegistry.openPackage('reference-bundling/case2')
-    await pkg.publish(pkg.packageId, { packageId: pkg.packageId, version: 'v1' })
+    const packageId = 'attribution/missing-baseline-routing'
+    const registry = new LocalRegistry(packageId)
+    await registry.publishFromContent(
+      { 'rest.json': ANY_REST_SPEC },
+      { packageId, version: 'v1', files: [{ fileId: 'rest.json' }] },
+    )
 
-    const editor = new Editor(pkg.packageId, {
-      packageId: pkg.packageId,
+    const editor = new Editor(packageId, {
+      packageId,
       version: 'v1',
       previousVersion: 'no-such-version',
       buildType: BUILD_TYPE.CHANGELOG,
       status: VERSION_STATUS.NONE,
-    }, {}, pkg)
+    }, {}, registry)
     const result = await editor.run()
 
     // the baseline could not be resolved — a comparison problem, so it belongs to the comparison stream, and
     // within it to the pair whose baseline it is: the build-level array reaches no file
-    expect(result.comparisons.flatMap(({ notifications }) => notifications).map(({ category }) => category))
-      .toContain(MESSAGE_CATEGORY.VersionNotResolved)
+    const onPairs = result.comparisons.flatMap(({ notifications }) => notifications)
+    expect(onPairs.map(({ category }) => category)).toContain(MESSAGE_CATEGORY.VersionNotResolved)
     expect(result.comparisonNotifications).toEqual([])
-    expect(result.notifications.map(({ category }) => category))
-      .not.toContain(MESSAGE_CATEGORY.VersionNotResolved)
+    // asserted empty rather than free of this one category: a standalone changelog builds no documents, so
+    // this array is empty and a category check over it could not fail. The empty array is the contract —
+    // `Which notification files a build writes` below asserts the changelog ships no notifications file
+    expect(result.notifications).toEqual([])
   })
 
   test('should empty the arrays in place so a context built earlier keeps writing to the live one', async () => {
-    const pkg = LocalRegistry.openPackage('reference-bundling/case2')
     const builder = new PackageVersionBuilder(
-      { packageId: pkg.packageId, version: 'v1', status: VERSION_STATUS.RELEASE, buildType: BUILD_TYPE.BUILD },
+      {
+        packageId: 'attribution/clear-caches',
+        version: 'v1',
+        status: VERSION_STATUS.RELEASE,
+        buildType: BUILD_TYPE.BUILD,
+      },
       { resolvers: {} } as never,
     )
 
@@ -171,14 +182,14 @@ describe('Notification stream routing', () => {
 describe('Comparison notifications belong to a version pair', () => {
   afterEach(() => { jest.restoreAllMocks() })
 
-  // A pair's operation and DDL comparisons resolve the same versions, so the failure arrives twice. Each
-  // pair still reports independently — what must not happen is the same pair reporting twice, which would
-  // double the count in the release-failure message and store two identical rows.
+  // The changelog strategy and the pair's operation and DDL comparisons each resolve the same baseline, so the
+  // failure arrives three times. Each pair still reports independently — what must not happen is the same pair
+  // reporting twice, which would double the count in the release-failure message and store two identical rows.
   test('should report one unresolvable baseline once per pair, not once per comparison kind', async () => {
     const packageId = 'attribution/no-duplicate-resolver-failure'
     const registry = new LocalRegistry(packageId)
-    await registry.publish('declarative-changes-in-rest-operation/case1', {
-      packageId, version: 'v2', files: [{ fileId: 'after.yaml' }],
+    await registry.publishFromContent({ 'rest.json': ANY_REST_SPEC }, {
+      packageId, version: 'v2', files: [{ fileId: 'rest.json' }],
     })
 
     const result = await new Editor(packageId, {
@@ -192,7 +203,7 @@ describe('Comparison notifications belong to a version pair', () => {
 
     // one pair, and it reports the unresolvable baseline exactly once — not once per comparison kind
     expect(result.comparisons.map(({ notifications }) =>
-      notifications.filter(({ category }) => category === MESSAGE_CATEGORY.VersionNotResolved).length))
+      notificationsInCategory(notifications, MESSAGE_CATEGORY.VersionNotResolved).length))
       .toEqual([1])
   }, 60000)
 
@@ -229,19 +240,18 @@ describe('Comparison notifications belong to a version pair', () => {
     expect(new Set(reporting.map(({ notifications }) => notifications)).size).toBe(reporting.length)
   }, 60000)
 
+  // one pair here, so this proves no comparison aliases the build-level arrays; the dashboard test above covers
+  // two pairs
   test('should give each comparison its own array rather than a shared one', async () => {
-    const result = await buildChangelogPackage('changelog/security/operation-security-precedence/both-change')
+    const result = await buildChangelogFromContent('attribution/own-arrays', ANY_REST_CHANGE)
 
-    expect(result.comparisons.length).toBeGreaterThan(0)
+    expectNotEmpty(result.comparisons)
     for (const comparison of result.comparisons) {
       expect(Array.isArray(comparison.notifications)).toBe(true)
       // aliasing the build-level array would put another pair's messages on this comparison
       expect(comparison.notifications).not.toBe(result.comparisonNotifications)
       expect(comparison.notifications).not.toBe(result.notifications)
     }
-
-    const arrays = new Set(result.comparisons.map(({ notifications }) => notifications))
-    expect(arrays.size).toBe(result.comparisons.length)
   })
 
   // Enumerating a pair's references happens before any reference pair exists, but the references being
@@ -251,8 +261,8 @@ describe('Comparison notifications belong to a version pair', () => {
     const packageId = 'attribution/refs-not-resolved'
     const registry = new LocalRegistry(packageId)
     for (const version of ['v1', 'v2']) {
-      await registry.publish('declarative-changes-in-rest-operation/case1', {
-        packageId, version, files: [{ fileId: 'after.yaml' }],
+      await registry.publishFromContent({ 'rest.json': ANY_REST_SPEC }, {
+        packageId, version, files: [{ fileId: 'rest.json' }],
       })
     }
 
@@ -269,9 +279,8 @@ describe('Comparison notifications belong to a version pair', () => {
     } as never, {}, registry)
     const result = await editor.run()
 
-    const raised = result.comparisons.flatMap(({ notifications }) => notifications)
-      .filter(({ category }) => category === MESSAGE_CATEGORY.VersionRefsNotResolved)
-    expect(raised.length).toBeGreaterThan(0)
+    const onPairs = result.comparisons.flatMap(({ notifications }) => notifications)
+    expect(onPairs.map(({ category }) => category)).toContain(MESSAGE_CATEGORY.VersionRefsNotResolved)
     expect(result.comparisonNotifications).toEqual([])
   }, 30000)
 })
@@ -306,18 +315,18 @@ describe('comparison-notifications.json', () => {
   // A baseline that does not resolve skips the changelog, so the failure has no comparison to travel on. It
   // still has a pair — the one the config asked for — and without the row it reaches no file at all.
   test('should row a message under the declared pair when the comparison never ran', async () => {
-    // its own package id: this project is published by several suites, and the version directory is shared
-    const packageId = 'tolerant-publication/declared-pair'
-    const result = await LocalRegistry.openPackage('tolerant-publication').publish('tolerant-publication', {
+    // a draft: the unresolvable baseline is an Error, which refuses a release
+    const packageId = 'attribution/declared-pair'
+    const result = await new LocalRegistry(packageId).publishFromContent({ 'rest.json': ANY_REST_SPEC }, {
       packageId,
+      version: 'v1',
       status: VERSION_STATUS.DRAFT,
       previousVersion: 'no-such-version',
-    } as never)
+      files: [{ fileId: 'rest.json' }],
+    })
     expect(result.comparisons).toEqual([])
 
-    const file = JSON.parse(
-      (await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'comparison-notifications.json'))!,
-    ) as { comparisons: Array<{ previousVersion: string; notifications: Array<{ category: string }> }> }
+    const file = await loadJsonFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'comparison-notifications.json') as { comparisons: Array<{ previousVersion: string; notifications: Array<{ category: string }> }> }
 
     expect(file.comparisons).toHaveLength(1)
     expect(file.comparisons[0].previousVersion).toBe('no-such-version')
@@ -325,9 +334,7 @@ describe('comparison-notifications.json', () => {
       .toEqual([MESSAGE_CATEGORY.VersionNotResolved])
 
     // the version's own file stays clear of it: a baseline is the comparison's problem, not the version's
-    const notifications = JSON.parse(
-      (await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'notifications.json'))!,
-    ).notifications as Array<{ category: string }>
+    const notifications = (await loadJsonFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'notifications.json')).notifications as Array<{ category: string }>
     expect(notifications.map(({ category }) => category)).not.toContain(MESSAGE_CATEGORY.VersionNotResolved)
   }, 30000)
 })
@@ -337,32 +344,26 @@ describe('comparison-notifications.json', () => {
 // a consumer that replaces a version's rows from the archive must not be handed an empty list to replace them
 // with. Which file exists is part of the contract, not an implementation detail.
 describe('Which notification files a build writes', () => {
-  const PROJECT = 'reference-bundling/case1'
-  // its own package id: another suite reads this project's version directory back
-  const PACKAGE_ID = 'reference-bundling/case1/file-shapes'
+  const PACKAGE_ID = 'attribution/file-shapes'
 
   const entriesOf = async (editor: Editor): Promise<string[]> => {
     const zip = await JSZip.loadAsync(await editor.createVersionPackage())
     return Object.keys(zip.files).filter(name => !zip.files[name].dir)
   }
 
-  const build = (registry: LocalRegistry, config: Record<string, unknown>): Editor =>
-    new Editor(PROJECT, {
-      packageId: PACKAGE_ID,
-      status: VERSION_STATUS.DRAFT,
-      buildType: BUILD_TYPE.BUILD,
-      files: [{ fileId: 'openapi.yaml' }],
-      ...config,
-    } as BuildConfig, {}, registry)
+  // a changelog builds nothing and never reads these contents
+  const build = (registry: LocalRegistry, config: Partial<BuildConfig> & Pick<BuildConfig, 'version'>): Editor =>
+    contentEditor(
+      { packageId: PACKAGE_ID, status: VERSION_STATUS.DRAFT, buildType: BUILD_TYPE.BUILD, ...config },
+      { 'after.yaml': ANY_REST_CHANGE.after },
+      registry,
+    )
 
-  const publishBaseline = async (registry: LocalRegistry): Promise<void> => {
-    await registry.publish(PROJECT, {
-      packageId: PACKAGE_ID, version: 'v1', files: [{ fileId: 'openapi.yaml' }],
-    } as BuildConfig)
-  }
+  // a standalone changelog compares two versions that exist; a build rebuilds `v2` over the published one
+  const publishBothVersions = (): Promise<LocalRegistry> => publishChangeFromContent(PACKAGE_ID, ANY_REST_CHANGE)
 
   test('should write no comparison file for a build with no baseline', async () => {
-    const editor = build(LocalRegistry.openPackage(PROJECT), { version: 'v1' })
+    const editor = build(new LocalRegistry(PACKAGE_ID), { version: 'v1' })
     await editor.run()
 
     const entries = await entriesOf(editor)
@@ -371,8 +372,7 @@ describe('Which notification files a build writes', () => {
   }, 60000)
 
   test('should write both files for a build that declares a previous version', async () => {
-    const registry = LocalRegistry.openPackage(PROJECT)
-    await publishBaseline(registry)
+    const registry = await publishBothVersions()
 
     const editor = build(registry, { version: 'v2', previousVersion: 'v1' })
     await editor.run()
@@ -383,11 +383,12 @@ describe('Which notification files a build writes', () => {
   }, 60000)
 
   test('should write the comparison file for a standalone changelog', async () => {
-    const registry = LocalRegistry.openPackage(PROJECT)
-    await publishBaseline(registry)
+    const registry = await publishBothVersions()
 
     const editor = build(registry, { version: 'v2', previousVersion: 'v1', buildType: BUILD_TYPE.CHANGELOG })
-    await editor.run()
+    const result = await editor.run()
+    // both versions resolve, so the file carries a clean pair rather than an unresolvable baseline
+    expect(result.comparisons.map(({ notifications }) => notifications)).toEqual([[]])
 
     const entries = await entriesOf(editor)
     expect(entries).toContain(PACKAGE.COMPARISON_NOTIFICATIONS_FILE_NAME)
@@ -399,8 +400,7 @@ describe('Which notification files a build writes', () => {
   // The same argument covers the version's own content: a changelog recalculates the changes of a version
   // already published, so an empty index of documents or operations would describe that version as empty.
   test('should write no version content for a standalone changelog', async () => {
-    const registry = LocalRegistry.openPackage(PROJECT)
-    await publishBaseline(registry)
+    const registry = await publishBothVersions()
 
     const editor = build(registry, { version: 'v2', previousVersion: 'v1', buildType: BUILD_TYPE.CHANGELOG })
     await editor.run()

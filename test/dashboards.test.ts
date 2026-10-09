@@ -15,16 +15,20 @@
  */
 import { afterEach, describe, expect, jest, test } from '@jest/globals'
 import { LocalRegistry } from './helpers/registry'
-import { BUILD_TYPE, MESSAGE_SEVERITY, VERSION_STATUS } from '../src/consts'
+import { BUILD_TYPE, VERSION_STATUS } from '../src/consts'
 import { Editor } from './helpers/editor'
 import { PackageVersionBuilder } from '../src/processor'
 import { BuildResult } from '../src/types'
-import { prepareChangelogDashboard, publishDashboardWithTwoRefs } from './helpers'
+import {
+  ANY_REST_SPEC,
+  changelogEditor,
+  errorNotificationsOf,
+  prepareChangelogDashboard,
+  publishDashboardWithTwoRefs,
+  publishVersion,
+} from './helpers'
 
 describe('Dashboard build', () => {
-  test('dashboard should have changes', async () => {
-    // todo
-  }, 100000)
   test('Resolvers should not be called for empty versions when building changelog for dashboard that has added removed packages', async () => {
     const pckg1Id = 'dashboards/pckg1'
     const pckg2Id = 'dashboards/pckg2'
@@ -65,29 +69,13 @@ describe('Dashboard build', () => {
     const pckg1Id = 'dashboards/pckg1'
     const pckg2Id = 'dashboards/pckg2'
 
-    await LocalRegistry.openPackage(pckg1Id).publish(pckg1Id, {
-      version: 'v1',
-      packageId: pckg1Id,
-      files: [{ fileId: 'v1.yaml' }],
-    })
+    await publishVersion(pckg1Id, 'v1', 'v1.yaml')
 
-    await LocalRegistry.openPackage(pckg1Id).publish(pckg1Id, {
-      version: 'v2',
-      packageId: pckg1Id,
-      files: [{ fileId: 'v1.yaml' }],
-    })
+    await publishVersion(pckg1Id, 'v2', 'v1.yaml')
 
-    await LocalRegistry.openPackage(pckg2Id).publish(pckg2Id, {
-      version: 'v1',
-      packageId: pckg2Id,
-      files: [{ fileId: 'v2.yaml' }],
-    })
+    await publishVersion(pckg2Id, 'v1', 'v2.yaml')
 
-    await LocalRegistry.openPackage(pckg2Id).publish(pckg2Id, {
-      version: 'v2',
-      packageId: pckg2Id,
-      files: [{ fileId: 'v2.yaml' }],
-    })
+    await publishVersion(pckg2Id, 'v2', 'v2.yaml')
 
     const dashboard = LocalRegistry.openPackage('dashboards/dashboard')
     await dashboard.publish(dashboard.packageId, {
@@ -110,14 +98,7 @@ describe('Dashboard build', () => {
       ],
     })
 
-    const editor = new Editor(dashboard.packageId, {
-      version: 'v2',
-      packageId: dashboard.packageId,
-      previousVersionPackageId: dashboard.packageId,
-      previousVersion: 'v1',
-      buildType: BUILD_TYPE.CHANGELOG,
-      status: VERSION_STATUS.RELEASE,
-    })
+    const editor = changelogEditor(dashboard.packageId)
 
     // Simulate that previous dashboard version was built with an outdated api-processor
     // Mock the builder's versionResolver method (not the registry's)
@@ -170,7 +151,7 @@ describe('Dashboard build', () => {
 
 describe('Dashboard changelog omits intermediate dashboard comparisons', () => {
   // a minimal REST spec whose operation description changes between versions
-  const restSpec = (description: string): string => `openapi: "3.0.0"
+  const leafSpec = (description: string): string => `openapi: "3.0.0"
 info:
   title: leaf
   version: 0.1.0
@@ -191,7 +172,7 @@ paths:
     description: string,
   ): ReturnType<LocalRegistry['publishFromContent']> =>
     reg.publishFromContent(
-      { 'spec.yaml': restSpec(description) },
+      { 'spec.yaml': leafSpec(description) },
       { packageId, version, buildType: BUILD_TYPE.BUILD, files: [{ fileId: 'spec.yaml' }] },
     )
 
@@ -264,14 +245,7 @@ paths:
 
     // changelog build of the root dashboard: the resolver flattens the whole tree (CHANGELOG is not
     // resolvable-locally, so refs are the full descendant set, not just the root's direct children)
-    const editor = new Editor(rootId, {
-      packageId: rootId,
-      version: 'v2',
-      previousVersionPackageId: rootId,
-      previousVersion: 'v1',
-      buildType: BUILD_TYPE.CHANGELOG,
-      status: VERSION_STATUS.RELEASE,
-    }, {}, reg)
+    const editor = changelogEditor(rootId, reg)
     const result = await editor.run()
 
     const ids = result.comparisons.map(packageOf)
@@ -309,14 +283,7 @@ paths:
     await publishDashboard(reg, rootId, 'v1', [{ refId: midId, version: 'v1' }])
     await publishDashboard(reg, rootId, 'v2', [{ refId: midId, version: 'v2' }])
 
-    const editor = new Editor(rootId, {
-      packageId: rootId,
-      version: 'v2',
-      previousVersionPackageId: rootId,
-      previousVersion: 'v1',
-      buildType: BUILD_TYPE.CHANGELOG,
-      status: VERSION_STATUS.RELEASE,
-    }, {}, reg)
+    const editor = changelogEditor(rootId, reg)
     const result = await editor.run()
 
     const ddlIds = result.ddlComparisons.map(packageOf)
@@ -350,14 +317,7 @@ paths:
     await publishDashboard(reg, rootId, 'v1', [{ refId: subAId, version: 'v1' }, { refId: subBId, version: 'v1' }])
     await publishDashboard(reg, rootId, 'v2', [{ refId: subAId, version: 'v2' }, { refId: subBId, version: 'v2' }])
 
-    const editor = new Editor(rootId, {
-      packageId: rootId,
-      version: 'v2',
-      previousVersionPackageId: rootId,
-      previousVersion: 'v1',
-      buildType: BUILD_TYPE.CHANGELOG,
-      status: VERSION_STATUS.RELEASE,
-    }, {}, reg)
+    const editor = changelogEditor(rootId, reg)
     const result = await editor.run()
 
     const leafComparisons = result.comparisons.filter(comparison => packageOf(comparison) === leafId)
@@ -399,14 +359,7 @@ paths:
     await publishDashboard(reg, rootId, 'v1', [{ refId: subAId, version: 'v1' }, { refId: subBId, version: 'v1' }])
     await publishDashboard(reg, rootId, 'v2', [{ refId: subAId, version: 'v2' }, { refId: subBId, version: 'v2' }])
 
-    const editor = new Editor(rootId, {
-      packageId: rootId,
-      version: 'v2',
-      previousVersionPackageId: rootId,
-      previousVersion: 'v1',
-      buildType: BUILD_TYPE.CHANGELOG,
-      status: VERSION_STATUS.RELEASE,
-    }, {}, reg)
+    const editor = changelogEditor(rootId, reg)
     const result = await editor.run()
 
     const leafDdlComparisons = result.ddlComparisons.filter(comparison => packageOf(comparison) === leafId)
@@ -429,7 +382,7 @@ paths:
     const PCKG1 = 'dashboards/pckg1'
     const PCKG2 = 'dashboards/pckg2'
 
-    const changelogEditor = (
+    const dashboardChangelogEditor = (
       dashboard: LocalRegistry,
       status: string,
       buildType: string = BUILD_TYPE.CHANGELOG,
@@ -471,7 +424,7 @@ paths:
         hasErrors: true,
       } as never)
 
-      await expect(changelogEditor(dashboard, VERSION_STATUS.RELEASE).run())
+      await expect(dashboardChangelogEditor(dashboard, VERSION_STATUS.RELEASE).run())
         .rejects.toThrow(/Cannot build a dashboard changelog/)
     }, 60000)
 
@@ -479,7 +432,7 @@ paths:
       const dashboard = await publishDashboardWithTwoRefs(PCKG1, PCKG2)
       failOneReference()
 
-      await expect(changelogEditor(dashboard, VERSION_STATUS.DRAFT).run())
+      await expect(dashboardChangelogEditor(dashboard, VERSION_STATUS.DRAFT).run())
         .rejects.toThrow(/Cannot build a dashboard changelog/)
     }, 60000)
 
@@ -487,7 +440,7 @@ paths:
       const dashboard = await publishDashboardWithTwoRefs(PCKG1, PCKG2)
       failOneReference()
 
-      await expect(changelogEditor(dashboard, VERSION_STATUS.DRAFT, BUILD_TYPE.BUILD).run())
+      await expect(dashboardChangelogEditor(dashboard, VERSION_STATUS.DRAFT, BUILD_TYPE.BUILD).run())
         .rejects.toThrow(/Cannot build a dashboard changelog/)
     }, 60000)
   })
@@ -498,78 +451,92 @@ paths:
 // comparison, not of the versions compared. Refusing an errored version as a dashboard's previous version is
 // the backend's rule, and these tests pin that the processor neither adds nor needs it.
 describe('Dashboard referencing a version with errors', () => {
-  const ERRORED_REF = 'dashboards/errored-ref'
-  const DASHBOARD = 'dashboards/errored-ref-dashboard'
+  // the action is not one AsyncAPI defines, so the document is reported as an `Error` and the draft is flagged
+  const INVALID_CRITICAL_ASYNC = `asyncapi: 3.0.0
+info: { title: Broken AsyncAPI, version: 1.0.0 }
+channels:
+  userSignup: { address: user/signup }
+operations:
+  onUserSignup:
+    action: invalid_action_type
+    channel: { $ref: '#/channels/userSignup' }
+`
 
-  const hasBuildErrors = (result: BuildResult): boolean =>
-    result.notifications.some(({ severity }) => severity === MESSAGE_SEVERITY.Error)
+  interface Scenario {
+    refId: string
+    dashboardId: string
+    dashboard: LocalRegistry
+  }
 
-  // `v1` is clean; `v2` adds a broken AsyncAPI document, so the draft carries `hasErrors`
-  const publishReference = async (): Promise<LocalRegistry> => {
-    const ref = LocalRegistry.openPackage(ERRORED_REF)
-    await ref.publish('tolerant-publication', {
-      packageId: ERRORED_REF,
+  // a reference and a dashboard of its own per case; `v1` of the reference is clean, and `v2` adds the broken
+  // AsyncAPI document, so the draft carries `hasErrors`
+  const publishReference = async (name: string): Promise<Scenario> => {
+    const refId = `dashboards/errored-ref/${name}/ref`
+    const dashboardId = `dashboards/errored-ref/${name}/dashboard`
+    const ref = new LocalRegistry(refId)
+    await ref.publishFromContent({ 'rest.json': ANY_REST_SPEC }, {
+      packageId: refId,
       version: 'v1',
       status: VERSION_STATUS.DRAFT,
-      files: [{ fileId: 'rest.json', publish: true }],
+      files: [{ fileId: 'rest.json' }],
     })
-    await ref.publish('tolerant-publication', {
-      packageId: ERRORED_REF,
-      version: 'v2',
-      status: VERSION_STATUS.DRAFT,
-      files: [{ fileId: 'rest.json', publish: true }, { fileId: 'broken-async.yaml', publish: true }],
-    })
+    await ref.publishFromContent(
+      { 'rest.json': ANY_REST_SPEC, 'invalid-critical-async.yaml': INVALID_CRITICAL_ASYNC },
+      {
+        packageId: refId,
+        version: 'v2',
+        status: VERSION_STATUS.DRAFT,
+        files: [{ fileId: 'rest.json' }, { fileId: 'invalid-critical-async.yaml' }],
+      },
+    )
     // preconditions: the host sees exactly one of the two versions as errored
-    expect((await ref.versionResolver(ERRORED_REF, 'v1'))?.hasErrors).toBeUndefined()
-    expect((await ref.versionResolver(ERRORED_REF, 'v2'))?.hasErrors).toBe(true)
-    return ref
+    expect((await ref.versionResolver(refId, 'v1'))?.hasErrors).toBeUndefined()
+    expect((await ref.versionResolver(refId, 'v2'))?.hasErrors).toBe(true)
+    return { refId, dashboardId, dashboard: LocalRegistry.openPackage(dashboardId) }
   }
 
   const publishDashboard = (
-    dashboard: LocalRegistry,
+    { refId, dashboardId, dashboard }: Scenario,
     version: string,
     refVersion: string,
     previousVersion?: string,
   ): Promise<BuildResult> =>
-    dashboard.publish(DASHBOARD, {
-      packageId: DASHBOARD,
+    dashboard.publish(dashboardId, {
+      packageId: dashboardId,
       version,
       status: VERSION_STATUS.DRAFT,
       apiType: 'rest',
-      refs: [{ refId: ERRORED_REF, version: refVersion }],
-      ...previousVersion ? { previousVersion, previousVersionPackageId: DASHBOARD } : {},
+      refs: [{ refId, version: refVersion }],
+      ...previousVersion ? { previousVersion, previousVersionPackageId: dashboardId } : {},
     })
 
   test('should publish a draft dashboard that references a version with errors', async () => {
-    await publishReference()
-    const dashboard = LocalRegistry.openPackage(DASHBOARD)
+    const scenario = await publishReference('draft')
 
-    const result = await publishDashboard(dashboard, 'v2', 'v2')
+    const result = await publishDashboard(scenario, 'v2', 'v2')
 
-    expect(hasBuildErrors(result)).toBe(false)
-    expect((await dashboard.versionResolver(DASHBOARD, 'v2'))?.hasErrors).toBeUndefined()
+    expect(errorNotificationsOf(result.notifications)).toEqual([])
+    expect((await scenario.dashboard.versionResolver(scenario.dashboardId, 'v2'))?.hasErrors).toBeUndefined()
   }, 60000)
 
   test('should build the changelog when only the current reference has errors', async () => {
-    await publishReference()
-    const dashboard = LocalRegistry.openPackage(DASHBOARD)
-    await publishDashboard(dashboard, 'v1', 'v1')
+    const scenario = await publishReference('current-errored')
+    await publishDashboard(scenario, 'v1', 'v1')
 
-    const result = await publishDashboard(dashboard, 'v2', 'v2', 'v1')
+    const result = await publishDashboard(scenario, 'v2', 'v2', 'v1')
 
-    expect(hasBuildErrors(result)).toBe(false)
-    expect(result.comparisons.map(({ packageId }) => packageId)).toContain(ERRORED_REF)
+    expect(errorNotificationsOf(result.notifications)).toEqual([])
+    expect(result.comparisons.map(({ packageId }) => packageId)).toContain(scenario.refId)
   }, 60000)
 
   test('should not refuse a previous dashboard version that references a version with errors', async () => {
-    await publishReference()
-    const dashboard = LocalRegistry.openPackage(DASHBOARD)
-    await publishDashboard(dashboard, 'v1', 'v2')
+    const scenario = await publishReference('previous-errored')
+    await publishDashboard(scenario, 'v1', 'v2')
 
     // the backend refuses this baseline; the processor builds the changelog regardless
-    const result = await publishDashboard(dashboard, 'v2', 'v1', 'v1')
+    const result = await publishDashboard(scenario, 'v2', 'v1', 'v1')
 
-    expect(hasBuildErrors(result)).toBe(false)
-    expect(result.comparisons.map(({ packageId }) => packageId)).toContain(ERRORED_REF)
+    expect(errorNotificationsOf(result.notifications)).toEqual([])
+    expect(result.comparisons.map(({ packageId }) => packageId)).toContain(scenario.refId)
   }, 60000)
 })

@@ -16,13 +16,22 @@
 
 import { afterEach, describe, expect, jest, test } from '@jest/globals'
 import {
-  Editor,
+  AFTER_VERSION_ID,
+  ANY_REST_SPEC,
+  BEFORE_VERSION_ID,
+  changelogEditor,
+  contentEditor,
+  documentOf,
+  expectNotEmpty,
   exportDocumentMatcher,
   exportDocumentsMatcher,
   loadFileAsStringFromRegistry,
+  loadJsonFromRegistry,
   LocalRegistry,
   notificationMatcher,
+  notificationOf,
   notificationsMatcher,
+  publishVersion,
   VERSIONS_PATH,
 } from './helpers'
 import { BUILD_TYPE, FILE_FORMAT, MESSAGE_CATEGORY, MESSAGE_SEVERITY, VERSION_STATUS } from '../src/consts'
@@ -53,17 +62,16 @@ describe('Error documents survive packaging', () => {
       packageId: 'broken',
       version: 'v1',
       status: VERSION_STATUS.DRAFT,
-      files: [{ fileId: 'missing_brace.json', publish: true }],
+      files: [{ fileId: 'missing-brace.json', publish: true }],
     })
 
-    const document = result.documents.get('missing_brace.json')
-    expect(document).toBeDefined()
+    const document = documentOf(result, 'missing-brace.json')
 
-    const documents = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, 'broken/v1', 'documents.json'))!)
-    expect(documents.documents.map(({ fileId }: { fileId: string }) => fileId)).toEqual(['missing_brace.json'])
+    const documents = await loadJsonFromRegistry(VERSIONS_PATH, 'broken/v1', 'documents.json')
+    expect(documents.documents.map(({ fileId }: { fileId: string }) => fileId)).toEqual(['missing-brace.json'])
 
     // the archive carries the broken file itself — that is the troubleshooting artifact
-    const raw = await loadFileAsStringFromRegistry(VERSIONS_PATH, 'broken/v1/documents', document!.filename)
+    const raw = await loadFileAsStringFromRegistry(VERSIONS_PATH, 'broken/v1/documents', document.filename)
     expect(raw).toBeTruthy()
     expect(raw).toContain('openapi')
   }, 30000)
@@ -75,24 +83,22 @@ describe('Error documents survive packaging', () => {
 describe('A document whose file could not be fetched', () => {
   // a version of two files, one of which the resolver cannot produce
   test('should publish an empty entry rather than skip the document or fail packaging', async () => {
-    const project = 'tolerant-publication'
-    // its own package id: the version directory is shared state, and other suites publish this project too
-    const packageId = 'tolerant-publication/unfetchable-file'
-    const result = await LocalRegistry.openPackage(project).publish(project, {
+    // its own package id: every publish in the run writes under the same versions root
+    const packageId = 'error-documents/unfetchable-file'
+    const result = await new LocalRegistry(packageId).publishFromContent({ 'rest.json': ANY_REST_SPEC }, {
       packageId,
       version: 'v1',
       status: VERSION_STATUS.DRAFT,
       files: [{ fileId: 'rest.json' }, { fileId: 'no-such-file.yaml' }],
     })
 
-    const document = result.documents.get('no-such-file.yaml')
-    expect(document).toBeDefined()
-    expect(document!.source).toBeUndefined()
+    const document = documentOf(result, 'no-such-file.yaml')
+    expect(document.source).toBeUndefined()
 
-    const documents = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'documents.json'))!)
+    const documents = await loadJsonFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'documents.json')
     expect(documents.documents.map(({ fileId }: { fileId: string }) => fileId)).toContain('no-such-file.yaml')
 
-    const raw = await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1/documents`, document!.filename)
+    const raw = await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1/documents`, document.filename)
     expect(raw).toBe('')
   }, 30000)
 })
@@ -102,8 +108,10 @@ describe('Catch points report instead of aborting', () => {
 
   // one healthy file and one the resolver has nothing for
   test('should report a file the resolver cannot produce and keep building the rest', async () => {
-    const pkg = LocalRegistry.openPackage('tolerant-publication')
-    const result = await pkg.publish(pkg.packageId, {
+    const packageId = 'error-documents/unresolvable-file'
+    const result = await new LocalRegistry(packageId).publishFromContent({ 'rest.json': ANY_REST_SPEC }, {
+      packageId,
+      version: 'v1',
       status: VERSION_STATUS.DRAFT,
       files: [{ fileId: 'rest.json' }, { fileId: 'no-such-file.yaml' }],
     })
@@ -115,7 +123,7 @@ describe('Catch points report instead of aborting', () => {
       }),
     ]))
     // the healthy document still built
-    expect(result.operations.size).toBeGreaterThan(0)
+    expectNotEmpty(result.operations)
   }, 30000)
 
   // The placeholder has to carry the failed file's bytes. `parser.test.ts` proves it when the parser is what
@@ -145,12 +153,7 @@ describe('Catch points report instead of aborting', () => {
     })
 
     const packageId = 'reference-bundling/shared-broken-reference'
-    const result = await new LocalRegistry(packageId).publish(packageId, {
-      packageId,
-      version: 'v1',
-      status: VERSION_STATUS.DRAFT,
-      files: [{ fileId: 'shared.yaml' }],
-    })
+    const result = await publishVersion(packageId, 'v1', 'shared.yaml', { status: VERSION_STATUS.DRAFT })
 
     const categories = result.notifications.map(({ category }) => category)
     expect(categories).toContain(MESSAGE_CATEGORY.BuildDocument)
@@ -164,17 +167,22 @@ describe('Catch points report instead of aborting', () => {
       throw new Error('operations exploded')
     })
 
-    const pkg = LocalRegistry.openPackage('tolerant-publication')
-    const result = await pkg.publish(pkg.packageId, { status: VERSION_STATUS.DRAFT })
+    const packageId = 'error-documents/operations-fail'
+    const result = await new LocalRegistry(packageId).publishFromContent({ 'rest.json': ANY_REST_SPEC }, {
+      packageId,
+      version: 'v1',
+      status: VERSION_STATUS.DRAFT,
+      files: [{ fileId: 'rest.json' }],
+    })
 
-    const failure = result.notifications.find(({ category }) => category === MESSAGE_CATEGORY.BuildOperations)
+    const failure = notificationOf(result.notifications, MESSAGE_CATEGORY.BuildOperations)
     expect(failure).toMatchObject({
       severity: MESSAGE_SEVERITY.Error,
       message: expect.stringContaining('operations exploded'),
       documentId: 'rest',
     })
     // the throw cost the document its operations, not the version its documents
-    expect(result.documents.size).toBeGreaterThan(0)
+    expect(result.documents.has('rest.json')).toBe(true)
   }, 30000)
 })
 
@@ -195,7 +203,7 @@ describe('An item that fails costs the document only that item', () => {
   test('should keep the operations of a document one of whose operations failed', async () => {
     throwFor(path => path === '/api/v1/resource')
 
-    const pkg = LocalRegistry.openPackage('operationId-collisions/same-operationId-same-document')
+    const pkg = LocalRegistry.openPackage('operation-id-collisions/same-operation-id-same-document')
     const result = await pkg.publish(pkg.packageId, {
       packageId: 'per-item/rest',
       version: 'v1',
@@ -218,7 +226,7 @@ describe('An item that fails costs the document only that item', () => {
   test('should not count an operation that failed towards a duplicate operationId', async () => {
     throwFor(path => path === '/api/v1/resource')
 
-    const pkg = LocalRegistry.openPackage('operationId-collisions/same-operationId-same-document')
+    const pkg = LocalRegistry.openPackage('operation-id-collisions/same-operation-id-same-document')
     const result = await pkg.publish(pkg.packageId, {
       packageId: 'per-item/rest-duplicate',
       version: 'v1',
@@ -237,9 +245,10 @@ describe('An item that fails costs the document only that item', () => {
 // and there the message names the document that pulled the file in.
 describe('A file that will not be published', () => {
   test('should drop its failure rather than report it against the version', async () => {
-    const pkg = LocalRegistry.openPackage('tolerant-publication')
-    const result = await pkg.publish(pkg.packageId, {
-      packageId: 'error-documents/unpublished',
+    const packageId = 'error-documents/unpublished'
+    const result = await new LocalRegistry(packageId).publishFromContent({ 'rest.json': ANY_REST_SPEC }, {
+      packageId,
+      version: 'v1',
       status: VERSION_STATUS.DRAFT,
       files: [{ fileId: 'rest.json' }, { fileId: 'no-such-file.yaml', publish: false }],
     })
@@ -253,10 +262,11 @@ describe('A file that will not be published', () => {
 
   // and the same file as a release, where a version-level Error would have refused the publication
   test('should let a release publish over it', async () => {
-    const pkg = LocalRegistry.openPackage('tolerant-publication')
+    const packageId = 'error-documents/unpublished-release'
 
-    await expect(pkg.publish(pkg.packageId, {
-      packageId: 'error-documents/unpublished-release',
+    await expect(new LocalRegistry(packageId).publishFromContent({ 'rest.json': ANY_REST_SPEC }, {
+      packageId,
+      version: 'v1',
       status: VERSION_STATUS.RELEASE,
       files: [{ fileId: 'rest.json' }, { fileId: 'no-such-file.yaml', publish: false }],
     })).resolves.toBeDefined()
@@ -268,14 +278,14 @@ describe('A file that will not be published', () => {
 // that type and format, so the version lists the document under its own API type rather than as `unknown`,
 // and the archive still carries the bytes the publisher has to fix.
 describe('A file its parser recognized and could not parse', () => {
-  const publishWithHealthyRest = async (packageId: string, fileId: string): Promise<BuildResult> => {
-    const pkg = LocalRegistry.openPackage('tolerant-publication')
-    return pkg.publish(pkg.packageId, {
+  const FOLDER = 'tolerant-publication'
+
+  const publishWithHealthyRest = (packageId: string, fileId: string): Promise<BuildResult> =>
+    LocalRegistry.openPackage(FOLDER).publish(FOLDER, {
       packageId,
       status: VERSION_STATUS.DRAFT,
       files: [{ fileId: 'rest.json' }, { fileId }],
     })
-  }
 
   test.each([
     // the schema is syntactically sound and declares one field twice
@@ -286,7 +296,7 @@ describe('A file its parser recognized and could not parse', () => {
     const packageId = `error-documents/recognized-${apiType}`
     const result = await publishWithHealthyRest(packageId, fileId)
 
-    const document = result.documents.get(fileId)!
+    const document = documentOf(result, fileId)
     expect(document).toMatchObject({ type, format, operationIds: [] })
 
     expect(result).toEqual(notificationsMatcher([
@@ -296,9 +306,9 @@ describe('A file its parser recognized and could not parse', () => {
       }),
     ]))
 
-    const { documents } = JSON.parse(
-      (await loadFileAsStringFromRegistry(VERSIONS_PATH, `${packageId}/v1`, 'documents.json'))!,
-    ) as { documents: Array<{ fileId: string; type: string; format: string; hasErrors?: boolean }> }
+    const { documents } = await loadJsonFromRegistry<{ documents: Array<{ fileId: string }> }>(
+      VERSIONS_PATH, `${packageId}/v1`, 'documents.json',
+    )
     expect(documents.find((entry) => entry.fileId === fileId)).toMatchObject({ type, format, hasErrors: true })
 
     // the typed dumper has no model to print, so the archive entry has to be the file as it was uploaded
@@ -306,7 +316,7 @@ describe('A file its parser recognized and could not parse', () => {
     expect(archived).toBe(await document.source!.text())
 
     // the healthy document still built
-    expect(result.operations.size).toBeGreaterThan(0)
+    expectNotEmpty(result.operations)
   }, 30000)
 
   // The document now sits in an API type that the comparison walks. It has no operations, so there is nothing
@@ -316,46 +326,39 @@ describe('A file its parser recognized and could not parse', () => {
     ['unparsable-async.yaml', 'asyncapi'],
   ])('should still compare a version that carries %s', async (fileId, apiType) => {
     const packageId = `error-documents/recognized-${apiType}-changelog`
-    const registry = LocalRegistry.openPackage('tolerant-publication')
-    await registry.publish(registry.packageId, { packageId, version: 'v1', files: [{ fileId: 'rest.json' }] })
-    const published = await registry.publish(registry.packageId, {
+    const registry = LocalRegistry.openPackage(FOLDER)
+    await registry.publish(FOLDER, { packageId, version: BEFORE_VERSION_ID, files: [{ fileId: 'rest.json' }] })
+    const published = await registry.publish(FOLDER, {
       packageId,
-      version: 'v2',
+      version: AFTER_VERSION_ID,
       status: VERSION_STATUS.DRAFT,
-      previousVersion: 'v1',
+      previousVersion: BEFORE_VERSION_ID,
       previousVersionPackageId: packageId,
       files: [{ fileId: 'rest.json' }, { fileId }],
     })
-    expect(published.comparisons.length).toBeGreaterThan(0)
+    expectNotEmpty(published.comparisons)
 
-    const editor = new Editor(packageId, {
-      packageId,
-      version: 'v2',
-      previousVersion: 'v1',
-      previousVersionPackageId: packageId,
-      buildType: BUILD_TYPE.CHANGELOG,
-      status: VERSION_STATUS.DRAFT,
-    } as never, {}, registry)
-    await editor.run()
-    expect(editor.builder.buildResult.comparisons.length).toBeGreaterThan(0)
+    const changelog = await changelogEditor(packageId, registry).run({ status: VERSION_STATUS.DRAFT })
+    expectNotEmpty(changelog.comparisons)
   }, 60000)
 
   // The fallback is stored as the file it was read from, so an export must not give it the extension of the
   // JSON dump a built AsyncAPI document is stored as.
   test('should export an unparsable AsyncAPI YAML file under its own name', async () => {
-    // the export resolves the package by the id its folder was opened under, so the version carries the case
-    const version = 'recognized-asyncapi-export'
-    const registry = LocalRegistry.openPackage('tolerant-publication')
-    await registry.publish(registry.packageId, {
-      version,
+    const packageId = 'error-documents/recognized-asyncapi-export'
+    const registry = LocalRegistry.openPackage(FOLDER)
+    await registry.publish(FOLDER, {
+      packageId,
+      version: 'v1',
       status: VERSION_STATUS.DRAFT,
       files: [{ fileId: 'unparsable-async.yaml' }],
     })
 
-    // the fixture folder declares no package name, and the export asks for one to name its archive
-    jest.spyOn(registry, 'packageResolver').mockResolvedValue({ packageId: registry.packageId, name: 'Tolerant' })
-    const editor = await Editor.openProject(registry.packageId, registry)
-    const result = await editor.run({ version, buildType: BUILD_TYPE.EXPORT_VERSION, format: FILE_FORMAT.JSON })
+    // no folder declares this package, and the export asks for its name to name the archive; the editor binds
+    // the resolvers when it is created, so the spy comes first
+    jest.spyOn(registry, 'packageResolver').mockResolvedValue({ packageId, name: 'Tolerant' })
+    const editor = contentEditor({ packageId, version: 'v1' }, {}, registry)
+    const result = await editor.run({ buildType: BUILD_TYPE.EXPORT_VERSION, format: FILE_FORMAT.JSON })
 
     expect(result).toEqual(exportDocumentsMatcher([exportDocumentMatcher('unparsable-async.yaml')]))
   }, 30000)

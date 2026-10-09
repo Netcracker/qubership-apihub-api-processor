@@ -45,7 +45,6 @@ import {
   BuilderRunOptions,
   BuildResult,
   CompareContext,
-  FILE_KIND,
   FileSourceMap,
   IPackageVersionBuilder,
   OperationChanges,
@@ -138,8 +137,6 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
   ddlEntities: DdlEntityIndex = new Map()
 
   readonly parsedFiles: Map<string, SourceFile> = new Map()
-
-  private basePath: string = ''
 
   constructor(config: BuildConfig, public params: BuilderParams, fileSources?: FileSourceMap) {
     this.apiBuilders.push(restApiBuilder, graphqlApiBuilder, asyncApiBuilder, mcpBuilder, ddlBuilder, textApiBuilder, unknownApiBuilder)
@@ -866,7 +863,6 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
     if (!changedFileIds.length) {
       return false
     }
-    this.basePath = findSharedPath(this.config.files!.map(({ fileId }) => fileId).filter(Boolean))
     return this.rebuildFiles(this.config.files!.filter(file => changedFileIds.includes(file.fileId)))
   }
 
