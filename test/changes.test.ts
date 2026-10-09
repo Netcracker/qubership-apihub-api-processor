@@ -323,8 +323,8 @@ describe('Changelog build type', () => {
     // Simulate that current version was built with an outdated api-processor
     // Mock the builder's versionResolver method (not the registry's)
     const originalVersionResolver = (editor.builder as PackageVersionBuilder).versionResolver.bind(editor.builder)
-    jest.spyOn(editor.builder as PackageVersionBuilder, 'versionResolver').mockImplementation(async (version, packageId) => {
-      const resolved = await originalVersionResolver(version, packageId)
+    jest.spyOn(editor.builder as PackageVersionBuilder, 'versionResolver').mockImplementation(async (notifications, version, packageId) => {
+      const resolved = await originalVersionResolver(notifications, version, packageId)
       if (resolved && packageId === pckgId && version === 'v2') {
         return { ...resolved, apiProcessorVersion: '0.0.0' }
       }

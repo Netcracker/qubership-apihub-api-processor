@@ -20,10 +20,12 @@ import { createOperationSpec, createOperationSpecEnrichedWithRefs } from '../src
 import { calculateAsyncOperationId, removeComponents } from '../src/utils'
 import { buildPackageWithDefaultConfig, cloneDocument, loadYamlFile, LocalRegistry } from './helpers'
 import { extractProtocol, getRequiredDefaultContentType } from '../src/apitypes/async/async.utils'
-import { FIRST_REFERENCE_KEY_PROPERTY, INLINE_REFS_FLAG } from '../src/consts'
+import { ASYNCAPI_API_TYPE, FIRST_REFERENCE_KEY_PROPERTY, INLINE_REFS_FLAG, MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../src/consts'
 import { ASYNC_EFFECTIVE_NORMALIZE_OPTIONS, BUILD_TYPE, VERSION_STATUS } from '../src'
 import { AsyncOperationData, VersionAsyncOperation } from '../src/apitypes/async/async.types'
+import { BuildResult, VersionStatus } from '../src/types'
 import { normalize } from '@netcracker/qubership-apihub-api-unifier'
+import { operationKey } from '../src/components/operations'
 
 describe('AsyncAPI 3.0 Operation Tests', () => {
   const normalizeAsyncApiDocument = (doc: AsyncAPIV3.AsyncAPIObject): AsyncAPIV3.AsyncAPIObject =>
@@ -726,20 +728,66 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
     })
 
     describe('duplicate operationId validation', () => {
-      test('should throw error during build when same operationId appears in multiple documents', async () => {
+      // The version publishes as a draft and is marked; a release does not. AsyncAPI keeps the Error the
+      // design gives it — the pair aborted the build until now, so no release carries the message and the
+      // deferral that makes REST and GraphQL a Warning has no population to protect here.
+      const publishDuplicateCrossDocument = (status: VersionStatus): Promise<BuildResult> => {
         const packageId = 'asyncapi-changes/operation/duplicate-cross-document'
-        const portal = new LocalRegistry(packageId)
-
-        await expect(portal.publish(packageId, {
+        return new LocalRegistry(packageId).publish(packageId, {
           packageId,
           version: 'v1',
-          status: VERSION_STATUS.RELEASE,
+          status,
           buildType: BUILD_TYPE.BUILD,
           files: [
             { fileId: 'spec1.yaml', publish: true },
             { fileId: 'spec2.yaml', publish: true },
           ],
-        })).rejects.toThrow(/Duplicated operationId 'operation1-message1'/)
+        })
+      }
+
+      test('should report the same operationId in two documents against both, as an Error', async () => {
+        const result = await publishDuplicateCrossDocument(VERSION_STATUS.DRAFT)
+
+        const duplicates = result.notifications.filter(({ message }) =>
+          message.includes('Duplicated operationId \'operation1-message1\''))
+        expect(duplicates).toHaveLength(2)
+        expect(duplicates.map(({ documentId }) => documentId).sort()).toEqual(['spec1', 'spec2'])
+        expect(duplicates.every(({ severity }) => severity === MESSAGE_SEVERITY.Error)).toBe(true)
+        expect(duplicates.every(({ category }) => category === MESSAGE_CATEGORY.DuplicateOperationId)).toBe(true)
+
+        // both are flagged, and the id goes to the smaller slug as any contested id does
+        expect(result.operations.size).toBe(1)
+        expect(result.operations.get(operationKey({ apiType: ASYNCAPI_API_TYPE, operationId: 'operation1-message1' }))!.documentId).toBe('spec1')
+      })
+
+      // one message per document, so the failure takes the summary form and names both
+      test('should block a release on it', async () => {
+        await expect(publishDuplicateCrossDocument(VERSION_STATUS.RELEASE))
+          .rejects.toThrow(/2 critical errors in following documents: spec1, spec2/)
+      })
+
+      // Two operations of one document whose ids collide after slugify
+      test('should report a collision within one document and keep what it built', async () => {
+        const packageId = 'asyncapi-changes/operation/duplicate-within-document'
+        const portal = new LocalRegistry(packageId)
+
+        const result = await portal.publish(packageId, {
+          packageId,
+          version: 'v1',
+          status: VERSION_STATUS.DRAFT,
+          buildType: BUILD_TYPE.BUILD,
+          files: [{ fileId: 'spec.yaml', publish: true }],
+        })
+
+        expect(result.notifications).toHaveLength(1)
+        expect(result.notifications[0]).toMatchObject({
+          category: MESSAGE_CATEGORY.AsyncDuplicateOperation,
+          severity: MESSAGE_SEVERITY.Error,
+          documentId: 'spec',
+        })
+        expect(result.notifications[0].message).toContain('operationId \'user-created-message1\'')
+        // the Error marks the document; the operation it did build still ships
+        expect([...result.operations.values()].map(({ operationId }) => operationId)).toEqual(['user-created-message1'])
       })
     })
   })

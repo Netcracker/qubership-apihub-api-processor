@@ -203,10 +203,13 @@ export function notificationsMatcher(
 export function notificationMatcher(
   severity: MessageSeverity,
   message: string | RegExp,
+  // category and documentId are asserted only where the test is about attribution
+  expectedAttribution: Partial<Pick<NotificationMessage, 'category' | 'documentId'>> = {},
 ): ApihubNotificationMatcher {
   const expected: Partial<NotificationMessage> = {
     message: expect.stringMatching(message),
     severity: severity,
+    ...expectedAttribution,
   }
 
   return expect.objectContaining(expected)

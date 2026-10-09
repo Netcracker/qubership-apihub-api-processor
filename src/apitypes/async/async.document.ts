@@ -55,7 +55,7 @@ export const buildAsyncApiDocument: DocumentBuilder<AsyncAPIV3.AsyncAPIObject> =
   const {
     data,
     dependencies,
-  } = await getBundledFileDataWithDependencies(fileId, ctx.parsedFileResolver, createBundlingErrorHandler(ctx, fileId))
+  } = await getBundledFileDataWithDependencies(fileId, ctx.parsedFileResolver, createBundlingErrorHandler(ctx, slug))
 
   const bundledFileData = data as AsyncAPIV3.AsyncAPIObject
 
