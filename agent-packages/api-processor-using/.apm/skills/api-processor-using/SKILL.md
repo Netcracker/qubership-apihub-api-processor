@@ -124,7 +124,10 @@ is empty.
 Two populations a consumer must keep apart:
 
 - **A document that failed to parse** has no operations at all. There was no model to
-  enumerate, so `operationIds` is empty and only its source is downloadable.
+  enumerate, so `operationIds` is empty and only its source is downloadable. It still
+  carries a `type`: its own API type when the GraphQL or AsyncAPI parser recognized the
+  file before failing, `unknown` otherwise. So an API type does not promise a model —
+  on such a document `data` is `''`.
 - **A document with `hasErrors`** may be missing *individual* operations — the ones
   that could not be built — while the rest are indexed and comparable as usual.
 

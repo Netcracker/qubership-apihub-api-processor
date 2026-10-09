@@ -83,6 +83,7 @@ import { createVersionPackage } from './components/package'
 import { pushOnce } from './components/build-result-index'
 import { compareVersions } from './components/compare'
 import { applyBuilderVersionInfo, validateConfig } from './validators'
+import { dumpDocument } from './components/document'
 import { buildFiles } from './components/files'
 import {
   McpBuildContext,
@@ -395,7 +396,7 @@ export class PackageVersionBuilder implements IPackageVersionBuilder {
         throw new Error(`Raw document ${slug} is missing in local cache`)
       }
       const apiBuilder = this.findApiBuilderBySpecType(document.type)
-      return new File([apiBuilder.dumpDocument(document)], document.filename)
+      return new File([dumpDocument(document, apiBuilder)], document.filename)
     }
 
     if (!this.params.resolvers.rawDocumentResolver) {
