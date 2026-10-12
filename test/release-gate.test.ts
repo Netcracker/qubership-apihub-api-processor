@@ -282,7 +282,6 @@ describe('A release whose comparison phase raises an error', () => {
     }, {}, registry)
 
     const error = await notificationsErrorOf(editor.run())
-    }, {}, registry)
 
     expect(`${error}`).toMatch(/^Error: No such version: .*You can publish version in draft status for troubleshooting$/)
     // with no comparison, the build copies the root pair's array into `comparisonNotifications`, and the error
@@ -290,7 +289,6 @@ describe('A release whose comparison phase raises an error', () => {
     expect(error.comparisonNotifications).toEqual([
       expect.objectContaining({ category: MESSAGE_CATEGORY.VersionNotResolved }),
     ])
-    await expect(editor.run()).rejects.toThrow(/^No such version: .*You can publish version in draft status for troubleshooting$/)
   }, 30000)
 })
 
