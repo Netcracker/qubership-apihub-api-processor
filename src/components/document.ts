@@ -14,7 +14,16 @@
  * limitations under the License.
  */
 
-import { ApiBuilder, BuildConfigFile, BuilderContext, FILE_KIND, SourceFile, VersionDocument } from '../types'
+import {
+  ApiBuilder,
+  BuildConfigFile,
+  BuilderContext,
+  DocumentDumper,
+  FILE_KIND,
+  SourceFile,
+  VersionDocument,
+  ZippableDocument,
+} from '../types'
 import {
   API_KIND_LABEL, API_KIND_SPECIFICATION_EXTENSION,
   APIHUB_API_COMPATIBILITY_KIND_BWC,
@@ -30,7 +39,7 @@ import {
   isString,
   rawToApiKind,
 } from '../utils'
-import { buildBinaryDocument, unknownApiBuilder } from '../apitypes'
+import { buildBinaryDocument, isTextDocument, unknownApiBuilder } from '../apitypes'
 
 const consumeXApiKind = (file: BuildConfigFile): string | undefined => {
   const { xApiKind } = file
@@ -59,6 +68,23 @@ export const buildErrorDocument = (file: BuildConfigFile, parsedFile?: SourceFil
     versionInternalDocument: createVersionInternalDocument(slug),
   }
 }
+
+/**
+ * Dump a document with the dumper of its api type, or as the bytes it was read from when it has no model.
+ *
+ * A file whose parser threw keeps its type and is published without a model, so the typed dumper has
+ * nothing to print. Its original bytes are the troubleshooting artifact, and they ship unchanged. A text
+ * document never has a model, keeps its text in `description`, and is dumped from there as before.
+ */
+export const dumpDocument = (
+  document: ZippableDocument,
+  { dumpDocument: dumpModel }: Pick<ApiBuilder, 'dumpDocument'>,
+  format?: Parameters<DocumentDumper<unknown>>[1],
+): Blob => (
+  document.data === '' && document.source && !isTextDocument(document)
+    ? document.source
+    : dumpModel(document, format)
+)
 
 export interface BuildDocumentResult {
   document: VersionDocument

@@ -499,7 +499,7 @@ export class LocalRegistry implements IRegistry {
       resolvers: {
         fileResolver: (fileId) => {
           const content = fileContents[fileId]
-          if (!content) { return Promise.resolve(null) }
+          if (content === undefined) { return Promise.resolve(null) }
           return Promise.resolve(new File([content], fileId, { type: 'application/yaml' }))
         },
         ...this.versionResolvers,

@@ -39,7 +39,8 @@ import { unknownApiBuilder } from '../apitypes'
 import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, PACKAGE } from '../consts'
 import { ComparisonErrorSource, comparisonHasErrors, EXPORT_FORMAT_TO_FILE_FORMAT, getSplittedVersionKey } from '../utils'
 import { toDdlComparisonDto, toVersionsComparisonDto } from '../utils/transformToDto'
-import { assertReleaseIsPublishable, comparisonPhaseNotifications } from './release-gate'
+import { assertReleaseIsPublishable, comparisonPhaseNotifications, toNotificationsError } from './release-gate'
+import { dumpDocument } from './document'
 import { erroredDocumentSlugs } from './errored-documents'
 import { McpEntityIndex } from '../types/package/mcp'
 import { DdlEntityIndex } from '../types/package/ddl'
@@ -70,6 +71,23 @@ export interface ZipTool {
 }
 
 export const createVersionPackage = async (
+  buildResult: BuildResult,
+  zip: ZipTool,
+  ctx: BuilderContext,
+  options?: JSZip.JSZipGeneratorOptions,
+): Promise<any> => {
+  try {
+    return await writeVersionPackage(buildResult, zip, ctx, options)
+  } catch (error) {
+    // only a `build` or `changelog` failure carries its notifications; other build types throw the plain error
+    const buildType = ctx.config.buildType ?? BUILD_TYPE.BUILD
+    if (buildType !== BUILD_TYPE.BUILD && buildType !== BUILD_TYPE.CHANGELOG) { throw error }
+    // for a changelog `buildResult.notifications` is empty: it builds no documents
+    throw toNotificationsError(error, buildResult.notifications, [comparisonPhaseNotifications(buildResult)])
+  }
+}
+
+const writeVersionPackage = async (
   buildResult: BuildResult,
   zip: ZipTool,
   ctx: BuilderContext,
@@ -279,7 +297,7 @@ const writeDocumentsToZip = async (zip: ZipTool, documents: ZippableDocument[], 
     const apiBuilder =
       apiBuilders.find(({ types }) => types.includes(document.type)) || unknownApiBuilder
     const documentFormat = EXPORT_FORMAT_TO_FILE_FORMAT.get(format!)
-    const data = apiBuilder.dumpDocument(document, documentFormat)
+    const data = dumpDocument(document, apiBuilder, documentFormat)
     await zip.file(document.filename, data)
   }
 }
