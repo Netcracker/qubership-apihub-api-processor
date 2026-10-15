@@ -14,9 +14,16 @@
  * limitations under the License.
  */
 
-import { BuilderContext, DeprecateItem, NotificationMessage, OperationsApiType, ResolvedOperation } from '../types'
+import {
+  BuilderContext,
+  DeprecateItem,
+  NotificationMessage,
+  OperationsApiType,
+  ResolvedDeprecatedOperation,
+  ResolvedOperation,
+} from '../types'
 import { DEFAULT_BATCH_SIZE, HASH_FLAG, MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../consts'
-import { executeInBatches, isDeprecatedOperationItem, isString, keyBy } from '../utils'
+import { errorMessage, executeInBatches, isDeprecatedOperationItem, isString, keyBy } from '../utils'
 import { JsonPath } from '@netcracker/qubership-apihub-json-crawl'
 import { areDeclarationPathsEqual } from '../utils/path'
 import {
@@ -66,9 +73,10 @@ export const calculateHistoryForDeprecatedItems = async (
         ctx.notifications.push({
           category: MESSAGE_CATEGORY.DeprecatedComponentPath,
           severity: MESSAGE_SEVERITY.Error,
-          message: error instanceof Error
-            ? error.message
-            : `Cannot calculate deprecated history for operation '${resolvedOperation.operationId}'`,
+          message: errorMessage(
+            error,
+            `Cannot calculate deprecated history for operation '${resolvedOperation.operationId}'`,
+          ),
           documentId: currentOperation.documentId,
         })
       }
@@ -84,25 +92,28 @@ export const calculateHistoryForDeprecatedItems = async (
  */
 function mergeDeprecatedHistory(
   currentOperation: ResolvedOperation,
-  resolvedOperation: { deprecatedItems?: DeprecateItem[] },
+  resolvedOperation: ResolvedDeprecatedOperation,
 ): void {
-  for (const deprecatedItem of currentOperation.deprecatedItems ?? []) {
-    const resolvedDeprecatedItem = resolvedOperation.deprecatedItems?.find(
-      item => (
-        item.tolerantHash && deprecatedItem.tolerantHash
-          ? areSameDeprecatedItems(item, deprecatedItem)
-          : areDeclarationPathsEqual(item.declarationJsonPaths, deprecatedItem.declarationJsonPaths)
+  for (const currentDeprecatedItem of currentOperation.deprecatedItems ?? []) {
+    const matchedDeprecatedItem = resolvedOperation.deprecatedItems?.find(
+      resolvedDeprecatedItem => (
+        resolvedDeprecatedItem.tolerantHash && currentDeprecatedItem.tolerantHash
+          ? areSameDeprecatedItems(resolvedDeprecatedItem, currentDeprecatedItem)
+          : areDeclarationPathsEqual(
+            resolvedDeprecatedItem.declarationJsonPaths,
+            currentDeprecatedItem.declarationJsonPaths,
+          )
       ),
     )
-    if (!resolvedDeprecatedItem) {
+    if (!matchedDeprecatedItem) {
       continue
     }
 
-    if (Array.isArray(resolvedDeprecatedItem.deprecatedInPreviousVersions)) {
-      deprecatedItem.deprecatedInPreviousVersions.unshift(...resolvedDeprecatedItem.deprecatedInPreviousVersions)
+    if (Array.isArray(matchedDeprecatedItem.deprecatedInPreviousVersions)) {
+      currentDeprecatedItem.deprecatedInPreviousVersions.unshift(...matchedDeprecatedItem.deprecatedInPreviousVersions)
     }
-    if (isDeprecatedOperationItem(deprecatedItem)) {
-      currentOperation.deprecatedInPreviousVersions = [...new Set(deprecatedItem.deprecatedInPreviousVersions)]
+    if (isDeprecatedOperationItem(currentDeprecatedItem)) {
+      currentOperation.deprecatedInPreviousVersions = [...new Set(currentDeprecatedItem.deprecatedInPreviousVersions)]
     }
   }
 }

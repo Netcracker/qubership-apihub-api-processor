@@ -76,15 +76,15 @@ export const buildErrorDocument = (file: BuildConfigFile, parsedFile?: SourceFil
  * nothing to print. Its original bytes are the troubleshooting artifact, and they ship unchanged. A text
  * document never has a model, keeps its text in `description`, and is dumped from there as before.
  */
-export const dumpDocument = (
+export function dumpDocument(
   document: ZippableDocument,
   { dumpDocument: dumpModel }: Pick<ApiBuilder, 'dumpDocument'>,
   format?: Parameters<DocumentDumper<unknown>>[1],
-): Blob => (
-  document.data === '' && document.source && !isTextDocument(document)
+): Blob {
+  return document.data === '' && document.source && !isTextDocument(document)
     ? document.source
     : dumpModel(document, format)
-)
+}
 
 export interface BuildDocumentResult {
   document: VersionDocument

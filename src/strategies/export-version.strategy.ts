@@ -144,8 +144,9 @@ async function transformDocuments(
       const text = await file.text()
 
       // TODO: Temporary workaround: AsyncAPI documents currently lack per-format export options, so force JSON output.
-      // a document published without a model is stored as the file it was read from, and keeps that file's name
-      const isJsonDump = isAsyncApiDocument(document) && text.trimStart().startsWith('{')
+      // a built document is stored as its JSON dump, a model-less one as the file it was read from under its own
+      // name; `format` tells the two apart
+      const isJsonDump = isAsyncApiDocument(document) && document.format === FILE_FORMAT_JSON
       const filename = isJsonDump ? `${getDocumentTitle(file.name)}.${FILE_FORMAT_JSON}` : file.name
 
       return (

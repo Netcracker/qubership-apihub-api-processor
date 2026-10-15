@@ -114,6 +114,9 @@ export function toPackageDocument(document: VersionDocument, hasErrors = false):
   }
 }
 
+/** Something a document claimed, as far as ownership needs it: the slug of the claiming document. */
+export type DocumentClaim = { documentId: string }
+
 /**
  * Keep the entry whose `documentId` sorts first when two claim a key. Shared by operation, MCP- and
  * DDL-entity indexing.
@@ -121,7 +124,7 @@ export function toPackageDocument(document: VersionDocument, hasErrors = false):
  * Processing order is `config.files` order, so without the tie-break the same files published in a different
  * order publish a different entity. Neither claimant is more correct; the winner must not depend on the config.
  */
-export function setReportingDuplicate<K, V extends { documentId: string }>(
+export function setReportingDuplicate<K, V extends DocumentClaim>(
   map: Map<K, V>,
   key: K,
   value: V,
@@ -136,10 +139,11 @@ export function setReportingDuplicate<K, V extends { documentId: string }>(
 }
 
 /**
- * Report one item a document could not build: an operation, a DDL table, an MCP entity.
+ * Report something a document could not build: the document itself, or one of its operations, DDL tables or
+ * MCP entities.
  *
- * The item is left out of the document's content and the build continues. `notifications` is optional
- * because the entity builders are also reachable from paths that pass no stream.
+ * What failed is left out and the build continues. `notifications` is optional because the entity builders are
+ * also reachable from paths that pass no stream.
  */
 export function reportItemBuildFailure(
   notifications: NotificationMessage[] | undefined,
@@ -194,7 +198,7 @@ const REF_ERROR_CATEGORY: Record<RefErrorType, MessageCategory> = {
  * version cannot ship as a release; `warning` while migrating, so an already-published version carrying a
  * broken reference stays rebuildable.
  */
-const refErrorSeverity = (errorType: RefErrorType, brokenRefs: ValidationRulesSeverityLevel | undefined): MessageSeverity => {
+function refErrorSeverity(errorType: RefErrorType, brokenRefs: ValidationRulesSeverityLevel | undefined): MessageSeverity {
   if (errorType === RefErrorTypes.RICH_REF_NOT_ALLOWED || errorType === RefErrorTypes.REF_NOT_ALLOWED) {
     return MESSAGE_SEVERITY.Warning
   }

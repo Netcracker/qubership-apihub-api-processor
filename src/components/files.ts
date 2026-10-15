@@ -21,7 +21,7 @@ import { REST_DOCUMENT_TYPE } from '../apitypes/rest/rest.consts'
 import { MessageSeverity } from '../types/package/notifications'
 import { DocumentBuildError } from '../errors'
 import { FILE_KIND } from '../types'
-import { isNotEmpty, replaceInPlace, SLUG_OPTIONS_DOCUMENT_ID, slugify } from '../utils'
+import { errorMessage, isNotEmpty, replaceInPlace, SLUG_OPTIONS_DOCUMENT_ID, slugify } from '../utils'
 
 export const createFileSlugs = (files: BuildConfigFile[], basePath: string): BuildConfigFile[] => {
   const { fs, slugs } = files.reduce(({ fs, slugs }, file) => {
@@ -68,7 +68,7 @@ export const buildFile = async (configFile: BuildConfigFile, ctx: BuilderContext
     ctx.notifications.push({
       category: error instanceof DocumentBuildError ? error.category : MESSAGE_CATEGORY.BuildDocument,
       severity: MESSAGE_SEVERITY.Error,
-      message: error instanceof Error ? error.message : 'Cannot build document',
+      message: errorMessage(error, 'Cannot build document'),
       documentId: file.slug,
     })
     // the placeholder keeps the parsed bytes, binary fallbacks included; the files the throw interrupted are

@@ -15,6 +15,7 @@
  */
 
 import { MessageCategory, MessageSeverity, NotificationMessage } from '../types/package/notifications'
+import type { DocumentClaim } from '../utils/document'
 
 /** Everything that claimed one id, keyed by it. A document claiming an id twice is its own diagnostic. */
 export type Claims<T> = Map<string, T[]>
@@ -34,7 +35,7 @@ export function collectClaim<T>(claims: Claims<T>, key: string, claimant: T): vo
  * wins (`Error` is 0, `Warning` is 1). Taking one claimant's grade would let `config.files` order decide the
  * answer for any `severityOf` that ever tells two claimants apart.
  */
-export function reportCollisions<T extends { documentId: string }>(
+export function reportCollisions<T extends DocumentClaim>(
   claims: Claims<T>,
   notifications: NotificationMessage[],
   category: MessageCategory,
@@ -45,6 +46,7 @@ export function reportCollisions<T extends { documentId: string }>(
     const documentIds = [...new Set(claimants.map(({ documentId }) => documentId))].sort()
     if (documentIds.length < 2) { continue }
 
+    // `Error` is 0 and `Warning` is 1, so the smallest grade is the strictest
     const severity = Math.min(...claimants.map(severityOf)) as MessageSeverity
     const message = describe(key, documentIds)
     for (const documentId of documentIds) {

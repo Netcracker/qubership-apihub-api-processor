@@ -83,16 +83,6 @@ export function reportMcpCollisions(claims: Claims<McpClaim>, notifications: Not
   )
 }
 
-/** Everything the document builds, claimed by nobody yet — see `indexMcpEntities`. */
-export function buildDocumentMcpEntities(
-  file: BuildConfigFile,
-  document: VersionDocument,
-  builder: ApiBuilder,
-  notifications?: NotificationMessage[],
-): McpEntity[] {
-  return builder.buildMcpEntities ? builder.buildMcpEntities(document, file, notifications) : []
-}
-
 /** Claim the document's entities in the build's index — the operations rule, for MCP. */
 export function indexMcpEntities(
   document: VersionDocument,
@@ -118,7 +108,8 @@ export function processMcpDocument(
 ): void {
   if (!builder.buildMcpEntities) { return }
   // the stream reaches the per-entity catch in `buildMcpEntities`
-  indexMcpEntities(document, buildDocumentMcpEntities(file, document, builder, notifications), ctx)
+  const entities = builder.buildMcpEntities(document, file, notifications)
+  indexMcpEntities(document, entities, ctx)
 }
 
 export const KIND_TO_FIELD: Record<McpKind, keyof PackageMcpFile> = {

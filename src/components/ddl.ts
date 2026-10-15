@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { ApiBuilder, BuildConfigFile, VersionDocument } from '../types'
 import {
   DDL_KIND,
   DdlEntity,
@@ -48,16 +47,6 @@ export function reportDdlCollisions(claims: Claims<DdlEntity>, notifications: No
     (ddlEntityId, documentIds) =>
       `Duplicate DDL entity ID '${ddlEntityId}' found in different documents: ${listDocuments(documentIds)}`,
   )
-}
-
-/** Everything the document builds, claimed by nobody yet — see `indexDdlEntities`. */
-export function buildDocumentDdlEntities(
-  file: BuildConfigFile,
-  document: VersionDocument,
-  builder: ApiBuilder,
-  notifications?: NotificationMessage[],
-): DdlEntity[] {
-  return builder.buildDdlEntities ? builder.buildDdlEntities(document, file, notifications) : []
 }
 
 /**

@@ -39,6 +39,7 @@ import { unknownApiBuilder } from '../apitypes'
 import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, PACKAGE } from '../consts'
 import { ComparisonErrorSource, comparisonHasErrors, EXPORT_FORMAT_TO_FILE_FORMAT, getSplittedVersionKey } from '../utils'
 import { toDdlComparisonDto, toVersionsComparisonDto } from '../utils/transformToDto'
+import { ObjectHashCache } from '../utils/hashes'
 import { assertReleaseIsPublishable, comparisonPhaseNotifications, toNotificationsError } from './release-gate'
 import { dumpDocument } from './document'
 import { erroredDocumentSlugs } from './errored-documents'
@@ -87,25 +88,16 @@ export const createVersionPackage = async (
   }
 }
 
-const writeVersionPackage = async (
+async function writeVersionPackage(
   buildResult: BuildResult,
   zip: ZipTool,
   ctx: BuilderContext,
   options?: JSZip.JSZipGeneratorOptions,
-): Promise<any> => {
-  // a malformed diff belongs to the comparison being serialized, so the closure is per comparison; it is a
-  // Warning because api-diff produced the diff and the publisher has nothing to fix in their documents
-  const reportProblemFor = (notifications: NotificationMessage[]) => (message: string): void => {
-    notifications.push({
-      category: MESSAGE_CATEGORY.ComparisonSerialization,
-      severity: MESSAGE_SEVERITY.Warning,
-      message: message,
-    })
-  }
+): Promise<unknown> {
+  const hashCache = ctx.normalizedSpecFragmentsHashCache
   const buildResultDto: BuildResultDto = {
     ...buildResult,
-    comparisons: buildResult.comparisons.map(comparison =>
-      withComparisonErrors(toVersionsComparisonDto(comparison, ctx.normalizedSpecFragmentsHashCache, reportProblemFor(comparison.notifications)), comparison)),
+    comparisons: buildResult.comparisons.map(comparison => toComparisonDtoWithErrors(comparison, hashCache)),
   }
   // merged REST documents and merged Realms share one index and one directory, so both kinds are collected
   const comparisonInternalDocuments: ComparisonInternalDocument[] = [
@@ -176,8 +168,8 @@ const writeVersionPackage = async (
   }
 
   // DDL comparisons ship as siblings, leaving the operation comparisons untouched (AD2).
-  const ddlComparisonsDto = buildResult.ddlComparisons.map(comparison =>
-    withComparisonErrors(toDdlComparisonDto(comparison, ctx.normalizedSpecFragmentsHashCache, reportProblemFor(comparison.notifications)), comparison))
+  const ddlComparisonsDto = buildResult.ddlComparisons
+    .map(comparison => toDdlComparisonDtoWithErrors(comparison, hashCache))
   if (ddlComparisonsDto.length) {
     zip.file(PACKAGE.DDL_COMPARISONS_FILE_NAME, buildDdlComparisonsIndex(ddlComparisonsDto))
     const ddlComparisonsDir = zip.folder(PACKAGE.DDL_COMPARISONS_DIR_NAME)
@@ -207,14 +199,41 @@ const writeVersionPackage = async (
   return await zip.buildResult(options)
 }
 
-const createInfoFile = async (zip: ZipTool, config: PackageConfig, hasErrors: boolean): Promise<void> => {
+async function createInfoFile(zip: ZipTool, config: PackageConfig, hasErrors: boolean): Promise<void> {
   // info.json echoes the config, so anything derived has to be added by hand
   zip.file(PACKAGE.INFO_FILE_NAME, { ...config, builderVersion: version, ...hasErrors ? { hasErrors } : {} })
 }
 
 // any build-phase Error makes the version errored, attributed to a document or not
-const hasBuildError = (notifications: NotificationMessage[]): boolean =>
-  notifications.some(({ severity }) => severity === MESSAGE_SEVERITY.Error)
+function hasBuildError(notifications: NotificationMessage[]): boolean {
+  return notifications.some(({ severity }) => severity === MESSAGE_SEVERITY.Error)
+}
+
+/**
+ * Where a comparison reports a diff it cannot serialize: into its own array, because the problem belongs to
+ * the comparison being written.
+ *
+ * It is a `Warning`: api-diff produced the diff, and the publisher has nothing to fix in their documents.
+ */
+function serializationProblemReporter(notifications: NotificationMessage[]): (message: string) => void {
+  return message => {
+    notifications.push({
+      category: MESSAGE_CATEGORY.ComparisonSerialization,
+      severity: MESSAGE_SEVERITY.Warning,
+      message: message,
+    })
+  }
+}
+
+function toComparisonDtoWithErrors(comparison: VersionsComparison, hashCache: ObjectHashCache): VersionsComparisonDto {
+  const reportProblem = serializationProblemReporter(comparison.notifications)
+  return withComparisonErrors(toVersionsComparisonDto(comparison, hashCache, reportProblem), comparison)
+}
+
+function toDdlComparisonDtoWithErrors(comparison: DdlComparison, hashCache: ObjectHashCache): DdlComparisonDto {
+  const reportProblem = serializationProblemReporter(comparison.notifications)
+  return withComparisonErrors(toDdlComparisonDto(comparison, hashCache, reportProblem), comparison)
+}
 
 const createNotificationsFile = (zip: ZipTool, notifications: PackageNotifications): void => {
   zip.file(PACKAGE.NOTIFICATIONS_FILE_NAME, buildNotifications(notifications.notifications))
@@ -225,20 +244,19 @@ const createNotificationsFile = (zip: ZipTool, notifications: PackageNotificatio
  *
  * The rule reads `fromCache` off the comparison, not off the DTO — the DTO no longer carries it.
  */
-const withComparisonErrors = <T extends { hasErrors?: boolean }>(
-  dto: T,
-  source: ComparisonErrorSource,
-): T => (comparisonHasErrors(source) ? { ...dto, hasErrors: true } : dto)
+function withComparisonErrors<T extends { hasErrors?: boolean }>(dto: T, source: ComparisonErrorSource): T {
+  return comparisonHasErrors(source) ? { ...dto, hasErrors: true } : dto
+}
 
 /**
  * Write `comparison-notifications.json`, or nothing when the build neither calculated a comparison nor
  * raised a comparison-phase message.
  */
-const createComparisonNotificationsFile = (
+function createComparisonNotificationsFile(
   zip: ZipTool,
   comparisons: Array<VersionsComparison | DdlComparison>,
   buildResult: BuildResult,
-): void => {
+): void {
   // a comparison the host answered for is omitted by `buildComparisonNotifications`, so counting the input
   // would ship `{"comparisons": []}` — the empty list a consumer would replace this version's rows with
   const calculated = comparisons.filter(({ fromCache }) => !fromCache)
@@ -261,7 +279,7 @@ const createComparisonNotificationsFile = (
   zip.file(PACKAGE.COMPARISON_NOTIFICATIONS_FILE_NAME, buildComparisonNotifications(comparisons, declaredPair))
 }
 
-const createDocumentsFile = (zip: ZipTool, documents: VersionDocument[], erroredSlugs: ReadonlySet<string>): void => {
+function createDocumentsFile(zip: ZipTool, documents: VersionDocument[], erroredSlugs: ReadonlySet<string>): void {
   zip.file(PACKAGE.DOCUMENTS_FILE_NAME, buildPackageDocuments(documents, erroredSlugs))
 }
 

@@ -93,7 +93,7 @@ const notificationSortKey = (notification: NotificationMessage): string => tuple
  * one pair can raise the same message twice: it would double the release-failure count and store a repeat
  * row. Identity is the sort key, so what deduplicates here and what orders the file cannot drift apart.
  */
-export const pushOnce = (notifications: NotificationMessage[], message: NotificationMessage): void => {
+export function pushOnce(notifications: NotificationMessage[], message: NotificationMessage): void {
   const key = notificationSortKey(message)
   if (!notifications.some(existing => notificationSortKey(existing) === key)) { notifications.push(message) }
 }
@@ -139,7 +139,8 @@ export function buildPackageDocuments(
   const result: PackageDocuments = { documents: [] }
   for (const document of documents) {
     if (!document.publish) { continue }
-    result.documents.push(toPackageDocument(document, erroredSlugs.has(document.slug)))
+    const hasErrors = erroredSlugs.has(document.slug)
+    result.documents.push(toPackageDocument(document, hasErrors))
   }
   result.documents = sortByKey(result.documents, document => document.fileId)
   return result

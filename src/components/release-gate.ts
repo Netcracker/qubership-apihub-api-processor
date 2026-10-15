@@ -17,9 +17,17 @@
 import { MESSAGE_SEVERITY, VERSION_STATUS } from '../consts'
 import { NotificationsError } from '../errors'
 import { NotificationMessage } from '../types/package/notifications'
+import type { DdlComparison, VersionsComparison } from '../types'
 import { buildNotifications } from './build-result-index'
 
 const DRAFT_HINT = 'You can publish version in draft status for troubleshooting'
+
+/** The parts of a build result whose comparison-phase messages the release gate reads. */
+type ComparisonNotificationsSource = {
+  comparisonNotifications: NotificationMessage[]
+  comparisons: Pick<VersionsComparison, 'notifications'>[]
+  ddlComparisons: Pick<DdlComparison, 'notifications'>[]
+}
 
 /**
  * Every comparison-phase message of the build, wherever it was raised.
@@ -28,16 +36,12 @@ const DRAFT_HINT = 'You can publish version in draft status for troubleshooting'
  * the arrays are collected by identity rather than concatenated. The build-level array holds only what was
  * raised before any pair existed: resolving the previous version, enumerating references.
  */
-export function comparisonPhaseNotifications(buildResult: {
-  comparisonNotifications: NotificationMessage[]
-  comparisons: Array<{ notifications: NotificationMessage[] }>
-  ddlComparisons: Array<{ notifications: NotificationMessage[] }>
-}): NotificationMessage[] {
-  const arrays = new Set<NotificationMessage[]>([buildResult.comparisonNotifications])
+export function comparisonPhaseNotifications(buildResult: ComparisonNotificationsSource): NotificationMessage[] {
+  const distinctNotificationArrays = new Set<NotificationMessage[]>([buildResult.comparisonNotifications])
   for (const { notifications } of [...buildResult.comparisons, ...buildResult.ddlComparisons]) {
-    arrays.add(notifications)
+    distinctNotificationArrays.add(notifications)
   }
-  return [...arrays].flat()
+  return [...distinctNotificationArrays].flat()
 }
 
 /**
@@ -98,9 +102,9 @@ function releaseFailureMessage(
   total: number,
 ): string {
   if (total === 1) {
-    const [only] = [...buildErrors, ...changelogErrors]
-    const document = only.documentId ? ` (document: ${only.documentId})` : ''
-    return `${only.message}${document}. ${DRAFT_HINT}`
+    const [singleError] = [...buildErrors, ...changelogErrors]
+    const documentClause = singleError.documentId ? ` (document: ${singleError.documentId})` : ''
+    return `${singleError.message}${documentClause}. ${DRAFT_HINT}`
   }
 
   const documentIds = [...new Set([...buildErrors, ...changelogErrors]
@@ -118,6 +122,6 @@ function releaseFailureMessage(
     ? `, including ${changelogErrors.length} changelog errors`
     : ''
   // the clause is dropped when nothing named a document, so the message never ends in an empty list
-  const documents = documentIds.length ? ` in following documents: ${documentIds.join(', ')}` : ''
-  return `${prefix}${documents}${changelogShare}. ${DRAFT_HINT}`
+  const documentsClause = documentIds.length ? ` in following documents: ${documentIds.join(', ')}` : ''
+  return `${prefix}${documentsClause}${changelogShare}. ${DRAFT_HINT}`
 }

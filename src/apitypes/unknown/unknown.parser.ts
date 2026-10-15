@@ -16,7 +16,7 @@
 
 import { DOCUMENT_TYPE, FILE_FORMAT, SUPPORTED_FILE_FORMATS } from '../../consts'
 import { BinaryFile, FILE_KIND, FileFormat, TextFile } from '../../types/internal'
-import { getFileExtension } from '../../utils'
+import { errorMessage, getFileExtension } from '../../utils'
 import { loadYaml } from '@netcracker/qubership-apihub-api-unifier'
 import { RecognizedFileParseError } from '../../errors'
 
@@ -54,8 +54,10 @@ export const unknownParsedFile = (fileId: string, source: Blob): BinaryFile => {
 // A file whose parser threw: the shape of an unrecognised file plus the reason. The raw bytes survive, so
 // the document still dumps and the build has something to report. A parser that had recognized the file
 // states its type and format on the error, and they replace the `unknown` pair.
-export const unparsableFile = (fileId: string, source: Blob, error: unknown): BinaryFile => ({
-  ...unknownParsedFile(fileId, source),
-  ...error instanceof RecognizedFileParseError ? { type: error.type, format: error.format } : {},
-  errors: [{ message: error instanceof Error ? error.message : 'Unknown error' }],
-})
+export function unparsableFile(fileId: string, source: Blob, error: unknown): BinaryFile {
+  return {
+    ...unknownParsedFile(fileId, source),
+    ...error instanceof RecognizedFileParseError ? { type: error.type, format: error.format } : {},
+    errors: [{ message: errorMessage(error, 'Unknown error') }],
+  }
+}

@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-import { MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../../consts'
+import { MESSAGE_CATEGORY } from '../../consts'
 import { MCP_COLLECTION_KEY, MCP_KIND, McpEntitiesBuilder, McpKind } from '../../types'
 import { ParsedMcpData } from './mcp.types'
-import { isString, removeFirstSlash, reportItemBuildFailure, SLUG_OPTIONS_OPERATION_ID, slugify } from '../../utils'
+import { errorMessage, isString, removeFirstSlash, reportItemBuildFailure, SLUG_OPTIONS_OPERATION_ID, slugify } from '../../utils'
 
 // the init entity has no per-item title; it is shown as a fixed "Overview" label (kept as "init" in data)
 const INIT_ENTITY_TITLE = 'init'
@@ -95,7 +95,7 @@ export const buildMcpEntities: McpEntitiesBuilder<ParsedMcpData> = (document, fi
       }]
     } catch (error) {
       reportItemBuildFailure(notifications, MESSAGE_CATEGORY.McpEntityBuild, documentId,
-        error instanceof Error ? error.message : `Cannot build MCP entity '${entity.name}'`)
+        errorMessage(error, `Cannot build MCP entity '${entity.name}'`))
       return []
     }
   })

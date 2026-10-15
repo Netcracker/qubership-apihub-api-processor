@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-import { MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../../consts'
+import { MESSAGE_CATEGORY } from '../../consts'
 import { AttrKind, findAttr, Realm, Table } from '@netcracker/qubership-apihub-ddlapi'
 import { DDL_KIND, DdlEntitiesBuilder, DdlEntityDescriptor, DdlEntityId, DdlKind } from '../../types'
-import { reportItemBuildFailure, SLUG_OPTIONS_OPERATION_ID, slugify } from '../../utils'
+import { errorMessage, reportItemBuildFailure, SLUG_OPTIONS_OPERATION_ID, slugify } from '../../utils'
 import { ParsedDdlData } from './ddl.types'
 
 /**
@@ -80,7 +80,7 @@ export const buildDdlEntities: DdlEntitiesBuilder<ParsedDdlData> = (document, _f
         }]
       } catch (error) {
         reportItemBuildFailure(notifications, MESSAGE_CATEGORY.DdlEntityBuild, documentId,
-          error instanceof Error ? error.message : `Cannot build DDL table '${table.name}'`)
+          errorMessage(error, `Cannot build DDL table '${table.name}'`))
         return []
       }
     }),

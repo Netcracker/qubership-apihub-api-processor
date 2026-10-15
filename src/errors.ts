@@ -16,6 +16,7 @@
 
 import { FailedBuildNotifications, MessageCategory, NotificationMessage } from './types/package/notifications'
 import type { FileFormat } from './types/internal/documents'
+import { errorMessage } from './utils/error-message'
 
 /**
  * A build failure that knows which diagnostic it is. Thrown deep in an api-type builder and re-thrown by
@@ -60,13 +61,16 @@ export class NotificationsError extends Error implements FailedBuildNotification
  */
 export class RecognizedFileParseError extends Error {
   constructor(cause: unknown, readonly type: string, readonly format: FileFormat) {
-    super(cause instanceof Error ? cause.message : 'Unknown error', { cause })
+    super(errorMessage(cause, 'Unknown error'), { cause })
     this.name = 'RecognizedFileParseError'
   }
 }
 
-/** Run the step of a parser that reads a file already recognized as `type`, and keep that type if it throws. */
-export const parseRecognized = <T>(type: string, format: FileFormat, parse: () => T): T => {
+/**
+ * Run the step of a parser that reads a file already recognized as `type` in `format`. If the step throws, the
+ * error is rethrown as a `RecognizedFileParseError` that keeps both.
+ */
+export function parseRecognized<T>(type: string, format: FileFormat, parse: () => T): T {
   try {
     return parse()
   } catch (error) {

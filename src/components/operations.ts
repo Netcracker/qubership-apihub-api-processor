@@ -33,11 +33,14 @@ export interface OperationClaim {
  * one are two operations, not one. A key of the id alone lets whichever is processed second evict the other
  * from the version and turns the pair into a cross-document duplicate.
  */
-export const operationKey = ({ apiType, operationId }: { apiType: string; operationId: string }): string =>
-  `${apiType}:${operationId}`
+export function operationKey({ apiType, operationId }: { apiType: string; operationId: string }): string {
+  return `${apiType}:${operationId}`
+}
 
 /** The id back out of a key; an api type carries no colon, so the first one separates the two. */
-const operationIdOf = (key: string): string => key.slice(key.indexOf(':') + 1)
+function operationIdOf(key: string): string {
+  return key.slice(key.indexOf(':') + 1)
+}
 
 /**
  * Grade every operationId two or more documents derived, reading `operationClaims` off the documents.

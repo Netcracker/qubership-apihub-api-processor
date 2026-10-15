@@ -1,5 +1,6 @@
 import { BUILD_TYPE, FILE_FORMAT_HTML, FILE_FORMAT_JSON, FILE_FORMAT_YAML } from '../src'
 import { Editor, exportDocumentMatcher, exportDocumentsMatcher, LocalRegistry } from './helpers'
+import { jest } from '@jest/globals'
 
 describe('Export AsyncAPI version test', () => {
   const ASYNCAPI_EXPORT_PACKAGE = 'asyncapi-export'
@@ -83,5 +84,25 @@ describe('Export AsyncAPI version test', () => {
     const jsonExport = result.exportDocuments.find((document) => document.filename === 'valid-async-json.json')!
     expect(await getExportedAsyncapiVersion(yamlExport)).toEqual('3.0.0')
     expect(await getExportedAsyncapiVersion(jsonExport)).toEqual('3.0.0')
+  })
+})
+
+describe('AsyncAPI export file name', () => {
+  // A built document is stored as its JSON dump, but the host serves the raw file under the name it was
+  // uploaded with. The local registry serves `<slug>.json`, so the host's name is put back here.
+  test('should export a JSON dump served under its YAML name as .json', async () => {
+    const version = 'served-under-yaml-name@1'
+    const registry = LocalRegistry.openPackage('asyncapi-export')
+    await registry.publish(registry.packageId, { version, files: [{ fileId: 'valid-async-yaml.yaml' }] })
+
+    const resolveRawDocument = registry.rawDocumentResolver.bind(registry)
+    jest.spyOn(registry, 'rawDocumentResolver').mockImplementation(async (...args) => {
+      const stored = await resolveRawDocument(...args)
+      return stored && new File([await stored.arrayBuffer()], 'valid-async-yaml.yaml')
+    })
+    const editor = await Editor.openProject(registry.packageId, registry)
+    const result = await editor.run({ version, buildType: BUILD_TYPE.EXPORT_VERSION, format: FILE_FORMAT_YAML })
+
+    expect(result).toEqual(exportDocumentsMatcher([exportDocumentMatcher('valid-async-yaml.json')]))
   })
 })

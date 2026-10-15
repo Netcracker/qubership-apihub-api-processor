@@ -23,13 +23,12 @@ import {
   McpEntity,
   VersionDocument,
 } from '../types'
-import { DDL_CONTRACT_TYPE, MCP_CONTRACT_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../consts'
+import { DDL_CONTRACT_TYPE, MCP_CONTRACT_TYPE, MESSAGE_CATEGORY } from '../consts'
 import { MessageCategory } from '../types/package/notifications'
 import { ParsedDdlData, validateDdlDocument } from '../apitypes/ddl'
-import { buildDocumentDdlEntities, indexDdlEntities, reportDdlCollisions } from './ddl'
+import { indexDdlEntities, reportDdlCollisions } from './ddl'
 import { buildDocumentOperations, indexOperations, OperationClaim, operationKey, reportOperationCollisions } from './operations'
 import {
-  buildDocumentMcpEntities,
   indexMcpEntities,
   McpClaim,
   reportMcpCollisions,
@@ -38,6 +37,7 @@ import {
   validateMcpProtocolVersion,
 } from './mcp'
 import { Claims, collectClaim } from './duplicate-resolution'
+import { DocumentClaim, errorMessage, reportItemBuildFailure } from '../utils'
 
 interface DocumentContent {
   document: VersionDocument
@@ -66,21 +66,23 @@ async function buildAllDocuments(
 
     try {
       if (builder.apiType === MCP_CONTRACT_TYPE) {
-        built.push({ document, mcpEntities: buildDocumentMcpEntities(file, document, builder, buildResult.notifications) })
+        const mcpEntities = builder.buildMcpEntities?.(document, file, buildResult.notifications) ?? []
+        built.push({ document, mcpEntities })
       } else if (builder.apiType === DDL_CONTRACT_TYPE) {
         // before the entities, so the parse issues are attributed whatever the entity build does next
         validateDdlDocument(document as VersionDocument<ParsedDdlData>, buildResult.notifications)
-        built.push({ document, ddlEntities: buildDocumentDdlEntities(file, document, builder, buildResult.notifications) })
+        const ddlEntities = builder.buildDdlEntities?.(document, file, buildResult.notifications) ?? []
+        built.push({ document, ddlEntities })
       } else {
         built.push({ document, operations: await buildDocumentOperations(document, builder, ctx) })
       }
     } catch (error) {
-      buildResult.notifications.push({
-        category: categoryOfDocumentProcessing(builder.apiType),
-        severity: MESSAGE_SEVERITY.Error,
-        message: error instanceof Error ? error.message : `Cannot process document '${document.slug}'`,
-        documentId: document.slug,
-      })
+      reportItemBuildFailure(
+        buildResult.notifications,
+        categoryOfDocumentProcessing(builder.apiType),
+        document.slug,
+        errorMessage(error, `Cannot process document '${document.slug}'`),
+      )
     }
   }
 
@@ -147,7 +149,7 @@ export async function buildVersionContent(
   validateMcpCapabilities(buildResult.mcpEntities, buildResult.documents, buildResult.notifications)
 }
 
-const categoryOfDocumentProcessing = (apiType: string): MessageCategory => {
+function categoryOfDocumentProcessing(apiType: string): MessageCategory {
   switch (apiType) {
     case MCP_CONTRACT_TYPE: return MESSAGE_CATEGORY.McpEntityBuild
     case DDL_CONTRACT_TYPE: return MESSAGE_CATEGORY.DdlEntityBuild
@@ -155,12 +157,14 @@ const categoryOfDocumentProcessing = (apiType: string): MessageCategory => {
   }
 }
 
+/** What to look ownership up by: the key a claimed id is indexed under, and the id the document lists. */
+type ClaimLookup = [key: string, id: string]
+
+/** A build index: operations or MCP entities, keyed by the claimed id, each naming the document that owns it. */
+type OwnershipIndex = Map<string, DocumentClaim>
+
 /** Of the ids the document claimed, the ones the index still attributes to it. */
-const keepOwned = (
-  claimed: Array<[key: string, id: string]>,
-  slug: string,
-  index: Map<string, { documentId: string }>,
-): string[] => {
+function keepOwned(claimed: ClaimLookup[], slug: string, index: OwnershipIndex): string[] {
   const owned = new Set<string>()
   for (const [key, id] of claimed) {
     if (index.get(key)?.documentId === slug) { owned.add(id) }
@@ -177,17 +181,17 @@ const keepOwned = (
  */
 export function reconcileOwnedIds(
   documents: Iterable<VersionDocument>,
-  operations: Map<string, { documentId: string }>,
-  mcpEntities: Map<string, { documentId: string }>,
+  operations: OwnershipIndex,
+  mcpEntities: OwnershipIndex,
 ): void {
   for (const document of documents) {
     // the operation index is keyed per api type, so ownership is looked up by the claim, not by the bare id
-    document.operationIds = keepOwned(
-      (document.operationClaims ?? []).map(claim => [operationKey(claim), claim.operationId]),
-      document.slug, operations)
+    const claimedOperationIds: ClaimLookup[] = (document.operationClaims ?? [])
+      .map(claim => [operationKey(claim), claim.operationId])
+    document.operationIds = keepOwned(claimedOperationIds, document.slug, operations)
     if (document.mcpEntityIds) {
-      document.mcpEntityIds = keepOwned(
-        document.mcpEntityIds.map(id => [id, id]), document.slug, mcpEntities)
+      const claimedMcpEntityIds: ClaimLookup[] = document.mcpEntityIds.map(id => [id, id])
+      document.mcpEntityIds = keepOwned(claimedMcpEntityIds, document.slug, mcpEntities)
     }
   }
 }

@@ -30,7 +30,8 @@ export interface ComparisonErrorSource {
  * deriving `false` from its empty list would be a lie — the flag is a property of the comparison that the
  * host already holds and the resolver returned, and it travels through unchanged.
  */
-export const comparisonHasErrors = ({ fromCache, hasErrors, notifications }: ComparisonErrorSource): boolean =>
-  (fromCache
+export function comparisonHasErrors({ fromCache, hasErrors, notifications }: ComparisonErrorSource): boolean {
+  return fromCache
     ? hasErrors === true
-    : notifications.some(({ severity }) => severity === MESSAGE_SEVERITY.Error))
+    : notifications.some(({ severity }) => severity === MESSAGE_SEVERITY.Error)
+}
