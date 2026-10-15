@@ -15,11 +15,13 @@
  */
 
 import { createVersionPackage, ZipTool } from '../../../src/components/package'
-import { registryFs } from './fs'
+import { registryFs, useDisk } from './fs'
 import { BuildConfig, BuilderContext, BuildResult, PackageConfig } from '../../../src'
 import { EXPORT_BUILD_TYPES } from '../../../src/consts'
 
-export const VERSIONS_PATH = 'test/versions'
+// in memory every test file has a registry of its own; on disk all jest workers share one tree, where suites
+// publishing one packageId at one version would remove each other's output, so each worker gets a directory
+export const VERSIONS_PATH = useDisk ? `test/versions/worker-${process.env.JEST_WORKER_ID ?? '1'}` : 'test/versions'
 
 // Publishing an EXPORT_* build would leave an empty version directory: createVersionPackage returns
 // the export documents and writes no package. Fail here, not later on a missing operations.json.
