@@ -9,6 +9,8 @@ import {
 import { calculateAsyncApiKind } from '../src/apitypes/async/async.utils'
 import { buildPackageFromSpecYaml } from './helpers'
 
+// these tests assert nothing about validity, and validation compiles the AsyncAPI schema anew for each document
+jest.mock('../src/apitypes/async/async.validation', () => ({ validateAsyncApiDocument: async () => undefined }))
 
 describe('AsyncAPI apiKind calculation', () => {
   describe('Unit tests', () => {

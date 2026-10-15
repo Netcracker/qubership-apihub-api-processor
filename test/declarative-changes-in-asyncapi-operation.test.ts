@@ -17,6 +17,9 @@
 import { buildChangelogPackage, expectChangeCounts } from './helpers'
 import { ASYNCAPI_API_TYPE, BREAKING_CHANGE_TYPE } from '../src'
 
+// these tests assert nothing about validity, and validation compiles the AsyncAPI schema anew for each document
+jest.mock('../src/apitypes/async/async.validation', () => ({ validateAsyncApiDocument: async () => undefined }))
+
 // the counts come from api-diff, which merges the diffs of one declaration; the processor only has to hand it the
 // message diffs of each operation
 describe('Number of declarative changes in asyncapi operation test', () => {

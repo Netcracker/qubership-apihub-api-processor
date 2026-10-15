@@ -19,6 +19,9 @@ import {
 import { createAsyncApiKindValueAt } from '../src/components/compare/async.api-kind'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 
+// these tests assert nothing about validity, and validation compiles the AsyncAPI schema anew for each document
+jest.mock('../src/apitypes/async/async.validation', () => ({ validateAsyncApiDocument: async () => undefined }))
+
 const BWC = APIHUB_API_COMPATIBILITY_KIND_BWC
 const NO_BWC = APIHUB_API_COMPATIBILITY_KIND_NO_BWC
 const EXPERIMENTAL = APIHUB_API_COMPATIBILITY_KIND_EXPERIMENTAL
