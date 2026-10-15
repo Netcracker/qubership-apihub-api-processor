@@ -78,13 +78,20 @@ export const versionDocument = (
   ...overrides,
 })
 
+/** What `restSpec` adds to its document, each part as YAML text. */
+export interface RestSpecOptions {
+  openapi?: string
+  root?: string
+  operationFields?: string
+}
+
 /**
  * A REST document in YAML with one `GET` operation per path, each with the given summary and a `200` response.
  * `root` adds document-level lines before `paths`; `operationFields` adds inline fields to every operation.
  */
 export const restSpec = (
   paths: Record<string, string>,
-  { openapi = '3.0.1', root = '', operationFields = '' }: { openapi?: string; root?: string; operationFields?: string } = {},
+  { openapi = '3.0.1', root = '', operationFields = '' }: RestSpecOptions = {},
 ): string => `openapi: ${openapi}\ninfo: { title: t, version: 1.0.0 }\n${root}paths:\n${Object.entries(paths)
   .map(([path, summary]) => `  ${path}:\n    get: { summary: ${summary}, ${operationFields}responses: { '200': { description: ok } } }`)
   .join('\n')}\n`

@@ -19,8 +19,8 @@ import { OperationClaim, OperationId, ComparedOperationFields, VersionDocument }
 import { isEmpty, isNotEmpty } from '../utils'
 import { Claims } from './duplicate-resolution'
 
-// a collision is one operationId claimed by two or more documents of a version; a conflict is a collision whose
-// documents do not describe the operation the same way
+// a collision is one operationId claimed by two or more documents of a version, and that id is contested; a
+// conflict is a collision whose documents do not describe the operation the same way
 
 export type ComparedField = keyof ComparedOperationFields
 

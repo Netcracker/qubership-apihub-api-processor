@@ -26,12 +26,12 @@ import {
 } from '../src/components/contested-operations'
 import { Claims, collectClaim } from '../src/components/duplicate-resolution'
 import { VersionDocument } from '../src/types'
-import { restOperation, restSpec, versionDocument } from './helpers/factories'
+import { restOperation, restSpec, RestSpecOptions, versionDocument } from './helpers/factories'
 
 const ANCHOR_SLUG = 'spec1'
 const OTHER_SLUG = 'spec2'
 
-const servedUnder = (basePath: string): { root: string } => ({ root: `servers: [{ url: 'https://host${basePath}' }]\n` })
+const servedUnder = (basePath: string): RestSpecOptions => ({ root: `servers: [{ url: 'https://host${basePath}' }]\n` })
 
 const documentOf = (slug: string, yaml: string): VersionDocument =>
   versionDocument(slug, { data: parse(yaml) as OpenAPIV3.Document })

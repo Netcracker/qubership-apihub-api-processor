@@ -180,6 +180,12 @@ export interface MergedOperation {
   currentBasePath: string
 }
 
+/** Two REST documents diffed, and the operations of their merged document. */
+export interface RestDocumentsDiff {
+  merged: OpenAPIV3.Document
+  operations: MergedOperation[]
+}
+
 /**
  * Diff two REST documents and list the operations to walk, with the roll-up already stamped on them. Two
  * identical documents have nothing to walk.
@@ -193,7 +199,7 @@ export function diffRestDocuments(
   previousApiKind: ApihubApiCompatibilityKind | undefined,
   currentApiKind: ApihubApiCompatibilityKind | undefined,
   classification: RestDiffClassification = {},
-): { merged: OpenAPIV3.Document; operations: MergedOperation[] } {
+): RestDocumentsDiff {
   const { merged, diffs } = apiDiff(previous, current, {
     ...REST_DIFF_OPTIONS,
     customScopeElementProviders: [
@@ -290,6 +296,20 @@ export const changelogOperationDiffs = (
   ...operationBelongsToPair ? extractPathDiffs(merged, path, method) : [],
   ...extractOpenapiVersionDiff(merged),
 ])]
+
+/**
+ * Collect the diff a changelog reports for an operation only one version has. The nearer record only: `paths` can
+ * also hold a rename of the path, which belongs to the methods it keeps.
+ */
+export const addedOrRemovedOperationDiffs = (
+  merged: OpenAPIV3.Document,
+  path: string,
+  method: OpenAPIV3.HttpMethods,
+): Diff[] => {
+  const diff = (merged.paths[path] as WithDiffMetaRecord<OpenAPIV3.PathItemObject>)[DIFF_META_KEY]?.[method] ??
+    (merged.paths as WithDiffMetaRecord<OpenAPIV3.PathsObject>)[DIFF_META_KEY]?.[path]
+  return diff ? [diff] : []
+}
 
 /**
  * Collect the diffs a duplicate check reads for an operation: its own diffs and its path diffs. The OpenAPI version

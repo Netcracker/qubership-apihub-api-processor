@@ -23,7 +23,6 @@ import {
 } from '../../utils'
 import {
   Diff,
-  DIFF_META_KEY,
   extractOperationBasePath,
 } from '@netcracker/qubership-apihub-api-diff'
 import {
@@ -33,12 +32,13 @@ import {
   DocumentsCompareData,
   OperationChanges,
   ResolvedVersionDocument,
-  WithDiffMetaRecord,
 } from '../../types'
 import { OpenAPIV3 } from 'openapi-types'
 import {
+  addedOrRemovedOperationDiffs,
   changelogOperationDiffs,
   diffRestDocuments,
+  MergedOperation,
   validateGroupPrefix,
 } from './rest.utils'
 import {
@@ -108,35 +108,18 @@ export const compareDocuments: DocumentsCompare = async (
   // two spellings of one path (`/res/data` and `/res-data`) are walked apart but derive one operationId, so the
   // diffs are gathered per operation pair and each pair gets one record
   const diffsByOperationPair = new Map<OperationPair, Set<Diff>>()
-  for (const { path, method, operation: methodData, previousBasePath, currentBasePath } of operations) {
-    const prevNormalizedOperationId = calculateNormalizedRestOperationId(previousBasePath, path, method)
-    const currNormalizedOperationId = calculateNormalizedRestOperationId(currentBasePath, path, method)
+  for (const mergedOperation of operations) {
+    const { path, method, operation } = mergedOperation
+    const operationPair = findOperationPair(operationsMap, mergedOperation, prevDoc, currDoc)
+    const { previous, current } = operationPair
 
-    const operationPair = operationsMap[prevNormalizedOperationId] ?? operationsMap[currNormalizedOperationId] ?? {}
-    const { current, previous } = operationPair
-    if (!current && !previous) {
-      const missingOperations = prevNormalizedOperationId === currNormalizedOperationId ? `the ${prevNormalizedOperationId} operation` : `the ${prevNormalizedOperationId} and ${currNormalizedOperationId} operations`
-      throw new Error(`Can't find ${missingOperations} from documents pair ${prevDoc?.fileId} and ${currDoc?.fileId}`)
-    }
-    const operationPotentiallyChanged = Boolean(current && previous)
-    const operationAddedOrRemoved = !operationPotentiallyChanged
-
-    let operationDiffs: Diff[] = []
-    if (operationPotentiallyChanged) {
-      const operationBelongsToPair = belongsToPair(
-        { previous: previous?.documentId, current: current?.documentId },
+    const operationDiffs = previous && current
+      ? changelogOperationDiffs(merged, path, method, operation, belongsToPair(
+        { previous: previous.documentId, current: current.documentId },
         prevDoc?.slug,
         currDoc?.slug,
-      )
-      operationDiffs = changelogOperationDiffs(merged, path, method, methodData as OpenAPIV3.OperationObject, operationBelongsToPair)
-    }
-    if (operationAddedOrRemoved) {
-      // the nearer record only: `paths` can also hold a rename of the path, which belongs to the methods it keeps
-      const operationAddedOrRemovedDiffFromSpecificPath = (merged.paths[path] as WithDiffMetaRecord<OpenAPIV3.PathsObject>)[DIFF_META_KEY]?.[method]
-      const operationAddedOrRemovedDiffFromPaths = (merged.paths as WithDiffMetaRecord<OpenAPIV3.PathsObject>)[DIFF_META_KEY]?.[path]
-      const operationAddedOrRemovedDiff = operationAddedOrRemovedDiffFromSpecificPath ?? operationAddedOrRemovedDiffFromPaths
-      operationDiffs = operationAddedOrRemovedDiff ? [operationAddedOrRemovedDiff] : []
-    }
+      ))
+      : addedOrRemovedOperationDiffs(merged, path, method)
 
     if (isEmpty(operationDiffs)) {
       continue
@@ -164,6 +147,24 @@ export const compareDocuments: DocumentsCompare = async (
     tags,
     ...(comparisonDocument) ? { comparisonDocument } : {},
   }
+}
+
+/** Find the operation pair a merged operation belongs to, by the operationId either side derives for it. */
+function findOperationPair(
+  operationsMap: OperationsMap,
+  { path, method, previousBasePath, currentBasePath }: MergedOperation,
+  prevDoc: ResolvedVersionDocument | undefined,
+  currDoc: ResolvedVersionDocument | undefined,
+): OperationPair {
+  const prevNormalizedOperationId = calculateNormalizedRestOperationId(previousBasePath, path, method)
+  const currNormalizedOperationId = calculateNormalizedRestOperationId(currentBasePath, path, method)
+
+  const operationPair = operationsMap[prevNormalizedOperationId] ?? operationsMap[currNormalizedOperationId]
+  if (!operationPair?.previous && !operationPair?.current) {
+    const missingOperations = prevNormalizedOperationId === currNormalizedOperationId ? `the ${prevNormalizedOperationId} operation` : `the ${prevNormalizedOperationId} and ${currNormalizedOperationId} operations`
+    throw new Error(`Can't find ${missingOperations} from documents pair ${prevDoc?.fileId} and ${currDoc?.fileId}`)
+  }
+  return operationPair
 }
 
 export function createCopyWithEmptyPathItems(template: RestOperationData): RestOperationData {

@@ -22,8 +22,8 @@ import { calculateRestOperationId, isEmpty } from '../../utils'
 import { ContestedDocumentPair } from '../../components/contested-operations'
 
 /**
- * Attribute the diffs of one comparison of a pair to each contested id; an id both documents describe alike gets
- * an empty list, and an id no walked operation derives is left out.
+ * Split the diffs of one comparison of a document pair between the operationIds both documents derive. An id the
+ * documents describe alike gets an empty list; an id no walked operation derives is left out.
  *
  * Accepted blind spot: apiDiff's path mapping unifies two paths of one shape (`/{a}/{b}` and `/{c}/{d}`) and drops
  * one of them, so a difference under the dropped path reads as none.
