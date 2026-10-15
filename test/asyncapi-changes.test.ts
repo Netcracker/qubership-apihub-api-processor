@@ -17,6 +17,9 @@ import {
   VERSION_STATUS,
 } from '../src'
 
+// these tests assert nothing about validity, and validation compiles the AsyncAPI schema anew for each document
+jest.mock('../src/apitypes/async/async.validation', () => ({ validateAsyncApiDocument: async () => undefined }))
+
 describe('AsyncAPI 3.0 Changelog tests', () => {
 
   const expectNoChanges = (result: BuildResult): void => {
