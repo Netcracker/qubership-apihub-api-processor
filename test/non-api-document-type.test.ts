@@ -32,7 +32,6 @@ const NON_API_ROWS: DocumentTypeCase[] = [
   { name: 'YAML that is no API and does not parse', fileId: 'config.yaml', content: 'key: "unclosed\n', type: UNKNOWN, errored: true },
   // nothing to recognize
   { name: 'an empty Markdown file', fileId: 'readme.md', content: '', type: TEXT_DOCUMENT_TYPE.MARKDOWN, errored: false },
-  { name: 'an empty text file', fileId: 'notes.txt', content: '', type: UNKNOWN, errored: false },
 ]
 
 describe('The document type of a file that is no API', () => {

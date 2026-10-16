@@ -19,6 +19,7 @@ import {
   BUILD_TYPE,
   BuildConfig,
   BuildConfigAggregator,
+  BuildConfigFile,
   BuildResult,
   FILE_FORMAT_GRAPHQL,
   GRAPHQL_API_TYPE,
@@ -31,9 +32,10 @@ import {
   TRANSFORMATION_KIND_REDUCED,
 } from '../src'
 import { parseGraphQLSource } from '../src/utils/graphql-transformer'
-import { Editor, loadFileAsString, LocalRegistry, VERSIONS_PATH, loadFileAsStringFromRegistry } from './helpers'
+import { Editor, loadFileAsString, LocalRegistry, VERSIONS_PATH, loadFileAsStringFromRegistry, expectNotEmpty } from './helpers'
 
 const GROUP_NAME = 'manualGroup'
+const VERSION_ID = 'v1'
 const groupToOperationIdsMap = {
   [GROUP_NAME]: [
     'path1-get',
@@ -74,6 +76,13 @@ const groupWithOneOperationIdsMap = {
   ],
 }
 
+// The self-referencing fixtures declare `/path`, not `/path1`.
+const groupToSelfReferencingOperationIdsMap = {
+  [GROUP_NAME]: [
+    'path-post',
+  ],
+}
+
 const groupToOneServerPrefixPathOperationIdsMap = {
   [GROUP_NAME]: [
     'api-v1-path1-get',
@@ -84,7 +93,7 @@ const groupToOneServerPrefixPathOperationIdsMap = {
 const EXPECTED_RESULT_FILE = 'result.yaml'
 
 const BASE_OPERATION_PATH = 'path-operations'
-const PATH_ITEMS_OPERATION_PATH = 'pathitems-operations'
+const PATH_ITEMS_OPERATION_PATH = 'path-items-operations'
 type DOCUMENT_GROUP_PATHS = typeof BASE_OPERATION_PATH | typeof PATH_ITEMS_OPERATION_PATH
 
 async function runReducedFromContent(packageId: string, spec: string, operationIds: string[]): Promise<BuildResult> {
@@ -105,14 +114,6 @@ async function runReducedFromContent(packageId: string, spec: string, operationI
 describe('Document Group test', () => {
   describe('Base path operations', () => {
     runCommonTests(BASE_OPERATION_PATH)
-
-    test('should have documents stripped of operations other than from provided group', async () => {
-      // todo
-    })
-
-    test('should have merged operations from provided group', async () => {
-      // todo
-    })
 
     test('should have properly merged documents', async () => {
       await runMergeOperationsCase('basic-documents-for-merge')
@@ -188,7 +189,7 @@ describe('Document Group test', () => {
     })
 
     test('should have components schema object which is referenced', async () => {
-      const { result } = await runPublishPackage(
+      const { result } = await publishAndBuildGroup(
         `document-group/${BASE_OPERATION_PATH}/referenced-json-schema-object`,
         groupToOnePathOperationIdsMap,
       )
@@ -247,11 +248,11 @@ describe('Document Group test', () => {
       runCommonTests(PATH_ITEMS_OPERATION_PATH)
 
       test('should have properly merged documents', async () => {
-        await runMergeOperationsCase('basic-documents-pathitems-for-merge')
+        await runMergeOperationsCase('basic-documents-path-items-for-merge')
       })
 
       test('should have properly merged documents mixed formats (operation + pathItems operation)', async () => {
-        await runMergeOperationsCase('documents-pathitems-with-mixed-formats')
+        await runMergeOperationsCase('documents-path-items-with-mixed-formats')
       })
 
       test('should exclude tags whose operation lives behind a $ref path item', async () => {
@@ -276,8 +277,8 @@ describe('Document Group test', () => {
       })
 
       test('should have save pathItems in components', async () => {
-        const { result } = await runPublishPackage(
-          `document-group/${PATH_ITEMS_OPERATION_PATH}/multiple-pathitems-operations`,
+        const { result } = await publishAndBuildGroup(
+          `document-group/${PATH_ITEMS_OPERATION_PATH}/multiple-path-items-operations`,
           groupToOperationIdsMap,
         )
 
@@ -287,7 +288,7 @@ describe('Document Group test', () => {
       })
 
       test('second level object are the same when overriding for pathitems response', async () => {
-        const { pkg, result } = await runPublishPackage(
+        const { pkg, result } = await publishAndBuildGroup(
           `document-group/${PATH_ITEMS_OPERATION_PATH}/second-level-object-are-the-same-when-overriding-for-response`, groupToOnePathOperationIdsMap,
         )
 
@@ -303,8 +304,8 @@ describe('Document Group test', () => {
         const COMPONENTS_ITEM_1_PATH = ['components', 'pathItems', 'componentsPathItem1']
 
         test('should have documents with keep pathItems in components', async () => {
-          const { result } = await runPublishPackage(
-            `document-group/${PATH_ITEMS_OPERATION_PATH}/define-pathitems-via-reference-object-chain`,
+          const { result } = await publishAndBuildGroup(
+            `document-group/${PATH_ITEMS_OPERATION_PATH}/define-path-items-via-reference-object-chain`,
             groupToOnePathOperationIdsMap,
           )
 
@@ -315,8 +316,8 @@ describe('Document Group test', () => {
         })
 
         test('should have documents stripped of operations other than from provided group', async () => {
-          const { result } = await runPublishPackage(
-            `document-group/${PATH_ITEMS_OPERATION_PATH}/define-pathitems-via-reference-object-chain`,
+          const { result } = await publishAndBuildGroup(
+            `document-group/${PATH_ITEMS_OPERATION_PATH}/define-path-items-via-reference-object-chain`,
             groupWithOneOperationIdsMap,
           )
 
@@ -330,7 +331,7 @@ describe('Document Group test', () => {
 
     function runCommonTests(folder: DOCUMENT_GROUP_PATHS): void {
       test('should have keep a multiple operations in one path', async () => {
-        const { result } = await runPublishPackage(
+        const { result } = await publishAndBuildGroup(
           `document-group/${folder}/multiple-operations-in-one-path`,
           groupToOnePathOperationIdsMap,
         )
@@ -346,7 +347,7 @@ describe('Document Group test', () => {
       })
 
       test('should define operations with servers prefix', async () => {
-        const { result } = await runPublishPackage(
+        const { result } = await publishAndBuildGroup(
           `document-group/${folder}/define-operations-with-servers-prefix`,
           groupToOneServerPrefixPathOperationIdsMap,
         )
@@ -357,9 +358,11 @@ describe('Document Group test', () => {
       })
 
       test('should delete pathItems object which is not referenced', async () => {
-        const { result } = await runPublishPackage(
+        // The two fixtures carry different operations: the base one has only `/path1: post`, so the
+        // shared map matched nothing there and the build returned no documents at all.
+        const { result } = await publishAndBuildGroup(
           `document-group/${folder}/not-referenced-object`,
-          groupToOperationIdsMap,
+          folder === PATH_ITEMS_OPERATION_PATH ? groupToOperationIdsMap : groupWithOneOperationIdsMap,
         )
 
         for (const document of Array.from(result.documents.values())) {
@@ -373,7 +376,7 @@ describe('Document Group test', () => {
       })
 
       test('should have documents stripped of operations other than from provided group', async () => {
-        const { result } = await runPublishPackage(
+        const { result } = await publishAndBuildGroup(
           `document-group/${folder}/stripped-of-operations`,
           groupToOperationIdsMap,
         )
@@ -384,17 +387,19 @@ describe('Document Group test', () => {
       })
 
       test('should not hang up when processing for response which points to itself', async () => {
-        const { result } = await runPublishPackage(
+        // `SuccessResponse` references itself. The group has to name the operation the fixture really
+        // carries: with a map that matches nothing the build returns nothing, and the cycle is never walked.
+        const { result } = await publishAndBuildGroup(
           `document-group/${folder}/not-hang-up-when-processing-for-response-which-points-to-itself`,
-          groupToOnePathOperationIdsMap,
+          groupToSelfReferencingOperationIdsMap,
         )
 
-        expect(result.documents.size).toEqual(0)
+        expect(result.documents.size).toEqual(1)
       })
 
       test('should not hang up when processing cycled chain for response', async () => {
         const pkg = LocalRegistry.openPackage(`document-group/${folder}/not-hang-up-when-processing-cycled-chain-for-response`, groupToOnePathOperationIdsMap)
-        await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+        await pkg.publish(pkg.packageId, { packageId: pkg.packageId, version: VERSION_ID, files: [{ fileId: 'spec.yaml' }] })
 
         const notificationFile = await loadFileAsStringFromRegistry(
           VERSIONS_PATH,
@@ -418,10 +423,11 @@ describe('Document Group test', () => {
     }
 
     async function runMergeOperationsCase(caseName: string): Promise<void> {
-      const { pkg, result } = await runPublishPackage(
-        `merge-operations/${caseName}`,
+      const { pkg, result } = await publishAndBuildGroup(
+        `document-group/merge/${caseName}`,
         groupToOperationIdsMap,
         { buildType: BUILD_TYPE.MERGED_SPECIFICATION, apiType: REST_API_TYPE },
+        [{ fileId: 'spec1.yaml' }, { fileId: 'spec2.yaml' }],
       )
 
       const expectedResult = loadYaml(
@@ -438,15 +444,17 @@ describe('Document Group test', () => {
       apiType: GRAPHQL_API_TYPE,
       format: FILE_FORMAT_GRAPHQL,
     }
+    const graphqlFiles = [{ fileId: 'queries-only.gql' }]
 
     test('operation group export should produce a valid GraphQL document', async () => {
-      const { result } = await runPublishPackage(
+      const { result } = await publishAndBuildGroup(
         'graphql/document-group',
         operationIdsForGroupWithSingleOperation,
         graphqlOptions,
+        graphqlFiles,
       )
 
-      expect(result.documents.size).toBeGreaterThan(0)
+      expectNotEmpty(result.documents)
 
       const [document] = Array.from(result.documents.values())
       expect(typeof document.data).toBe('string')
@@ -456,10 +464,11 @@ describe('Document Group test', () => {
     })
 
     test('should export only one operation from group', async () => {
-      const { result } = await runPublishPackage(
+      const { result } = await publishAndBuildGroup(
         'graphql/document-group',
         operationIdsForGroupWithSingleOperation,
         graphqlOptions,
+        graphqlFiles,
       )
 
       const [document] = Array.from(result.documents.values())
@@ -473,13 +482,14 @@ describe('Document Group test', () => {
     })
 
     test('should export include only requested operation from group', async () => {
-      const { result } = await runPublishPackage(
+      const { result } = await publishAndBuildGroup(
         'graphql/document-group',
         operationIdsForGroupWithMultipleOperations,
         graphqlOptions,
+        graphqlFiles,
       )
 
-      expect(result.documents.size).toBeGreaterThan(0)
+      expectNotEmpty(result.documents)
 
       const [document] = Array.from(result.documents.values())
       const schema = parseGraphQLSource(document.data as string)
@@ -488,33 +498,43 @@ describe('Document Group test', () => {
     })
 
     test('should not support merged specification', async () => {
-      await expect(runPublishPackage(
+      await expect(publishAndBuildGroup(
         'graphql/document-group',
         operationIdsForGroupWithMultipleOperations,
         {
           buildType: TRANSFORMATION_KIND_MERGED,
           apiType: GRAPHQL_API_TYPE,
         },
+        graphqlFiles,
       )).rejects.toThrow('mergedSourceSpecifications transformation is not supported for API type: graphql')
     })
   })
 
-  async function runPublishPackage(
+  // The fixtures these tests open carry no config.json, so the version and the file list are named here.
+  // Only `publish` needs the list; a group build resolves its documents from the published version.
+  // The three `document-group/merge` fixtures also hold a `result.yaml`, which the list keeps out of the build
+  // the way the config's partial list did.
+  async function publishAndBuildGroup(
     packageId: string,
     groupOperationIds: Record<string, string[]>,
     options: Partial<BuildConfigAggregator> = { buildType: BUILD_TYPE.REDUCED_SOURCE_SPECIFICATIONS },
+    files: BuildConfigFile[] = [{ fileId: 'spec.yaml' }],
   ): Promise<{ pkg: LocalRegistry; result: BuildResult }> {
     const pkg = LocalRegistry.openPackage(packageId, groupOperationIds)
     const editor = await Editor.openProject(pkg.packageId, pkg)
-    await pkg.publish(pkg.packageId, { packageId: pkg.packageId })
+    await pkg.publish(pkg.packageId, { packageId: pkg.packageId, version: VERSION_ID, files })
 
     const result = await editor.run({
       ...{
         packageId: pkg.packageId,
+        version: VERSION_ID,
         groupName: GROUP_NAME,
       },
       ...options,
     })
+    // A group build over a version that was never published is not an error: it warns and returns nothing.
+    // Every caller below loops over `result.documents`, so an empty set would pass them all silently.
+    expectNotEmpty(result.documents)
     return { pkg, result }
   }
 })

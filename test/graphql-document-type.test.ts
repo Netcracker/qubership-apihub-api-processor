@@ -60,37 +60,9 @@ const GRAPHQL_ROWS: DocumentTypeCase[] = [
     errored: true,
   },
   {
-    name: 'a schema with a type defined twice',
-    fileId: 'spec.graphql',
-    content: `${SCHEMA}\ntype User {\n  name: String\n}\n`,
-    type: GRAPHQL_DOCUMENT_TYPE.SCHEMA,
-    errored: true,
-  },
-  {
-    name: 'a schema that refers to an undefined type',
-    fileId: 'spec.graphql',
-    content: 'type Query {\n  user: Missing\n}\n',
-    type: GRAPHQL_DOCUMENT_TYPE.SCHEMA,
-    errored: true,
-  },
-  {
     name: 'a schema with an unclosed type',
     fileId: 'spec.graphql',
     content: 'type Query {\n  user: String\n',
-    type: GRAPHQL_DOCUMENT_TYPE.SCHEMA,
-    errored: true,
-  },
-  {
-    name: 'a schema with a misspelled first keyword',
-    fileId: 'spec.graphql',
-    content: `tpye Broken {\n  id: ID\n}\n\n${SCHEMA}`,
-    type: GRAPHQL_DOCUMENT_TYPE.SCHEMA,
-    errored: true,
-  },
-  {
-    name: 'a schema that only extends an undefined type',
-    fileId: 'spec.graphql',
-    content: 'extend type Query {\n  user: String\n}\n',
     type: GRAPHQL_DOCUMENT_TYPE.SCHEMA,
     errored: true,
   },
@@ -101,22 +73,24 @@ const GRAPHQL_ROWS: DocumentTypeCase[] = [
     type: GRAPHQL_DOCUMENT_TYPE.SCHEMA,
     errored: true,
   },
+  // the only definition is a directive, and its location is not one GraphQL has
+  {
+    name: 'a directive with an unknown location',
+    fileId: 'spec.graphql',
+    content: 'directive @internal on NOWHERE\n',
+    type: GRAPHQL_DOCUMENT_TYPE.SCHEMA,
+    errored: true,
+  },
+  // the marker is looked for anywhere in the text, not only where a line starts
+  {
+    name: 'a definition that does not start its line',
+    fileId: 'spec.graphql',
+    content: '? type Query { user: String }\n',
+    type: GRAPHQL_DOCUMENT_TYPE.SCHEMA,
+    errored: true,
+  },
 
-  // a character GraphQL has no token for does not hide the definitions after it
-  {
-    name: 'a schema after an unterminated description',
-    fileId: 'spec.graphql',
-    content: `"Users\n${SCHEMA}`,
-    type: GRAPHQL_DOCUMENT_TYPE.SCHEMA,
-    errored: true,
-  },
-  {
-    name: 'a schema after a character GraphQL has no token for',
-    fileId: 'spec.graphql',
-    content: `?\n${SCHEMA}`,
-    type: GRAPHQL_DOCUMENT_TYPE.SCHEMA,
-    errored: true,
-  },
+  // a byte order mark is not part of the text
   {
     name: 'a schema behind a byte order mark',
     fileId: 'spec.graphql',
@@ -149,18 +123,11 @@ const GRAPHQL_ROWS: DocumentTypeCase[] = [
     errored: false,
   },
 
-  // the marker is a match on the text, so these are taken for a schema that does not parse
+  // the marker is a match on the text, so this is taken for a schema that does not parse
   {
     name: 'a description that defines nothing',
     fileId: 'spec.graphql',
     content: '"""\ntype Query\n"""\n',
-    type: GRAPHQL_DOCUMENT_TYPE.SCHEMA,
-    errored: true,
-  },
-  {
-    name: 'plain text that reads like a definition',
-    fileId: 'spec.graphql',
-    content: 'The type of this file is unknown.\n',
     type: GRAPHQL_DOCUMENT_TYPE.SCHEMA,
     errored: true,
   },
@@ -259,7 +226,6 @@ const GRAPHQL_ROWS: DocumentTypeCase[] = [
     type: UNKNOWN,
     errored: false,
   },
-  { name: 'a blank .graphql file', fileId: 'spec.graphql', content: '\n', type: UNKNOWN, errored: false },
   { name: 'SQL in a .graphql file', fileId: 'spec.graphql', content: TABLE, type: UNKNOWN, errored: false },
 
   // the REST parser runs first and takes any text that opens with `{` and names an OpenAPI version

@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-import { Editor, LocalRegistry } from './helpers'
+import { buildPackageFromContent, documentOf, Editor, LocalRegistry, notificationOf } from './helpers'
+import { REST_DOCUMENT_TYPE } from '../src/apitypes/rest/rest.consts'
 import { MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../src/consts'
 import { buildDocument } from '../src/components/document'
 import { DocumentBuildError } from '../src/errors'
@@ -25,20 +26,22 @@ const brokenPackage = LocalRegistry.openPackage('broken')
 
 // A file the parser cannot read no longer costs the version: it is published as-is, without operations, and
 // the reason is reported. Replaces the old expectation that the build throws.
-const expectToleratedParseFailure = async (fileId: string): Promise<void> => {
+// `reason` is the parser's own words, for a fixture whose breakage is its subject
+const expectToleratedParseFailure = async (fileId: string, reason?: string): Promise<void> => {
   const editor = await Editor.openProject('broken', brokenPackage)
   const result = await editor.run({ files: [{ fileId, publish: true, labels: [] }] })
 
-  const document = result.documents.get(fileId)
-  expect(document).toBeDefined()
-  expect(document!.source).toBeDefined()
+  const document = documentOf(result, fileId)
+  expect(document.source).toBeDefined()
   expect(result.operations.size).toBe(0)
 
-  const parseFailure = result.notifications.find(({ category }) => category === MESSAGE_CATEGORY.ParseFile)
-  expect(parseFailure).toBeDefined()
-  expect(parseFailure!.severity).toBe(MESSAGE_SEVERITY.Error)
-  expect(parseFailure!.message).toContain(`Cannot parse file ${fileId}.`)
-  expect(parseFailure!.documentId).toBe(document!.slug)
+  const parseFailure = notificationOf(result.notifications, MESSAGE_CATEGORY.ParseFile)
+  expect(parseFailure.severity).toBe(MESSAGE_SEVERITY.Error)
+  expect(parseFailure.message).toContain(`Cannot parse file ${fileId}.`)
+  if (reason) {
+    expect(parseFailure.message).toContain(reason)
+  }
+  expect(parseFailure.documentId).toBe(document.slug)
 }
 
 // The packaging regression this tolerance would otherwise hit: an error document with no source used to make
@@ -49,45 +52,43 @@ describe('Basic project (one file): validation broken', () => {
       const editor = await Editor.openProject('broken', brokenPackage)
       const result = await editor.run({ files: [{ fileId: 'openapi.yaml', publish: true, labels: [] }] })
 
-      expect(result.documents.get('openapi.yaml')?.type).toBe('openapi-3-0')
+      expect(documentOf(result, 'openapi.yaml').type).toBe('openapi-3-0')
     })
 
     test('missing quote', async () => {
-      await expectToleratedParseFailure('missing_quote.json')
+      await expectToleratedParseFailure('missing-quote.json')
     })
 
     test('missing comma', async () => {
-      await expectToleratedParseFailure('missing_comma.json')
+      await expectToleratedParseFailure('missing-comma.json')
     })
 
     test('missing brace', async () => {
-      await expectToleratedParseFailure('missing_brace.json')
+      await expectToleratedParseFailure('missing-brace.json')
     })
 
     test('missing bracket', async () => {
-      await expectToleratedParseFailure('missing_bracket.json')
+      await expectToleratedParseFailure('missing-bracket.json')
     })
   })
 
   describe('YAML format', () => {
     test('missing quote', async () => {
-      await expectToleratedParseFailure('missing_quote.yaml')
+      await expectToleratedParseFailure('missing-quote.yaml')
     })
 
     test('missing dash', async () => {
-      await expectToleratedParseFailure('missing_dash.yaml')
+      await expectToleratedParseFailure('missing-dash.yaml')
     })
 
+    // `.yml`, not `.yaml`: the only fixture in the suite with that extension
     test('duplicate keys', async () => {
-      await expectToleratedParseFailure('apihub-api-5 (1).yml')
+      await expectToleratedParseFailure('duplicate-keys.yml', 'Map keys must be unique')
     })
 
-    test('a key of node is missing', async () => {
-      await expectToleratedParseFailure('OpenApi 3.0.yaml')
-    })
-
-    test('openapi-2', async () => {
-      await expectToleratedParseFailure('OpenApi 3.0-2.yaml')
+    // no `openapi` header, so no API parser claims the file and the fallback parser is the one that fails
+    test('a quoted key broken across lines', async () => {
+      await expectToleratedParseFailure('unclosed-quote-key.yaml', 'Missing closing \'quote')
     })
   })
 })
@@ -113,5 +114,33 @@ describe('Document build failures', () => {
     await expect(build).rejects.toMatchObject({ category: MESSAGE_CATEGORY.SwaggerConversion })
     // the wrapper names the document, matching the `documentId` the notification will carry
     await expect(build).rejects.toThrow('Cannot process the "x" document')
+  })
+})
+
+describe('OpenAPI 3.1 in JSON', () => {
+  // `type: [string, null]` is valid in 3.1 only, so validating against the 3.0 schema would report it
+  const OPENAPI_31 = JSON.stringify({
+    openapi: '3.1.0',
+    info: { title: 'Nullable', version: '1.0' },
+    paths: {
+      '/pet': {
+        get: {
+          responses: {
+            '200': {
+              description: 'OK',
+              content: { 'application/json': { schema: { type: ['string', 'null'] } } },
+            },
+          },
+        },
+      },
+    },
+  }, undefined, 2)
+
+  test('should publish as an OpenAPI 3.1 document without notifications', async () => {
+    const result = await buildPackageFromContent('parser/openapi-31-json', 'openapi.json', OPENAPI_31)
+
+    expect(result.operations.size).toBe(1)
+    expect(documentOf(result, 'openapi.json').type).toBe(REST_DOCUMENT_TYPE.OAS31)
+    expect(result.notifications).toEqual([])
   })
 })

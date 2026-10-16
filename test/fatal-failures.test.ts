@@ -15,7 +15,21 @@
  */
 
 import { afterEach, describe, expect, jest, test } from '@jest/globals'
-import { buildWithVersionOverrides, Editor, LocalRegistry, notificationsErrorOf, rejectionOf } from './helpers'
+import {
+  ANY_ASYNCAPI_CHANGE,
+  ANY_DDL_SPEC,
+  ANY_GRAPHQL_CHANGE,
+  ANY_REST_CHANGE,
+  buildWithApiProcessorVersionOverrides,
+  contentEditor,
+  DocumentChange,
+  Editor,
+  LocalRegistry,
+  notificationsErrorOf,
+  prepareChangelogFromContent,
+  publishChangeFromContent,
+  rejectionOf,
+} from './helpers'
 import {
   ASYNCAPI_API_TYPE,
   BUILD_TYPE,
@@ -33,7 +47,6 @@ import { compareDocuments as compareGraphqlDocuments } from '../src/apitypes/gra
 import { compareDocuments as compareAsyncDocuments } from '../src/apitypes/async/async.changes'
 import {
   BuilderContext,
-  BuildConfigFile,
   BuildResult,
   BuildType,
   CompareOperationsPairContext,
@@ -51,23 +64,23 @@ import { NotificationsError } from '../src/errors'
 
 const BEFORE = 'v1'
 const AFTER = 'v2'
-const REST_PAIR = 'declarative-changes-in-rest-operation/case1'
+
+// a build that lists no files, for the checks on the config itself
+const configOnlyEditor = (): Editor => contentEditor({ packageId: 'fatal-failures/config-only', version: BEFORE }, {})
 
 /**
- * Publishes a before/after pair and compares the two documents against an empty operation index. The index is
- * built by the caller of `compareDocuments`, so an empty one is exactly the internal inconsistency the throw
- * guards: the pair has operations, the index that drives the comparison knows none of them.
+ * Publish a before/after pair and compare the two documents against an empty operation index. The index is built
+ * by the caller of `compareDocuments`, so an empty one is exactly the internal inconsistency the throw guards: the
+ * pair has a changed operation, and the index that drives the comparison does not know it.
  */
 async function compareAgainstEmptyIndex(
   packageId: string,
   apiType: OperationsApiType,
-  before: BuildConfigFile[],
-  after: BuildConfigFile[],
+  extension: string,
+  change: DocumentChange,
   compareDocuments: DocumentsCompare,
 ): Promise<unknown> {
-  const registry = new LocalRegistry(packageId)
-  await registry.publish(packageId, { packageId, version: BEFORE, files: before })
-  await registry.publish(packageId, { packageId, version: AFTER, files: after })
+  const registry = await publishChangeFromContent(packageId, change, { extension })
 
   const [prevDoc] = (await registry.versionDocumentsResolver(BEFORE, packageId))!.documents
   const [currDoc] = (await registry.versionDocumentsResolver(AFTER, packageId))!.documents
@@ -89,30 +102,30 @@ async function compareAgainstEmptyIndex(
 describe('An operation missing from the documents pair aborts the comparison', () => {
   test('should stay fatal for rest', async () => {
     await expect(compareAgainstEmptyIndex(
-      REST_PAIR,
+      'fatal-failures/empty-index-rest',
       REST_API_TYPE,
-      [{ fileId: 'before.yaml', publish: true }],
-      [{ fileId: 'after.yaml' }],
+      'yaml',
+      ANY_REST_CHANGE,
       compareRestDocuments,
     )).rejects.toThrow(/Can't find the .* operation from documents pair/)
   }, 30000)
 
   test('should stay fatal for graphql', async () => {
     await expect(compareAgainstEmptyIndex(
-      'graphql-changes/change-inside-operation',
+      'fatal-failures/empty-index-graphql',
       GRAPHQL_API_TYPE,
-      [{ fileId: 'before.gql', publish: true }],
-      [{ fileId: 'after.gql' }],
+      'gql',
+      ANY_GRAPHQL_CHANGE,
       compareGraphqlDocuments,
     )).rejects.toThrow(/Can't find the .* operation from documents pair/)
   }, 30000)
 
   test('should stay fatal for asyncapi', async () => {
     await expect(compareAgainstEmptyIndex(
-      'asyncapi-changes/operation/add-with-changed-message',
+      'fatal-failures/empty-index-asyncapi',
       ASYNCAPI_API_TYPE,
-      [{ fileId: 'before.yaml', publish: true }],
-      [{ fileId: 'after.yaml' }],
+      'yaml',
+      ANY_ASYNCAPI_CHANGE,
       compareAsyncDocuments,
     )).rejects.toThrow(/Can't find the .* operation from documents pair/)
   }, 30000)
@@ -122,14 +135,11 @@ describe('A missing DDL compare hook aborts the comparison', () => {
   test('should stay fatal when DDL documents have no compareDdlDocuments registered', async () => {
     const packageId = 'fatal-failures/ddl'
     const registry = new LocalRegistry(packageId)
-    // draft: the fixture carries DDL notifications of its own, and this test is about the comparison
     for (const version of [BEFORE, AFTER]) {
-      await registry.publish('ddl-build', {
-        packageId,
-        version,
-        status: VERSION_STATUS.DRAFT,
-        files: [{ fileId: 'shop.sql', publish: true }],
-      })
+      await registry.publishFromContent(
+        { 'widgets.sql': ANY_DDL_SPEC },
+        { packageId, version, files: [{ fileId: 'widgets.sql' }] },
+      )
     }
 
     const ctx = {
@@ -147,7 +157,7 @@ describe('A missing DDL compare hook aborts the comparison', () => {
 // check, and the one with nothing to publish even in principle.
 describe('An invalid build config aborts the build', () => {
   test('should reject a build with neither files nor refs', async () => {
-    const editor = await Editor.openProject('basic', LocalRegistry.openPackage('basic'))
+    const editor = configOnlyEditor()
     await expect(editor.run({ version: BEFORE, buildType: BUILD_TYPE.BUILD, files: [], refs: [] }))
       .rejects.toThrow(/Got no files and refs/)
   })
@@ -155,7 +165,7 @@ describe('An invalid build config aborts the build', () => {
   // A changelog is the comparison and nothing else: with no baseline there is nothing to compute, so this
   // fails before any work rather than publishing an empty changelog with no explanation.
   test('should reject a changelog build with no previousVersion', async () => {
-    const editor = await Editor.openProject('basic', LocalRegistry.openPackage('basic'))
+    const editor = configOnlyEditor()
     await expect(editor.run({ version: AFTER, buildType: BUILD_TYPE.CHANGELOG, previousVersion: undefined } as never))
       .rejects.toThrow(/A changelog build requires previousVersion/)
   })
@@ -168,7 +178,7 @@ describe('An invalid build config aborts the build', () => {
   // prefix-groups-changelog compares one version against itself across two prefix groups, so it has no
   // baseline by design and the rule above must not reach it
   test('should accept a prefix-groups-changelog build with no previousVersion', async () => {
-    const editor = await Editor.openProject('basic', LocalRegistry.openPackage('basic'))
+    const editor = configOnlyEditor()
     await expect(editor.run({
       version: AFTER,
       buildType: BUILD_TYPE.PREFIX_GROUPS_CHANGELOG,
@@ -177,20 +187,9 @@ describe('An invalid build config aborts the build', () => {
   })
 
   test('should accept a changelog that has a baseline', async () => {
-    const registry = new LocalRegistry(REST_PAIR)
-    await registry.publish(REST_PAIR, { packageId: REST_PAIR, version: BEFORE, files: [{ fileId: 'before.yaml', publish: true }] })
-    await registry.publish(REST_PAIR, { packageId: REST_PAIR, version: AFTER, files: [{ fileId: 'after.yaml' }] })
+    const editor = await prepareChangelogFromContent('fatal-failures/changelog-with-baseline', ANY_REST_CHANGE)
 
-    const editor = new Editor(REST_PAIR, {
-      packageId: REST_PAIR,
-      version: AFTER,
-      previousVersionPackageId: REST_PAIR,
-      previousVersion: BEFORE,
-      buildType: BUILD_TYPE.CHANGELOG,
-      status: VERSION_STATUS.DRAFT,
-    } as never, {}, registry)
-
-    await expect(editor.run()).resolves.toBeDefined()
+    await expect(editor.run({ status: VERSION_STATUS.DRAFT })).resolves.toBeDefined()
   }, 30000)
 
   // with no build type `validateConfig` lets the config through and the build strategy rejects it; that is still
@@ -216,9 +215,9 @@ describe('An invalid build config aborts the build', () => {
 describe('A missing host resolver aborts the build', () => {
   test('should stay fatal for a changelog with no versionResolver', async () => {
     const builder = new PackageVersionBuilder({
-      packageId: REST_PAIR,
+      packageId: 'fatal-failures/no-version-resolver',
       version: AFTER,
-      previousVersionPackageId: REST_PAIR,
+      previousVersionPackageId: 'fatal-failures/no-version-resolver',
       previousVersion: BEFORE,
       buildType: BUILD_TYPE.CHANGELOG,
       status: VERSION_STATUS.DRAFT,
@@ -228,16 +227,11 @@ describe('A missing host resolver aborts the build', () => {
   })
 })
 
-// v1 and v2 of the REST pair under a package of the test's own, for a changelog of v2 against v1
-const publishRestPair = async (packageId: string): Promise<LocalRegistry> => {
-  const registry = LocalRegistry.openPackage(REST_PAIR)
-  await registry.publish(REST_PAIR, { packageId, version: BEFORE, files: [{ fileId: 'before.yaml' }] })
-  await registry.publish(REST_PAIR, { packageId, version: AFTER, files: [{ fileId: 'after.yaml' }] })
-  return registry
-}
+// v1 and v2 of a REST change under a package of the test's own, for a changelog of v2 against v1
+const publishRestPair = (packageId: string): Promise<LocalRegistry> => publishChangeFromContent(packageId, ANY_REST_CHANGE)
 
 // spy on the registry before calling this: the editor binds the registry's resolvers when it is created
-const restPairChangelogEditor = (packageId: string, registry: LocalRegistry): Editor => new Editor(REST_PAIR, {
+const restPairChangelogEditor = (packageId: string, registry: LocalRegistry): Editor => new Editor(packageId, {
   packageId,
   version: AFTER,
   previousVersion: BEFORE,
@@ -333,7 +327,7 @@ describe('An api-processor version mismatch aborts the build whatever it is buil
   ]
 
   test.each(cases)('should stay fatal for a %s', async (name, buildType, status) => {
-    await expect(buildWithVersionOverrides(`fatal-failures/mismatch-${name}`, { v1: '99.0.0' }, { buildType, status }))
+    await expect(buildWithApiProcessorVersionOverrides(`fatal-failures/mismatch-${name}`, { v1: '99.0.0' }, { buildType, status }))
       .rejects.toThrow(/previous version was built using an outdated api-processor/)
   }, 30000)
 })

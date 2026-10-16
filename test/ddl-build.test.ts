@@ -15,7 +15,7 @@
  */
 
 import { describe, expect, test } from '@jest/globals'
-import { Editor, LocalRegistry, VERSIONS_PATH, loadFileAsStringFromRegistry } from './helpers'
+import { Editor, LocalRegistry, VERSIONS_PATH, loadFileAsStringFromRegistry, loadJsonFromRegistry } from './helpers'
 import { BUILD_TYPE, VERSION_STATUS } from '../src/consts'
 import { DdlEntity, DdlEntityIndex, PackageDdlEntity, PackageDdlFile } from '../src/types/package/ddl'
 
@@ -78,7 +78,7 @@ describe('DDL Build', () => {
     await registry.publishPackage(result, editor.builder.builderContext(editor.config), editor.config)
 
     // ddl.json — grouped by kind, index rows without `data`
-    const index: PackageDdlFile = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, `${PACKAGE_ID}/v1`, 'ddl.json'))!)
+    const index: PackageDdlFile = await loadJsonFromRegistry(VERSIONS_PATH, `${PACKAGE_ID}/v1`, 'ddl.json')
     expect(index.tables).toHaveLength(2)
 
     const usersIndex = index.tables.find((t: PackageDdlEntity) => t.ddlEntityId === USERS_ENTITY.ddlEntityId)
@@ -104,7 +104,7 @@ describe('DDL Build', () => {
     expect(productsSql).not.toContain('users')
 
     // documents.json back-link: the entity references the document, the document carries no ddlEntityIds
-    const documents = JSON.parse((await loadFileAsStringFromRegistry(VERSIONS_PATH, `${PACKAGE_ID}/v1`, 'documents.json'))!)
+    const documents = await loadJsonFromRegistry(VERSIONS_PATH, `${PACKAGE_ID}/v1`, 'documents.json')
     const ddlDoc = documents.documents.find((d: { fileId: string }) => d.fileId === 'shop.sql')
     expect(ddlDoc).toMatchObject({ type: 'ddl', format: 'sql', operationIds: [] })
     expect(ddlDoc).not.toHaveProperty('ddlEntityIds')

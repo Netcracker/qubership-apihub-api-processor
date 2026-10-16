@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../../consts'
+import { MESSAGE_CATEGORY } from '../../consts'
 import { AttrKind, findAttr, Realm, Table } from '@netcracker/qubership-apihub-ddlapi'
 import { DDL_KIND, DdlEntitiesBuilder, DdlEntityDescriptor, DdlEntityId, DdlKind } from '../../types'
 import { reportItemBuildFailure, SLUG_OPTIONS_OPERATION_ID, slugify } from '../../utils'

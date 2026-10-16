@@ -18,14 +18,13 @@ import { beforeAll, describe, expect, it, test } from '@jest/globals'
 import { v3 as AsyncAPIV3 } from '@asyncapi/parser/esm/spec-types'
 import { createOperationSpec, createOperationSpecEnrichedWithRefs } from '../src/apitypes/async/async.operation'
 import { calculateAsyncOperationId, removeComponents } from '../src/utils'
-import { buildPackageWithDefaultConfig, cloneDocument, loadYamlFile, LocalRegistry } from './helpers'
+import { buildPackageFromSpecYaml, cloneDocument, expectNotEmpty, loadYamlFile, LocalRegistry, operationOf, publishVersion } from './helpers'
 import { extractProtocol, getRequiredDefaultContentType } from '../src/apitypes/async/async.utils'
 import { ASYNCAPI_API_TYPE, FIRST_REFERENCE_KEY_PROPERTY, INLINE_REFS_FLAG, MESSAGE_CATEGORY, MESSAGE_SEVERITY } from '../src/consts'
 import { ASYNC_EFFECTIVE_NORMALIZE_OPTIONS, BUILD_TYPE, VERSION_STATUS } from '../src'
 import { AsyncOperationData, VersionAsyncOperation } from '../src/apitypes/async/async.types'
 import { BuildResult, VersionStatus } from '../src/types'
 import { normalize } from '@netcracker/qubership-apihub-api-unifier'
-import { operationKey } from '../src/components/operations'
 
 describe('AsyncAPI 3.0 Operation Tests', () => {
   const normalizeAsyncApiDocument = (doc: AsyncAPIV3.AsyncAPIObject): AsyncAPIV3.AsyncAPIObject =>
@@ -553,17 +552,17 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
   describe('E2E: build pipeline', () => {
     describe('operation count', () => {
       test('should ignore operation without message', async () => {
-        const result = await buildPackageWithDefaultConfig('asyncapi/operations/broken-operation')
+        const result = await buildPackageFromSpecYaml('asyncapi/operations/broken-operation')
         expect(Array.from(result.operations.values())).toHaveLength(0)
       })
 
       test('should build single operation from package', async () => {
-        const result = await buildPackageWithDefaultConfig('asyncapi/operations/single-operation')
+        const result = await buildPackageFromSpecYaml('asyncapi/operations/single-operation')
         expect(Array.from(result.operations.values())).toHaveLength(1)
       })
 
       test('should build multiple operations from package', async () => {
-        const result = await buildPackageWithDefaultConfig('asyncapi/operations/multiple-operations')
+        const result = await buildPackageFromSpecYaml('asyncapi/operations/multiple-operations')
         expect(Array.from(result.operations.values())).toHaveLength(3)
       })
     })
@@ -573,7 +572,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       let asyncApiDocument: AsyncOperationData
 
       beforeAll(async () => {
-        const result = await buildPackageWithDefaultConfig('asyncapi/operations/single-operation')
+        const result = await buildPackageFromSpecYaml('asyncapi/operations/single-operation')
         ;[operation] = Array.from(result.operations.values()) as VersionAsyncOperation[]
         asyncApiDocument = operation.data!
       })
@@ -613,11 +612,12 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       let operations: VersionAsyncOperation[]
 
       beforeAll(async () => {
-        const result = await buildPackageWithDefaultConfig('asyncapi/operations/multiple-operations')
+        const result = await buildPackageFromSpecYaml('asyncapi/operations/multiple-operations')
         operations = Array.from(result.operations.values()) as VersionAsyncOperation[]
       })
 
       test('should set search config with useOperationDataAsSearchText=true on all operations', () => {
+        expectNotEmpty(operations)
         for (const operation of operations) {
           expect(operation.search).toEqual({ useOperationDataAsSearchText: true })
         }
@@ -628,7 +628,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       let data: AsyncOperationData & Record<string, unknown>
 
       beforeAll(async () => {
-        const result = await buildPackageWithDefaultConfig('asyncapi/operations/root-fields')
+        const result = await buildPackageFromSpecYaml('asyncapi/operations/root-fields')
         const [operation] = Array.from(result.operations.values())
         data = operation.data as AsyncOperationData & Record<string, unknown>
       })
@@ -656,7 +656,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       let asyncApiDocument: AsyncOperationData
 
       beforeAll(async () => {
-        const result = await buildPackageWithDefaultConfig('asyncapi/operations/operation-security')
+        const result = await buildPackageFromSpecYaml('asyncapi/operations/operation-security')
         ;[securityOperation] = Array.from(result.operations.values()) as VersionAsyncOperation[]
         asyncApiDocument = securityOperation.data!
       })
@@ -677,7 +677,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       })
 
       it('should have security in operations channel servers', async () => {
-        const result = await buildPackageWithDefaultConfig('asyncapi/operations/server-security')
+        const result = await buildPackageFromSpecYaml('asyncapi/operations/server-security')
         const operations = Array.from(result.operations.values())
         expect(operations).toHaveLength(1)
 
@@ -693,7 +693,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
 
     describe('operation data isolation', () => {
       test('should include only relevant operation in data when multiple operations share the same message', async () => {
-        const result = await buildPackageWithDefaultConfig('asyncapi/operations/shared-message')
+        const result = await buildPackageFromSpecYaml('asyncapi/operations/shared-message')
         const operations = Array.from(result.operations.values())
         expect(operations).toHaveLength(2)
 
@@ -705,7 +705,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       })
 
       test('should contain only relevant components per operation (multi-channel spec)', async () => {
-        const result = await buildPackageWithDefaultConfig('asyncapi/operations/multi-channel-multi-operation')
+        const result = await buildPackageFromSpecYaml('asyncapi/operations/multi-channel-multi-operation')
         const operations = Array.from(result.operations.values())
         expect(operations).toHaveLength(2)
 
@@ -733,16 +733,15 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
       // deferral that makes REST and GraphQL a Warning has no population to protect here.
       const publishDuplicateCrossDocument = (status: VersionStatus): Promise<BuildResult> => {
         const packageId = 'asyncapi-changes/operation/duplicate-cross-document'
-        return new LocalRegistry(packageId).publish(packageId, {
+        return publishVersion(
           packageId,
-          version: 'v1',
-          status,
-          buildType: BUILD_TYPE.BUILD,
-          files: [
+          'v1',
+          [
             { fileId: 'spec1.yaml', publish: true },
             { fileId: 'spec2.yaml', publish: true },
           ],
-        })
+          { status, buildType: BUILD_TYPE.BUILD },
+        )
       }
 
       test('should report the same operationId in two documents against both, as an Error', async () => {
@@ -757,7 +756,7 @@ describe('AsyncAPI 3.0 Operation Tests', () => {
 
         // both are flagged, and the id goes to the smaller slug as any contested id does
         expect(result.operations.size).toBe(1)
-        expect(result.operations.get(operationKey({ apiType: ASYNCAPI_API_TYPE, operationId: 'operation1-message1' }))!.documentId).toBe('spec1')
+        expect(operationOf(result, 'operation1-message1', ASYNCAPI_API_TYPE).documentId).toBe('spec1')
       })
 
       // one message per document, so the failure takes the summary form and names both

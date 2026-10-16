@@ -24,7 +24,6 @@ import {
   BuildResultDto,
   ComparisonInternalDocument,
   DdlComparison,
-  DdlComparisonDto,
   ExportDocument,
   NotificationMessage,
   PackageConfig,
@@ -32,7 +31,6 @@ import {
   PackageOperation,
   VersionDocument,
   VersionsComparison,
-  VersionsComparisonDto,
   ZippableDocument,
 } from '../types'
 import { unknownApiBuilder } from '../apitypes'
