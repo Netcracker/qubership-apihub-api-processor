@@ -16,6 +16,7 @@
 
 import { BuildResult, ChangeSummary, EMPTY_CHANGE_SUMMARY, OperationsApiType, REST_API_TYPE } from '../../src'
 import { calculateChangeSummary } from '../../src/utils'
+import { NotificationsError } from '../../src/errors'
 import { operationTypeOf } from './accessors'
 
 /**
@@ -89,4 +90,22 @@ export function expectChangeCounts(
     changes: { ...EMPTY_CHANGE_SUMMARY, ...changes },
     impacted: { ...EMPTY_CHANGE_SUMMARY, ...impacted },
   })
+}
+
+/**
+ * Wait for a promise that must reject and return what it rejected with. A promise that resolves fails here,
+ * instead of at a later assertion that would report the resolved value as the wrong error.
+ */
+export async function rejectionOf(promise: Promise<unknown>): Promise<unknown> {
+  return promise.then(
+    () => { throw new Error('Expected the promise to reject, but it resolved') },
+    (reason: unknown) => reason,
+  )
+}
+
+/** Wait for a build that must fail with a `NotificationsError` and return the error. */
+export async function notificationsErrorOf(promise: Promise<unknown>): Promise<NotificationsError> {
+  const error = await rejectionOf(promise)
+  expect(error).toBeInstanceOf(NotificationsError)
+  return error as NotificationsError
 }

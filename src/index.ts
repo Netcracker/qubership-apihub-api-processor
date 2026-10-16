@@ -24,6 +24,8 @@ export * from './apitypes'
 export * from './components/compare/compare.utils'
 export * from './consts'
 export * from './types'
+// what a failed build throws; clients read its lists to report the notifications with the failure
+export { NotificationsError } from './errors'
 export {
   calculateChangeId,
   calculateDiffId,

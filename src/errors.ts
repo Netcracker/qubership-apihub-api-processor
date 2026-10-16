@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { MessageCategory } from './types/package/notifications'
+import { FailedBuildNotifications, MessageCategory, NotificationMessage } from './types/package/notifications'
 import type { FileFormat } from './types/internal/documents'
 
 /**
@@ -26,6 +26,30 @@ export class DocumentBuildError extends Error {
   constructor(message: string, readonly category: MessageCategory) {
     super(message)
     this.name = 'DocumentBuildError'
+  }
+}
+
+/**
+ * A fatal failure of a `build` or `changelog` build, carrying what the build had reported before it failed. A
+ * failed build writes no archive, so this is the only way its messages reach the client.
+ *
+ * It reads as the original error: every client reports a failure as `${error}`, so the name and message are the
+ * original's and the original is the `cause`.
+ */
+export class NotificationsError extends Error implements FailedBuildNotifications {
+  constructor(
+    cause: unknown,
+    readonly notifications: NotificationMessage[],
+    readonly comparisonNotifications: NotificationMessage[],
+  ) {
+    super(cause instanceof Error ? cause.message : String(cause), { cause })
+    // an empty name makes `${this}` the bare message, which is what `${cause}` gives for a non-Error throw;
+    // not enumerable, so `JSON.stringify(error)` gives the two lists and nothing else
+    Object.defineProperty(this, 'name', {
+      value: cause instanceof Error ? cause.name : '',
+      writable: true,
+      configurable: true,
+    })
   }
 }
 

@@ -24,6 +24,7 @@ import {
   Editor,
   expectNotEmpty,
   LocalRegistry,
+  notificationsErrorOf,
   publishChangeFromContent,
 } from './helpers'
 import { BUILD_TYPE, MESSAGE_CATEGORY, MESSAGE_SEVERITY, PACKAGE, VERSION_STATUS } from '../src/consts'
@@ -252,7 +253,11 @@ describe('An error raised while the archive is written', () => {
     const { editor } = await buildAgainstPrevious('release-gate/packaging-error/release', VERSION_STATUS.RELEASE)
     raiseErrorWhilePackaging()
 
-    await expect(editor.createNodeVersionPackage()).rejects.toThrow(`${PACKAGING_ERROR}. ${HINT}`)
+    const error = await notificationsErrorOf(editor.createNodeVersionPackage())
+
+    // the gate's text, unchanged by the wrap: it is what the client sends to the backend
+    expect(`${error}`).toBe(`Error: ${PACKAGING_ERROR}. ${HINT}`)
+    expect(error.comparisonNotifications).toContainEqual(expect.objectContaining({ message: PACKAGING_ERROR }))
   }, 30000)
 
   test('should let a draft publish', async () => {
@@ -276,7 +281,7 @@ describe('An error raised while the archive is written', () => {
 })
 
 // The unit tests above check what the gate decides; this one checks that `BuildStrategy` asks it about the
-// comparison stream at all.
+// comparison stream at all, and that the refusal carries the stream's message.
 describe('A release whose comparison phase raises an error', () => {
   test('should fail the build', async () => {
     // a baseline that does not resolve is the cheapest comparison-phase error a document can produce
@@ -288,7 +293,14 @@ describe('A release whose comparison phase raises an error', () => {
       buildType: BUILD_TYPE.BUILD,
     }, { 'spec.yaml': ANY_REST_SPEC })
 
-    await expect(editor.run()).rejects.toThrow(/^No such version: .*You can publish version in draft status for troubleshooting$/)
+    const error = await notificationsErrorOf(editor.run())
+
+    expect(`${error}`).toMatch(/^Error: No such version: .*You can publish version in draft status for troubleshooting$/)
+    // with no comparison, the build copies the root pair's array into `comparisonNotifications`, and the error
+    // carries the message once
+    expect(error.comparisonNotifications).toEqual([
+      expect.objectContaining({ category: MESSAGE_CATEGORY.VersionNotResolved }),
+    ])
   }, 30000)
 })
 
